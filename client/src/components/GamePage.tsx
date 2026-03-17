@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, ClientGameState, Move } from '@shared/types';
 import { getLegalMoves, createInitialBoard } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
+import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import Board from './Board';
 import Clock from './Clock';
 import MoveHistory from './MoveHistory';
@@ -40,21 +41,35 @@ export default function GamePage() {
       setPlayerColor(color);
       setGameState(gs);
       setError(null);
+      if (gs.status === 'playing') playGameStartSound();
     };
 
     const handleGameState = (gs: ClientGameState) => {
-      setGameState(gs);
+      setGameState(prev => {
+        if (prev?.status === 'waiting' && gs.status === 'playing') {
+          playGameStartSound();
+        }
+        return gs;
+      });
     };
 
     const handleMoveMade = ({ move, gameState: gs }: { move: Move; gameState: ClientGameState }) => {
       setGameState(gs);
       setSelectedSquare(null);
       setLegalMoves([]);
+      if (gs.isCheck) {
+        playCheckSound();
+      } else if (move.captured) {
+        playCaptureSound();
+      } else {
+        playMoveSound();
+      }
     };
 
     const handleGameOver = ({ reason, winner, gameState: gs }: { reason: string; winner: PieceColor | null; gameState: ClientGameState }) => {
       setGameState(gs);
       setGameOverInfo({ reason, winner });
+      playGameOverSound();
     };
 
     const handleClockUpdate = ({ whiteTime, blackTime }: { whiteTime: number; blackTime: number }) => {

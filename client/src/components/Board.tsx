@@ -108,6 +108,60 @@ export default function Board({
     onSquareClick({ row, col });
   };
 
+  const handleTouchStart = (e: React.TouchEvent, row: number, col: number) => {
+    if (disabled) return;
+    const piece = board[row][col];
+    if (piece && piece.color === playerColor && isMyTurn) {
+      e.preventDefault();
+      setDragPiece({ row, col });
+      onSquareClick({ row, col });
+      if (boardRef.current) {
+        const rect = boardRef.current.getBoundingClientRect();
+        const touch = e.touches[0];
+        setDragPos({
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top,
+        });
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!dragPiece || !boardRef.current) return;
+    e.preventDefault();
+    const rect = boardRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    setDragPos({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!dragPiece || !boardRef.current) {
+      setDragPiece(null);
+      setDragPos(null);
+      return;
+    }
+
+    const rect = boardRef.current.getBoundingClientRect();
+    const squareSize = rect.width / 8;
+    const touch = e.changedTouches[0];
+    const displayCol = Math.floor((touch.clientX - rect.left) / squareSize);
+    const displayRow = Math.floor((touch.clientY - rect.top) / squareSize);
+
+    if (displayRow >= 0 && displayRow < 8 && displayCol >= 0 && displayCol < 8) {
+      const targetRow = getBoardRow(displayRow);
+      const targetCol = getBoardCol(displayCol);
+      if (targetRow !== dragPiece.row || targetCol !== dragPiece.col) {
+        onPieceDrop(dragPiece, { row: targetRow, col: targetCol });
+      }
+    }
+
+    setDragPiece(null);
+    setDragPos(null);
+  };
+
   const getSquareClass = (boardRow: number, boardCol: number) => {
     const light = isLightSquare(boardRow, boardCol);
     let cls = light ? 'board-square-light' : 'board-square-dark';
@@ -149,6 +203,7 @@ export default function Board({
               height: squareSize,
             }}
             onMouseDown={(e) => handleMouseDown(e, boardRow, boardCol)}
+            onTouchStart={(e) => handleTouchStart(e, boardRow, boardCol)}
             onClick={() => handleClick(boardRow, boardCol)}
           >
             {/* Coordinate labels */}
@@ -189,6 +244,8 @@ export default function Board({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {renderSquares()}
 
