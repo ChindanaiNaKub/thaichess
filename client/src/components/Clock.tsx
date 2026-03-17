@@ -45,7 +45,7 @@ export default function Clock({ time, isActive, color, playerName }: ClockProps)
 
   return (
     <div className={`
-      flex items-center justify-between rounded-lg px-4 py-2 min-w-[200px]
+      flex items-center justify-between rounded-lg px-5 py-2.5 w-full
       transition-all duration-200
       ${isActive
         ? isCritical
@@ -58,10 +58,10 @@ export default function Clock({ time, isActive, color, playerName }: ClockProps)
         <div className={`w-3 h-3 rounded-full ${
           color === 'white' ? 'bg-white border border-gray-400' : 'bg-gray-800 border border-gray-600'
         }`} />
-        <span className="text-text-bright text-sm font-medium">{playerName}</span>
+        <span className="text-text-bright text-base font-medium">{playerName}</span>
       </div>
       <div className={`
-        font-mono text-xl font-bold tabular-nums
+        font-mono text-2xl font-bold tabular-nums
         ${isCritical ? 'text-danger' : isLow ? 'text-accent' : 'text-text-bright'}
         ${isActive && isCritical ? 'animate-pulse' : ''}
       `}>

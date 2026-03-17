@@ -226,8 +226,8 @@ export default function Board({
 
             {/* Piece */}
             {piece && !isDragging && (
-              <div className="absolute inset-0 flex items-center justify-center piece">
-                <PieceSVG type={piece.type} color={piece.color} size={64} />
+              <div className="absolute inset-[6%] flex items-center justify-center piece">
+                <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
               </div>
             )}
           </div>
@@ -240,7 +240,7 @@ export default function Board({
   return (
     <div
       ref={boardRef}
-      className="relative aspect-square w-full max-w-[min(80vh,600px)] select-none rounded shadow-lg overflow-hidden board-no-select"
+      className="relative aspect-square w-full select-none rounded-lg shadow-xl overflow-hidden board-no-select"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
@@ -254,17 +254,19 @@ export default function Board({
         <div
           className="absolute pointer-events-none piece-dragging"
           style={{
-            left: dragPos.x - 32,
-            top: dragPos.y - 32,
-            width: 64,
-            height: 64,
+            left: `calc(${dragPos.x}px - 6.25%)`,
+            top: `calc(${dragPos.y}px - 6.25%)`,
+            width: '12.5%',
+            height: '12.5%',
           }}
         >
-          <PieceSVG
-            type={board[dragPiece.row][dragPiece.col]!.type}
-            color={board[dragPiece.row][dragPiece.col]!.color}
-            size={64}
-          />
+          <div className="absolute inset-[6%]">
+            <PieceSVG
+              type={board[dragPiece.row][dragPiece.col]!.type}
+              color={board[dragPiece.row][dragPiece.col]!.color}
+              className="w-full h-full"
+            />
+          </div>
         </div>
       )}
     </div>

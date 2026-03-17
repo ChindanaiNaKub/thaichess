@@ -118,9 +118,10 @@ export default function LocalGame() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-start justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row gap-4 w-full max-w-6xl">
-          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+      <main className="flex-1 flex items-center justify-center px-4 py-4">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
+          {/* Board Column */}
+          <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-text-dim">View as:</span>
               <button
@@ -152,7 +153,7 @@ export default function LocalGame() {
             />
 
             <div className={`
-              rounded-lg px-4 py-2 text-center font-semibold text-sm w-full max-w-[200px]
+              rounded-lg px-6 py-2.5 text-center font-semibold text-base
               ${gameState.gameOver
                 ? 'bg-accent/20 text-accent border border-accent/30'
                 : gameState.turn === 'white'
@@ -167,19 +168,20 @@ export default function LocalGame() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 lg:w-64 w-full">
+          {/* Side Panel */}
+          <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
             <MoveHistory moves={gameState.moveHistory} initialBoard={createInitialBoard()} />
 
             <button
               onClick={handleReset}
-              className="w-full py-2 px-4 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
+              className="w-full py-2.5 px-4 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
             >
               ↺ New Game
             </button>
 
             <button
               onClick={() => navigate('/')}
-              className="w-full py-2 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
+              className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
             >
               Play Online
             </button>

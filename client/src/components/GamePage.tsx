@@ -363,10 +363,10 @@ export default function GamePage() {
       )}
 
       {/* Main Game Area */}
-      <main className="flex-1 flex items-start justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row gap-4 w-full max-w-6xl">
+      <main className="flex-1 flex items-center justify-center px-4 py-4">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
           {/* Board Column */}
-          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+          <div className="flex flex-col items-center gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-180px)] max-w-[720px]">
             {/* Opponent Clock */}
             <Clock
               time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}
@@ -400,7 +400,7 @@ export default function GamePage() {
           </div>
 
           {/* Side Panel */}
-          <div className="flex flex-col gap-3 lg:w-64 w-full">
+          <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
             {/* Turn Indicator */}
             <div className={`
               rounded-lg px-4 py-3 text-center font-semibold text-sm

@@ -4,9 +4,10 @@ interface PieceSVGProps {
   type: PieceType;
   color: PieceColor;
   size?: number;
+  className?: string;
 }
 
-export default function PieceSVG({ type, color, size = 80 }: PieceSVGProps) {
+export default function PieceSVG({ type, color, size, className }: PieceSVGProps) {
   const fill = color === 'white' ? '#fff' : '#1a1a1a';
   const stroke = color === 'white' ? '#333' : '#666';
   const accent = color === 'white' ? '#e8c690' : '#555';
@@ -167,8 +168,10 @@ export default function PieceSVG({ type, color, size = 80 }: PieceSVGProps) {
   return (
     <svg
       viewBox="0 0 80 80"
-      width={size}
-      height={size}
+      {...(className
+        ? { className }
+        : { width: size ?? 80, height: size ?? 80 }
+      )}
       xmlns="http://www.w3.org/2000/svg"
     >
       {renderPiece()}
