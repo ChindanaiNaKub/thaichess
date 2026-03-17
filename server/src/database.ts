@@ -35,6 +35,16 @@ export function initDatabase(): void {
 
     CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at DESC);
     CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT DEFAULT 'bug',
+      message TEXT NOT NULL,
+      page TEXT,
+      user_agent TEXT,
+      ip TEXT,
+      created_at INTEGER DEFAULT (unixepoch())
+    );
   `);
 
   console.log('Database initialized at', DB_PATH);
@@ -134,5 +144,23 @@ export function getStats(): { totalGames: number; totalMoves: number; whiteWins:
     return stmt.get() as any;
   } catch (err) {
     return { totalGames: 0, totalMoves: 0, whiteWins: 0, blackWins: 0, draws: 0 };
+  }
+}
+
+export function saveFeedback(data: {
+  type: string;
+  message: string;
+  page: string;
+  userAgent: string;
+  ip: string | undefined;
+}): void {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO feedback (type, message, page, user_agent, ip)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(data.type, data.message, data.page, data.userAgent, data.ip || 'unknown');
+  } catch (err) {
+    console.error('Failed to save feedback:', err);
   }
 }
