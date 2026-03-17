@@ -1,0 +1,30 @@
+# Fly.io configuration for Makruk Thai Chess
+# Deploy: fly launch --no-deploy && fly deploy
+# Or: fly deploy (after initial setup)
+
+app = 'makruk-thai'
+primary_region = 'sin' # Singapore - close to Thailand
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '3000'
+  DATA_DIR = '/data'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+# Persistent volume for SQLite database
+[mounts]
+  source = 'makruk_data'
+  destination = '/data'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
