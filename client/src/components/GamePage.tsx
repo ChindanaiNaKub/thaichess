@@ -9,6 +9,7 @@ import Clock from './Clock';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import PieceGuide from './PieceGuide';
+import ConnectionStatus from './ConnectionStatus';
 import PieceSVG from './PieceSVG';
 
 export default function GamePage() {
@@ -317,6 +318,8 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
+      <ConnectionStatus />
+
       {/* Header */}
       <header className="bg-surface-alt border-b border-surface-hover">
         <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">

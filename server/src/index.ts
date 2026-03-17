@@ -3,22 +3,47 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount } from './database';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, saveFeedback } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
+const startTime = Date.now();
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:5174'],
     methods: ['GET', 'POST'],
   },
+  pingTimeout: 20000,
+  pingInterval: 10000,
 });
 
 app.use(cors());
 app.use(express.json());
+
+// Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
+app.set('trust proxy', 1);
+
+// Rate limiting for API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api/', apiLimiter);
+
+// Request logging (lightweight)
+app.use((req, _res, next) => {
+  if (req.path.startsWith('/api/') && !req.path.includes('/health')) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  }
+  next();
+});
 
 // Serve static files in production
 const clientDist = path.join(__dirname, '../../client/dist');
@@ -307,6 +332,45 @@ app.get('/api/stats', (_req, res) => {
   res.json(stats);
 });
 
+// Health check — used by hosting platforms to know the server is alive
+app.get('/api/health', (_req, res) => {
+  const uptime = Math.floor((Date.now() - startTime) / 1000);
+  const connectedPlayers = io.engine.clientsCount;
+  res.json({
+    status: 'ok',
+    uptime,
+    connectedPlayers,
+    version: process.env.npm_package_version || '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Feedback endpoint — users can report bugs from the app
+const feedbackLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { error: 'Too many feedback submissions. Please try again later.' },
+});
+
+app.post('/api/feedback', feedbackLimiter, (req, res) => {
+  const { type, message, page, userAgent } = req.body;
+  if (!message || typeof message !== 'string' || message.length > 2000) {
+    res.status(400).json({ error: 'Invalid feedback' });
+    return;
+  }
+  const feedback = {
+    type: type || 'bug',
+    message: message.slice(0, 2000),
+    page: page || 'unknown',
+    userAgent: userAgent || req.headers['user-agent'] || 'unknown',
+    ip: req.ip,
+    timestamp: new Date().toISOString(),
+  };
+  console.log('[FEEDBACK]', JSON.stringify(feedback));
+  saveFeedback(feedback);
+  res.json({ ok: true });
+});
+
 // SPA fallback (must be last)
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
@@ -315,4 +379,5 @@ app.get('*', (_req, res) => {
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Makruk server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

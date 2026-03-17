@@ -4,6 +4,7 @@ import GamePage from './components/GamePage';
 import LocalGame from './components/LocalGame';
 import AboutPage from './components/AboutPage';
 import GamesPage from './components/GamesPage';
+import FeedbackWidget from './components/FeedbackWidget';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/games" element={<GamesPage />} />
       </Routes>
+      <FeedbackWidget />
     </div>
   );
 }
