@@ -65,12 +65,19 @@ export default function HomePage() {
     <div className="min-h-screen bg-surface flex flex-col">
       {/* Header */}
       <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <PieceSVG type="K" color="white" size={36} />
-            <h1 className="text-xl font-bold text-text-bright tracking-tight">Makruk</h1>
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <PieceSVG type="K" color="white" size={36} />
+              <h1 className="text-xl font-bold text-text-bright tracking-tight">Makruk</h1>
+            </div>
+            <span className="text-text-dim text-sm hidden sm:inline">Thai Chess Online</span>
           </div>
-          <span className="text-text-dim text-sm">Thai Chess Online</span>
+          <nav className="flex items-center gap-4 text-sm">
+            <span className="text-primary font-medium">Play</span>
+            <button onClick={() => navigate('/games')} className="text-text-dim hover:text-text-bright transition-colors">Games</button>
+            <button onClick={() => navigate('/about')} className="text-text-dim hover:text-text-bright transition-colors">About</button>
+          </nav>
         </div>
       </header>
 

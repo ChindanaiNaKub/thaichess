@@ -4,7 +4,8 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { GameManager } from './gameManager';
-import { ServerToClientEvents, ClientToServerEvents } from '../../shared/types';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount } from './database';
+import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,10 +24,26 @@ app.use(express.json());
 const clientDist = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientDist));
 
+// Initialize database
+initDatabase();
+
 const gameManager = new GameManager();
 
 // Cleanup old games every 30 minutes
 setInterval(() => gameManager.cleanupOldGames(), 1800000);
+
+function saveGameToDb(room: GameRoom, reason: string) {
+  const winner = room.gameState.winner;
+  saveCompletedGame({
+    id: room.id,
+    result: winner || 'draw',
+    resultReason: reason,
+    timeControl: room.timeControl,
+    moves: room.gameState.moveHistory,
+    finalBoard: room.gameState.board,
+    moveCount: room.gameState.moveCount,
+  });
+}
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
@@ -58,6 +75,8 @@ io.on('connection', (socket) => {
         if (updatedRoom.gameState.gameOver) {
           const reason = updatedRoom.gameState.whiteTime <= 0 || updatedRoom.gameState.blackTime <= 0
             ? 'timeout' : 'unknown';
+
+          saveGameToDb(updatedRoom, reason);
 
           if (updatedRoom.white) {
             io.to(updatedRoom.white).emit('game_over', {
@@ -98,7 +117,6 @@ io.on('connection', (socket) => {
 
     const room = result.room!;
 
-    // Send updated state to both players
     if (room.white) {
       io.to(room.white).emit('move_made', {
         move: result.move!,
@@ -117,6 +135,8 @@ io.on('connection', (socket) => {
         : room.gameState.isStalemate ? 'stalemate'
         : room.gameState.isDraw ? 'draw'
         : 'timeout';
+
+      saveGameToDb(room, reason);
 
       if (room.white) {
         io.to(room.white).emit('game_over', {
@@ -141,6 +161,8 @@ io.on('connection', (socket) => {
 
     const room = gameManager.resign(gameId, socket.id);
     if (!room) return;
+
+    saveGameToDb(room, 'resignation');
 
     if (room.white) {
       io.to(room.white).emit('game_over', {
@@ -180,6 +202,8 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     if (accept) {
+      saveGameToDb(room, 'draw_agreement');
+
       if (room.white) {
         io.to(room.white).emit('game_over', {
           reason: 'draw_agreement',
@@ -212,7 +236,6 @@ io.on('connection', (socket) => {
     const newRoom = gameManager.createRematch(gameId);
     if (!newRoom) return;
 
-    // Notify both players about the new game
     if (newRoom.white) {
       io.to(newRoom.white).emit('game_created', { gameId: newRoom.id });
     }
@@ -236,23 +259,55 @@ io.on('connection', (socket) => {
   });
 });
 
-// API endpoint to check if a game exists
+// --- REST API ---
+
 app.get('/api/game/:id', (req, res) => {
+  // Check live games first
   const room = gameManager.getGame(req.params.id);
-  if (!room) {
-    res.status(404).json({ error: 'Game not found' });
+  if (room) {
+    res.json({
+      id: room.id,
+      status: room.status,
+      hasWhite: !!room.white,
+      hasBlack: !!room.black,
+      timeControl: room.timeControl,
+    });
     return;
   }
-  res.json({
-    id: room.id,
-    status: room.status,
-    hasWhite: !!room.white,
-    hasBlack: !!room.black,
-    timeControl: room.timeControl,
-  });
+  // Check database for completed games
+  const saved = getDbGame(req.params.id);
+  if (saved) {
+    res.json({
+      id: saved.id,
+      status: 'finished',
+      result: saved.result,
+      resultReason: saved.result_reason,
+      timeControl: { initial: saved.time_control_initial, increment: saved.time_control_increment },
+      moves: JSON.parse(saved.moves),
+      finalBoard: JSON.parse(saved.final_board),
+      moveCount: saved.move_count,
+      createdAt: saved.created_at,
+      finishedAt: saved.finished_at,
+    });
+    return;
+  }
+  res.status(404).json({ error: 'Game not found' });
 });
 
-// SPA fallback
+app.get('/api/games/recent', (_req, res) => {
+  const page = parseInt(_req.query.page as string) || 0;
+  const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
+  const games = getRecentGames(limit, page * limit);
+  const total = getGameCount();
+  res.json({ games, total, page, limit });
+});
+
+app.get('/api/stats', (_req, res) => {
+  const stats = getStats();
+  res.json(stats);
+});
+
+// SPA fallback (must be last)
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
