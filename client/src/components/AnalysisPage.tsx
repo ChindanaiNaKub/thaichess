@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import type { Position, PieceColor, Move, GameState, Board as BoardType } from '@shared/types';
-import { createInitialBoard, createInitialGameState, getBoardAtMove, makeMove, getLegalMoves, isInCheck } from '@shared/engine';
+import type { Position, PieceColor, Move, Board as BoardType } from '@shared/types';
+import { createInitialBoard, getBoardAtMove, isInCheck, posToAlgebraic } from '@shared/engine';
 import {
   analyzeGame, GameAnalysis, AnalyzedMove, MoveClassification,
-  getClassificationColor, getClassificationSymbol, formatEval, normalizeEval,
-  evaluatePosition, AnalysisProgress,
+  getClassificationColor, getClassificationSymbol, formatEval,
+  AnalysisProgress,
 } from '@shared/analysis';
 import { useTranslation } from '../lib/i18n';
 import Board from './Board';
@@ -282,7 +282,7 @@ export default function AnalysisPage() {
                 onSquareClick={() => {}}
                 onPieceDrop={() => {}}
                 disabled={true}
-                arrows={bestMoveArrows}
+                arrows={[...bestMoveArrows, ...arrows]}
                 onArrowsChange={setArrows}
               />
 
@@ -638,8 +638,6 @@ function MoveInfo({ analyzed, t }: { analyzed: AnalyzedMove; t: (key: string, pa
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
-
-import { posToAlgebraic } from '@shared/engine';
 
 interface MovePair {
   num: number;
