@@ -4,19 +4,16 @@ import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard } from '@shared/engine';
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
+import { useTranslation } from '../lib/i18n';
 import Board from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
+import Header from './Header';
 import PieceSVG from './PieceSVG';
-
-const DIFFICULTY_CONFIG: Record<BotDifficulty, { label: string; description: string; emoji: string }> = {
-  easy: { label: 'Easy', description: 'Random moves with basic captures', emoji: '🟢' },
-  medium: { label: 'Medium', description: 'Thinks 2 moves ahead', emoji: '🟡' },
-  hard: { label: 'Hard', description: 'Thinks 4 moves ahead', emoji: '🔴' },
-};
 
 export default function BotGame() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [gameStarted, setGameStarted] = useState(false);
   const [difficulty, setDifficulty] = useState<BotDifficulty>('medium');
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
@@ -30,6 +27,12 @@ export default function BotGame() {
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isPlayerTurn = gameState.turn === playerColor;
 
+  const difficultyConfig: Record<BotDifficulty, { labelKey: string; descKey: string; emoji: string }> = {
+    easy: { labelKey: 'bot.easy', descKey: 'bot.easy_desc', emoji: '🟢' },
+    medium: { labelKey: 'bot.medium', descKey: 'bot.medium_desc', emoji: '🟡' },
+    hard: { labelKey: 'bot.hard', descKey: 'bot.hard_desc', emoji: '🔴' },
+  };
+
   useEffect(() => {
     if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
 
@@ -42,7 +45,6 @@ export default function BotGame() {
         const newState = makeMove(gameState, botMoveResult.from, botMoveResult.to);
         if (newState) {
           setGameState(newState);
-
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
@@ -65,7 +67,6 @@ export default function BotGame() {
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver || !isPlayerTurn || botThinking) return;
-
     const piece = gameState.board[pos.row][pos.col];
 
     if (selectedSquare) {
@@ -76,12 +77,10 @@ export default function BotGame() {
           setGameState(newState);
           setSelectedSquare(null);
           setLegalMoves([]);
-
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
           else playMoveSound();
-
           if (newState.gameOver) {
             const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
             setGameOverInfo({ reason, winner: newState.winner });
@@ -105,7 +104,6 @@ export default function BotGame() {
     if (gameState.gameOver || !isPlayerTurn || botThinking) return;
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== playerColor) return;
-
     const legal = getLegalMoves(gameState.board, from);
     if (legal.some(m => m.row === to.row && m.col === to.col)) {
       const newState = makeMove(gameState, from, to);
@@ -113,12 +111,10 @@ export default function BotGame() {
         setGameState(newState);
         setSelectedSquare(null);
         setLegalMoves([]);
-
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
         else if (lastMove.captured) playCaptureSound();
         else playMoveSound();
-
         if (newState.gameOver) {
           const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
           setGameOverInfo({ reason, winner: newState.winner });
@@ -148,7 +144,7 @@ export default function BotGame() {
   };
 
   const handleResign = () => {
-    if (window.confirm('Are you sure you want to resign?')) {
+    if (window.confirm(t('bot.resign_confirm'))) {
       const newState = { ...gameState };
       newState.gameOver = true;
       newState.winner = botColor;
@@ -179,43 +175,38 @@ export default function BotGame() {
   if (!gameStarted) {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
-        <header className="bg-surface-alt border-b border-surface-hover">
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <PieceSVG type="K" color="white" size={36} />
-              <h1 className="text-xl font-bold text-text-bright tracking-tight">Makruk</h1>
-            </button>
-            <span className="text-text-dim text-sm">Play vs Bot</span>
-          </div>
-        </header>
+        <Header subtitle={t('bot.title')} />
 
         <main className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 w-full max-w-lg animate-slideUp">
-            <h2 className="text-2xl font-bold text-text-bright mb-6 text-center">Play vs Computer</h2>
+          <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
+            <h2 className="text-2xl font-bold text-text-bright mb-6 text-center">{t('bot.setup_title')}</h2>
 
             <div className="mb-6">
-              <label className="text-sm text-text-dim mb-2 block">Difficulty</label>
+              <label className="text-sm text-text-dim mb-2 block">{t('bot.difficulty')}</label>
               <div className="grid grid-cols-3 gap-2">
-                {(Object.entries(DIFFICULTY_CONFIG) as [BotDifficulty, typeof DIFFICULTY_CONFIG['easy']][]).map(([key, config]) => (
-                  <button
-                    key={key}
-                    onClick={() => setDifficulty(key)}
-                    className={`py-3 px-3 rounded-lg text-sm font-medium transition-all ${
-                      difficulty === key
-                        ? 'bg-primary text-white shadow-md'
-                        : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{config.emoji}</div>
-                    <div className="font-bold">{config.label}</div>
-                    <div className="text-xs opacity-70 mt-1">{config.description}</div>
-                  </button>
-                ))}
+                {(Object.keys(difficultyConfig) as BotDifficulty[]).map((key) => {
+                  const config = difficultyConfig[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setDifficulty(key)}
+                      className={`py-3 px-3 rounded-lg text-sm font-medium transition-all ${
+                        difficulty === key
+                          ? 'bg-primary text-white shadow-md'
+                          : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
+                      }`}
+                    >
+                      <div className="text-lg mb-1">{config.emoji}</div>
+                      <div className="font-bold">{t(config.labelKey)}</div>
+                      <div className="text-xs opacity-70 mt-1">{t(config.descKey)}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="mb-6">
-              <label className="text-sm text-text-dim mb-2 block">Play as</label>
+              <label className="text-sm text-text-dim mb-2 block">{t('bot.play_as')}</label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPlayerColor('white')}
@@ -226,14 +217,14 @@ export default function BotGame() {
                   }`}
                 >
                   <PieceSVG type="K" color="white" size={32} />
-                  <span className="text-sm">White</span>
+                  <span className="text-sm">{t('common.white')}</span>
                 </button>
                 <button
                   onClick={() => setPlayerColor(Math.random() < 0.5 ? 'white' : 'black')}
-                  className={`py-3 px-3 rounded-lg font-medium transition-all flex flex-col items-center gap-1 bg-surface hover:bg-surface-hover text-text border border-surface-hover`}
+                  className="py-3 px-3 rounded-lg font-medium transition-all flex flex-col items-center gap-1 bg-surface hover:bg-surface-hover text-text border border-surface-hover"
                 >
                   <span className="text-2xl">🎲</span>
-                  <span className="text-sm">Random</span>
+                  <span className="text-sm">{t('bot.random')}</span>
                 </button>
                 <button
                   onClick={() => setPlayerColor('black')}
@@ -244,7 +235,7 @@ export default function BotGame() {
                   }`}
                 >
                   <PieceSVG type="K" color="black" size={32} />
-                  <span className="text-sm">Black</span>
+                  <span className="text-sm">{t('common.black')}</span>
                 </button>
               </div>
             </div>
@@ -253,14 +244,14 @@ export default function BotGame() {
               onClick={handleStartGame}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-bold rounded-lg text-lg transition-colors shadow-md"
             >
-              Start Game
+              {t('bot.start')}
             </button>
 
             <button
               onClick={() => navigate('/')}
               className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
             >
-              Back to Home
+              {t('common.back_home')}
             </button>
           </div>
         </main>
@@ -270,22 +261,14 @@ export default function BotGame() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <PieceSVG type="K" color="white" size={32} />
-            <h1 className="text-lg font-bold text-text-bright tracking-tight">Makruk</h1>
-          </button>
-          <div className="flex items-center gap-2 text-sm text-text-dim">
-            <span>vs Bot ({DIFFICULTY_CONFIG[difficulty].label})</span>
-            <span>{DIFFICULTY_CONFIG[difficulty].emoji}</span>
-          </div>
-        </div>
-      </header>
+      <Header
+        subtitle={`${t('bot.vs_bot')} (${t(difficultyConfig[difficulty].labelKey)})`}
+        right={<span>{difficultyConfig[difficulty].emoji}</span>}
+      />
 
       <main className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
-          <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
+          <div className="flex flex-col items-center gap-2 sm:gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
               botThinking
                 ? 'bg-accent/20 text-accent border border-accent/30'
@@ -293,8 +276,8 @@ export default function BotGame() {
             }`}>
               <div className="flex items-center justify-center gap-2">
                 <PieceSVG type="K" color={botColor} size={20} />
-                <span>Bot ({DIFFICULTY_CONFIG[difficulty].label})</span>
-                {botThinking && <span className="animate-pulse">thinking...</span>}
+                <span>Bot ({t(difficultyConfig[difficulty].labelKey)})</span>
+                {botThinking && <span className="animate-pulse">{t('bot.thinking')}</span>}
               </div>
             </div>
 
@@ -319,8 +302,8 @@ export default function BotGame() {
             }`}>
               <div className="flex items-center justify-center gap-2">
                 <PieceSVG type="K" color={playerColor} size={20} />
-                <span>You ({playerColor})</span>
-                {isPlayerTurn && !gameState.gameOver && <span>· Your turn</span>}
+                <span>{t('common.you')} ({t(playerColor === 'white' ? 'common.white' : 'common.black')})</span>
+                {isPlayerTurn && !gameState.gameOver && <span>· {t('bot.your_turn')}</span>}
               </div>
             </div>
           </div>
@@ -340,8 +323,8 @@ export default function BotGame() {
               }
             `}>
               {gameState.gameOver
-                ? gameState.winner === playerColor ? 'You Won!' : gameState.winner ? 'Bot Wins' : 'Draw'
-                : isPlayerTurn ? 'Your turn' : 'Bot is thinking...'
+                ? gameState.winner === playerColor ? t('bot.you_won') : gameState.winner ? t('bot.bot_wins') : t('common.draw')
+                : isPlayerTurn ? t('bot.your_turn') : t('bot.bot_thinking')
               }
             </div>
 
@@ -352,7 +335,7 @@ export default function BotGame() {
                 onClick={handleResign}
                 className="w-full py-2 px-4 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-lg border border-surface-hover transition-colors"
               >
-                ⚐ Resign
+                ⚐ {t('bot.resign')}
               </button>
             )}
 
@@ -360,14 +343,14 @@ export default function BotGame() {
               onClick={handleReset}
               className="w-full py-2.5 px-4 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
             >
-              ↺ New Game
+              ↺ {t('common.new_game')}
             </button>
 
             <button
               onClick={() => navigate('/')}
               className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
             >
-              Back to Home
+              {t('common.back_home')}
             </button>
           </div>
         </div>

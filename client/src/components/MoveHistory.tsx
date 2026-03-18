@@ -1,20 +1,14 @@
 import type { Move, Board } from '@shared/types';
 import { posToAlgebraic } from '@shared/engine';
+import { useTranslation } from '../lib/i18n';
 
 interface MoveHistoryProps {
   moves: Move[];
   initialBoard: Board;
 }
 
-function getPieceSymbol(move: Move, board: Board): string {
-  // We don't have the piece info easily, so we'll reconstruct from the move
-  const symbols: Record<string, string> = {
-    K: '♚', M: '♛', S: '⛊', R: '♜', N: '♞', P: '', PM: '♛',
-  };
-  return '';
-}
-
 export default function MoveHistory({ moves }: MoveHistoryProps) {
+  const { t } = useTranslation();
   const movePairs: { num: number; white: string; black?: string }[] = [];
 
   for (let i = 0; i < moves.length; i += 2) {
@@ -22,11 +16,10 @@ export default function MoveHistory({ moves }: MoveHistoryProps) {
     const blackMove = moves[i + 1];
 
     const formatMove = (move: Move) => {
-      const capture = move.captured ? 'x' : '';
       const dest = posToAlgebraic(move.to);
       const from = posToAlgebraic(move.from);
       const promo = move.promoted ? '=M' : '';
-      return `${from}${capture ? 'x' : '-'}${dest}${promo}`;
+      return `${from}${move.captured ? 'x' : '-'}${dest}${promo}`;
     };
 
     movePairs.push({
@@ -39,11 +32,11 @@ export default function MoveHistory({ moves }: MoveHistoryProps) {
   return (
     <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-hover">
-        <h3 className="text-sm font-semibold text-text-bright">Moves</h3>
+        <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
       </div>
       <div className="max-h-[300px] overflow-y-auto p-1">
         {movePairs.length === 0 ? (
-          <div className="text-text-dim text-sm text-center py-4">No moves yet</div>
+          <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
         ) : (
           <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-sm">
             {movePairs.map(({ num, white, black }) => (

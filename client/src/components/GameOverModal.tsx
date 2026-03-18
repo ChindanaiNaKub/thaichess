@@ -1,4 +1,5 @@
 import type { PieceColor } from '@shared/types';
+import { useTranslation } from '../lib/i18n';
 
 interface GameOverModalProps {
   winner: PieceColor | null;
@@ -9,23 +10,24 @@ interface GameOverModalProps {
 }
 
 export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame }: GameOverModalProps) {
+  const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
 
   const getTitle = () => {
-    if (isDraw) return 'Draw';
-    if (isWinner) return 'You Win!';
-    return 'You Lost';
+    if (isDraw) return t('gameover.draw');
+    if (isWinner) return t('gameover.you_win');
+    return t('gameover.you_lost');
   };
 
   const getReasonText = () => {
     switch (reason) {
-      case 'checkmate': return isDraw ? '' : `by checkmate`;
-      case 'resignation': return `by resignation`;
-      case 'timeout': return `on time`;
-      case 'stalemate': return 'by stalemate';
-      case 'draw_agreement': return 'by mutual agreement';
-      case 'insufficient_material': return 'by insufficient material';
+      case 'checkmate': return isDraw ? '' : t('gameover.by_checkmate');
+      case 'resignation': return t('gameover.by_resign');
+      case 'timeout': return t('gameover.by_timeout');
+      case 'stalemate': return t('gameover.by_stalemate');
+      case 'draw_agreement': return t('gameover.by_agreement');
+      case 'insufficient_material': return t('gameover.by_material');
       default: return reason;
     }
   };
@@ -37,8 +39,8 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-surface-alt border border-surface-hover rounded-xl p-8 max-w-sm w-full mx-4 animate-slideUp shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fadeIn p-4">
+      <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-sm w-full animate-slideUp shadow-2xl">
         <div className="text-center">
           <div className="text-5xl mb-3">{getIcon()}</div>
           <h2 className={`text-2xl font-bold mb-1 ${
@@ -53,13 +55,13 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
               onClick={onRematch}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors"
             >
-              Rematch
+              {t('gameover.rematch')}
             </button>
             <button
               onClick={onNewGame}
               className="w-full py-3 px-6 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold rounded-lg transition-colors border border-surface-hover"
             >
-              New Game
+              {t('common.new_game')}
             </button>
           </div>
         </div>

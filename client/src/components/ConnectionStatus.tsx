@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { socket } from '../lib/socket';
+import { useTranslation } from '../lib/i18n';
 
 export default function ConnectionStatus() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
     const onConnect = () => {
       setStatus('connected');
-      // Show briefly then hide
       setShowBanner(true);
       setTimeout(() => setShowBanner(false), 2000);
     };
@@ -39,7 +40,7 @@ export default function ConnectionStatus() {
   if (status === 'connected') {
     return (
       <div className="fixed top-0 left-0 right-0 z-50 bg-primary/90 text-white text-center py-1.5 text-sm font-medium animate-fadeIn">
-        Connected
+        {t('conn.connected')}
       </div>
     );
   }
@@ -48,14 +49,14 @@ export default function ConnectionStatus() {
     return (
       <div className="fixed top-0 left-0 right-0 z-50 bg-accent/90 text-white text-center py-1.5 text-sm font-medium flex items-center justify-center gap-2">
         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        Reconnecting...
+        {t('conn.reconnecting')}
       </div>
     );
   }
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-danger/90 text-white text-center py-1.5 text-sm font-medium">
-      Disconnected — trying to reconnect...
+      {t('conn.disconnected')}
     </div>
   );
 }

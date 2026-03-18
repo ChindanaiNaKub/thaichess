@@ -1,23 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket, connectSocket } from '../lib/socket';
+import { useTranslation } from '../lib/i18n';
 import type { PieceColor } from '@shared/types';
-import PieceSVG from './PieceSVG';
+import Header from './Header';
 
 const TIME_PRESETS = [
-  { label: '1+0', name: 'Bullet', initial: 60, increment: 0 },
-  { label: '3+0', name: 'Blitz', initial: 180, increment: 0 },
-  { label: '3+2', name: 'Blitz', initial: 180, increment: 2 },
-  { label: '5+0', name: 'Blitz', initial: 300, increment: 0 },
-  { label: '5+3', name: 'Rapid', initial: 300, increment: 3 },
-  { label: '10+0', name: 'Rapid', initial: 600, increment: 0 },
-  { label: '10+5', name: 'Rapid', initial: 600, increment: 5 },
-  { label: '15+10', name: 'Classical', initial: 900, increment: 10 },
-  { label: '30+0', name: 'Classical', initial: 1800, increment: 0 },
+  { label: '1+0', nameKey: 'time.bullet', initial: 60, increment: 0 },
+  { label: '3+0', nameKey: 'time.blitz', initial: 180, increment: 0 },
+  { label: '3+2', nameKey: 'time.blitz', initial: 180, increment: 2 },
+  { label: '5+0', nameKey: 'time.blitz', initial: 300, increment: 0 },
+  { label: '5+3', nameKey: 'time.rapid', initial: 300, increment: 3 },
+  { label: '10+0', nameKey: 'time.rapid', initial: 600, increment: 0 },
+  { label: '10+5', nameKey: 'time.rapid', initial: 600, increment: 5 },
+  { label: '15+10', nameKey: 'time.classical', initial: 900, increment: 10 },
+  { label: '30+0', nameKey: 'time.classical', initial: 1800, increment: 0 },
 ];
 
 export default function QuickPlay() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [searching, setSearching] = useState(false);
   const [searchTime, setSearchTime] = useState(0);
@@ -79,13 +81,11 @@ export default function QuickPlay() {
 
   const handleFindGame = () => {
     connectSocket();
-
     const emitSearch = () => {
       socket.emit('find_game', {
         timeControl: { initial: selectedTime.initial, increment: selectedTime.increment },
       });
     };
-
     if (socket.connected) {
       emitSearch();
     } else {
@@ -106,30 +106,22 @@ export default function QuickPlay() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <PieceSVG type="K" color="white" size={36} />
-            <h1 className="text-xl font-bold text-text-bright tracking-tight">Makruk</h1>
-          </button>
-          <span className="text-text-dim text-sm">Quick Play</span>
-        </div>
-      </header>
+      <Header subtitle={t('quick.title')} />
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         {searching ? (
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-8 w-full max-w-md text-center animate-slideUp">
+          <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 w-full max-w-md text-center animate-slideUp">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-text-bright mb-2">Finding opponent...</h2>
+            <h2 className="text-2xl font-bold text-text-bright mb-2">{t('quick.searching')}</h2>
             <p className="text-text-dim mb-1">
-              {selectedTime.label} {selectedTime.name}
+              {selectedTime.label} {t(selectedTime.nameKey)}
             </p>
             <p className="text-text-dim text-sm mb-1">
-              Searching for {formatSearchTime(searchTime)}
+              {t('quick.search_time', { time: formatSearchTime(searchTime) })}
             </p>
             {queueSize > 0 && (
               <p className="text-text-dim text-xs mb-4">
-                {queueSize} player{queueSize !== 1 ? 's' : ''} in queue
+                {t('quick.queue', { count: queueSize })}
               </p>
             )}
             <div className="flex gap-3 mt-6">
@@ -137,19 +129,17 @@ export default function QuickPlay() {
                 onClick={handleCancel}
                 className="flex-1 py-3 px-6 bg-surface-hover hover:bg-danger/20 text-text-bright hover:text-danger font-semibold rounded-lg transition-colors border border-surface-hover"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 w-full max-w-lg animate-slideUp">
-            <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">Quick Play</h2>
-            <p className="text-text-dim text-center mb-6 text-sm">
-              Find an opponent instantly. No link sharing needed!
-            </p>
+          <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
+            <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">{t('quick.title')}</h2>
+            <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
 
             <div className="mb-5">
-              <label className="text-sm text-text-dim mb-2 block">Time Control</label>
+              <label className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {TIME_PRESETS.map((preset) => (
                   <button
@@ -162,7 +152,7 @@ export default function QuickPlay() {
                     }`}
                   >
                     <div className="font-bold">{preset.label}</div>
-                    <div className="text-xs opacity-70">{preset.name}</div>
+                    <div className="text-xs opacity-70">{t(preset.nameKey)}</div>
                   </button>
                 ))}
               </div>
@@ -172,14 +162,14 @@ export default function QuickPlay() {
               onClick={handleFindGame}
               className="w-full py-3 px-6 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg text-lg transition-colors shadow-md"
             >
-              Find Opponent
+              {t('quick.find')}
             </button>
 
             <button
               onClick={() => navigate('/')}
               className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
             >
-              Back to Home
+              {t('common.back_home')}
             </button>
           </div>
         )}

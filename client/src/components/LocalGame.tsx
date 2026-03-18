@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
+import { useTranslation } from '../lib/i18n';
 import Board from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
-import PieceSVG from './PieceSVG';
+import Header from './Header';
 
 export default function LocalGame() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(0, 0));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
@@ -18,7 +20,6 @@ export default function LocalGame() {
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
-
     const piece = gameState.board[pos.row][pos.col];
 
     if (selectedSquare) {
@@ -29,12 +30,10 @@ export default function LocalGame() {
           setGameState(newState);
           setSelectedSquare(null);
           setLegalMoves([]);
-
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
           else playMoveSound();
-
           if (newState.gameOver) {
             const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
             setGameOverInfo({ reason, winner: newState.winner });
@@ -58,7 +57,6 @@ export default function LocalGame() {
     if (gameState.gameOver) return;
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== gameState.turn) return;
-
     const legal = getLegalMoves(gameState.board, from);
     if (legal.some(m => m.row === to.row && m.col === to.col)) {
       const newState = makeMove(gameState, from, to);
@@ -66,12 +64,10 @@ export default function LocalGame() {
         setGameState(newState);
         setSelectedSquare(null);
         setLegalMoves([]);
-
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
         else if (lastMove.captured) playCaptureSound();
         else playMoveSound();
-
         if (newState.gameOver) {
           const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
           setGameOverInfo({ reason, winner: newState.winner });
@@ -106,35 +102,28 @@ export default function LocalGame() {
     return null;
   };
 
+  const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
+
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <PieceSVG type="K" color="white" size={32} />
-            <h1 className="text-lg font-bold text-text-bright tracking-tight">Makruk</h1>
-          </button>
-          <span className="text-sm text-text-dim">Local Game</span>
-        </div>
-      </header>
+      <Header subtitle={t('local.title')} />
 
       <main className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
-          {/* Board Column */}
-          <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
+          <div className="flex flex-col items-center gap-2 sm:gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-text-dim">View as:</span>
+              <span className="text-text-dim">{t('local.view_as')}</span>
               <button
                 onClick={() => setViewAs('white')}
                 className={`px-3 py-1 rounded ${viewAs === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
               >
-                White
+                {t('common.white')}
               </button>
               <button
                 onClick={() => setViewAs('black')}
                 className={`px-3 py-1 rounded ${viewAs === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
               >
-                Black
+                {t('common.black')}
               </button>
             </div>
 
@@ -162,13 +151,12 @@ export default function LocalGame() {
               }
             `}>
               {gameState.gameOver
-                ? gameState.winner ? `${gameState.winner} wins!` : 'Draw'
-                : `${gameState.turn}'s turn`
+                ? gameState.winner ? t('local.wins', { color: colorName(gameState.winner) }) : t('common.draw')
+                : t('local.turn', { color: colorName(gameState.turn) })
               }
             </div>
           </div>
 
-          {/* Side Panel */}
           <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
             <MoveHistory moves={gameState.moveHistory} initialBoard={createInitialBoard()} />
 
@@ -176,14 +164,14 @@ export default function LocalGame() {
               onClick={handleReset}
               className="w-full py-2.5 px-4 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
             >
-              ↺ New Game
+              ↺ {t('common.new_game')}
             </button>
 
             <button
               onClick={() => navigate('/')}
               className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
             >
-              Play Online
+              {t('local.play_online')}
             </button>
           </div>
         </div>
