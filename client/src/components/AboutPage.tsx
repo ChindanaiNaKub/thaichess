@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import PieceSVG from './PieceSVG';
+import { useTranslation } from '../lib/i18n';
+import Header from './Header';
 
 interface Stats {
   totalGames: number;
@@ -11,7 +11,7 @@ interface Stats {
 }
 
 export default function AboutPage() {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
@@ -23,98 +23,76 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <PieceSVG type="K" color="white" size={36} />
-            <h1 className="text-xl font-bold text-text-bright tracking-tight">Makruk</h1>
-          </button>
-          <nav className="flex items-center gap-4 text-sm">
-            <button onClick={() => navigate('/')} className="text-text-dim hover:text-text-bright transition-colors">Play</button>
-            <button onClick={() => navigate('/games')} className="text-text-dim hover:text-text-bright transition-colors">Games</button>
-            <span className="text-primary font-medium">About</span>
-          </nav>
-        </div>
-      </header>
+      <Header active="about" />
 
-      <main className="flex-1 max-w-3xl mx-auto px-4 py-8 w-full">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
         {/* Mission */}
-        <section className="mb-10">
-          <h2 className="text-3xl font-bold text-text-bright mb-4">About Makruk Online</h2>
-          <p className="text-text text-lg leading-relaxed mb-4">
-            Makruk Online is a <strong className="text-text-bright">free, open-source</strong> platform for playing
-            Makruk (Thai Chess) with anyone in the world. No registration, no ads, no paywall — just pure Thai chess.
-          </p>
-          <p className="text-text leading-relaxed mb-4">
-            Our mission is to make <strong className="text-text-bright">Makruk famous worldwide</strong>. Thai chess
-            is one of the oldest board games in the world, closer to the original Indian chess (Chaturanga) than
-            modern Western chess. It deserves a world-class online platform, just like chess has Lichess.
-          </p>
-          <p className="text-text leading-relaxed">
-            Inspired by <a href="https://lichess.org" target="_blank" rel="noopener" className="text-primary hover:text-primary-light underline">Lichess</a>,
-            we believe great gaming platforms should be free for everyone.
-          </p>
+        <section className="mb-8 sm:mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-text-bright mb-4">{t('about.title')}</h2>
+          <div className="text-text text-base sm:text-lg leading-relaxed space-y-4 [&_strong]:text-text-bright [&_a]:text-primary [&_a:hover]:text-primary-light [&_a]:underline">
+            <p dangerouslySetInnerHTML={{ __html: t('about.intro1') }} />
+            <p dangerouslySetInnerHTML={{ __html: t('about.intro2') }} />
+            <p dangerouslySetInnerHTML={{ __html: t('about.intro3') }} />
+          </div>
         </section>
 
         {/* Stats */}
         {stats && stats.totalGames > 0 && (
-          <section className="mb-10">
-            <h3 className="text-xl font-bold text-text-bright mb-4">Platform Stats</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-surface-alt rounded-lg p-4 text-center border border-surface-hover">
-                <div className="text-2xl font-bold text-primary-light">{stats.totalGames}</div>
-                <div className="text-text-dim text-sm">Games Played</div>
+          <section className="mb-8 sm:mb-10">
+            <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.stats_title')}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div className="bg-surface-alt rounded-lg p-3 sm:p-4 text-center border border-surface-hover">
+                <div className="text-xl sm:text-2xl font-bold text-primary-light">{stats.totalGames}</div>
+                <div className="text-text-dim text-xs sm:text-sm">{t('about.games_played')}</div>
               </div>
-              <div className="bg-surface-alt rounded-lg p-4 text-center border border-surface-hover">
-                <div className="text-2xl font-bold text-text-bright">{stats.totalMoves}</div>
-                <div className="text-text-dim text-sm">Total Moves</div>
+              <div className="bg-surface-alt rounded-lg p-3 sm:p-4 text-center border border-surface-hover">
+                <div className="text-xl sm:text-2xl font-bold text-text-bright">{stats.totalMoves}</div>
+                <div className="text-text-dim text-xs sm:text-sm">{t('about.total_moves')}</div>
               </div>
-              <div className="bg-surface-alt rounded-lg p-4 text-center border border-surface-hover">
-                <div className="text-2xl font-bold text-text-bright">{stats.whiteWins}</div>
-                <div className="text-text-dim text-sm">White Wins</div>
+              <div className="bg-surface-alt rounded-lg p-3 sm:p-4 text-center border border-surface-hover">
+                <div className="text-xl sm:text-2xl font-bold text-text-bright">{stats.whiteWins}</div>
+                <div className="text-text-dim text-xs sm:text-sm">{t('about.white_wins')}</div>
               </div>
-              <div className="bg-surface-alt rounded-lg p-4 text-center border border-surface-hover">
-                <div className="text-2xl font-bold text-text-bright">{stats.blackWins}</div>
-                <div className="text-text-dim text-sm">Black Wins</div>
+              <div className="bg-surface-alt rounded-lg p-3 sm:p-4 text-center border border-surface-hover">
+                <div className="text-xl sm:text-2xl font-bold text-text-bright">{stats.blackWins}</div>
+                <div className="text-text-dim text-xs sm:text-sm">{t('about.black_wins')}</div>
               </div>
             </div>
           </section>
         )}
 
         {/* Support */}
-        <section className="mb-10">
-          <h3 className="text-xl font-bold text-text-bright mb-4">Support the Project</h3>
-          <div className="bg-surface-alt rounded-xl border border-surface-hover p-6">
-            <p className="text-text mb-4">
-              Makruk Online runs on donations and community support. If you enjoy playing, consider helping us keep the servers running:
-            </p>
-            <ul className="space-y-3 text-text">
+        <section className="mb-8 sm:mb-10">
+          <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.support_title')}</h3>
+          <div className="bg-surface-alt rounded-xl border border-surface-hover p-4 sm:p-6">
+            <p className="text-text mb-4 text-sm sm:text-base">{t('about.support_desc')}</p>
+            <ul className="space-y-3 text-text text-sm sm:text-base">
               <li className="flex items-start gap-3">
-                <span className="text-primary text-lg">⭐</span>
+                <span className="text-primary text-lg flex-shrink-0">⭐</span>
                 <div>
-                  <strong className="text-text-bright">Star us on GitHub</strong>
-                  <span className="text-text-dim"> — helps others discover the project</span>
+                  <strong className="text-text-bright">{t('about.star')}</strong>
+                  <span className="text-text-dim">{t('about.star_desc')}</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-primary text-lg">🌐</span>
+                <span className="text-primary text-lg flex-shrink-0">🌐</span>
                 <div>
-                  <strong className="text-text-bright">Share with friends</strong>
-                  <span className="text-text-dim"> — the more players, the better the community</span>
+                  <strong className="text-text-bright">{t('about.share')}</strong>
+                  <span className="text-text-dim">{t('about.share_desc')}</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-primary text-lg">🔧</span>
+                <span className="text-primary text-lg flex-shrink-0">🔧</span>
                 <div>
-                  <strong className="text-text-bright">Contribute code</strong>
-                  <span className="text-text-dim"> — PRs are welcome! See our GitHub repo</span>
+                  <strong className="text-text-bright">{t('about.contribute')}</strong>
+                  <span className="text-text-dim">{t('about.contribute_desc')}</span>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-primary text-lg">📝</span>
+                <span className="text-primary text-lg flex-shrink-0">📝</span>
                 <div>
-                  <strong className="text-text-bright">Report bugs & suggest features</strong>
-                  <span className="text-text-dim"> — open an issue on GitHub</span>
+                  <strong className="text-text-bright">{t('about.report')}</strong>
+                  <span className="text-text-dim">{t('about.report_desc')}</span>
                 </div>
               </li>
             </ul>
@@ -122,44 +100,30 @@ export default function AboutPage() {
         </section>
 
         {/* What is Makruk */}
-        <section className="mb-10">
-          <h3 className="text-xl font-bold text-text-bright mb-4">What is Makruk?</h3>
-          <div className="text-text leading-relaxed space-y-3">
-            <p>
-              <strong className="text-text-bright">Makruk (หมากรุก)</strong> is the traditional chess of Thailand.
-              It evolved from the ancient Indian game Chaturanga and has been played in Thailand for centuries.
-            </p>
-            <p>
-              Unlike Western chess, Makruk retains many features of the original game — the queen (Met) is weak,
-              the bishop (Khon) moves differently, and pawns start on the third rank. This creates a game that
-              is deeply strategic and uniquely beautiful.
-            </p>
-            <p>
-              Makruk is widely played in Thailand and Cambodia (where it's called Ouk Chatrang). It is recognized
-              by the World Chess Federation and has international tournaments.
-            </p>
-            <p className="text-primary">
-              We believe Makruk deserves the same global recognition as chess. Help us spread the word!
-            </p>
+        <section className="mb-8 sm:mb-10">
+          <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.what_title')}</h3>
+          <div className="text-text leading-relaxed space-y-3 text-sm sm:text-base [&_strong]:text-text-bright [&_.text-primary]:text-primary">
+            <p dangerouslySetInnerHTML={{ __html: t('about.what1') }} />
+            <p dangerouslySetInnerHTML={{ __html: t('about.what2') }} />
+            <p dangerouslySetInnerHTML={{ __html: t('about.what3') }} />
+            <p className="text-primary" dangerouslySetInnerHTML={{ __html: t('about.what4') }} />
           </div>
         </section>
 
         {/* Tech */}
-        <section className="mb-10">
-          <h3 className="text-xl font-bold text-text-bright mb-4">Open Source</h3>
-          <p className="text-text mb-4">
-            Makruk Online is 100% open source under the MIT license. The entire codebase is available on GitHub.
-          </p>
+        <section className="mb-8 sm:mb-10">
+          <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.opensource_title')}</h3>
+          <p className="text-text mb-4 text-sm sm:text-base">{t('about.opensource_desc')}</p>
           <div className="flex flex-wrap gap-2">
             {['React', 'TypeScript', 'Node.js', 'Socket.IO', 'Tailwind CSS', 'SQLite', 'Vite'].map(tech => (
-              <span key={tech} className="bg-surface-hover text-text-dim px-3 py-1 rounded-full text-sm">{tech}</span>
+              <span key={tech} className="bg-surface-hover text-text-dim px-3 py-1 rounded-full text-xs sm:text-sm">{tech}</span>
             ))}
           </div>
         </section>
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-4 text-center text-text-dim text-sm">
-        Makruk Online — Free & Open Source — Made with ❤️ for Thai Chess
+      <footer className="bg-surface-alt border-t border-surface-hover py-4 px-4 text-center text-text-dim text-xs sm:text-sm">
+        {t('about.footer')}
       </footer>
     </div>
   );
