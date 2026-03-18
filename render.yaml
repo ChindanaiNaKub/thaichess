@@ -5,7 +5,8 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: npm install && npm run build
+    # Same as root script: devDeps needed for client tsc/vite on Render
+    buildCommand: npm run render-build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
