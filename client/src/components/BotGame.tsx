@@ -484,6 +484,20 @@ export default function BotGame() {
               </div>
             )}
 
+            {gameState.gameOver && gameState.moveHistory.length > 0 && (
+              <button
+                onClick={() => {
+                  const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
+                  const result = gameState.winner || 'draw';
+                  const reason = gameOverInfo?.reason || 'unknown';
+                  navigate(`/analysis/bot?moves=${movesParam}&result=${result}&reason=${reason}`);
+                }}
+                className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-sm rounded-lg border border-blue-600/30 transition-colors"
+              >
+                🔍 {t('analysis.analyze')}
+              </button>
+            )}
+
             {!gameState.gameOver && (
               <button
                 onClick={handleResign}
@@ -517,6 +531,15 @@ export default function BotGame() {
           playerColor={playerColor}
           onRematch={handleStartGame}
           onNewGame={handleReset}
+          onAnalyze={gameState.moveHistory.length > 0
+            ? () => {
+                const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
+                const result = gameState.winner || 'draw';
+                const reason = gameOverInfo.reason;
+                navigate(`/analysis/bot?moves=${movesParam}&result=${result}&reason=${reason}`);
+              }
+            : undefined
+          }
         />
       )}
     </div>

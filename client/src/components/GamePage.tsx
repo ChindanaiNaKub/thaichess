@@ -564,6 +564,16 @@ export default function GamePage() {
               </div>
             )}
 
+            {/* Analyze button (shown after game over) */}
+            {gameState.gameOver && gameState.moveHistory.length > 0 && (
+              <button
+                onClick={() => navigate(`/analysis/${gameId}`)}
+                className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-sm rounded-lg border border-blue-600/30 transition-colors"
+              >
+                🔍 {t('analysis.analyze')}
+              </button>
+            )}
+
             {/* Game Controls */}
             {!gameState.gameOver && gameState.status === 'playing' && (
               <div className="flex gap-2">
@@ -603,6 +613,10 @@ export default function GamePage() {
           playerColor={playerColor}
           onRematch={handleRematch}
           onNewGame={handleNewGame}
+          onAnalyze={gameState && gameState.moveHistory.length > 0
+            ? () => navigate(`/analysis/${gameId}`)
+            : undefined
+          }
         />
       )}
 

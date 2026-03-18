@@ -295,6 +295,27 @@ const EN: Record<string, string> = {
   'time.hour_ago': '{n}h ago',
   'time.day_ago': '{n}d ago',
 
+  // Analysis
+  'analysis.title': 'Game Analysis',
+  'analysis.loading': 'Loading game...',
+  'analysis.analyzing': 'Analyzing game...',
+  'analysis.progress': 'Move {current} of {total}',
+  'analysis.accuracy': 'Accuracy',
+  'analysis.eval_graph': 'Evaluation',
+  'analysis.show_best': 'Show best move',
+  'analysis.keyboard_hint': 'Use arrow keys to navigate moves',
+  'analysis.eval_before': 'Before',
+  'analysis.eval_after': 'After',
+  'analysis.best_was': 'Best was',
+  'analysis.best': 'Best',
+  'analysis.excellent': 'Excellent',
+  'analysis.good': 'Good',
+  'analysis.inaccuracy': 'Inaccuracy',
+  'analysis.mistake': 'Mistake',
+  'analysis.blunder': 'Blunder',
+  'analysis.analyze': 'Analyze Game',
+  'analysis.view': 'View Analysis',
+
   // Language
   'lang.switch': 'TH',
 };
@@ -573,6 +594,27 @@ const TH: Record<string, string> = {
   'time.min_ago': '{n} นาทีที่แล้ว',
   'time.hour_ago': '{n} ชั่วโมงที่แล้ว',
   'time.day_ago': '{n} วันที่แล้ว',
+
+  // Analysis
+  'analysis.title': 'วิเคราะห์เกม',
+  'analysis.loading': 'กำลังโหลดเกม...',
+  'analysis.analyzing': 'กำลังวิเคราะห์เกม...',
+  'analysis.progress': 'ตาที่ {current} จาก {total}',
+  'analysis.accuracy': 'ความแม่นยำ',
+  'analysis.eval_graph': 'ค่าประเมิน',
+  'analysis.show_best': 'แสดงตาที่ดีที่สุด',
+  'analysis.keyboard_hint': 'ใช้ลูกศรเพื่อดูตาเดิน',
+  'analysis.eval_before': 'ก่อน',
+  'analysis.eval_after': 'หลัง',
+  'analysis.best_was': 'ตาที่ดีที่สุดคือ',
+  'analysis.best': 'ดีที่สุด',
+  'analysis.excellent': 'ยอดเยี่ยม',
+  'analysis.good': 'ดี',
+  'analysis.inaccuracy': 'ไม่แม่นยำ',
+  'analysis.mistake': 'ผิดพลาด',
+  'analysis.blunder': 'พลาดร้ายแรง',
+  'analysis.analyze': 'วิเคราะห์เกม',
+  'analysis.view': 'ดูการวิเคราะห์',
 
   // Language
   'lang.switch': 'EN',

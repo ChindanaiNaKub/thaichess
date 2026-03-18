@@ -7,9 +7,10 @@ interface GameOverModalProps {
   playerColor: PieceColor | null;
   onRematch: () => void;
   onNewGame: () => void;
+  onAnalyze?: () => void;
 }
 
-export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame }: GameOverModalProps) {
+export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame, onAnalyze }: GameOverModalProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
@@ -51,6 +52,14 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
           <p className="text-text-dim text-sm mb-6">{getReasonText()}</p>
 
           <div className="flex flex-col gap-3">
+            {onAnalyze && (
+              <button
+                onClick={onAnalyze}
+                className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+              >
+                🔍 {t('analysis.analyze')}
+              </button>
+            )}
             <button
               onClick={onRematch}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors"
