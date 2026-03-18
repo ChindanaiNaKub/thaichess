@@ -120,6 +120,29 @@
   ) !important;
 }
 
+/* Pre-move square highlights */
+.board-square-premove-light {
+  background-color: oklch(0.65 0.14 250) !important;
+}
+.board-square-premove-dark {
+  background-color: oklch(0.50 0.14 250) !important;
+}
+
+/* Active move highlight in MoveHistory */
+.move-active {
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 4px;
+}
+.move-clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+.move-clickable:hover {
+  background-color: var(--color-surface-hover);
+}
+
 /* ─── Legal-move indicators ──────────────────────────────────────── */
 
 .legal-dot {

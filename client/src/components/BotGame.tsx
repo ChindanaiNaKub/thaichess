@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
-import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard } from '@shared/engine';
+import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove } from '@shared/engine';
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import Board from './Board';
+import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import Header from './Header';
@@ -23,6 +24,11 @@ export default function BotGame() {
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [botThinking, setBotThinking] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [arrows, setArrows] = useState<Arrow[]>([]);
+  const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
+
+  // Pre-move state for bot games
+  const [premove, setPremove] = useState<{ from: Position; to: Position } | null>(null);
 
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isPlayerTurn = gameState.turn === playerColor;
@@ -45,6 +51,7 @@ export default function BotGame() {
         const newState = makeMove(gameState, botMoveResult.from, botMoveResult.to);
         if (newState) {
           setGameState(newState);
+          setArrows([]);
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
@@ -53,6 +60,7 @@ export default function BotGame() {
           if (newState.gameOver) {
             const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
             setGameOverInfo({ reason, winner: newState.winner });
+            setPremove(null);
             playGameOverSound();
           }
         }
@@ -65,9 +73,90 @@ export default function BotGame() {
     };
   }, [gameState, gameStarted, isPlayerTurn, difficulty]);
 
+  // Auto-execute premove when it becomes player's turn
+  useEffect(() => {
+    if (!premove || !isPlayerTurn || gameState.gameOver || botThinking) return;
+
+    const piece = gameState.board[premove.from.row][premove.from.col];
+    if (piece && piece.color === playerColor) {
+      const legal = getLegalMoves(gameState.board, premove.from);
+      if (legal.some(m => m.row === premove.to.row && m.col === premove.to.col)) {
+        const newState = makeMove(gameState, premove.from, premove.to);
+        if (newState) {
+          setGameState(newState);
+          setArrows([]);
+          const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
+          if (newState.isCheck) playCheckSound();
+          else if (lastMove.captured) playCaptureSound();
+          else playMoveSound();
+          if (newState.gameOver) {
+            const reason = newState.isCheckmate ? 'checkmate' : newState.isStalemate ? 'stalemate' : 'draw';
+            setGameOverInfo({ reason, winner: newState.winner });
+            playGameOverSound();
+          }
+        }
+      }
+    }
+    setPremove(null);
+    setSelectedSquare(null);
+    setLegalMoves([]);
+  }, [isPlayerTurn, premove, gameState, playerColor, botThinking]);
+
+  // Keyboard navigation for move history
+  useEffect(() => {
+    if (!gameState.gameOver || gameState.moveHistory.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const moveCount = gameState.moveHistory.length;
+      const current = viewMoveIndex ?? moveCount - 1;
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setViewMoveIndex(Math.max(-1, current - 1));
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setViewMoveIndex(Math.min(moveCount - 1, current + 1));
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setViewMoveIndex(-1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setViewMoveIndex(moveCount - 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, viewMoveIndex]);
+
   const handleSquareClick = useCallback((pos: Position) => {
-    if (gameState.gameOver || !isPlayerTurn || botThinking) return;
+    if (gameState.gameOver) return;
     const piece = gameState.board[pos.row][pos.col];
+
+    // Pre-move logic when bot is thinking
+    if (!isPlayerTurn || botThinking) {
+      if (selectedSquare) {
+        if (pos.row !== selectedSquare.row || pos.col !== selectedSquare.col) {
+          const fromPiece = gameState.board[selectedSquare.row][selectedSquare.col];
+          if (fromPiece && fromPiece.color === playerColor) {
+            setPremove({ from: selectedSquare, to: pos });
+            setSelectedSquare(null);
+            setLegalMoves([]);
+            return;
+          }
+        }
+      }
+
+      if (piece && piece.color === playerColor) {
+        setSelectedSquare(pos);
+        setLegalMoves(getLegalMoves(gameState.board, pos));
+        setPremove(null);
+      } else {
+        setSelectedSquare(null);
+        setLegalMoves([]);
+      }
+      return;
+    }
 
     if (selectedSquare) {
       const isLegal = legalMoves.some(m => m.row === pos.row && m.col === pos.col);
@@ -77,6 +166,7 @@ export default function BotGame() {
           setGameState(newState);
           setSelectedSquare(null);
           setLegalMoves([]);
+          setArrows([]);
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
@@ -101,6 +191,17 @@ export default function BotGame() {
   }, [gameState, selectedSquare, legalMoves, isPlayerTurn, botThinking, playerColor]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
+    // Pre-move via drag when bot is thinking
+    if ((!isPlayerTurn || botThinking) && !gameState.gameOver) {
+      const piece = gameState.board[from.row][from.col];
+      if (piece && piece.color === playerColor) {
+        setPremove({ from, to });
+        setSelectedSquare(null);
+        setLegalMoves([]);
+        return;
+      }
+    }
+
     if (gameState.gameOver || !isPlayerTurn || botThinking) return;
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== playerColor) return;
@@ -111,6 +212,7 @@ export default function BotGame() {
         setGameState(newState);
         setSelectedSquare(null);
         setLegalMoves([]);
+        setArrows([]);
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
         else if (lastMove.captured) playCaptureSound();
@@ -131,6 +233,9 @@ export default function BotGame() {
     setGameOverInfo(null);
     setBotThinking(false);
     setGameStarted(true);
+    setArrows([]);
+    setViewMoveIndex(null);
+    setPremove(null);
   };
 
   const handleReset = () => {
@@ -141,6 +246,9 @@ export default function BotGame() {
     setLegalMoves([]);
     setGameOverInfo(null);
     setBotThinking(false);
+    setArrows([]);
+    setViewMoveIndex(null);
+    setPremove(null);
   };
 
   const handleResign = () => {
@@ -150,17 +258,21 @@ export default function BotGame() {
       newState.winner = botColor;
       setGameState(newState);
       setGameOverInfo({ reason: 'resignation', winner: botColor });
+      setPremove(null);
       playGameOverSound();
     }
   };
 
   const getLastMove = (): Move | null => {
     if (gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+    const idx = viewMoveIndex ?? gameState.moveHistory.length - 1;
+    if (idx < 0) return null;
+    return gameState.moveHistory[idx];
   };
 
   const getCheckSquare = (): Position | null => {
     if (!gameState.isCheck) return null;
+    if (viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1) return null;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const piece = gameState.board[row][col];
@@ -171,6 +283,21 @@ export default function BotGame() {
     }
     return null;
   };
+
+  const getDisplayBoard = () => {
+    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
+      return gameState.board;
+    }
+    if (viewMoveIndex === -1) return createInitialBoard();
+    return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
+  };
+
+  const handleMoveClick = useCallback((index: number) => {
+    if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
+    setViewMoveIndex(index);
+  }, [gameState.moveHistory.length, viewMoveIndex]);
+
+  const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
 
   if (!gameStarted) {
     return (
@@ -260,11 +387,24 @@ export default function BotGame() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header
         subtitle={`${t('bot.vs_bot')} (${t(difficultyConfig[difficulty].labelKey)})`}
         right={<span>{difficultyConfig[difficulty].emoji}</span>}
       />
+
+      {/* Premove indicator */}
+      {premove && (
+        <div className="bg-blue-900/30 border-b border-blue-500/30 text-center py-1.5 text-xs text-blue-300 flex items-center justify-center gap-2">
+          <span>Pre-move set</span>
+          <button
+            onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
+            className="px-2 py-0.5 bg-surface-hover rounded text-xs hover:bg-danger/20 hover:text-danger transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <main className="flex-1 flex items-center justify-center px-4 py-4">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
@@ -282,17 +422,20 @@ export default function BotGame() {
             </div>
 
             <Board
-              board={gameState.board}
+              board={getDisplayBoard()}
               playerColor={playerColor}
               isMyTurn={isPlayerTurn && !botThinking}
-              legalMoves={legalMoves}
-              selectedSquare={selectedSquare}
+              legalMoves={isViewingHistory ? [] : legalMoves}
+              selectedSquare={isViewingHistory ? null : selectedSquare}
               lastMove={getLastMove()}
-              isCheck={gameState.isCheck}
+              isCheck={isViewingHistory ? false : gameState.isCheck}
               checkSquare={getCheckSquare()}
               onSquareClick={handleSquareClick}
               onPieceDrop={handlePieceDrop}
-              disabled={gameState.gameOver || !isPlayerTurn || botThinking}
+              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+              premove={premove}
+              arrows={arrows}
+              onArrowsChange={setArrows}
             />
 
             <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
@@ -328,7 +471,18 @@ export default function BotGame() {
               }
             </div>
 
-            <MoveHistory moves={gameState.moveHistory} initialBoard={createInitialBoard()} />
+            <MoveHistory
+              moves={gameState.moveHistory}
+              initialBoard={createInitialBoard()}
+              currentMoveIndex={viewMoveIndex ?? undefined}
+              onMoveClick={gameState.gameOver ? handleMoveClick : undefined}
+            />
+
+            {gameState.gameOver && gameState.moveHistory.length > 0 && (
+              <div className="text-center text-xs text-text-dim">
+                Use arrow keys to navigate moves
+              </div>
+            )}
 
             {!gameState.gameOver && (
               <button

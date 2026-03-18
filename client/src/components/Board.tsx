@@ -2,6 +2,12 @@ import { useState, useCallback, useRef } from 'react';
 import type { Board as BoardType, Position, PieceColor, Move } from '@shared/types';
 import PieceSVG from './PieceSVG';
 
+export interface Arrow {
+  from: Position;
+  to: Position;
+  color: string;
+}
+
 interface BoardProps {
   board: BoardType;
   playerColor: PieceColor | null;
@@ -14,6 +20,9 @@ interface BoardProps {
   onSquareClick: (pos: Position) => void;
   onPieceDrop: (from: Position, to: Position) => void;
   disabled?: boolean;
+  premove?: { from: Position; to: Position } | null;
+  arrows?: Arrow[];
+  onArrowsChange?: (arrows: Arrow[]) => void;
 }
 
 export default function Board({
@@ -28,17 +37,32 @@ export default function Board({
   onSquareClick,
   onPieceDrop,
   disabled,
+  premove,
+  arrows: externalArrows,
+  onArrowsChange,
 }: BoardProps) {
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
+  const [rightClickStart, setRightClickStart] = useState<Position | null>(null);
+  const [rightDragPos, setRightDragPos] = useState<{ x: number; y: number } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+
+  const arrows = externalArrows ?? internalArrows;
+  const setArrows = useCallback((newArrows: Arrow[]) => {
+    if (onArrowsChange) {
+      onArrowsChange(newArrows);
+    } else {
+      setInternalArrows(newArrows);
+    }
+  }, [onArrowsChange]);
 
   const isFlipped = playerColor === 'black';
 
-  const getDisplayRow = (row: number) => isFlipped ? row : 7 - row;
-  const getDisplayCol = (col: number) => isFlipped ? 7 - col : col;
   const getBoardRow = (displayRow: number) => isFlipped ? displayRow : 7 - displayRow;
   const getBoardCol = (displayCol: number) => isFlipped ? 7 - displayCol : displayCol;
+  const getDisplayRow = (row: number) => isFlipped ? row : 7 - row;
+  const getDisplayCol = (col: number) => isFlipped ? 7 - col : col;
 
   const isLightSquare = (row: number, col: number) => (row + col) % 2 === 0;
 
@@ -60,16 +84,52 @@ export default function Board({
     return isCheck && checkSquare?.row === row && checkSquare?.col === col;
   }, [isCheck, checkSquare]);
 
+  const isPremoveSquare = useCallback((row: number, col: number) => {
+    if (!premove) return false;
+    return (premove.from.row === row && premove.from.col === col) ||
+           (premove.to.row === row && premove.to.col === col);
+  }, [premove]);
+
+  const getSquareFromEvent = (clientX: number, clientY: number): Position | null => {
+    if (!boardRef.current) return null;
+    const rect = boardRef.current.getBoundingClientRect();
+    const squareSize = rect.width / 8;
+    const displayCol = Math.floor((clientX - rect.left) / squareSize);
+    const displayRow = Math.floor((clientY - rect.top) / squareSize);
+    if (displayRow < 0 || displayRow >= 8 || displayCol < 0 || displayCol >= 8) return null;
+    return { row: getBoardRow(displayRow), col: getBoardCol(displayCol) };
+  };
+
   const handleMouseDown = (e: React.MouseEvent, row: number, col: number) => {
+    if (e.button === 2) {
+      setRightClickStart({ row, col });
+      if (boardRef.current) {
+        const rect = boardRef.current.getBoundingClientRect();
+        setRightDragPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }
+      return;
+    }
+
+    if (e.button !== 0) return;
+
+    if (arrows.length > 0) {
+      setArrows([]);
+    }
+
     if (disabled) return;
     const piece = board[row][col];
-    if (piece && piece.color === playerColor && isMyTurn) {
+    if (piece && piece.color === playerColor) {
       setDragPiece({ row, col });
       onSquareClick({ row, col });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (rightClickStart && boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      setRightDragPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
+
     if (!dragPiece || !boardRef.current) return;
     const rect = boardRef.current.getBoundingClientRect();
     setDragPos({
@@ -79,6 +139,30 @@ export default function Board({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button === 2 && rightClickStart) {
+      const target = getSquareFromEvent(e.clientX, e.clientY);
+      if (target) {
+        if (target.row === rightClickStart.row && target.col === rightClickStart.col) {
+          setArrows([]);
+        } else {
+          const arrowColor = e.shiftKey ? '#e84040' : '#15781B';
+          const newArrow: Arrow = { from: rightClickStart, to: target, color: arrowColor };
+          const exists = arrows.findIndex(
+            a => a.from.row === newArrow.from.row && a.from.col === newArrow.from.col &&
+                 a.to.row === newArrow.to.row && a.to.col === newArrow.to.col
+          );
+          if (exists >= 0) {
+            setArrows(arrows.filter((_, i) => i !== exists));
+          } else {
+            setArrows([...arrows, newArrow]);
+          }
+        }
+      }
+      setRightClickStart(null);
+      setRightDragPos(null);
+      return;
+    }
+
     if (!dragPiece || !boardRef.current) {
       setDragPiece(null);
       setDragPos(null);
@@ -108,10 +192,14 @@ export default function Board({
     onSquareClick({ row, col });
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   const handleTouchStart = (e: React.TouchEvent, row: number, col: number) => {
     if (disabled) return;
     const piece = board[row][col];
-    if (piece && piece.color === playerColor && isMyTurn) {
+    if (piece && piece.color === playerColor) {
       e.preventDefault();
       setDragPiece({ row, col });
       onSquareClick({ row, col });
@@ -166,7 +254,9 @@ export default function Board({
     const light = isLightSquare(boardRow, boardCol);
     let cls = light ? 'board-square-light' : 'board-square-dark';
 
-    if (isSelected(boardRow, boardCol)) {
+    if (isPremoveSquare(boardRow, boardCol)) {
+      cls = light ? 'board-square-premove-light' : 'board-square-premove-dark';
+    } else if (isSelected(boardRow, boardCol)) {
       cls = 'board-square-selected';
     } else if (isLastMove(boardRow, boardCol)) {
       cls = light ? 'board-square-lastmove-light' : 'board-square-lastmove-dark';
@@ -180,6 +270,82 @@ export default function Board({
   };
 
   const squareSize = '12.5%';
+
+  const renderArrowSvg = () => {
+    const allArrows = [...arrows];
+
+    if (rightClickStart && rightDragPos && boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      const sqSize = rect.width / 8;
+      const displayCol = Math.floor(rightDragPos.x / sqSize);
+      const displayRow = Math.floor(rightDragPos.y / sqSize);
+      if (displayRow >= 0 && displayRow < 8 && displayCol >= 0 && displayCol < 8) {
+        const target = { row: getBoardRow(displayRow), col: getBoardCol(displayCol) };
+        if (target.row !== rightClickStart.row || target.col !== rightClickStart.col) {
+          allArrows.push({ from: rightClickStart, to: target, color: '#15781B80' });
+        }
+      }
+    }
+
+    if (allArrows.length === 0) return null;
+
+    return (
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 800 800"
+        style={{ zIndex: 50 }}
+      >
+        <defs>
+          {allArrows.map((arrow, i) => (
+            <marker
+              key={`head-${i}`}
+              id={`arrowhead-${i}`}
+              markerWidth="4"
+              markerHeight="4"
+              refX="2.5"
+              refY="2"
+              orient="auto"
+            >
+              <path d="M0,0 L4,2 L0,4 Z" fill={arrow.color} fillOpacity="0.8" />
+            </marker>
+          ))}
+        </defs>
+        {allArrows.map((arrow, i) => {
+          const fromDR = getDisplayRow(arrow.from.row);
+          const fromDC = getDisplayCol(arrow.from.col);
+          const toDR = getDisplayRow(arrow.to.row);
+          const toDC = getDisplayCol(arrow.to.col);
+
+          const x1 = fromDC * 100 + 50;
+          const y1 = fromDR * 100 + 50;
+          const x2 = toDC * 100 + 50;
+          const y2 = toDR * 100 + 50;
+
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const shortenBy = 20;
+          const ex = x2 - (dx / dist) * shortenBy;
+          const ey = y2 - (dy / dist) * shortenBy;
+
+          return (
+            <line
+              key={i}
+              x1={x1}
+              y1={y1}
+              x2={ex}
+              y2={ey}
+              stroke={arrow.color}
+              strokeWidth="16"
+              strokeOpacity="0.8"
+              strokeLinecap="round"
+              markerEnd={`url(#arrowhead-${i})`}
+            />
+          );
+        })}
+      </svg>
+    );
+  };
 
   const renderSquares = () => {
     const squares = [];
@@ -206,7 +372,6 @@ export default function Board({
             onTouchStart={(e) => handleTouchStart(e, boardRow, boardCol)}
             onClick={() => handleClick(boardRow, boardCol)}
           >
-            {/* Coordinate labels */}
             {displayCol === 0 && (
               <span className="absolute top-0.5 left-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
                 style={{ color: isLightSquare(boardRow, boardCol) ? '#b58863' : '#e8c690' }}>
@@ -220,11 +385,9 @@ export default function Board({
               </span>
             )}
 
-            {/* Legal move indicator */}
             {legal && !hasCapture && <div className="legal-dot" />}
             {legal && hasCapture && <div className="legal-capture" />}
 
-            {/* Piece */}
             {piece && !isDragging && (
               <div className="absolute inset-[6%] flex items-center justify-center piece">
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
@@ -243,13 +406,20 @@ export default function Board({
       className="relative aspect-square w-full select-none rounded-lg shadow-xl overflow-hidden board-no-select"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={(e) => {
+        handleMouseUp(e);
+        setRightClickStart(null);
+        setRightDragPos(null);
+      }}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={handleContextMenu}
+      tabIndex={-1}
     >
       {renderSquares()}
 
-      {/* Dragging piece overlay */}
+      {renderArrowSvg()}
+
       {dragPiece && dragPos && board[dragPiece.row][dragPiece.col] && (
         <div
           className="absolute pointer-events-none piece-dragging"

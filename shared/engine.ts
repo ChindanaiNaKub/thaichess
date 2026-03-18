@@ -323,6 +323,21 @@ export function moveToNotation(move: Move, piece: Piece): string {
   return `${prefix}${capture}${dest}${promo}`;
 }
 
+export function getBoardAtMove(initialBoard: Board, moves: Move[], moveIndex: number): Board {
+  let board = cloneBoard(initialBoard);
+  const count = Math.min(moveIndex + 1, moves.length);
+  for (let i = 0; i < count; i++) {
+    const move = moves[i];
+    board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
+    board[move.from.row][move.from.col] = null;
+    if (move.promoted) {
+      const piece = board[move.to.row][move.to.col]!;
+      board[move.to.row][move.to.col] = { type: 'PM', color: piece.color };
+    }
+  }
+  return board;
+}
+
 export function getAllPieces(board: Board, color: PieceColor): { piece: Piece; pos: Position }[] {
   const pieces: { piece: Piece; pos: Position }[] = [];
   for (let row = 0; row < 8; row++) {

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
-import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard } from '@shared/engine';
+import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import Board from './Board';
+import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import Header from './Header';
@@ -17,6 +18,34 @@ export default function LocalGame() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
+  const [arrows, setArrows] = useState<Arrow[]>([]);
+  const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!gameState.gameOver || gameState.moveHistory.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const moveCount = gameState.moveHistory.length;
+      const current = viewMoveIndex ?? moveCount - 1;
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setViewMoveIndex(Math.max(-1, current - 1));
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setViewMoveIndex(Math.min(moveCount - 1, current + 1));
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setViewMoveIndex(-1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setViewMoveIndex(moveCount - 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, viewMoveIndex]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
@@ -30,6 +59,7 @@ export default function LocalGame() {
           setGameState(newState);
           setSelectedSquare(null);
           setLegalMoves([]);
+          setArrows([]);
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
           else if (lastMove.captured) playCaptureSound();
@@ -64,6 +94,7 @@ export default function LocalGame() {
         setGameState(newState);
         setSelectedSquare(null);
         setLegalMoves([]);
+        setArrows([]);
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
         else if (lastMove.captured) playCaptureSound();
@@ -82,15 +113,20 @@ export default function LocalGame() {
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
+    setArrows([]);
+    setViewMoveIndex(null);
   };
 
   const getLastMove = (): Move | null => {
     if (gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+    const idx = viewMoveIndex ?? gameState.moveHistory.length - 1;
+    if (idx < 0) return null;
+    return gameState.moveHistory[idx];
   };
 
   const getCheckSquare = (): Position | null => {
     if (!gameState.isCheck) return null;
+    if (viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1) return null;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const piece = gameState.board[row][col];
@@ -102,10 +138,25 @@ export default function LocalGame() {
     return null;
   };
 
+  const getDisplayBoard = () => {
+    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
+      return gameState.board;
+    }
+    if (viewMoveIndex === -1) return createInitialBoard();
+    return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
+  };
+
+  const handleMoveClick = useCallback((index: number) => {
+    if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
+    setViewMoveIndex(index);
+  }, [gameState.moveHistory.length, viewMoveIndex]);
+
   const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
 
+  const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header subtitle={t('local.title')} />
 
       <main className="flex-1 flex items-center justify-center px-4 py-4">
@@ -128,17 +179,19 @@ export default function LocalGame() {
             </div>
 
             <Board
-              board={gameState.board}
+              board={getDisplayBoard()}
               playerColor={viewAs}
-              isMyTurn={true}
-              legalMoves={legalMoves}
-              selectedSquare={selectedSquare}
+              isMyTurn={!isViewingHistory}
+              legalMoves={isViewingHistory ? [] : legalMoves}
+              selectedSquare={isViewingHistory ? null : selectedSquare}
               lastMove={getLastMove()}
-              isCheck={gameState.isCheck}
+              isCheck={isViewingHistory ? false : gameState.isCheck}
               checkSquare={getCheckSquare()}
               onSquareClick={handleSquareClick}
               onPieceDrop={handlePieceDrop}
-              disabled={gameState.gameOver}
+              disabled={gameState.gameOver || isViewingHistory}
+              arrows={arrows}
+              onArrowsChange={setArrows}
             />
 
             <div className={`
@@ -158,7 +211,18 @@ export default function LocalGame() {
           </div>
 
           <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
-            <MoveHistory moves={gameState.moveHistory} initialBoard={createInitialBoard()} />
+            <MoveHistory
+              moves={gameState.moveHistory}
+              initialBoard={createInitialBoard()}
+              currentMoveIndex={viewMoveIndex ?? undefined}
+              onMoveClick={gameState.gameOver ? handleMoveClick : undefined}
+            />
+
+            {gameState.gameOver && gameState.moveHistory.length > 0 && (
+              <div className="text-center text-xs text-text-dim">
+                Use arrow keys to navigate moves
+              </div>
+            )}
 
             <button
               onClick={handleReset}
