@@ -1,12 +1,21 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
 services:
   - type: web
     name: makruk-thai-chess
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build --workspace=client
-    startCommand: npx tsx server/src/index.ts
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 22
+        value: "22"
+    # SQLite: default DATA_DIR is ./data at repo root — ephemeral on free web (resets on redeploy).
+    # For persistent DB, add a disk in the Render dashboard and set DATA_DIR to the mount path, e.g.:
+    # disk:
+    #   name: makruk-data
+    #   mountPath: /var/makruk-data
+    #   sizeGB: 1
+    # Then add env: DATA_DIR=/var/makruk-data
