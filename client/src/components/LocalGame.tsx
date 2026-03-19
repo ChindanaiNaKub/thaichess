@@ -8,6 +8,7 @@ import Board from './Board';
 import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
+import GameOverPanel from './GameOverPanel';
 import Header from './Header';
 
 export default function LocalGame() {
@@ -18,6 +19,7 @@ export default function LocalGame() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
 
@@ -46,6 +48,10 @@ export default function LocalGame() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState, viewMoveIndex]);
+
+  useEffect(() => {
+    if (gameOverInfo) setShowGameOverModal(true);
+  }, [gameOverInfo]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
@@ -113,6 +119,7 @@ export default function LocalGame() {
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
+    setShowGameOverModal(false);
     setArrows([]);
     setViewMoveIndex(null);
   };
@@ -211,6 +218,26 @@ export default function LocalGame() {
           </div>
 
           <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
+            {/* Inline Game Over Panel (Lichess-style) */}
+            {gameOverInfo && (
+              <GameOverPanel
+                winner={gameOverInfo.winner}
+                reason={gameOverInfo.reason}
+                playerColor={viewAs}
+                onRematch={handleReset}
+                onNewGame={() => navigate('/')}
+                onAnalyze={gameState.moveHistory.length > 0
+                  ? () => {
+                      const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
+                      const result = gameState.winner || 'draw';
+                      const reason = gameOverInfo.reason;
+                      navigate(`/analysis/local?moves=${movesParam}&result=${result}&reason=${reason}`);
+                    }
+                  : undefined
+                }
+              />
+            )}
+
             <MoveHistory
               moves={gameState.moveHistory}
               initialBoard={createInitialBoard()}
@@ -224,30 +251,35 @@ export default function LocalGame() {
               </div>
             )}
 
-            <button
-              onClick={handleReset}
-              className="w-full py-2.5 px-4 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
-            >
-              ↺ {t('common.new_game')}
-            </button>
-
-            <button
-              onClick={() => navigate('/')}
-              className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
-            >
-              {t('local.play_online')}
-            </button>
+            {!gameState.gameOver && (
+              <button
+                onClick={() => navigate('/')}
+                className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
+              >
+                {t('local.play_online')}
+              </button>
+            )}
           </div>
         </div>
       </main>
 
-      {gameOverInfo && (
+      {gameOverInfo && showGameOverModal && (
         <GameOverModal
           winner={gameOverInfo.winner}
           reason={gameOverInfo.reason}
           playerColor={viewAs}
           onRematch={handleReset}
           onNewGame={() => navigate('/')}
+          onAnalyze={gameState.moveHistory.length > 0
+            ? () => {
+                const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
+                const result = gameState.winner || 'draw';
+                const reason = gameOverInfo.reason;
+                navigate(`/analysis/local?moves=${movesParam}&result=${result}&reason=${reason}`);
+              }
+            : undefined
+          }
+          onClose={() => setShowGameOverModal(false)}
         />
       )}
     </div>

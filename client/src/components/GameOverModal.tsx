@@ -7,9 +7,11 @@ interface GameOverModalProps {
   playerColor: PieceColor | null;
   onRematch: () => void;
   onNewGame: () => void;
+  onAnalyze?: () => void;
+  onClose?: () => void;
 }
 
-export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame }: GameOverModalProps) {
+export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame, onAnalyze, onClose }: GameOverModalProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
@@ -39,8 +41,24 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fadeIn p-4">
-      <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-sm w-full animate-slideUp shadow-2xl">
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fadeIn p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-sm w-full animate-slideUp shadow-2xl relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg text-text-dim hover:text-text-bright hover:bg-surface-hover transition-colors text-lg"
+            aria-label={t('common.close')}
+          >
+            ✕
+          </button>
+        )}
+
         <div className="text-center">
           <div className="text-5xl mb-3">{getIcon()}</div>
           <h2 className={`text-2xl font-bold mb-1 ${
@@ -51,6 +69,14 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
           <p className="text-text-dim text-sm mb-6">{getReasonText()}</p>
 
           <div className="flex flex-col gap-3">
+            {onAnalyze && (
+              <button
+                onClick={onAnalyze}
+                className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+              >
+                🔍 {t('analysis.analyze')}
+              </button>
+            )}
             <button
               onClick={onRematch}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors"

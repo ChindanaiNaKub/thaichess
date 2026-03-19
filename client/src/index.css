@@ -250,6 +250,14 @@
   background: oklch(0.32 0.015 65);
 }
 
+/* ─── Eval bar ───────────────────────────────────────────────────── */
+
+.eval-bar {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  aspect-ratio: auto;
+}
+
 /* ─── Responsive board ───────────────────────────────────────────── */
 
 @media (max-width: 640px) {

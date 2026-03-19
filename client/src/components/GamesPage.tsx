@@ -106,6 +106,7 @@ export default function GamesPage() {
                     <th className="px-3 sm:px-4 py-3 font-medium">{t('games.col_result')}</th>
                     <th className="px-3 sm:px-4 py-3 font-medium hidden md:table-cell">{t('games.col_moves')}</th>
                     <th className="px-3 sm:px-4 py-3 font-medium text-right">{t('games.col_when')}</th>
+                    <th className="px-3 sm:px-4 py-3 font-medium text-right"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,6 +133,15 @@ export default function GamesPage() {
                         <td className="px-3 sm:px-4 py-3 text-text-dim hidden md:table-cell">{game.move_count}</td>
                         <td className="px-3 sm:px-4 py-3 text-text-dim text-right text-xs whitespace-nowrap">
                           {timeAgo(game.finished_at)}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/analysis/${game.id}`); }}
+                            className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs rounded transition-colors"
+                            title={t('analysis.analyze')}
+                          >
+                            🔍
+                          </button>
                         </td>
                       </tr>
                     );
