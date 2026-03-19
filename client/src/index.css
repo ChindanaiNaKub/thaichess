@@ -25,6 +25,7 @@
   --color-primary-light: oklch(0.66 0.18 135);
   --color-accent: oklch(0.62 0.14 70);
   --color-danger: oklch(0.52 0.20 25);
+  --color-success: oklch(0.58 0.16 120);
 
   /* Text — tinted, never pure gray */
   --color-text: oklch(0.76 0.015 65);
@@ -178,8 +179,8 @@
 }
 .piece-dragging {
   z-index: 100;
-  transform: scale(1.12);
-  filter: drop-shadow(0 6px 12px oklch(0.10 0.02 65 / 0.5));
+  transform: scale(1.1);
+  filter: drop-shadow(0 8px 16px oklch(0.10 0.02 65 / 0.6));
 }
 
 /* ─── Motion ─────────────────────────────────────────────────────────

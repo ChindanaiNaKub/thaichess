@@ -61,6 +61,7 @@ export default function Board({
   const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
   const [rightClickStart, setRightClickStart] = useState<Position | null>(null);
   const [rightDragPos, setRightDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [pieceAnimations, setPieceAnimations] = useState<Map<string, 'lift' | 'settle'>>(new Map());
   const boardRef = useRef<HTMLDivElement>(null);
 
   const arrows = externalArrows ?? internalArrows;
@@ -99,11 +100,9 @@ export default function Board({
     return isCheck && checkSquare?.row === row && checkSquare?.col === col;
   }, [isCheck, checkSquare]);
 
-  const isPremoveSquare = useCallback((row: number, col: number) => {
-    if (!premove) return false;
-    return (premove.from.row === row && premove.from.col === col) ||
-           (premove.to.row === row && premove.to.col === col);
-  }, [premove]);
+  const isLastMoved = useCallback((row: number, col: number) => {
+    return lastMove?.to.row === row && lastMove?.to.col === col;
+  }, [lastMove]);
 
   const getSquareHighlight = useCallback((row: number, col: number): string | null => {
     if (!squareHighlights) return null;
@@ -146,6 +145,12 @@ export default function Board({
     const piece = board[row][col];
     if (piece && piece.color === playerColor) {
       setDragPiece({ row, col });
+      setPieceAnimations(prev => new Map(prev).set(`${row}-${col}`, 'lift'));
+      setTimeout(() => setPieceAnimations(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(`${row}-${col}`);
+        return newMap;
+      }), 150);
       onSquareClick({ row, col });
     }
   };
@@ -206,6 +211,12 @@ export default function Board({
 
       if (targetRow !== dragPiece.row || targetCol !== dragPiece.col) {
         onPieceDrop(dragPiece, { row: targetRow, col: targetCol });
+        setPieceAnimations(prev => new Map(prev).set(`${targetRow}-${targetCol}`, 'settle'));
+        setTimeout(() => setPieceAnimations(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(`${targetRow}-${targetCol}`);
+          return newMap;
+        }), 200);
       }
     }
 
@@ -427,7 +438,7 @@ export default function Board({
             {legal && hasCapture && <div className="legal-capture" />}
 
             {piece && !isDragging && (
-              <div className="absolute inset-[6%] flex items-center justify-center piece">
+              <div className={`absolute inset-[6%] flex items-center justify-center piece ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}>
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
               </div>
             )}
