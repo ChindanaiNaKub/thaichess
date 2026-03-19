@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import type { PieceType, PieceColor } from '@shared/types';
 
 interface PieceSVGProps {
@@ -9,59 +8,16 @@ interface PieceSVGProps {
 }
 
 export default function PieceSVG({ type, color, size, className }: PieceSVGProps) {
-  const uid = useId().replace(/:/g, '');
-  const ids = {
-    body: `${uid}-body`,
-    ring: `${uid}-ring`,
-    mark: `${uid}-mark`,
-  };
-
-  const palette = color === 'white'
-    ? {
-        bodyTop: '#f8f8f8',
-        bodyMid: '#ececec',
-        bodyBottom: '#d5d5d5',
-        rim: '#8f949a',
-        ring: '#ffffff',
-        mark: '#2f3742',
-        glow: 'rgba(255,255,255,0.65)',
-        shadow: 'rgba(18, 12, 8, 0.30)',
-      }
-    : {
-        bodyTop: '#50555d',
-        bodyMid: '#2f343c',
-        bodyBottom: '#1f2329',
-        rim: '#7a8087',
-        ring: '#a2a8b0',
-        mark: '#e9edf2',
-        glow: 'rgba(255,255,255,0.16)',
-        shadow: 'rgba(6, 4, 3, 0.42)',
-      };
-
-  const markStroke = 2.8;
+  const fill = color === 'white' ? '#fff' : '#1a1a1a';
+  const stroke = color === 'white' ? '#333' : '#666';
+  const accent = color === 'white' ? '#e8c690' : '#555';
+  const textColor = color === 'white' ? '#333' : '#ccc';
 
   const baseCircle = (
     <>
-      <defs>
-        <linearGradient id={ids.body} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={palette.bodyTop} />
-          <stop offset="56%" stopColor={palette.bodyMid} />
-          <stop offset="100%" stopColor={palette.bodyBottom} />
-        </linearGradient>
-        <linearGradient id={ids.ring} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={palette.ring} stopOpacity="0.95" />
-          <stop offset="100%" stopColor={palette.ring} stopOpacity="0.2" />
-        </linearGradient>
-        <radialGradient id={ids.mark} cx="0.3" cy="0.2" r="1.1">
-          <stop offset="0%" stopColor={palette.mark} stopOpacity="1" />
-          <stop offset="100%" stopColor={palette.mark} stopOpacity="0.88" />
-        </radialGradient>
-      </defs>
-
-      <ellipse cx="40" cy="44" rx="26" ry="22" fill={palette.shadow} />
-      <circle cx="40" cy="40" r="29" fill={`url(#${ids.body})`} stroke={palette.rim} strokeWidth="2.2" />
-      <circle cx="40" cy="40" r="23.8" fill="none" stroke={`url(#${ids.ring})`} strokeWidth="1.2" />
-      <path d="M21 28 Q40 14 59 28" stroke={palette.glow} strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="40" cy="42" r="30" fill={color === 'white' ? '#d4a76a' : '#2a2a2a'} opacity="0.5" />
+      <circle cx="40" cy="40" r="30" fill={fill} stroke={stroke} strokeWidth="2.5" />
+      <circle cx="40" cy="40" r="25" fill="none" stroke={accent} strokeWidth="1" opacity="0.6" />
     </>
   );
 
@@ -71,16 +27,18 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Modern crown */}
+            {/* Crown */}
             <path
-              d="M27 47 L27 38 L32.5 41 L36.5 33.5 L40 39 L43.5 33.5 L47.5 41 L53 38 L53 47 Z"
-              fill={`url(#${ids.mark})`}
-              stroke={palette.mark}
-              strokeWidth="1.1"
+              d="M28 45 L28 38 L32 42 L36 34 L40 40 L44 34 L48 42 L52 38 L52 45 Z"
+              fill={textColor}
+              stroke={textColor}
+              strokeWidth="1"
               strokeLinejoin="round"
             />
-            <rect x="28.5" y="47" width="23" height="3" rx="1.5" fill={palette.mark} opacity="0.95" />
-            <circle cx="40" cy="30" r="2.4" fill={palette.mark} />
+            <rect x="29" y="45" width="22" height="3" rx="1" fill={textColor} />
+            {/* Cross on top */}
+            <rect x="38.5" y="28" width="3" height="8" rx="1" fill={textColor} />
+            <rect x="36" y="30.5" width="8" height="3" rx="1" fill={textColor} />
           </g>
         );
 
@@ -88,20 +46,20 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Geometric jewel */}
+            {/* Tiered diamond/gem shape */}
             <path
-              d="M40 27 L51 40 L40 53 L29 40 Z"
+              d="M40 28 L49 40 L40 52 L31 40 Z"
               fill="none"
-              stroke={palette.mark}
-              strokeWidth={markStroke}
+              stroke={textColor}
+              strokeWidth="2.5"
               strokeLinejoin="round"
             />
             <path
-              d="M40 33 L45.8 40 L40 47 L34.2 40 Z"
-              fill={palette.mark}
-              opacity="0.3"
+              d="M40 33 L46 40 L40 47 L34 40 Z"
+              fill={textColor}
+              opacity="0.4"
             />
-            <circle cx="40" cy="40" r="2" fill={palette.mark} />
+            <circle cx="40" cy="40" r="2.5" fill={textColor} />
           </g>
         );
 
@@ -110,20 +68,20 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
           <g>
             {baseCircle}
             <path
-              d="M40 27 L51 40 L40 53 L29 40 Z"
+              d="M40 28 L49 40 L40 52 L31 40 Z"
               fill="none"
-              stroke={palette.mark}
-              strokeWidth={markStroke}
+              stroke={textColor}
+              strokeWidth="2.5"
               strokeLinejoin="round"
             />
             <path
-              d="M40 33 L45.8 40 L40 47 L34.2 40 Z"
-              fill={palette.mark}
-              opacity="0.3"
+              d="M40 33 L46 40 L40 47 L34 40 Z"
+              fill={textColor}
+              opacity="0.4"
             />
-            <circle cx="40" cy="40" r="2" fill={palette.mark} />
-            {/* Promotion marker */}
-            <circle cx="40" cy="23.8" r="2.1" fill={color === 'white' ? '#2e8a3e' : '#8ed79b'} />
+            <circle cx="40" cy="40" r="2.5" fill={textColor} />
+            {/* Promotion mark - small circle at top */}
+            <circle cx="40" cy="25" r="2" fill={color === 'white' ? '#cc3333' : '#cc6666'} />
           </g>
         );
 
@@ -131,20 +89,20 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Minimal spire */}
+            {/* Temple spire / pointed shape */}
             <path
-              d="M40 27 L47.6 44 L44 49 L36 49 L32.4 44 Z"
+              d="M40 27 L47 44 L44 48 L36 48 L33 44 Z"
               fill="none"
-              stroke={palette.mark}
-              strokeWidth={markStroke}
+              stroke={textColor}
+              strokeWidth="2.5"
               strokeLinejoin="round"
             />
             <path
-              d="M40 32.5 L44.8 44 L35.2 44 Z"
-              fill={palette.mark}
+              d="M40 32 L45 44 L35 44 Z"
+              fill={textColor}
               opacity="0.3"
             />
-            <line x1="32.6" y1="44" x2="47.4" y2="44" stroke={palette.mark} strokeWidth="1.6" />
+            <line x1="33" y1="44" x2="47" y2="44" stroke={textColor} strokeWidth="1.5" />
           </g>
         );
 
@@ -152,12 +110,13 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Tower glyph */}
-            <rect x="31" y="36" width="18" height="13.8" rx="1.3" fill="none" stroke={palette.mark} strokeWidth={markStroke} />
-            <rect x="31" y="31.2" width="4.2" height="6" rx="0.8" fill={palette.mark} />
-            <rect x="37.9" y="31.2" width="4.2" height="6" rx="0.8" fill={palette.mark} />
-            <rect x="44.8" y="31.2" width="4.2" height="6" rx="0.8" fill={palette.mark} />
-            <line x1="33.5" y1="43" x2="46.5" y2="43" stroke={palette.mark} strokeWidth="1.3" opacity="0.8" />
+            {/* Castle tower */}
+            <rect x="31" y="36" width="18" height="14" rx="1" fill="none" stroke={textColor} strokeWidth="2.5" />
+            <rect x="31" y="32" width="4" height="6" fill={textColor} />
+            <rect x="38" y="32" width="4" height="6" fill={textColor} />
+            <rect x="45" y="32" width="4" height="6" fill={textColor} />
+            <rect x="35" y="36" width="3" height="5" rx="1" fill={fill} stroke={textColor} strokeWidth="0.5" />
+            <rect x="42" y="36" width="3" height="5" rx="1" fill={fill} stroke={textColor} strokeWidth="0.5" />
           </g>
         );
 
@@ -165,16 +124,17 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Stylized horse head */}
+            {/* Horse head */}
             <path
-              d="M34 50 L34 39.8 L36.7 35.8 L34.5 31.8 L38.7 28.2 L43 30.5 L45.5 28.8 L45.2 33.2 L48.6 36.1 L46.8 42.1 L46.8 50"
+              d="M34 50 L34 40 L36 36 L34 32 L38 28 L42 30 L44 28 L44 33 L48 36 L46 42 L46 50"
               fill="none"
-              stroke={palette.mark}
-              strokeWidth={markStroke}
+              stroke={textColor}
+              strokeWidth="2.5"
               strokeLinejoin="round"
               strokeLinecap="round"
             />
-            <circle cx="39.5" cy="33.2" r="1.45" fill={palette.mark} />
+            {/* Eye */}
+            <circle cx="39" cy="33" r="1.5" fill={textColor} />
           </g>
         );
 
@@ -182,19 +142,19 @@ export default function PieceSVG({ type, color, size, className }: PieceSVGProps
         return (
           <g>
             {baseCircle}
-            {/* Modern seed glyph */}
-            <ellipse cx="40" cy="40" rx="8" ry="10" fill="none" stroke={palette.mark} strokeWidth={markStroke} />
-            <line x1="40" y1="30.2" x2="40" y2="49.8" stroke={palette.mark} strokeWidth="1.6" />
+            {/* Shell/cowrie shape */}
+            <ellipse cx="40" cy="40" rx="8" ry="10" fill="none" stroke={textColor} strokeWidth="2.5" />
+            <line x1="40" y1="30" x2="40" y2="50" stroke={textColor} strokeWidth="1.5" />
             <path
-              d="M36 34.1 Q40 37 44 34.1"
+              d="M36 34 Q40 37 44 34"
               fill="none"
-              stroke={palette.mark}
+              stroke={textColor}
               strokeWidth="1"
             />
             <path
-              d="M36 45.9 Q40 43 44 45.9"
+              d="M36 46 Q40 43 44 46"
               fill="none"
-              stroke={palette.mark}
+              stroke={textColor}
               strokeWidth="1"
             />
           </g>
