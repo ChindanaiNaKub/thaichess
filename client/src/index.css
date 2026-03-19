@@ -33,10 +33,8 @@
   --color-text-dim: oklch(0.56 0.015 65);
 }
 
-/* ─── Typography ─────────────────────────────────────────────────────
-   DM Sans: geometric, modern, excellent for UI. 
-   Noto Sans Thai: proper Thai script rendering.
-   Modular scale ≈ 1.25 (major third).
+/* ─── Base Layer ─────────────────────────────────────────────────────
+   Global resets, typography, focus styles.
    ──────────────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -72,14 +70,8 @@
     background: oklch(0.58 0.16 135 / 0.35);
     color: var(--color-text-bright);
   }
-}
 
-/* ─── Focus & Interaction ────────────────────────────────────────────
-   Visible focus rings for keyboard users, subtle hover lifts,
-   press feedback on interactive elements.
-   ──────────────────────────────────────────────────────────────────── */
-
-@layer base {
+  /* Focus styles */
   :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
@@ -95,151 +87,166 @@
   }
 }
 
-/* ─── Board squares ──────────────────────────────────────────────── */
-
-.board-square-light {
-  background-color: var(--color-board-light);
-}
-.board-square-dark {
-  background-color: var(--color-board-dark);
-}
-.board-square-selected {
-  background-color: var(--color-board-selected) !important;
-}
-.board-square-lastmove-light {
-  background-color: oklch(0.80 0.12 100) !important;
-}
-.board-square-lastmove-dark {
-  background-color: oklch(0.65 0.12 100) !important;
-}
-.board-square-check {
-  background: radial-gradient(
-    ellipse at center,
-    oklch(0.50 0.28 25 / 0.7) 0%,
-    oklch(0.45 0.18 25 / 0.35) 50%,
-    transparent 80%
-  ) !important;
-}
-
-/* Pre-move square highlights */
-.board-square-premove-light {
-  background-color: oklch(0.65 0.14 250) !important;
-}
-.board-square-premove-dark {
-  background-color: oklch(0.50 0.14 250) !important;
-}
-
-/* Active move highlight in MoveHistory */
-.move-active {
-  background-color: var(--color-primary);
-  color: white;
-  border-radius: 4px;
-}
-.move-clickable {
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.1s ease;
-}
-.move-clickable:hover {
-  background-color: var(--color-surface-hover);
-}
-
-/* ─── Legal-move indicators ──────────────────────────────────────── */
-
-.legal-dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 30%;
-  height: 30%;
-  border-radius: 50%;
-  background-color: oklch(0.20 0 0 / 0.18);
-  pointer-events: none;
-}
-.legal-capture {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 5px solid oklch(0.20 0 0 / 0.18);
-  pointer-events: none;
-  box-sizing: border-box;
-}
-
-/* ─── Piece interaction ──────────────────────────────────────────── */
-
-.piece {
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: transform 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  will-change: transform;
-}
-.piece:active {
-  cursor: grabbing;
-}
-.piece-dragging {
-  z-index: 100;
-  transform: scale(1.1);
-  filter: drop-shadow(0 8px 16px oklch(0.10 0.02 65 / 0.6));
-  will-change: transform, filter;
-}
-
-.piece-lift {
-  transform: scale(1.1);
-  transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* ─── Motion ─────────────────────────────────────────────────────────
-   Subtle, purposeful. Ease-out for enters, ease-in for exits.
-   No bounce or elastic — clean and deliberate.
+/* ─── Components Layer ───────────────────────────────────────────────
+   Reusable component classes.
    ──────────────────────────────────────────────────────────────────── */
 
-@keyframes pieceLand {
-  0%   { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-.piece-landed {
-  animation: pieceLand 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+@layer components {
+  /* Board squares */
+  .board-square-light {
+    background-color: var(--color-board-light);
+  }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
-}
-.animate-fadeIn {
-  animation: fadeIn 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+  .board-square-dark {
+    background-color: var(--color-board-dark);
+  }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-slideUp {
-  animation: slideUp 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+  .board-square-selected {
+    background-color: var(--color-board-selected) !important;
+  }
 
-@keyframes spinnerRotate {
-  to { transform: rotate(360deg); }
-}
+  .board-square-lastmove-light {
+    background-color: oklch(0.80 0.12 100) !important;
+  }
 
-/* ─── Reduced motion ─────────────────────────────────────────────── */
+  .board-square-lastmove-dark {
+    background-color: oklch(0.65 0.12 100) !important;
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .board-square-check {
+    background: radial-gradient(
+      ellipse at center,
+      oklch(0.50 0.28 25 / 0.7) 0%,
+      oklch(0.45 0.18 25 / 0.35) 50%,
+      transparent 80%
+    ) !important;
+  }
+
+  .board-square-premove-light {
+    background-color: oklch(0.65 0.14 250) !important;
+  }
+
+  .board-square-premove-dark {
+    background-color: oklch(0.50 0.14 250) !important;
+  }
+
+  /* Board touch handling */
+  .board-no-select {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  /* Legal move indicators */
+  .legal-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background-color: oklch(0.20 0 0 / 0.18);
+    pointer-events: none;
+  }
+
+  .legal-capture {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 5px solid oklch(0.20 0 0 / 0.18);
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  /* Piece interaction */
+  .piece {
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform;
+  }
+
+  .piece:active {
+    cursor: grabbing;
+  }
+
+  .piece-dragging {
+    z-index: 100;
+    transform: scale(1.1);
+    filter: drop-shadow(0 8px 16px oklch(0.10 0.02 65 / 0.6));
+    will-change: transform, filter;
+  }
+
+  .piece-lift {
+    transform: scale(1.1);
+    transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .piece-landed {
+    animation: pieceLand 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Move history */
+  .move-active {
+    background-color: var(--color-primary);
+    color: white;
+    border-radius: 4px;
+  }
+
+  .move-clickable {
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.1s ease;
+  }
+
+  .move-clickable:hover {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* Animations */
+  .animate-fadeIn {
+    animation: fadeIn 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Eval bar */
+  .eval-bar {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    aspect-ratio: auto;
   }
 }
 
-/* ─── Board touch handling ───────────────────────────────────────── */
+/* ─── Utilities Layer ───────────────────────────────────────────────
+   Keyframes and utility overrides.
+   ──────────────────────────────────────────────────────────────────── */
 
-.board-no-select {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  touch-action: none;
+@layer utilities {
+  /* Keyframes */
+  @keyframes pieceLand {
+    0%   { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spinnerRotate {
+    to { transform: rotate(360deg); }
+  }
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
@@ -258,15 +265,17 @@
   background: oklch(0.32 0.015 65);
 }
 
-/* ─── Eval bar ───────────────────────────────────────────────────── */
+/* ─── Reduced motion ─────────────────────────────────────────────── */
 
-.eval-bar {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
-  aspect-ratio: auto;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* ─── Responsive board ───────────────────────────────────────────── */
+/* ─── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
   .board-square-light, .board-square-dark {

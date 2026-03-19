@@ -15,11 +15,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
-    exclude: ['node_modules', 'dist'],
+    exclude: ['node_modules', 'dist', 'e2e'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
-      exclude: ['node_modules/', 'dist/', '**/*.test.{ts,tsx}', '**/test/'],
+      exclude: ['node_modules/', 'dist/', '**/*.test.{ts,tsx}', '**/test/', 'e2e/'],
     },
     ui: true,
   },
