@@ -489,25 +489,28 @@ export default memo(function Board({
 
       {renderArrowSvg()}
 
-      {dragPiece && dragPos && board[dragPiece.row][dragPiece.col] && (
-        <div
-          className="absolute pointer-events-none piece-dragging"
-          style={{
-            left: `calc(${dragPos.x}px - 6.25%)`,
-            top: `calc(${dragPos.y}px - 6.25%)`,
-            width: '12.5%',
-            height: '12.5%',
-          }}
-        >
-          <div className="absolute inset-[6%]">
-            <PieceSVG
-              type={board[dragPiece.row][dragPiece.col]!.type}
-              color={board[dragPiece.row][dragPiece.col]!.color}
-              className="w-full h-full"
-            />
+      {dragPiece && dragPos && (() => {
+        const draggedPiece = board[dragPiece.row][dragPiece.col];
+        return draggedPiece ? (
+          <div
+            className="absolute pointer-events-none piece-dragging"
+            style={{
+              left: `calc(${dragPos.x}px - 6.25%)`,
+              top: `calc(${dragPos.y}px - 6.25%)`,
+              width: '12.5%',
+              height: '12.5%',
+            }}
+          >
+            <div className="absolute inset-[6%]">
+              <PieceSVG
+                type={draggedPiece.type}
+                color={draggedPiece.color}
+                className="w-full h-full"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
     </div>
   );
 });
