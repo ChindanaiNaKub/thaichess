@@ -5,6 +5,7 @@ import { getLegalMoves, makeMove, isInCheck } from '@shared/engine';
 import { PUZZLES, Puzzle } from '@shared/puzzles';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
 
@@ -363,19 +364,21 @@ function PuzzlePlayer() {
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
           <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             {gameState && (
-              <Board
-                board={gameState.board}
-                playerColor={puzzle.toMove}
-                isMyTurn={status === 'playing'}
-                legalMoves={legalMoves}
-                selectedSquare={selectedSquare || hintSquare}
-                lastMove={getLastMove()}
-                isCheck={gameState.isCheck}
-                checkSquare={getCheckSquare()}
-                onSquareClick={handleSquareClick}
-                onPieceDrop={handlePieceDrop}
-                disabled={status !== 'playing'}
-              />
+              <BoardErrorBoundary onRetry={() => window.location.reload()}>
+                <Board
+                  board={gameState.board}
+                  playerColor={puzzle.toMove}
+                  isMyTurn={status === 'playing'}
+                  legalMoves={legalMoves}
+                  selectedSquare={selectedSquare || hintSquare}
+                  lastMove={getLastMove()}
+                  isCheck={gameState.isCheck}
+                  checkSquare={getCheckSquare()}
+                  onSquareClick={handleSquareClick}
+                  onPieceDrop={handlePieceDrop}
+                  disabled={status !== 'playing'}
+                />
+              </BoardErrorBoundary>
             )}
           </div>
 

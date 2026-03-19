@@ -4,6 +4,7 @@ import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
@@ -185,21 +186,23 @@ export default function LocalGame() {
               </button>
             </div>
 
-            <Board
-              board={getDisplayBoard()}
-              playerColor={viewAs}
-              isMyTurn={!isViewingHistory}
-              legalMoves={isViewingHistory ? [] : legalMoves}
-              selectedSquare={isViewingHistory ? null : selectedSquare}
-              lastMove={getLastMove()}
-              isCheck={isViewingHistory ? false : gameState.isCheck}
-              checkSquare={getCheckSquare()}
-              onSquareClick={handleSquareClick}
-              onPieceDrop={handlePieceDrop}
-              disabled={gameState.gameOver || isViewingHistory}
-              arrows={arrows}
-              onArrowsChange={setArrows}
-            />
+            <BoardErrorBoundary onRetry={() => window.location.reload()}>
+              <Board
+                board={getDisplayBoard()}
+                playerColor={viewAs}
+                isMyTurn={!isViewingHistory}
+                legalMoves={isViewingHistory ? [] : legalMoves}
+                selectedSquare={isViewingHistory ? null : selectedSquare}
+                lastMove={getLastMove()}
+                isCheck={isViewingHistory ? false : gameState.isCheck}
+                checkSquare={getCheckSquare()}
+                onSquareClick={handleSquareClick}
+                onPieceDrop={handlePieceDrop}
+                disabled={gameState.gameOver || isViewingHistory}
+                arrows={arrows}
+                onArrowsChange={setArrows}
+              />
+            </BoardErrorBoundary>
 
             <div className={`
               rounded-lg px-6 py-2.5 text-center font-semibold text-base

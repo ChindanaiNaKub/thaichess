@@ -6,6 +6,7 @@ import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { useGameInteraction } from '../hooks/useGameInteraction';
+import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import Clock from './Clock';
@@ -443,22 +444,24 @@ export default function GamePage() {
             />
 
             {/* Board */}
-            <Board
-              board={getDisplayBoard()}
-              playerColor={playerColor}
-              isMyTurn={isMyTurn}
-              legalMoves={isViewingHistory ? [] : legalMoves}
-              selectedSquare={isViewingHistory ? null : selectedSquare}
-              lastMove={getLastMove()}
-              isCheck={isViewingHistory ? false : gameState.isCheck}
-              checkSquare={getCheckSquare()}
-              onSquareClick={handleSquareClick}
-              onPieceDrop={handlePieceDrop}
-              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-              premove={premove}
-              arrows={arrows}
-              onArrowsChange={setArrows}
-            />
+            <BoardErrorBoundary onRetry={() => window.location.reload()}>
+              <Board
+                board={getDisplayBoard()}
+                playerColor={playerColor}
+                isMyTurn={isMyTurn}
+                legalMoves={isViewingHistory ? [] : legalMoves}
+                selectedSquare={isViewingHistory ? null : selectedSquare}
+                lastMove={getLastMove()}
+                isCheck={isViewingHistory ? false : gameState.isCheck}
+                checkSquare={getCheckSquare()}
+                onSquareClick={handleSquareClick}
+                onPieceDrop={handlePieceDrop}
+                disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+                premove={premove}
+                arrows={arrows}
+                onArrowsChange={setArrows}
+              />
+            </BoardErrorBoundary>
 
             {/* Player Clock */}
             <Clock

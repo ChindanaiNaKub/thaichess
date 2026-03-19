@@ -5,6 +5,7 @@ import { getLegalMoves, makeMove, createInitialGameState, createInitialBoard, ge
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
@@ -429,22 +430,24 @@ export default function BotGame() {
               </div>
             </div>
 
-            <Board
-              board={getDisplayBoard()}
-              playerColor={playerColor}
-              isMyTurn={isPlayerTurn && !botThinking}
-              legalMoves={isViewingHistory ? [] : legalMoves}
-              selectedSquare={isViewingHistory ? null : selectedSquare}
-              lastMove={getLastMove()}
-              isCheck={isViewingHistory ? false : gameState.isCheck}
-              checkSquare={getCheckSquare()}
-              onSquareClick={handleSquareClick}
-              onPieceDrop={handlePieceDrop}
-              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-              premove={premove}
-              arrows={arrows}
-              onArrowsChange={setArrows}
-            />
+            <BoardErrorBoundary onRetry={() => window.location.reload()}>
+              <Board
+                board={getDisplayBoard()}
+                playerColor={playerColor}
+                isMyTurn={isPlayerTurn && !botThinking}
+                legalMoves={isViewingHistory ? [] : legalMoves}
+                selectedSquare={isViewingHistory ? null : selectedSquare}
+                lastMove={getLastMove()}
+                isCheck={isViewingHistory ? false : gameState.isCheck}
+                checkSquare={getCheckSquare()}
+                onSquareClick={handleSquareClick}
+                onPieceDrop={handlePieceDrop}
+                disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+                premove={premove}
+                arrows={arrows}
+                onArrowsChange={setArrows}
+              />
+            </BoardErrorBoundary>
 
             <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
               isPlayerTurn && !gameState.gameOver

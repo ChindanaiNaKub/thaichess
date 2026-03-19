@@ -8,6 +8,7 @@ import {
   AnalysisProgress,
 } from '@shared/analysis';
 import { useTranslation } from '../lib/i18n';
+import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
@@ -338,23 +339,25 @@ export default function AnalysisPage() {
               </div>
 
               {/* Board */}
-              <Board
-                board={getDisplayBoard()}
-                playerColor={viewAs}
-                isMyTurn={false}
-                legalMoves={[]}
-                selectedSquare={null}
-                lastMove={null}
-                isCheck={!!getCheckSquare()}
-                checkSquare={getCheckSquare()}
-                onSquareClick={() => {}}
-                onPieceDrop={() => {}}
-                disabled={true}
-                arrows={[...analysisArrows, ...arrows]}
-                onArrowsChange={setArrows}
-                squareHighlights={analysisHighlights}
-                squareAnnotations={analysisAnnotations}
-              />
+              <BoardErrorBoundary onRetry={() => window.location.reload()}>
+                <Board
+                  board={getDisplayBoard()}
+                  playerColor={viewAs}
+                  isMyTurn={false}
+                  legalMoves={[]}
+                  selectedSquare={null}
+                  lastMove={null}
+                  isCheck={!!getCheckSquare()}
+                  checkSquare={getCheckSquare()}
+                  onSquareClick={() => {}}
+                  onPieceDrop={() => {}}
+                  disabled={true}
+                  arrows={[...analysisArrows, ...arrows]}
+                  onArrowsChange={setArrows}
+                  squareHighlights={analysisHighlights}
+                  squareAnnotations={analysisAnnotations}
+                />
+              </BoardErrorBoundary>
 
               {/* Nav buttons */}
               <div className="flex items-center justify-center gap-1">
