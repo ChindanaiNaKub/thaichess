@@ -80,7 +80,7 @@ export default function FeedbackMessagesPage() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="about" />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
+      <main id="main-content" className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 sm:mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('feedback_page.title')}</h2>
           <span className="text-text-dim text-xs sm:text-sm">{t('feedback_page.count', { count: total })}</span>

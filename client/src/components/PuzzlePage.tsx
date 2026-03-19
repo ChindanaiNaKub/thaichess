@@ -71,7 +71,7 @@ function PuzzleListPage() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="puzzles" subtitle={t('nav.puzzles')} />
 
-      <main className="flex-1 px-4 py-6 sm:py-8 max-w-3xl mx-auto w-full">
+      <main id="main-content" className="flex-1 px-4 py-6 sm:py-8 max-w-3xl mx-auto w-full">
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-text-bright mb-2">{t('puzzle.title')}</h2>
           <p className="text-text-dim text-sm sm:text-base">
@@ -360,7 +360,7 @@ function PuzzlePlayer() {
         }
       />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-4">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-4">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
           <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             {gameState && (

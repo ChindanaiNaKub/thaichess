@@ -286,7 +286,7 @@ export default function AnalysisPage() {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center p-4">
+        <main id="main-content" className="flex-1 flex items-center justify-center p-4">
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 max-w-md w-full text-center">
             <div className="text-4xl mb-4">⚠️</div>
             <h2 className="text-lg font-bold text-danger mb-2">{t('game.error')}</h2>
@@ -308,7 +308,7 @@ export default function AnalysisPage() {
     <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header subtitle={t('analysis.title')} />
 
-      <main className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
+      <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1200px]">
           {/* Board + Eval Bar (sticky on desktop) */}
           <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px] lg:sticky lg:top-4 lg:self-start">

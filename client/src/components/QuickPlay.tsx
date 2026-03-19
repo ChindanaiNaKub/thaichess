@@ -108,7 +108,7 @@ export default function QuickPlay() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header subtitle={t('quick.title')} />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
         {searching ? (
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 w-full max-w-md text-center animate-slideUp">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />

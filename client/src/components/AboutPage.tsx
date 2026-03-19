@@ -25,7 +25,7 @@ export default function AboutPage() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="about" />
 
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
+      <main id="main-content" className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
         {/* Mission */}
         <section className="mb-8 sm:mb-10">
           <h2 className="text-2xl sm:text-3xl font-bold text-text-bright mb-4">{t('about.title')}</h2>

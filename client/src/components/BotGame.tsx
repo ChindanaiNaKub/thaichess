@@ -313,7 +313,7 @@ export default function BotGame() {
       <div className="min-h-screen bg-surface flex flex-col">
         <Header subtitle={t('bot.title')} />
 
-        <main className="flex-1 flex items-center justify-center px-4 py-8">
+        <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
             <h2 className="text-2xl font-bold text-text-bright mb-6 text-center">{t('bot.setup_title')}</h2>
 
@@ -415,7 +415,7 @@ export default function BotGame() {
         </div>
       )}
 
-      <main className="flex-1 flex items-center justify-center px-4 py-4">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-4">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
           <div className="flex flex-col items-center gap-2 sm:gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${

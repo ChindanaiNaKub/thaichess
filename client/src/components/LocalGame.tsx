@@ -167,7 +167,7 @@ export default function LocalGame() {
     <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header subtitle={t('local.title')} />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-4">
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-4">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
           <div className="flex flex-col items-center gap-2 sm:gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
             <div className="flex items-center gap-2 text-sm">

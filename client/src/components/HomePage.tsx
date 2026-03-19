@@ -82,7 +82,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="play" subtitle={t('app.tagline')} />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+      <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-8 sm:mb-10">
           <div className="flex items-center justify-center gap-1 mb-4">

@@ -71,9 +71,9 @@
     color: var(--color-text-bright);
   }
 
-  /* Focus styles */
+  /* Focus styles - enhanced for WCAG AAA (3:1 on dark backgrounds) */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-primary-light);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -81,8 +81,39 @@
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
-  textarea:focus-visible {
-    outline: 2px solid var(--color-primary);
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-primary-light);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px oklch(0.58 0.16 135 / 0.2);
+  }
+
+  /* High contrast focus for better visibility */
+  button:focus-visible:not(:disabled),
+  a:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 3px;
+  }
+
+  /* Skip to content link - hidden until focused */
+  .skip-to-content {
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    background: var(--color-primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    z-index: 9999;
+    transition: top 0.15s ease;
+  }
+
+  .skip-to-content:focus {
+    top: 1rem;
+    outline: 3px solid var(--color-text-bright);
     outline-offset: 2px;
   }
 }

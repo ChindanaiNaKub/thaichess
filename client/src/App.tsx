@@ -30,6 +30,9 @@ function RouteFallback() {
 export default function App() {
   return (
     <div className="min-h-screen bg-surface">
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />

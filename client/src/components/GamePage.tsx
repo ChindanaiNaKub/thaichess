@@ -295,7 +295,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
 
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-md w-full text-center animate-slideUp">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />
             <h2 className="text-xl sm:text-2xl font-bold text-text-bright mb-2">{t('game.waiting_title')}</h2>
@@ -334,7 +334,7 @@ export default function GamePage() {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-md w-full text-center">
             <div className="text-4xl mb-4">⚠️</div>
             <h2 className="text-lg sm:text-xl font-bold text-danger mb-2">{t('game.error')}</h2>
@@ -431,7 +431,7 @@ export default function GamePage() {
       )}
 
       {/* Main Game Area */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 py-4">
+      <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6 py-4">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
           {/* Board Column */}
           <div className="flex flex-col items-center gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-180px)] max-w-[720px]">
