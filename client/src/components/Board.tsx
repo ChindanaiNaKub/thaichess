@@ -8,6 +8,17 @@ export interface Arrow {
   color: string;
 }
 
+export interface SquareHighlight {
+  pos: Position;
+  color: string;
+}
+
+export interface SquareAnnotation {
+  pos: Position;
+  icon: string;
+  bgColor: string;
+}
+
 interface BoardProps {
   board: BoardType;
   playerColor: PieceColor | null;
@@ -23,6 +34,8 @@ interface BoardProps {
   premove?: { from: Position; to: Position } | null;
   arrows?: Arrow[];
   onArrowsChange?: (arrows: Arrow[]) => void;
+  squareHighlights?: SquareHighlight[];
+  squareAnnotations?: SquareAnnotation[];
 }
 
 export default function Board({
@@ -40,6 +53,8 @@ export default function Board({
   premove,
   arrows: externalArrows,
   onArrowsChange,
+  squareHighlights,
+  squareAnnotations,
 }: BoardProps) {
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
@@ -89,6 +104,17 @@ export default function Board({
     return (premove.from.row === row && premove.from.col === col) ||
            (premove.to.row === row && premove.to.col === col);
   }, [premove]);
+
+  const getSquareHighlight = useCallback((row: number, col: number): string | null => {
+    if (!squareHighlights) return null;
+    const hl = squareHighlights.find(h => h.pos.row === row && h.pos.col === col);
+    return hl ? hl.color : null;
+  }, [squareHighlights]);
+
+  const getSquareAnnotation = useCallback((row: number, col: number): SquareAnnotation | null => {
+    if (!squareAnnotations) return null;
+    return squareAnnotations.find(a => a.pos.row === row && a.pos.col === col) || null;
+  }, [squareAnnotations]);
 
   const getSquareFromEvent = (clientX: number, clientY: number): Position | null => {
     if (!boardRef.current) return null;
@@ -250,11 +276,19 @@ export default function Board({
     setDragPos(null);
   };
 
+  const getSquareStyle = (boardRow: number, boardCol: number): React.CSSProperties | undefined => {
+    const hl = getSquareHighlight(boardRow, boardCol);
+    if (hl) return { backgroundColor: hl };
+    return undefined;
+  };
+
   const getSquareClass = (boardRow: number, boardCol: number) => {
     const light = isLightSquare(boardRow, boardCol);
     let cls = light ? 'board-square-light' : 'board-square-dark';
 
-    if (isPremoveSquare(boardRow, boardCol)) {
+    if (getSquareHighlight(boardRow, boardCol)) {
+      cls = '';
+    } else if (isPremoveSquare(boardRow, boardCol)) {
       cls = light ? 'board-square-premove-light' : 'board-square-premove-dark';
     } else if (isSelected(boardRow, boardCol)) {
       cls = 'board-square-selected';
@@ -358,6 +392,9 @@ export default function Board({
         const legal = isLegalMove(boardRow, boardCol);
         const hasCapture = legal && piece !== null;
 
+        const annotation = getSquareAnnotation(boardRow, boardCol);
+        const customStyle = getSquareStyle(boardRow, boardCol);
+
         squares.push(
           <div
             key={`${displayRow}-${displayCol}`}
@@ -367,6 +404,7 @@ export default function Board({
               top: `${displayRow * 12.5}%`,
               width: squareSize,
               height: squareSize,
+              ...customStyle,
             }}
             onMouseDown={(e) => handleMouseDown(e, boardRow, boardCol)}
             onTouchStart={(e) => handleTouchStart(e, boardRow, boardCol)}
@@ -391,6 +429,24 @@ export default function Board({
             {piece && !isDragging && (
               <div className="absolute inset-[6%] flex items-center justify-center piece">
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
+              </div>
+            )}
+
+            {annotation && (
+              <div
+                className="absolute pointer-events-none flex items-center justify-center rounded-full shadow-lg border-2 border-white/80"
+                style={{
+                  top: '-10%',
+                  right: '-10%',
+                  width: '36%',
+                  height: '36%',
+                  backgroundColor: annotation.bgColor,
+                  zIndex: 60,
+                  fontSize: '60%',
+                  lineHeight: 1,
+                }}
+              >
+                {annotation.icon}
               </div>
             )}
           </div>

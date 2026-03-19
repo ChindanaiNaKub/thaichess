@@ -243,6 +243,17 @@ export function getClassificationSymbol(classification: MoveClassification): str
   }
 }
 
+export function getClassificationIcon(classification: MoveClassification): string {
+  switch (classification) {
+    case 'best': return '⭐';
+    case 'excellent': return '✦';
+    case 'good': return '✓';
+    case 'inaccuracy': return '?!';
+    case 'mistake': return '?';
+    case 'blunder': return '??';
+  }
+}
+
 function createEmptySummary(): Record<MoveClassification, number> {
   return { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
 }

@@ -4,12 +4,12 @@ import type { Position, PieceColor, Move, Board as BoardType } from '@shared/typ
 import { createInitialBoard, getBoardAtMove, isInCheck, posToAlgebraic } from '@shared/engine';
 import {
   analyzeGame, GameAnalysis, AnalyzedMove, MoveClassification,
-  getClassificationColor, getClassificationSymbol, formatEval,
+  getClassificationColor, getClassificationSymbol, getClassificationIcon, formatEval,
   AnalysisProgress,
 } from '@shared/analysis';
 import { useTranslation } from '../lib/i18n';
 import Board from './Board';
-import type { Arrow } from './Board';
+import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
 
@@ -170,17 +170,63 @@ export default function AnalysisPage() {
     return null;
   }, [gameData, viewMoveIndex, getDisplayBoard]);
 
-  const bestMoveArrows = useMemo((): Arrow[] => {
-    if (!showBestMove || !analysis || viewMoveIndex < 0 || viewMoveIndex >= analysis.moves.length) return [];
+  const analysisArrows = useMemo((): Arrow[] => {
+    if (!analysis || viewMoveIndex < 0 || viewMoveIndex >= analysis.moves.length) return [];
     const analyzed = analysis.moves[viewMoveIndex];
-    if (!analyzed.bestMove) return [];
-    const classification = analyzed.classification;
-    if (classification === 'best' || classification === 'excellent' || classification === 'good') return [];
-    return [{
-      from: analyzed.bestMove.from,
-      to: analyzed.bestMove.to,
-      color: '#3b82f6',
+    const result: Arrow[] = [];
+
+    if (showBestMove && analyzed.bestMove) {
+      const cls = analyzed.classification;
+      if (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') {
+        result.push({
+          from: analyzed.bestMove.from,
+          to: analyzed.bestMove.to,
+          color: '#56b33080',
+        });
+      }
+    }
+
+    return result;
+  }, [analysis, viewMoveIndex, showBestMove]);
+
+  const analysisHighlights = useMemo((): SquareHighlight[] => {
+    if (!analysis || viewMoveIndex < 0 || viewMoveIndex >= analysis.moves.length) return [];
+    const analyzed = analysis.moves[viewMoveIndex];
+    const cls = analyzed.classification;
+    const color = getClassificationColor(cls);
+
+    const highlights: SquareHighlight[] = [
+      { pos: analyzed.move.to, color: `${color}40` },
+      { pos: analyzed.move.from, color: `${color}25` },
+    ];
+
+    if (showBestMove && analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder')) {
+      highlights.push({ pos: analyzed.bestMove.to, color: '#56b33030' });
+    }
+
+    return highlights;
+  }, [analysis, viewMoveIndex, showBestMove]);
+
+  const analysisAnnotations = useMemo((): SquareAnnotation[] => {
+    if (!analysis || viewMoveIndex < 0 || viewMoveIndex >= analysis.moves.length) return [];
+    const analyzed = analysis.moves[viewMoveIndex];
+    const cls = analyzed.classification;
+
+    const annotations: SquareAnnotation[] = [{
+      pos: analyzed.move.to,
+      icon: getClassificationIcon(cls),
+      bgColor: getClassificationColor(cls),
     }];
+
+    if (showBestMove && analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder')) {
+      annotations.push({
+        pos: analyzed.bestMove.to,
+        icon: '⭐',
+        bgColor: '#56b330',
+      });
+    }
+
+    return annotations;
   }, [analysis, viewMoveIndex, showBestMove]);
 
   const currentAnalyzedMove = useMemo((): AnalyzedMove | null => {
@@ -276,14 +322,16 @@ export default function AnalysisPage() {
                 isMyTurn={false}
                 legalMoves={[]}
                 selectedSquare={null}
-                lastMove={getLastMove()}
+                lastMove={null}
                 isCheck={!!getCheckSquare()}
                 checkSquare={getCheckSquare()}
                 onSquareClick={() => {}}
                 onPieceDrop={() => {}}
                 disabled={true}
-                arrows={[...bestMoveArrows, ...arrows]}
+                arrows={[...analysisArrows, ...arrows]}
                 onArrowsChange={setArrows}
+                squareHighlights={analysisHighlights}
+                squareAnnotations={analysisAnnotations}
               />
 
               {/* Nav buttons */}
@@ -361,11 +409,16 @@ export default function AnalysisPage() {
               </div>
             )}
 
-            {/* Current Move Info */}
+            {/* Game Review Card (Chess.com-style) */}
             {currentAnalyzedMove && (
-              <div className="bg-surface-alt rounded-lg border border-surface-hover p-3">
-                <MoveInfo analyzed={currentAnalyzedMove} t={t} />
-              </div>
+              <ReviewCard
+                analyzed={currentAnalyzedMove}
+                t={t}
+                onNext={() => setViewMoveIndex(Math.min((gameData?.moves.length ?? 1) - 1, viewMoveIndex + 1))}
+                onPrev={() => setViewMoveIndex(Math.max(-1, viewMoveIndex - 1))}
+                hasNext={viewMoveIndex < (gameData?.moves.length ?? 1) - 1}
+                hasPrev={viewMoveIndex > -1}
+              />
             )}
 
             {/* Move History with classifications */}
@@ -602,37 +655,83 @@ function EvalGraph({
   );
 }
 
-function MoveInfo({ analyzed, t }: { analyzed: AnalyzedMove; t: (key: string, params?: Record<string, string | number>) => string }) {
+function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
+  analyzed: AnalyzedMove;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onNext: () => void;
+  onPrev: () => void;
+  hasNext: boolean;
+  hasPrev: boolean;
+}) {
   const cls = analyzed.classification;
   const color = getClassificationColor(cls);
-  const fromFile = String.fromCharCode(97 + analyzed.move.from.col);
-  const fromRank = analyzed.move.from.row + 1;
-  const toFile = String.fromCharCode(97 + analyzed.move.to.col);
-  const toRank = analyzed.move.to.row + 1;
-  const moveStr = `${fromFile}${fromRank}${analyzed.move.captured ? 'x' : '-'}${toFile}${toRank}`;
+  const icon = getClassificationIcon(cls);
+  const moveStr = `${posToAlgebraic(analyzed.move.from)}${analyzed.move.captured ? 'x' : '-'}${posToAlgebraic(analyzed.move.to)}`;
+  const evalStr = formatEval(analyzed.evalAfter);
+
+  const getDescription = (): string => {
+    if (cls === 'best' || cls === 'excellent') return t('analysis.desc_best');
+    if (cls === 'good') return t('analysis.desc_good');
+    if (cls === 'inaccuracy') return t('analysis.desc_inaccuracy');
+    if (cls === 'mistake') return t('analysis.desc_mistake');
+    if (cls === 'blunder') return t('analysis.desc_blunder');
+    return '';
+  };
+
+  const bestMoveStr = analyzed.bestMove
+    ? `${posToAlgebraic(analyzed.bestMove.from)}-${posToAlgebraic(analyzed.bestMove.to)}`
+    : '';
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: color }} />
-        <span className="text-sm font-semibold" style={{ color }}>
-          {t(`analysis.${cls}`)}
-        </span>
-        <span className="text-xs text-text-dim">
-          {analyzed.color === 'white' ? t('common.white') : t('common.black')} · {moveStr}
-        </span>
-      </div>
-      <div className="text-xs text-text-dim grid grid-cols-2 gap-1">
-        <span>{t('analysis.eval_before')}: {formatEval(analyzed.evalBefore)}</span>
-        <span>{t('analysis.eval_after')}: {formatEval(analyzed.evalAfter)}</span>
-      </div>
-      {analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') && (
-        <div className="text-xs text-text-dim mt-1">
-          {t('analysis.best_was')}: {String.fromCharCode(97 + analyzed.bestMove.from.col)}{analyzed.bestMove.from.row + 1}
-          -{String.fromCharCode(97 + analyzed.bestMove.to.col)}{analyzed.bestMove.to.row + 1}
-          {' '}({formatEval(analyzed.bestEval)})
+    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
+      {/* Review header with icon, move name, and eval badge */}
+      <div className="p-3">
+        <div className="flex items-start gap-3">
+          {/* Classification icon */}
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 shadow-md border-2 border-white/20"
+            style={{ backgroundColor: color }}
+          >
+            {icon}
+          </div>
+
+          {/* Move info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-sm font-bold text-text-bright">{moveStr}</span>
+              <span className="text-xs font-semibold" style={{ color }}>{t(`analysis.${cls}`)}</span>
+              <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface text-text-dim">
+                {evalStr}
+              </span>
+            </div>
+            <p className="text-xs text-text-dim leading-relaxed">{getDescription()}</p>
+            {analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') && (
+              <div className="mt-1.5 text-xs px-2 py-1 rounded bg-green-900/20 border border-green-600/20 text-green-400 inline-block">
+                ⭐ {t('analysis.best_was')}: <span className="font-mono font-bold">{bestMoveStr}</span> ({formatEval(analyzed.bestEval)})
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Navigation buttons */}
+      <div className="flex border-t border-surface-hover">
+        <button
+          onClick={onPrev}
+          disabled={!hasPrev}
+          className="flex-1 py-2.5 text-sm font-semibold text-text-dim hover:text-text-bright hover:bg-surface-hover transition-colors disabled:opacity-30 border-r border-surface-hover"
+        >
+          ◀ {t('analysis.prev')}
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!hasNext}
+          className="flex-1 py-2.5 text-sm font-semibold transition-colors disabled:opacity-30"
+          style={{ backgroundColor: hasNext ? `${color}20` : undefined, color: hasNext ? color : undefined }}
+        >
+          {t('analysis.next')} ▶
+        </button>
+      </div>
     </div>
   );
 }

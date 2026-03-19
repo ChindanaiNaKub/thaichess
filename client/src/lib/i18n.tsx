@@ -316,6 +316,13 @@ const EN: Record<string, string> = {
   'analysis.blunder': 'Blunder',
   'analysis.analyze': 'Analyze Game',
   'analysis.view': 'View Analysis',
+  'analysis.next': 'Next',
+  'analysis.prev': 'Back',
+  'analysis.desc_best': 'This is the best move in this position. Well played!',
+  'analysis.desc_good': 'A solid move that maintains your position.',
+  'analysis.desc_inaccuracy': 'Not the best choice. A slightly better move was available.',
+  'analysis.desc_mistake': 'This move loses advantage. There was a significantly better option.',
+  'analysis.desc_blunder': 'A serious error that changes the outcome. The best move was very different.',
 
   // Language
   'lang.switch': 'TH',
@@ -617,6 +624,13 @@ const TH: Record<string, string> = {
   'analysis.blunder': 'พลาดร้ายแรง',
   'analysis.analyze': 'วิเคราะห์เกม',
   'analysis.view': 'ดูการวิเคราะห์',
+  'analysis.next': 'ถัดไป',
+  'analysis.prev': 'ย้อนกลับ',
+  'analysis.desc_best': 'นี่คือตาเดินที่ดีที่สุดในตำแหน่งนี้ เล่นดีมาก!',
+  'analysis.desc_good': 'ตาเดินที่มั่นคง รักษาตำแหน่งได้ดี',
+  'analysis.desc_inaccuracy': 'ไม่ใช่ตัวเลือกที่ดีที่สุด มีตาเดินที่ดีกว่าเล็กน้อย',
+  'analysis.desc_mistake': 'ตาเดินนี้เสียเปรียบ มีตัวเลือกที่ดีกว่ามาก',
+  'analysis.desc_blunder': 'ผิดพลาดร้ายแรงที่เปลี่ยนผลเกม ตาเดินที่ดีที่สุดต่างออกไปมาก',
 
   // Language
   'lang.switch': 'EN',
