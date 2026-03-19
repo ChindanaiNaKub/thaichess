@@ -136,10 +136,21 @@ export default function AnalysisPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameData]);
 
-  // Auto-scroll to active move
+  // Auto-scroll active move within the move list container only (never scroll the page)
   useEffect(() => {
-    if (activeMoveRef.current && scrollRef.current) {
-      activeMoveRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const el = activeMoveRef.current;
+    const container = scrollRef.current;
+    if (!el || !container) return;
+
+    const elTop = el.offsetTop;
+    const elBottom = elTop + el.offsetHeight;
+    const containerTop = container.scrollTop;
+    const containerBottom = containerTop + container.clientHeight;
+
+    if (elTop < containerTop) {
+      container.scrollTop = elTop - 4;
+    } else if (elBottom > containerBottom) {
+      container.scrollTop = elBottom - container.clientHeight + 4;
     }
   }, [viewMoveIndex]);
 
@@ -285,10 +296,10 @@ export default function AnalysisPage() {
     <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header subtitle={t('analysis.title')} />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-4">
+      <main className="flex-1 flex items-start justify-center px-4 py-4 overflow-hidden">
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1200px]">
-          {/* Board + Eval Bar */}
-          <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
+          {/* Board + Eval Bar (sticky on desktop) */}
+          <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px] lg:sticky lg:top-4 lg:self-start">
             {/* Eval Bar */}
             <EvalBar eval={currentEval} />
 
@@ -364,8 +375,8 @@ export default function AnalysisPage() {
             </div>
           </div>
 
-          {/* Side Panel */}
-          <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px]">
+          {/* Side Panel (scrollable on desktop) */}
+          <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto lg:scrollbar-thin">
             {/* Analysis Status / Progress */}
             {analyzing && progress && (
               <div className="bg-surface-alt rounded-lg border border-surface-hover p-3">
