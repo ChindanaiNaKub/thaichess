@@ -114,28 +114,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMP-04 | Phase 3 | Pending |
 | COMP-05 | Phase 3 | Pending |
 | COMP-06 | Phase 3 | Pending |
-| SRV-01 | Phase 4 | Pending |
-| SRV-02 | Phase 4 | Pending |
-| SRV-03 | Phase 4 | Pending |
-| SRV-04 | Phase 4 | Pending |
-| SRV-05 | Phase 4 | Pending |
-| CI-01 | Phase 5 | Pending |
-| CI-02 | Phase 5 | Pending |
-| CI-03 | Phase 5 | Pending |
-| CI-04 | Phase 5 | Pending |
-| CI-05 | Phase 5 | Pending |
-| STYLE-01 | Phase 6 | Pending |
-| STYLE-02 | Phase 6 | Pending |
-| STYLE-03 | Phase 6 | Pending |
-| STYLE-04 | Phase 6 | Pending |
-| STYLE-05 | Phase 6 | Pending |
-| STYLE-06 | Phase 6 | Pending |
+| SRV-01 | Phase 3 | Pending |
+| SRV-02 | Phase 3 | Pending |
+| SRV-03 | Phase 3 | Pending |
+| SRV-04 | Phase 3 | Pending |
+| SRV-05 | Phase 3 | Pending |
+| CI-01 | Phase 4 | Pending |
+| CI-02 | Phase 4 | Pending |
+| CI-03 | Phase 4 | Pending |
+| CI-04 | Phase 4 | Pending |
+| CI-05 | Phase 4 | Pending |
+| STYLE-01 | Phase 4 | Pending |
+| STYLE-02 | Phase 4 | Pending |
+| STYLE-03 | Phase 4 | Pending |
+| STYLE-04 | Phase 4 | Pending |
+| STYLE-05 | Phase 4 | Pending |
+| STYLE-06 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 31 total
-- Mapped to phases: 31
+- v1 requirements: 33 total
+- Mapped to phases: 33
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after initial definition*
+*Last updated: 2026-03-20 after roadmap creation*
