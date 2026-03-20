@@ -1,6 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
@@ -8,7 +8,8 @@ import { GameManager } from './gameManager';
 import { MatchmakingQueue, QueueEntry } from './matchmaking';
 import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, saveFeedback, getFeedback, getFeedbackCount } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
-import { logError, logInfo } from './logger';
+import { logError, logInfo, logWarn } from './logger';
+import { getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl, SocketRateLimiter } from './security';
 
 const app = express();
 const httpServer = createServer(app);
@@ -54,11 +55,26 @@ app.use(express.static(clientDist));
 // Initialize database
 const gameManager = new GameManager();
 const matchmaking = new MatchmakingQueue();
+const socketRateLimiter = new SocketRateLimiter();
+const ipRateLimiter = new SocketRateLimiter();
+
+const SOCKET_RATE_LIMITS = {
+  create_game: { windowMs: 60 * 1000, max: 6 },
+  join_game: { windowMs: 60 * 1000, max: 20 },
+  find_game: { windowMs: 60 * 1000, max: 10 },
+  make_move: { windowMs: 10 * 1000, max: 40 },
+  control_action: { windowMs: 30 * 1000, max: 15 },
+} as const;
 
 // Cleanup old games every 30 minutes
 setInterval(() => gameManager.cleanupOldGames(), 1800000);
 // Cleanup stale matchmaking entries every minute
 setInterval(() => matchmaking.cleanupStale(), 60000);
+// Cleanup rate limiter buckets every minute
+setInterval(() => {
+  socketRateLimiter.cleanup();
+  ipRateLimiter.cleanup();
+}, 60000);
 
 async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
@@ -124,19 +140,86 @@ function tryMatchmakeQueue() {
   }
 }
 
-io.on('connection', (socket) => {
-  logInfo('socket_connected', { socketId: socket.id });
+function rejectSocketEvent(
+  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+  event: string,
+  message: string,
+  details: Record<string, unknown> = {},
+) {
+  logWarn('socket_event_rejected', {
+    socketId: socket.id,
+    ip: getSocketIp(socket),
+    event,
+    message,
+    ...details,
+  });
+  socket.emit('error', { message });
+}
 
-  socket.on('create_game', ({ timeControl }) => {
+function enforceSocketRateLimit(
+  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+  event: keyof typeof SOCKET_RATE_LIMITS,
+  scopes: Array<'socket' | 'ip'> = ['socket'],
+) {
+  for (const scope of scopes) {
+    const key = scope === 'socket'
+      ? `${scope}:${socket.id}:${event}`
+      : `${scope}:${getSocketIp(socket)}:${event}`;
+    const limiter = scope === 'socket' ? socketRateLimiter : ipRateLimiter;
+    const result = limiter.allow(key, SOCKET_RATE_LIMITS[event]);
+
+    if (!result.allowed) {
+      rejectSocketEvent(socket, event, 'Too many requests. Please slow down.', {
+        scope,
+        retryAfterMs: result.retryAfterMs,
+      });
+      return false;
+    }
+  }
+
+  return true;
+}
+
+io.on('connection', (socket) => {
+  const socketIp = getSocketIp(socket);
+  logInfo('socket_connected', { socketId: socket.id, ip: socketIp });
+
+  socket.on('create_game', (payload) => {
+    if (!enforceSocketRateLimit(socket, 'create_game', ['socket', 'ip'])) return;
+    if (!payload || !isValidTimeControl(payload.timeControl)) {
+      rejectSocketEvent(socket, 'create_game', 'Invalid time control.');
+      return;
+    }
+    if (gameManager.getPlayerGame(socket.id) || matchmaking.isInQueue(socket.id)) {
+      rejectSocketEvent(socket, 'create_game', 'Leave your current game or queue before creating another game.');
+      return;
+    }
+
+    const { timeControl } = payload;
     const room = gameManager.createGame(timeControl);
     logInfo('game_created', { gameId: room.id, socketId: socket.id, timeControl });
     socket.emit('game_created', { gameId: room.id });
   });
 
-  socket.on('join_game', ({ gameId }) => {
+  socket.on('join_game', (payload) => {
+    if (!enforceSocketRateLimit(socket, 'join_game', ['socket', 'ip'])) return;
+    if (!payload || !isValidGameId(payload.gameId)) {
+      rejectSocketEvent(socket, 'join_game', 'Invalid game ID.');
+      return;
+    }
+
+    const { gameId } = payload;
+    const currentGameId = gameManager.getPlayerGame(socket.id);
+    if (currentGameId && currentGameId !== gameId) {
+      rejectSocketEvent(socket, 'join_game', 'Leave your current game before joining another one.');
+      return;
+    }
+
     const result = gameManager.joinGame(gameId, socket.id);
     if (!result) {
-      socket.emit('error', { message: 'Unable to join game. Game may be full or not found.' });
+      rejectSocketEvent(socket, 'join_game', 'Unable to join game. Game may be full or not found.', {
+        gameId,
+      });
       return;
     }
 
@@ -181,16 +264,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('make_move', ({ from, to }) => {
+  socket.on('make_move', (payload) => {
+    if (!enforceSocketRateLimit(socket, 'make_move')) return;
+    if (!payload || !isValidPosition(payload.from) || !isValidPosition(payload.to)) {
+      rejectSocketEvent(socket, 'make_move', 'Invalid move payload.');
+      return;
+    }
+
+    const { from, to } = payload;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) {
-      socket.emit('error', { message: 'You are not in a game' });
+      rejectSocketEvent(socket, 'make_move', 'You are not in a game');
       return;
     }
 
     const result = gameManager.makeMove(gameId, socket.id, from, to);
     if (!result.success) {
-      socket.emit('error', { message: result.error || 'Invalid move' });
+      rejectSocketEvent(socket, 'make_move', result.error || 'Invalid move', { gameId });
       return;
     }
 
@@ -232,6 +322,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('resign', () => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -257,6 +348,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('offer_draw', () => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -271,6 +363,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('start_counting', () => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -286,6 +379,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('stop_counting', () => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -300,7 +394,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('respond_draw', ({ accept }) => {
+  socket.on('respond_draw', (payload) => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
+    if (!payload || !isValidBoolean(payload.accept)) {
+      rejectSocketEvent(socket, 'respond_draw', 'Invalid draw response.');
+      return;
+    }
+
+    const { accept } = payload;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -333,6 +434,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('request_rematch', () => {
+    if (!enforceSocketRateLimit(socket, 'control_action')) return;
     const gameId = gameManager.getPlayerGame(socket.id);
     if (!gameId) return;
 
@@ -350,7 +452,22 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('find_game', ({ timeControl }) => {
+  socket.on('find_game', (payload) => {
+    if (!enforceSocketRateLimit(socket, 'find_game', ['socket', 'ip'])) return;
+    if (!payload || !isValidTimeControl(payload.timeControl)) {
+      rejectSocketEvent(socket, 'find_game', 'Invalid time control.');
+      return;
+    }
+    if (gameManager.getPlayerGame(socket.id)) {
+      rejectSocketEvent(socket, 'find_game', 'Leave your current game before entering matchmaking.');
+      return;
+    }
+    if (matchmaking.isInQueue(socket.id)) {
+      rejectSocketEvent(socket, 'find_game', 'You are already in the matchmaking queue.');
+      return;
+    }
+
+    const { timeControl } = payload;
     logInfo('matchmaking_started', { socketId: socket.id, timeControl });
 
     matchmaking.addToQueue(socket.id, timeControl);
@@ -369,7 +486,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    logInfo('socket_disconnected', { socketId: socket.id });
+    socketRateLimiter.clearPrefix(`socket:${socket.id}:`);
+    logInfo('socket_disconnected', { socketId: socket.id, ip: socketIp });
     const removedFromQueue = matchmaking.removeFromQueue(socket.id);
     if (removedFromQueue) {
       broadcastQueueStatus();

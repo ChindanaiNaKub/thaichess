@@ -9,7 +9,12 @@ export class GameManager {
   private games: Map<string, GameRoom> = new Map();
   private playerGames: Map<string, string> = new Map(); // socketId -> gameId
   private clockIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private disconnectedPlayers: Map<string, number> = new Map();
+  private roomLastActivity: Map<string, number> = new Map();
   private static readonly CLOCK_TICK_MS = 500;
+  private static readonly FINISHED_GAME_TTL_MS = 60 * 60 * 1000;
+  private static readonly WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
+  private static readonly DISCONNECTED_GAME_TTL_MS = 10 * 60 * 1000;
 
   createGame(timeControl: TimeControl): GameRoom {
     const id = uuidv4().slice(0, 8);
@@ -29,6 +34,7 @@ export class GameManager {
     };
 
     this.games.set(id, room);
+    this.touchGame(id);
     return room;
   }
 
@@ -45,22 +51,29 @@ export class GameManager {
     if (!room.white) {
       room.white = socketId;
       this.playerGames.set(socketId, gameId);
+      this.clearDisconnectedPlayer(gameId, 'white');
+      this.touchGame(gameId);
       return { room, color: 'white' };
     }
 
     if (!room.black) {
       room.black = socketId;
       this.playerGames.set(socketId, gameId);
+      this.clearDisconnectedPlayer(gameId, 'black');
       if (room.status === 'waiting') {
         room.status = 'playing';
         room.gameState.lastMoveTime = Date.now();
       }
+      this.touchGame(gameId);
       return { room, color: 'black' };
     }
 
     // Game is full, join as spectator
-    room.spectators.push(socketId);
+    if (!room.spectators.includes(socketId)) {
+      room.spectators.push(socketId);
+    }
     this.playerGames.set(socketId, gameId);
+    this.touchGame(gameId);
     return null;
   }
 
@@ -108,6 +121,7 @@ export class GameManager {
     newState.lastMoveTime = Date.now();
     room.gameState = newState;
     room.drawOffer = null;
+    this.touchGame(gameId);
 
     const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
 
@@ -132,6 +146,7 @@ export class GameManager {
     room.gameState.counting = null;
     room.status = 'finished';
     this.stopClock(gameId);
+    this.touchGame(gameId);
 
     return room;
   }
@@ -144,6 +159,7 @@ export class GameManager {
     if (!playerColor) return null;
 
     room.drawOffer = playerColor;
+    this.touchGame(gameId);
     return { room, by: playerColor };
   }
 
@@ -166,6 +182,7 @@ export class GameManager {
       room.drawOffer = null;
     }
 
+    this.touchGame(gameId);
     return room;
   }
 
@@ -180,6 +197,7 @@ export class GameManager {
     if (!newState) return null;
 
     room.gameState = newState;
+    this.touchGame(gameId);
     return room;
   }
 
@@ -194,6 +212,7 @@ export class GameManager {
     if (!newState) return null;
 
     room.gameState = newState;
+    this.touchGame(gameId);
     return room;
   }
 
@@ -214,6 +233,7 @@ export class GameManager {
       newRoom.gameState.lastMoveTime = Date.now();
     }
 
+    this.touchGame(newRoom.id);
     return newRoom;
   }
 
@@ -226,6 +246,13 @@ export class GameManager {
 
     const color = this.getPlayerColor(room, socketId);
     this.playerGames.delete(socketId);
+    room.spectators = room.spectators.filter((spectatorId) => spectatorId !== socketId);
+
+    if (color) {
+      this.disconnectedPlayers.set(this.getDisconnectedKey(gameId, color), Date.now());
+    }
+
+    this.touchGame(gameId);
 
     return color ? { gameId, color } : null;
   }
@@ -234,11 +261,18 @@ export class GameManager {
     const room = this.games.get(gameId);
     if (!room) return;
 
-    if (room.white === oldSocketId) room.white = newSocketId;
-    if (room.black === oldSocketId) room.black = newSocketId;
+    if (room.white === oldSocketId) {
+      room.white = newSocketId;
+      this.clearDisconnectedPlayer(gameId, 'white');
+    }
+    if (room.black === oldSocketId) {
+      room.black = newSocketId;
+      this.clearDisconnectedPlayer(gameId, 'black');
+    }
 
     this.playerGames.delete(oldSocketId);
     this.playerGames.set(newSocketId, gameId);
+    this.touchGame(gameId);
   }
 
   getGame(gameId: string): GameRoom | null {
@@ -251,6 +285,7 @@ export class GameManager {
 
   setPlayerGame(socketId: string, gameId: string): void {
     this.playerGames.set(socketId, gameId);
+    this.touchGame(gameId);
   }
 
   getClientGameState(room: GameRoom, socketId: string): ClientGameState {
@@ -342,12 +377,47 @@ export class GameManager {
   }
 
   cleanupOldGames(): void {
-    const oneHourAgo = Date.now() - 3600000;
+    const now = Date.now();
     for (const [id, room] of this.games) {
-      if (room.createdAt < oneHourAgo && room.status === 'finished') {
-        this.games.delete(id);
-        this.stopClock(id);
+      const lastActivity = this.roomLastActivity.get(id) ?? room.createdAt;
+      const whiteDisconnectedAt = this.disconnectedPlayers.get(this.getDisconnectedKey(id, 'white'));
+      const blackDisconnectedAt = this.disconnectedPlayers.get(this.getDisconnectedKey(id, 'black'));
+      const waitingExpired = room.status === 'waiting' && now - lastActivity > GameManager.WAITING_ROOM_TTL_MS;
+      const finishedExpired = room.status === 'finished' && now - lastActivity > GameManager.FINISHED_GAME_TTL_MS;
+      const disconnectedExpired = room.status === 'playing'
+        && ((whiteDisconnectedAt !== undefined && now - whiteDisconnectedAt > GameManager.DISCONNECTED_GAME_TTL_MS)
+          || (blackDisconnectedAt !== undefined && now - blackDisconnectedAt > GameManager.DISCONNECTED_GAME_TTL_MS));
+
+      if (waitingExpired || finishedExpired || disconnectedExpired) {
+        this.deleteGame(id, room);
       }
+    }
+  }
+
+  private touchGame(gameId: string): void {
+    this.roomLastActivity.set(gameId, Date.now());
+  }
+
+  private getDisconnectedKey(gameId: string, color: PieceColor) {
+    return `${gameId}:${color}`;
+  }
+
+  private clearDisconnectedPlayer(gameId: string, color: PieceColor): void {
+    this.disconnectedPlayers.delete(this.getDisconnectedKey(gameId, color));
+  }
+
+  private deleteGame(gameId: string, room: GameRoom): void {
+    this.games.delete(gameId);
+    this.stopClock(gameId);
+    this.roomLastActivity.delete(gameId);
+    this.clearDisconnectedPlayer(gameId, 'white');
+    this.clearDisconnectedPlayer(gameId, 'black');
+
+    if (room.white) this.playerGames.delete(room.white);
+    if (room.black) this.playerGames.delete(room.black);
+
+    for (const spectatorId of room.spectators) {
+      this.playerGames.delete(spectatorId);
     }
   }
 }
