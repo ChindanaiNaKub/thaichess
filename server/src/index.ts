@@ -5,7 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
-import { MatchmakingQueue } from './matchmaking';
+import { MatchmakingQueue, QueueEntry } from './matchmaking';
 import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, saveFeedback, getFeedback, getFeedbackCount } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 
@@ -72,6 +72,57 @@ function saveGameToDb(room: GameRoom, reason: string) {
     finalBoard: room.gameState.board,
     moveCount: room.gameState.moveCount,
   });
+}
+
+function emitQueueStatusForEntry(entry: QueueEntry) {
+  io.to(entry.socketId).emit('queue_status', {
+    playersInQueue: matchmaking.getQueueSizeForTimeControl(entry.timeControl),
+  });
+}
+
+function broadcastQueueStatus() {
+  matchmaking.getEntries().forEach(emitQueueStatusForEntry);
+}
+
+function tryMatchmakeQueue() {
+  let foundMatch = true;
+
+  while (foundMatch) {
+    foundMatch = false;
+
+    for (const entry of matchmaking.getEntries()) {
+      const match = matchmaking.findMatch(entry.socketId);
+      if (!match) continue;
+
+      const entryStillQueued = matchmaking.getEntry(entry.socketId);
+      const matchStillQueued = matchmaking.getEntry(match.socketId);
+      if (!entryStillQueued || !matchStillQueued) continue;
+
+      matchmaking.removeFromQueue(entry.socketId);
+      matchmaking.removeFromQueue(match.socketId);
+
+      const room = gameManager.createGame(entryStillQueued.timeControl);
+      const whiteId = Math.random() < 0.5 ? entry.socketId : match.socketId;
+      const blackId = whiteId === entry.socketId ? match.socketId : entry.socketId;
+
+      room.white = whiteId;
+      room.black = blackId;
+      room.status = 'playing';
+      room.gameState.lastMoveTime = Date.now();
+
+      gameManager.setPlayerGame(whiteId, room.id);
+      gameManager.setPlayerGame(blackId, room.id);
+
+      console.log(`Match found: ${whiteId} vs ${blackId} -> game ${room.id}`);
+
+      io.to(whiteId).emit('matchmaking_found', { gameId: room.id, color: 'white' });
+      io.to(blackId).emit('matchmaking_found', { gameId: room.id, color: 'black' });
+
+      broadcastQueueStatus();
+      foundMatch = true;
+      break;
+    }
+  }
 }
 
 io.on('connection', (socket) => {
@@ -278,31 +329,8 @@ io.on('connection', (socket) => {
 
     matchmaking.addToQueue(socket.id, timeControl);
     socket.emit('matchmaking_started');
-    socket.emit('queue_status', { playersInQueue: matchmaking.getQueueSizeForTimeControl(timeControl) });
-
-    const match = matchmaking.findMatch(socket.id);
-    if (match) {
-      matchmaking.removeFromQueue(socket.id);
-      matchmaking.removeFromQueue(match.socketId);
-
-      const room = gameManager.createGame(timeControl);
-
-      const whiteId = Math.random() < 0.5 ? socket.id : match.socketId;
-      const blackId = whiteId === socket.id ? match.socketId : socket.id;
-
-      room.white = whiteId;
-      room.black = blackId;
-      room.status = 'playing';
-      room.gameState.lastMoveTime = Date.now();
-
-      gameManager.setPlayerGame(whiteId, room.id);
-      gameManager.setPlayerGame(blackId, room.id);
-
-      console.log(`Match found: ${whiteId} vs ${blackId} -> game ${room.id}`);
-
-      io.to(whiteId).emit('matchmaking_found', { gameId: room.id, color: 'white' });
-      io.to(blackId).emit('matchmaking_found', { gameId: room.id, color: 'black' });
-    }
+    broadcastQueueStatus();
+    tryMatchmakeQueue();
   });
 
   socket.on('cancel_matchmaking', () => {
@@ -310,12 +338,16 @@ io.on('connection', (socket) => {
     if (removed) {
       console.log(`Player ${socket.id} cancelled matchmaking`);
       socket.emit('matchmaking_cancelled');
+      broadcastQueueStatus();
     }
   });
 
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
-    matchmaking.removeFromQueue(socket.id);
+    const removedFromQueue = matchmaking.removeFromQueue(socket.id);
+    if (removedFromQueue) {
+      broadcastQueueStatus();
+    }
     const result = gameManager.handleDisconnect(socket.id);
     if (result) {
       const room = gameManager.getGame(result.gameId);

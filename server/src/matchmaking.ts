@@ -1,6 +1,6 @@
 import { TimeControl } from '../../shared/types';
 
-interface QueueEntry {
+export interface QueueEntry {
   socketId: string;
   timeControl: TimeControl;
   joinedAt: number;
@@ -76,6 +76,14 @@ export class MatchmakingQueue {
       e.timeControl.initial === timeControl.initial &&
       e.timeControl.increment === timeControl.increment
     ).length;
+  }
+
+  getEntry(socketId: string): QueueEntry | null {
+    return this.queue.find(e => e.socketId === socketId) || null;
+  }
+
+  getEntries(): QueueEntry[] {
+    return [...this.queue];
   }
 
   cleanupStale(): void {
