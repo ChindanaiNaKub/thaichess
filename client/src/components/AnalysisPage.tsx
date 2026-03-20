@@ -25,6 +25,7 @@ interface GameData {
 
 export default function AnalysisPage() {
   const workerRef = useRef<Worker | null>(null);
+  const analysisRunKeyRef = useRef<string | null>(null);
   const { gameId } = useParams<{ gameId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -45,6 +46,16 @@ export default function AnalysisPage() {
 
   // Load game from URL params (local) or API
   useEffect(() => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
+    analysisRunKeyRef.current = null;
+    setAnalysis(null);
+    setAnalyzing(false);
+    setProgress(null);
+    setViewMoveIndex(-1);
+    setError(null);
+    setLoading(true);
+
     const localMoves = searchParams.get('moves');
     const localResult = searchParams.get('result');
     const localReason = searchParams.get('reason');
@@ -106,12 +117,16 @@ export default function AnalysisPage() {
 
   // Run analysis when game data is loaded
   useEffect(() => {
-    if (!gameData || analysis || analyzing) return;
-    setAnalyzing(true);
-    setProgress(null);
+    if (!gameData || analysis) return;
 
     const depth = gameData.moves.length <= 24 ? 3 : 2;
     const cacheKey = getAnalysisCacheKey(gameData, depth);
+
+    if (analysisRunKeyRef.current === cacheKey) return;
+    analysisRunKeyRef.current = cacheKey;
+
+    setAnalyzing(true);
+    setProgress(null);
     const cached = readCachedAnalysis(cacheKey);
     if (cached) {
       setAnalysis(cached);
@@ -155,7 +170,7 @@ export default function AnalysisPage() {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [gameData, analysis, analyzing]);
+  }, [gameData, analysis]);
 
   // Keyboard navigation
   useEffect(() => {
