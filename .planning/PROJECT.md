@@ -52,8 +52,8 @@ If code doesn't have tests and doesn't pass CI checks, it doesn't ship. Quality 
 
 ## Context
 
-**Existing Bugs Encountered:**
-- Infinite re-render loop caused by useEffect dependency issues — UI becomes unresponsive, no clicks register
+**Historical Bugs Encountered:**
+- Infinite re-render loop caused by useEffect dependency issues — fixed, but retained here as a regression risk that needs test and lint protection
 
 **Open Source Goals:**
 - Solo developer currently building for eventual community contributions

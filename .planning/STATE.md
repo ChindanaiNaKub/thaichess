@@ -36,10 +36,10 @@ No metrics yet — project in initialization phase
 | 2026-03-20 | Combine Component & Server tests | Coarse granularity; both are testing established layers |
 | 2026-03-20 | Combine CI/CD & Piece Styles | Quality gates needed before feature work; piece styles are user-facing deliverable |
 
-### Known Issues
+### Known Risks
 
-- **Critical:** Infinite re-render loop caused by useEffect dependency issues (existing bug) — UI becomes unresponsive, no clicks register
-- **To be addressed in Phase 1:** ESLint react-hooks exhaustive-deps rule will catch these issues going forward
+- **Regression risk:** Infinite re-render loop caused by useEffect dependency issues was previously observed and fixed; Phase 1 should keep it from returning
+- **To be addressed in Phase 1:** ESLint react-hooks exhaustive-deps rule and regression coverage should catch this class of issue going forward
 
 ### Technical Context
 

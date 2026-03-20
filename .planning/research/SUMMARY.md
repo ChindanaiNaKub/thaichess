@@ -8,7 +8,7 @@
 
 Markruk Thai is a free, open-source Thai chess platform following the lichess philosophy — no distractions, forever open source. The project uses React, TypeScript, Express, and Socket.IO for real-time multiplayer gameplay. The current research focused on testing and CI/CD pitfalls for a real-time game application.
 
-The project has an **existing critical bug** — infinite re-render loops caused by useEffect dependency issues that make the UI completely unresponsive. This is the highest priority issue to address in the test foundation phase. The codebase shows good patterns in some areas (useGameSocket.ts has proper socket cleanup) but risky patterns in others (multiple useEffect hooks in GamePage.tsx with potential dependency issues).
+The project previously had a **critical bug** — infinite re-render loops caused by useEffect dependency issues that made the UI completely unresponsive. The bug is fixed, but it remains the highest-priority regression risk to address in the test foundation phase. The codebase shows good patterns in some areas (useGameSocket.ts has proper socket cleanup) but risky patterns in others (multiple useEffect hooks in GamePage.tsx with potential dependency issues).
 
 The testing infrastructure is well-established: Vitest for unit/component tests, Playwright for E2E, and testing-library for React components. However, test coverage is incomplete — the project needs comprehensive tests for the game engine (move validation, check detection, Makruk's special rules), components, custom hooks, and server/API endpoints.
 
@@ -20,14 +20,14 @@ The testing infrastructure is well-established: Vitest for unit/component tests,
 
 **Architecture:** Single Page App with shared TypeScript types between client and server, real-time gameplay via Socket.IO websockets, component-based React architecture with custom hooks for socket logic and game interaction.
 
-**Critical pitfall:** useEffect dependency arrays causing infinite re-render loops (existing bug), Socket.IO memory leaks in tests due to missing cleanup, and testing implementation details instead of user behavior.
+**Critical pitfall:** useEffect dependency arrays causing infinite re-render loops (historical bug and current regression risk), Socket.IO memory leaks in tests due to missing cleanup, and testing implementation details instead of user behavior.
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
 1. **Test Foundation Phase** — Stabilize the codebase first
-   - Addresses: ESLint react-hooks rules, regression test for infinite re-render bug, Socket.IO cleanup patterns, CI/CD pipeline
+   - Addresses: ESLint react-hooks rules, regression coverage for the previously fixed infinite re-render bug, Socket.IO cleanup patterns, CI/CD pipeline
    - Avoids: Writing more code that inherits the same bugs
    - Success criteria: All ESLint warnings resolved, regression test prevents bug recurrence, tests run in <30 seconds locally
 
@@ -82,7 +82,7 @@ Based on research, suggested phase structure:
 
 ## Recommended Next Steps
 
-1. **Immediate:** Fix the infinite re-render bug before adding any tests — the existing bug will interfere with test reliability
+1. **Immediate:** Verify the infinite re-render bug remains fixed and keep it covered as a regression risk
 2. **Phase 1:** Set up ESLint react-hooks exhaustive-deps rule to prevent similar bugs
 3. **Phase 1:** Write a regression test specifically for the infinite re-render bug pattern
 4. **Phase 1:** Document Socket.IO test patterns in CONTRIBUTING.md for future contributors

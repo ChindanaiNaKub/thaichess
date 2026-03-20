@@ -9,7 +9,7 @@
 ### Pitfall 1: useEffect Dependency Arrays Causing Infinite Re-renders
 
 **What goes wrong:**
-Including non-stable values in useEffect dependency arrays causes infinite re-render loops. The UI becomes completely unresponsive — no clicks register, timers freeze, and the browser tab may crash. This is the EXISTING BUG in the project at `GamePage.tsx:196` and other components.
+Including non-stable values in useEffect dependency arrays causes infinite re-render loops. The UI becomes completely unresponsive — no clicks register, timers freeze, and the browser tab may crash. This was a PREVIOUSLY OBSERVED BUG in the project at `GamePage.tsx:196` and other components, and should now be treated as a regression risk.
 
 **Why it happens:**
 Developers include functions, objects, or arrays in dependency arrays that are recreated on every render. Common causes:
