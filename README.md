@@ -53,7 +53,7 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 |-----------|-----------|
 | Frontend | React 19, TypeScript, Vite 6, Tailwind CSS 4 |
 | Backend | Node.js, Express, Socket.IO 4 |
-| Database | SQLite (via better-sqlite3) |
+| Database | Turso/libSQL in production, local SQLite fallback in development |
 | Game Engine | Custom TypeScript ThaiChess engine |
 
 ## Project Structure
@@ -66,7 +66,7 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 │   └── src/
 │       ├── index.ts         # Express + Socket.IO server
 │       ├── gameManager.ts   # Game room & clock management
-│       └── database.ts      # SQLite persistence
+│       └── database.ts      # Turso/libSQL persistence with local fallback
 ├── client/            # React frontend
 │   └── src/
 │       ├── components/      # Board, pieces, pages

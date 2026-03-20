@@ -52,8 +52,6 @@ const clientDist = path.join(__dirname, '../../../../client/dist');
 app.use(express.static(clientDist));
 
 // Initialize database
-initDatabase();
-
 const gameManager = new GameManager();
 const matchmaking = new MatchmakingQueue();
 
@@ -62,9 +60,9 @@ setInterval(() => gameManager.cleanupOldGames(), 1800000);
 // Cleanup stale matchmaking entries every minute
 setInterval(() => matchmaking.cleanupStale(), 60000);
 
-function saveGameToDb(room: GameRoom, reason: string) {
+async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
-  saveCompletedGame({
+  await saveCompletedGame({
     id: room.id,
     result: winner || 'draw',
     resultReason: reason,
@@ -157,7 +155,7 @@ io.on('connection', (socket) => {
           const reason = updatedRoom.gameState.whiteTime <= 0 || updatedRoom.gameState.blackTime <= 0
             ? 'timeout' : 'unknown';
 
-          saveGameToDb(updatedRoom, reason);
+          void saveGameToDb(updatedRoom, reason);
 
           if (updatedRoom.white) {
             io.to(updatedRoom.white).emit('game_over', {
@@ -214,7 +212,7 @@ io.on('connection', (socket) => {
     if (room.gameState.gameOver) {
       const reason = room.gameState.resultReason ?? 'draw';
 
-      saveGameToDb(room, reason);
+      void saveGameToDb(room, reason);
 
       if (room.white) {
         io.to(room.white).emit('game_over', {
@@ -240,7 +238,7 @@ io.on('connection', (socket) => {
     const room = gameManager.resign(gameId, socket.id);
     if (!room) return;
 
-    saveGameToDb(room, 'resignation');
+    void saveGameToDb(room, 'resignation');
 
     if (room.white) {
       io.to(room.white).emit('game_over', {
@@ -310,7 +308,7 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     if (accept) {
-      saveGameToDb(room, 'draw_agreement');
+      void saveGameToDb(room, 'draw_agreement');
 
       if (room.white) {
         io.to(room.white).emit('game_over', {
@@ -391,7 +389,7 @@ io.on('connection', (socket) => {
 
 // --- REST API ---
 
-app.get('/api/game/:id', (req, res) => {
+app.get('/api/game/:id', async (req, res) => {
   // Check live games first
   const room = gameManager.getGame(req.params.id);
   if (room) {
@@ -405,7 +403,7 @@ app.get('/api/game/:id', (req, res) => {
     return;
   }
   // Check database for completed games
-  const saved = getDbGame(req.params.id);
+  const saved = await getDbGame(req.params.id);
   if (saved) {
     res.json({
       id: saved.id,
@@ -424,16 +422,18 @@ app.get('/api/game/:id', (req, res) => {
   res.status(404).json({ error: 'Game not found' });
 });
 
-app.get('/api/games/recent', (_req, res) => {
+app.get('/api/games/recent', async (_req, res) => {
   const page = parseInt(_req.query.page as string) || 0;
   const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
-  const games = getRecentGames(limit, page * limit);
-  const total = getGameCount();
+  const [games, total] = await Promise.all([
+    getRecentGames(limit, page * limit),
+    getGameCount(),
+  ]);
   res.json({ games, total, page, limit });
 });
 
-app.get('/api/stats', (_req, res) => {
-  const stats = getStats();
+app.get('/api/stats', async (_req, res) => {
+  const stats = await getStats();
   res.json(stats);
 });
 
@@ -477,16 +477,18 @@ const feedbackLimiter = rateLimit({
   message: { error: 'Too many feedback submissions. Please try again later.' },
 });
 
-app.get('/api/feedback', (_req, res) => {
+app.get('/api/feedback', async (_req, res) => {
   const page = parseInt(_req.query.page as string) || 0;
   const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
   const type = (_req.query.type as string) || undefined;
-  const feedback = getFeedback(limit, page * limit, type);
-  const total = getFeedbackCount(type);
+  const [feedback, total] = await Promise.all([
+    getFeedback(limit, page * limit, type),
+    getFeedbackCount(type),
+  ]);
   res.json({ feedback, total, page, limit });
 });
 
-app.post('/api/feedback', feedbackLimiter, (req, res) => {
+app.post('/api/feedback', feedbackLimiter, async (req, res) => {
   const { type, message, page, userAgent } = req.body;
   if (!message || typeof message !== 'string' || message.length > 2000) {
     res.status(400).json({ error: 'Invalid feedback' });
@@ -501,7 +503,7 @@ app.post('/api/feedback', feedbackLimiter, (req, res) => {
     timestamp: new Date().toISOString(),
   };
   logInfo('feedback_received', { feedback });
-  saveFeedback(feedback);
+  await saveFeedback(feedback);
   res.json({ ok: true });
 });
 
@@ -519,9 +521,21 @@ process.on('unhandledRejection', (reason) => {
   logError('unhandled_rejection', reason);
 });
 
-httpServer.listen(PORT, () => {
-  logInfo('server_started', {
+async function startServer() {
+  await initDatabase();
+
+  httpServer.listen(PORT, () => {
+    logInfo('server_started', {
+      port: Number(PORT),
+      environment: process.env.NODE_ENV || 'development',
+    });
+  });
+}
+
+void startServer().catch((error) => {
+  logError('server_start_failed', error, {
     port: Number(PORT),
     environment: process.env.NODE_ENV || 'development',
   });
+  process.exit(1);
 });
