@@ -100,7 +100,7 @@ export default function AnalysisPage() {
     if (!gameData || analysis || analyzing) return;
     setAnalyzing(true);
 
-    const depth = gameData.moves.length > 60 ? 2 : 2;
+    const depth = gameData.moves.length <= 40 ? 3 : 2;
 
     setTimeout(() => {
       const result = analyzeGame(gameData.moves, depth, (p) => {

@@ -64,8 +64,38 @@ const KING_SAFETY: number[][] = [
   [20, 20, 10, 0, 0, 10, 20, 20],
 ];
 
+function countMobility(board: Board, color: PieceColor): number {
+  let mobility = 0;
+  const pieces = getAllPieces(board, color);
+
+  for (const { pos } of pieces) {
+    mobility += getLegalMoves(board, pos).length;
+  }
+
+  return mobility;
+}
+
+function getCapturePressure(board: Board, color: PieceColor): number {
+  let pressure = 0;
+  const pieces = getAllPieces(board, color);
+
+  for (const { pos } of pieces) {
+    const legalMoves = getLegalMoves(board, pos);
+    for (const move of legalMoves) {
+      const captured = board[move.row][move.col];
+      if (captured && captured.color !== color) {
+        pressure += PIECE_VALUES[captured.type];
+      }
+    }
+  }
+
+  return pressure;
+}
+
 export function evaluatePosition(board: Board, perspective: PieceColor): number {
   let score = 0;
+  let whiteMaterial = 0;
+  let blackMaterial = 0;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
@@ -94,14 +124,35 @@ export function evaluatePosition(board: Board, perspective: PieceColor): number 
       } else {
         score -= value + positional;
       }
+
+      if (piece.color === 'white') {
+        whiteMaterial += value;
+      } else {
+        blackMaterial += value;
+      }
     }
   }
 
   const opponent = perspective === 'white' ? 'black' : 'white';
+  const perspectiveMobility = countMobility(board, perspective);
+  const opponentMobility = countMobility(board, opponent);
+  score += (perspectiveMobility - opponentMobility) * 4;
+
+  const perspectivePressure = getCapturePressure(board, perspective);
+  const opponentPressure = getCapturePressure(board, opponent);
+  score += (perspectivePressure - opponentPressure) * 0.12;
+
+  const materialLead = perspective === 'white'
+    ? whiteMaterial - blackMaterial
+    : blackMaterial - whiteMaterial;
+  if (materialLead > 0) {
+    score += perspectiveMobility * 2;
+  }
+
   if (isInCheck(board, opponent)) score += 50;
   if (isInCheck(board, perspective)) score -= 50;
 
-  return score;
+  return Math.round(score);
 }
 
 interface ScoredMove {
@@ -211,13 +262,13 @@ export function findBestMove(
   return { move: bestMove, eval: bestEval };
 }
 
-export function classifyMove(evalDelta: number): MoveClassification {
-  const loss = Math.abs(evalDelta);
-  if (loss <= 10) return 'best';
-  if (loss <= 30) return 'excellent';
-  if (loss <= 60) return 'good';
-  if (loss <= 120) return 'inaccuracy';
-  if (loss <= 250) return 'mistake';
+export function classifyMove(evalDelta: number, isExactBestMove: boolean): MoveClassification {
+  const loss = Math.max(0, evalDelta);
+  if (isExactBestMove) return 'best';
+  if (loss <= 15) return 'excellent';
+  if (loss <= 45) return 'good';
+  if (loss <= 100) return 'inaccuracy';
+  if (loss <= 220) return 'mistake';
   return 'blunder';
 }
 
@@ -320,7 +371,13 @@ export function analyzeGame(
       evalDelta = evalAfter - bestEvalNormalized;
     }
 
-    const classification = classifyMove(evalDelta);
+    const isExactBestMove = !!best.move
+      && best.move.from.row === move.from.row
+      && best.move.from.col === move.from.col
+      && best.move.to.row === move.to.row
+      && best.move.to.col === move.to.col;
+
+    const classification = classifyMove(evalDelta, isExactBestMove);
 
     analyzedMoves.push({
       move,
