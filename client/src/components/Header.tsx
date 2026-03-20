@@ -73,9 +73,9 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover"
               title="Select piece style"
             >
-              <option value="classic">Current</option>
-              <option value="western">Western</option>
-              <option value="traditional">Makruk</option>
+              <option value="classic">Cute</option>
+              <option value="western">Chess</option>
+              <option value="traditional">OG Makruk</option>
             </select>
           </label>
 
