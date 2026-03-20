@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Position, PieceColor, Move, Board as BoardType } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, isInCheck, posToAlgebraic } from '@shared/engine';
 import {
-  analyzeGame, GameAnalysis, AnalyzedMove, MoveClassification,
+  GameAnalysis, AnalyzedMove, MoveClassification,
   getClassificationColor, getClassificationSymbol, getClassificationIcon, formatEval,
   AnalysisProgress,
 } from '@shared/analysis';
@@ -13,6 +13,7 @@ import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
+import type { WorkerResponse } from '../workers/analysisWorker';
 
 interface GameData {
   id: string;
@@ -23,6 +24,7 @@ interface GameData {
 }
 
 export default function AnalysisPage() {
+  const workerRef = useRef<Worker | null>(null);
   const { gameId } = useParams<{ gameId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -95,21 +97,64 @@ export default function AnalysisPage() {
     }
   }, [gameId, searchParams]);
 
+  useEffect(() => {
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
   // Run analysis when game data is loaded
   useEffect(() => {
     if (!gameData || analysis || analyzing) return;
     setAnalyzing(true);
+    setProgress(null);
 
-    const depth = gameData.moves.length <= 40 ? 3 : 2;
-
-    setTimeout(() => {
-      const result = analyzeGame(gameData.moves, depth, (p) => {
-        setProgress({ ...p });
-      });
-      setAnalysis(result);
+    const depth = gameData.moves.length <= 24 ? 3 : 2;
+    const cacheKey = getAnalysisCacheKey(gameData, depth);
+    const cached = readCachedAnalysis(cacheKey);
+    if (cached) {
+      setAnalysis(cached);
       setAnalyzing(false);
       setViewMoveIndex(0);
-    }, 50);
+      return;
+    }
+
+    workerRef.current?.terminate();
+    const worker = new Worker(new URL('../workers/analysisWorker.ts', import.meta.url), { type: 'module' });
+    workerRef.current = worker;
+
+    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+      const message = event.data;
+      if (message.type === 'progress') {
+        setProgress({ ...message.progress });
+        return;
+      }
+
+      if (message.type === 'result') {
+        writeCachedAnalysis(cacheKey, message.analysis);
+        setAnalysis(message.analysis);
+        setAnalyzing(false);
+        setProgress(null);
+        setViewMoveIndex(0);
+        worker.terminate();
+        if (workerRef.current === worker) workerRef.current = null;
+        return;
+      }
+
+      setError(message.message || 'Analysis failed');
+      setAnalyzing(false);
+      setProgress(null);
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
+    };
+
+    worker.postMessage({ type: 'analyze', moves: gameData.moves, depth });
+
+    return () => {
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
+    };
   }, [gameData, analysis, analyzing]);
 
   // Keyboard navigation
@@ -393,7 +438,7 @@ export default function AnalysisPage() {
           <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:self-start">
             {/* Analysis Status / Progress */}
             {analyzing && progress && (
-              <div className="bg-surface-alt rounded-lg border border-surface-hover p-3">
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   <span className="text-sm text-text-bright">{t('analysis.analyzing')}</span>
@@ -404,7 +449,7 @@ export default function AnalysisPage() {
                     style={{ width: `${(progress.current / progress.total) * 100}%` }}
                   />
                 </div>
-                <div className="text-xs text-text-dim mt-1">
+                <div className="text-xs text-text mt-1">
                   {t('analysis.progress', { current: progress.current, total: progress.total })}
                 </div>
               </div>
@@ -412,19 +457,19 @@ export default function AnalysisPage() {
 
             {/* Accuracy Summary */}
             {analysis && (
-              <div className="bg-surface-alt rounded-lg border border-surface-hover p-3">
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <h3 className="text-sm font-semibold text-text-bright mb-3">{t('analysis.accuracy')}</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <AccuracyCard color="white" accuracy={analysis.whiteAccuracy} summary={analysis.summary.white} t={t} />
                   <AccuracyCard color="black" accuracy={analysis.blackAccuracy} summary={analysis.summary.black} t={t} />
                 </div>
-                <p className="mt-3 text-xs text-text-dim">{t('analysis.note')}</p>
+                <p className="mt-3 text-xs leading-relaxed text-text">{t('analysis.note')}</p>
               </div>
             )}
 
             {/* Eval Graph */}
             {analysis && analysis.evaluations.length > 1 && (
-              <div className="bg-surface-alt rounded-lg border border-surface-hover p-3">
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <h3 className="text-sm font-semibold text-text-bright mb-2">{t('analysis.eval_graph')}</h3>
                 <EvalGraph
                   evaluations={analysis.evaluations}
@@ -448,11 +493,11 @@ export default function AnalysisPage() {
             )}
 
             {/* Move History with classifications */}
-            <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
+            <div className="rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
               <div className="px-3 py-2 border-b border-surface-hover flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
                 {analysis && (
-                  <label className="flex items-center gap-1.5 text-xs text-text-dim cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-xs text-text cursor-pointer">
                     <input
                       type="checkbox"
                       checked={showBestMove}
@@ -470,7 +515,7 @@ export default function AnalysisPage() {
                   <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-sm">
                     {movePairs.map(({ num, white, black, whiteIdx, blackIdx, whiteClass, blackClass }) => (
                       <div key={num} className="contents">
-                        <span className="text-text-dim px-2 py-0.5 text-right">{num}.</span>
+                        <span className="text-text px-2 py-0.5 text-right">{num}.</span>
                         <span
                           ref={viewMoveIndex === whiteIdx ? activeMoveRef : undefined}
                           className={`px-2 py-0.5 font-mono rounded cursor-pointer transition-colors ${
@@ -513,7 +558,7 @@ export default function AnalysisPage() {
             </div>
 
             {/* Keyboard hint */}
-            <div className="text-center text-xs text-text-dim">
+            <div className="text-center text-xs text-text">
               {t('analysis.keyboard_hint')}
             </div>
 
@@ -539,18 +584,25 @@ function EvalBar({ eval: rawEval }: { eval: number }) {
   const isWhiteAdvantage = rawEval >= 0;
 
   return (
-    <div className="eval-bar w-6 sm:w-7 rounded-lg overflow-hidden flex flex-col relative" style={{ minHeight: '100%' }}>
+    <div className="eval-bar w-6 sm:w-7 rounded-lg overflow-hidden flex flex-col relative shadow-[0_10px_20px_rgba(0,0,0,0.18)]" style={{ minHeight: '100%' }}>
       <div
-        className="bg-gray-800 transition-all duration-500 ease-out"
-        style={{ height: `${100 - whitePercent}%` }}
+        className="transition-all duration-500 ease-out"
+        style={{ backgroundColor: 'oklch(0.23 0.015 65)', height: `${100 - whitePercent}%` }}
       />
       <div
-        className="bg-gray-100 transition-all duration-500 ease-out"
-        style={{ height: `${whitePercent}%` }}
+        className="transition-all duration-500 ease-out"
+        style={{ backgroundColor: 'oklch(0.93 0.01 65)', height: `${whitePercent}%` }}
       />
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className={`text-[9px] font-bold ${isWhiteAdvantage ? 'text-gray-800' : 'text-gray-200'}`}
-          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
+        <span
+          className="text-[9px] font-bold tracking-[0.08em]"
+          style={{
+            color: isWhiteAdvantage ? 'oklch(0.16 0.015 65)' : 'oklch(0.92 0.01 65)',
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            transform: 'rotate(180deg)',
+          }}
+        >
           {formatEval(rawEval)}
         </span>
       </div>
@@ -569,23 +621,23 @@ function AccuracyCard({
   const classifications: MoveClassification[] = ['best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder'];
 
   return (
-    <div className="bg-surface rounded-lg p-2.5">
+    <div className="rounded-xl border border-white/8 bg-surface-hover/70 p-3">
       <div className="flex items-center gap-1.5 mb-2">
         <PieceSVG type="K" color={color} size={18} />
-        <span className="text-xs text-text-dim">{t(color === 'white' ? 'common.white' : 'common.black')}</span>
+        <span className="text-xs font-medium text-text">{t(color === 'white' ? 'common.white' : 'common.black')}</span>
       </div>
       <div className="text-2xl font-bold text-text-bright mb-2">{accuracy}%</div>
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         {classifications.map(cls => {
           const count = summary[cls];
           if (count === 0 && (cls === 'excellent')) return null;
           return (
             <div key={cls} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: getClassificationColor(cls) }} />
-                <span className="text-text-dim">{t(`analysis.${cls}`)}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full inline-block ring-1 ring-black/15" style={{ backgroundColor: getClassificationColor(cls) }} />
+                <span className="text-text">{t(`analysis.${cls}`)}</span>
               </span>
-              <span className="text-text font-mono">{count}</span>
+              <span className="text-text-bright font-mono">{count}</span>
             </div>
           );
         })}
@@ -641,20 +693,17 @@ function EvalGraph({
     <svg
       ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full cursor-pointer"
+      className="w-full cursor-pointer rounded-lg"
       onClick={handleClick}
     >
-      {/* Background regions */}
-      <rect x={padding.left} y={padding.top} width={graphW} height={graphH / 2} fill="rgba(255,255,255,0.03)" />
-      <rect x={padding.left} y={zeroY} width={graphW} height={graphH / 2} fill="rgba(0,0,0,0.1)" />
+      <rect x={padding.left} y={padding.top} width={graphW} height={graphH} rx="8" fill="rgba(255,255,255,0.03)" />
+      <rect x={padding.left} y={padding.top} width={graphW} height={graphH / 2} rx="8" fill="rgba(255,255,255,0.05)" />
+      <rect x={padding.left} y={zeroY} width={graphW} height={graphH / 2} fill="rgba(0,0,0,0.14)" />
 
-      {/* Zero line */}
-      <line x1={padding.left} y1={zeroY} x2={padding.left + graphW} y2={zeroY} stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
+      <line x1={padding.left} y1={zeroY} x2={padding.left + graphW} y2={zeroY} stroke="rgba(255,255,255,0.22)" strokeWidth="0.75" />
 
-      {/* Fill */}
-      <path d={fillPath} fill="rgba(255,255,255,0.08)" />
+      <path d={fillPath} fill="rgba(255,255,255,0.12)" />
 
-      {/* Move classification dots */}
       {moves.map((m, i) => {
         const pt = points[i + 1];
         if (!pt) return null;
@@ -667,16 +716,14 @@ function EvalGraph({
             cy={pt.y}
             r={cls === 'blunder' ? 3 : 2}
             fill={getClassificationColor(cls)}
-            opacity={0.8}
+            opacity={0.95}
           />
         );
       })}
 
-      {/* Line */}
-      <path d={pathData} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <path d={pathData} fill="none" stroke="rgba(255,255,255,0.72)" strokeWidth="1.75" />
 
-      {/* Current position indicator */}
-      <line x1={currentX} y1={padding.top} x2={currentX} y2={padding.top + graphH} stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.8" />
+      <line x1={currentX} y1={padding.top} x2={currentX} y2={padding.top + graphH} stroke="var(--color-primary-light)" strokeWidth="1.5" opacity="0.95" />
     </svg>
   );
 }
@@ -709,11 +756,9 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
     : '';
 
   return (
-    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
-      {/* Review header with icon, move name, and eval badge */}
+    <div className="rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
       <div className="p-3">
         <div className="flex items-start gap-3">
-          {/* Classification icon */}
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 shadow-md border-2 border-white/20"
             style={{ backgroundColor: color }}
@@ -721,18 +766,17 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
             {icon}
           </div>
 
-          {/* Move info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-sm font-bold text-text-bright">{moveStr}</span>
               <span className="text-xs font-semibold" style={{ color }}>{t(`analysis.${cls}`)}</span>
-              <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface text-text-dim">
+              <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-hover text-text-bright border border-white/8">
                 {evalStr}
               </span>
             </div>
-            <p className="text-xs text-text-dim leading-relaxed">{getDescription()}</p>
+            <p className="text-xs text-text leading-relaxed">{getDescription()}</p>
             {analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') && (
-              <div className="mt-1.5 text-xs px-2 py-1 rounded bg-green-900/20 border border-green-600/20 text-green-400 inline-block">
+              <div className="mt-1.5 text-xs px-2 py-1 rounded border inline-block font-medium" style={{ backgroundColor: 'rgba(86, 179, 48, 0.16)', borderColor: 'rgba(134, 204, 99, 0.35)', color: '#d8f1be' }}>
                 ⭐ {t('analysis.best_was')}: <span className="font-mono font-bold">{bestMoveStr}</span> ({formatEval(analyzed.bestEval)})
               </div>
             )}
@@ -740,12 +784,11 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
         </div>
       </div>
 
-      {/* Navigation buttons */}
       <div className="flex border-t border-surface-hover">
         <button
           onClick={onPrev}
           disabled={!hasPrev}
-          className="flex-1 py-2.5 text-sm font-semibold text-text-dim hover:text-text-bright hover:bg-surface-hover transition-colors disabled:opacity-30 border-r border-surface-hover"
+          className="flex-1 py-2.5 text-sm font-semibold text-text hover:text-text-bright hover:bg-surface-hover transition-colors disabled:opacity-30 border-r border-surface-hover"
         >
           ◀ {t('analysis.prev')}
         </button>
@@ -753,13 +796,37 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
           onClick={onNext}
           disabled={!hasNext}
           className="flex-1 py-2.5 text-sm font-semibold transition-colors disabled:opacity-30"
-          style={{ backgroundColor: hasNext ? `${color}20` : undefined, color: hasNext ? color : undefined }}
+          style={{ backgroundColor: hasNext ? `${color}26` : undefined, color: hasNext ? color : undefined }}
         >
           {t('analysis.next')} ▶
         </button>
       </div>
     </div>
   );
+}
+
+const ANALYSIS_CACHE_VERSION = 2;
+
+function getAnalysisCacheKey(gameData: GameData, depth: number): string {
+  return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${depth}:${gameData.moves.length}`;
+}
+
+function readCachedAnalysis(cacheKey: string): GameAnalysis | null {
+  try {
+    const raw = sessionStorage.getItem(cacheKey);
+    if (!raw) return null;
+    return JSON.parse(raw) as GameAnalysis;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedAnalysis(cacheKey: string, analysis: GameAnalysis): void {
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify(analysis));
+  } catch {
+    // Ignore cache failures; analysis still works without storage.
+  }
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
