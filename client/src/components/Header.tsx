@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../lib/i18n';
+import { usePieceStyle } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
 export default function Header({ active, subtitle, right }: HeaderProps) {
   const navigate = useNavigate();
   const { t, lang, setLang } = useTranslation();
+  const { pieceStyle, setPieceStyle } = usePieceStyle();
 
   const navItem = (key: 'play' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
     <button
@@ -62,6 +64,20 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
           )}
 
           {right}
+
+          <label className="hidden sm:flex items-center gap-2 text-xs text-text-dim">
+            <span className="uppercase tracking-[0.2em]">Pieces</span>
+            <select
+              value={pieceStyle}
+              onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western' | 'traditional')}
+              className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover"
+              title="Select piece style"
+            >
+              <option value="classic">Current</option>
+              <option value="western">Western</option>
+              <option value="traditional">Makruk</option>
+            </select>
+          </label>
 
           <button
             onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
