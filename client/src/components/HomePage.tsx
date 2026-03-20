@@ -258,11 +258,54 @@ export default function HomePage() {
         </div>
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-4 text-center text-text-dim text-sm">
-        {t('footer.tagline')} — {t('footer.inspired')}{' '}
-        <a href="https://lichess.org" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
-          Lichess
-        </a>
+      <footer className="bg-surface-alt border-t border-surface-hover py-8 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 mb-6">
+            {/* Play */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.play')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/quick-play" className="hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
+                <li><a href="/local" className="hover:text-primary transition-colors">{t('home.play_local')}</a></li>
+                <li><a href="/bot" className="hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
+              </ul>
+            </div>
+            {/* Puzzles */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.puzzles')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+              </ul>
+            </div>
+            {/* About */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">GitHub</a></li>
+              </ul>
+            </div>
+            {/* Community */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">Community</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">Star on GitHub</a></li>
+                <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-6 border-t border-surface-hover text-center">
+            <p className="text-text-dim text-xs">{t('footer.tagline')} — {t('footer.inspired')}{' '}
+              <a href="https://lichess.org" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+                Lichess
+              </a>
+              {' '}and{' '}
+              <a href="https://chess.com" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+                Chess.com
+              </a>
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   );

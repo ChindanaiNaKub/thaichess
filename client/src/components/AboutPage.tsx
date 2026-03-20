@@ -61,44 +61,6 @@ export default function AboutPage() {
           </section>
         )}
 
-        {/* Support */}
-        <section className="mb-8 sm:mb-10">
-          <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.support_title')}</h3>
-          <div className="bg-surface-alt rounded-xl border border-surface-hover p-4 sm:p-6">
-            <p className="text-text mb-4 text-sm sm:text-base">{t('about.support_desc')}</p>
-            <ul className="space-y-3 text-text text-sm sm:text-base">
-              <li className="flex items-start gap-3">
-                <span className="text-primary text-lg flex-shrink-0">⭐</span>
-                <div>
-                  <strong className="text-text-bright">{t('about.star')}</strong>
-                  <span className="text-text-dim">{t('about.star_desc')}</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-primary text-lg flex-shrink-0">🌐</span>
-                <div>
-                  <strong className="text-text-bright">{t('about.share')}</strong>
-                  <span className="text-text-dim">{t('about.share_desc')}</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-primary text-lg flex-shrink-0">🔧</span>
-                <div>
-                  <strong className="text-text-bright">{t('about.contribute')}</strong>
-                  <span className="text-text-dim">{t('about.contribute_desc')}</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-primary text-lg flex-shrink-0">📝</span>
-                <div>
-                  <strong className="text-text-bright">{t('about.report')}</strong>
-                  <span className="text-text-dim">{t('about.report_desc')}</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </section>
-
         {/* What is ThaiChess */}
         <section className="mb-8 sm:mb-10">
           <h3 className="text-lg sm:text-xl font-bold text-text-bright mb-4">{t('about.what_title')}</h3>
@@ -122,8 +84,46 @@ export default function AboutPage() {
         </section>
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-4 px-4 text-center text-text-dim text-xs sm:text-sm">
-        {t('about.footer')}
+      <footer className="bg-surface-alt border-t border-surface-hover py-8 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 mb-6">
+            {/* Play */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.play')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/quick-play" className="hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
+                <li><a href="/local" className="hover:text-primary transition-colors">{t('home.play_local')}</a></li>
+                <li><a href="/bot" className="hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
+              </ul>
+            </div>
+            {/* Puzzles */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.puzzles')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+              </ul>
+            </div>
+            {/* About */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">GitHub</a></li>
+              </ul>
+            </div>
+            {/* Community */}
+            <div>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">Community</h4>
+              <ul className="space-y-2 text-text-dim text-xs">
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">Star on GitHub</a></li>
+                <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-6 border-t border-surface-hover text-center">
+            <p className="text-text-dim text-xs">{t('about.footer')}</p>
+          </div>
+        </div>
       </footer>
     </div>
   );
