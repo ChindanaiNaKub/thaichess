@@ -3,7 +3,7 @@ status: complete
 phase: 01-test-foundation
 source: 01-01-SUMMARY.md, 01-02-SUMMARY.md
 started: 2026-03-20T12:55:52Z
-updated: 2026-03-20T13:01:00Z
+updated: 2026-03-20T13:26:00Z
 ---
 
 ## Current Test
@@ -15,9 +15,8 @@ updated: 2026-03-20T13:01:00Z
 
 ### 1. Run ESLint on Client Code
 expected: From the project root, run `npm run lint` (or `cd client && npm run lint`). ESLint executes without errors and reports any code quality issues. The `react-hooks/exhaustive-deps` rule is active and will flag missing useEffect dependencies.
-result: issue
-reported: "npm run lint from root fails - no lint script at root level. Need to run from client/ or server/ subdirectories or use workspace syntax like `npm run lint --workspace=client`"
-severity: minor
+result: pass
+verified: "2026-03-20 - npm run lint and npm run lint:fix both work from project root (01-03 gap closure)"
 
 ### 2. Run ESLint on Client Code (from client directory)
 expected: From the client directory, run `npm run lint` (or from root: `npm run lint --workspace=client`). ESLint executes without errors and reports any code quality issues. The `react-hooks/exhaustive-deps` rule is active and will flag missing useEffect dependencies.
@@ -46,19 +45,17 @@ result: pass
 ## Summary
 
 total: 7
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
+All gaps closed via 01-03-PLAN.md (Root Lint Scripts gap closure plan):
 - truth: "npm run lint from project root runs ESLint across workspaces"
-  status: failed
-  reason: "User reported: npm run lint from root fails - no lint script at root level. Need to run from client/ or server/ subdirectories or use workspace syntax like `npm run lint --workspace=client`"
-  severity: minor
-  test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  status: closed
+  closure_plan: "01-03-PLAN.md"
+  closure_date: "2026-03-20"
+  resolution: "Added lint and lint:fix scripts to root package.json using workspace delegation pattern"
+  commit: "bdd3a4a"
