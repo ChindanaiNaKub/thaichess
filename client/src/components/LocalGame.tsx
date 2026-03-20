@@ -11,11 +11,16 @@ import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import Header from './Header';
+import Clock from './Clock';
+import CapturedPiecesPanel from './CapturedPiecesPanel';
+
+const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
+const LOCAL_CLOCK_TICK_MS = 500;
 
 export default function LocalGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(0, 0));
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
@@ -53,6 +58,45 @@ export default function LocalGame() {
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
+
+  useEffect(() => {
+    if (gameState.gameOver) return;
+
+    const interval = setInterval(() => {
+      let timeoutWinner: PieceColor | null = null;
+
+      setGameState((prev) => {
+        if (prev.gameOver) return prev;
+
+        const now = Date.now();
+        const elapsed = now - prev.lastMoveTime;
+        if (elapsed <= 0) return prev;
+
+        if (prev.turn === 'white') {
+          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
+          if (whiteTime === 0) {
+            timeoutWinner = 'black';
+            return { ...prev, whiteTime: 0, lastMoveTime: now, gameOver: true, winner: 'black' };
+          }
+          return { ...prev, whiteTime, lastMoveTime: now };
+        }
+
+        const blackTime = Math.max(0, prev.blackTime - elapsed);
+        if (blackTime === 0) {
+          timeoutWinner = 'white';
+          return { ...prev, blackTime: 0, lastMoveTime: now, gameOver: true, winner: 'white' };
+        }
+        return { ...prev, blackTime, lastMoveTime: now };
+      });
+
+      if (timeoutWinner) {
+        setGameOverInfo({ reason: 'timeout', winner: timeoutWinner });
+        playGameOverSound();
+      }
+    }, LOCAL_CLOCK_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [gameState.gameOver]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
@@ -116,7 +160,7 @@ export default function LocalGame() {
   }, [gameState]);
 
   const handleReset = () => {
-    setGameState(createInitialGameState(0, 0));
+    setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
@@ -154,6 +198,14 @@ export default function LocalGame() {
     return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
   };
 
+  const getVisibleMoves = () => {
+    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
+      return gameState.moveHistory;
+    }
+    if (viewMoveIndex < 0) return [];
+    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
+  };
+
   const handleMoveClick = useCallback((index: number) => {
     if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
     setViewMoveIndex(index);
@@ -162,6 +214,7 @@ export default function LocalGame() {
   const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
 
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+  const topColor: PieceColor = viewAs === 'white' ? 'black' : 'white';
 
   return (
     <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
@@ -186,6 +239,13 @@ export default function LocalGame() {
               </button>
             </div>
 
+            <Clock
+              time={topColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+              isActive={gameState.turn === topColor && !gameState.gameOver}
+              color={topColor}
+              playerName={topColor === 'white' ? t('common.white') : t('common.black')}
+            />
+
             <BoardErrorBoundary onRetry={() => window.location.reload()}>
               <Board
                 board={getDisplayBoard()}
@@ -203,6 +263,13 @@ export default function LocalGame() {
                 onArrowsChange={setArrows}
               />
             </BoardErrorBoundary>
+
+            <Clock
+              time={viewAs === 'white' ? gameState.whiteTime : gameState.blackTime}
+              isActive={gameState.turn === viewAs && !gameState.gameOver}
+              color={viewAs}
+              playerName={viewAs === 'white' ? t('common.white') : t('common.black')}
+            />
 
             <div className={`
               rounded-lg px-6 py-2.5 text-center font-semibold text-base
@@ -246,6 +313,14 @@ export default function LocalGame() {
               initialBoard={createInitialBoard()}
               currentMoveIndex={viewMoveIndex ?? undefined}
               onMoveClick={handleMoveClick}
+            />
+
+            <CapturedPiecesPanel
+              moves={getVisibleMoves()}
+              topColor={topColor}
+              topLabel={topColor === 'white' ? t('common.white') : t('common.black')}
+              bottomColor={viewAs}
+              bottomLabel={viewAs === 'white' ? t('common.white') : t('common.black')}
             />
 
             {gameState.moveHistory.length > 0 && (

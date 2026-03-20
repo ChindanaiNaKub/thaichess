@@ -17,6 +17,7 @@ import PieceGuide from './PieceGuide';
 import ConnectionStatus from './ConnectionStatus';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
+import CapturedPiecesPanel from './CapturedPiecesPanel';
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -289,6 +290,15 @@ export default function GamePage() {
     setViewMoveIndex(index);
   }, [gameState, viewMoveIndex]);
 
+  const getVisibleMoves = () => {
+    if (!gameState) return [];
+    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
+      return gameState.moveHistory;
+    }
+    if (viewMoveIndex < 0) return [];
+    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
+  };
+
   // Waiting room
   if (gameState && gameState.status === 'waiting') {
     return (
@@ -508,6 +518,14 @@ export default function GamePage() {
               initialBoard={createInitialBoard()}
               currentMoveIndex={viewMoveIndex ?? undefined}
               onMoveClick={gameState.gameOver ? handleMoveClick : undefined}
+            />
+
+            <CapturedPiecesPanel
+              moves={getVisibleMoves()}
+              topColor={opponentColor}
+              topLabel={opponentColor === 'white' ? t('common.white') : t('common.black')}
+              bottomColor={playerColor || 'white'}
+              bottomLabel={playerColor === 'white' ? t('common.white') : t('common.black')}
             />
 
             {/* Keyboard nav hint */}

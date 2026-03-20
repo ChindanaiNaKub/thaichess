@@ -13,6 +13,11 @@ import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import Header from './Header';
 import PieceSVG from './PieceSVG';
+import Clock from './Clock';
+import CapturedPiecesPanel from './CapturedPiecesPanel';
+
+const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
+const LOCAL_CLOCK_TICK_MS = 500;
 
 export default function BotGame() {
   const navigate = useNavigate();
@@ -20,7 +25,7 @@ export default function BotGame() {
   const [gameStarted, setGameStarted] = useState(false);
   const [difficulty, setDifficulty] = useState<BotDifficulty>('medium');
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(0, 0));
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
@@ -75,6 +80,48 @@ export default function BotGame() {
       if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
     };
   }, [gameState, gameStarted, isPlayerTurn, difficulty]);
+
+  useEffect(() => {
+    if (!gameStarted || gameState.gameOver) return;
+
+    const interval = setInterval(() => {
+      let timeoutWinner: PieceColor | null = null;
+
+      setGameState((prev) => {
+        if (prev.gameOver) return prev;
+
+        const now = Date.now();
+        const elapsed = now - prev.lastMoveTime;
+        if (elapsed <= 0) return prev;
+
+        if (prev.turn === 'white') {
+          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
+          if (whiteTime === 0) {
+            timeoutWinner = 'black';
+            return { ...prev, whiteTime: 0, lastMoveTime: now, gameOver: true, winner: 'black' };
+          }
+          return { ...prev, whiteTime, lastMoveTime: now };
+        }
+
+        const blackTime = Math.max(0, prev.blackTime - elapsed);
+        if (blackTime === 0) {
+          timeoutWinner = 'white';
+          return { ...prev, blackTime: 0, lastMoveTime: now, gameOver: true, winner: 'white' };
+        }
+        return { ...prev, blackTime, lastMoveTime: now };
+      });
+
+      if (timeoutWinner) {
+        if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+        setBotThinking(false);
+        setPremove(null);
+        setGameOverInfo({ reason: 'timeout', winner: timeoutWinner });
+        playGameOverSound();
+      }
+    }, LOCAL_CLOCK_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [gameStarted, gameState.gameOver]);
 
   // Auto-execute premove when it becomes player's turn
   useEffect(() => {
@@ -234,7 +281,7 @@ export default function BotGame() {
   }, [gameState, isPlayerTurn, botThinking, playerColor]);
 
   const handleStartGame = () => {
-    setGameState(createInitialGameState(0, 0));
+    setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
@@ -249,7 +296,7 @@ export default function BotGame() {
   const handleReset = () => {
     if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
     setGameStarted(false);
-    setGameState(createInitialGameState(0, 0));
+    setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
@@ -305,6 +352,14 @@ export default function BotGame() {
     if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
     setViewMoveIndex(index);
   }, [gameState.moveHistory.length, viewMoveIndex]);
+
+  const getVisibleMoves = () => {
+    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
+      return gameState.moveHistory;
+    }
+    if (viewMoveIndex < 0) return [];
+    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
+  };
 
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
 
@@ -430,6 +485,13 @@ export default function BotGame() {
               </div>
             </div>
 
+            <Clock
+              time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+              isActive={gameState.turn === botColor && !gameState.gameOver}
+              color={botColor}
+              playerName={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
+            />
+
             <BoardErrorBoundary onRetry={() => window.location.reload()}>
               <Board
                 board={getDisplayBoard()}
@@ -448,6 +510,13 @@ export default function BotGame() {
                 onArrowsChange={setArrows}
               />
             </BoardErrorBoundary>
+
+            <Clock
+              time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+              isActive={isPlayerTurn && !botThinking && !gameState.gameOver}
+              color={playerColor}
+              playerName={`${t('common.you')} (${t(playerColor === 'white' ? 'common.white' : 'common.black')})`}
+            />
 
             <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
               isPlayerTurn && !gameState.gameOver
@@ -501,6 +570,14 @@ export default function BotGame() {
               initialBoard={createInitialBoard()}
               currentMoveIndex={viewMoveIndex ?? undefined}
               onMoveClick={handleMoveClick}
+            />
+
+            <CapturedPiecesPanel
+              moves={getVisibleMoves()}
+              topColor={botColor}
+              topLabel={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
+              bottomColor={playerColor}
+              bottomLabel={t('common.you')}
             />
 
             {gameState.moveHistory.length > 0 && (
