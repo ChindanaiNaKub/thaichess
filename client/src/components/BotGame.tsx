@@ -35,6 +35,7 @@ export default function BotGame() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gameStateRef = useRef(gameState);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
 
@@ -43,6 +44,10 @@ export default function BotGame() {
 
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isPlayerTurn = gameState.turn === playerColor;
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   const difficultyConfig: Record<BotDifficulty, { labelKey: string; descKey: string; emoji: string }> = {
     easy: { labelKey: 'bot.easy', descKey: 'bot.easy_desc', emoji: '🟢' },
@@ -65,9 +70,10 @@ export default function BotGame() {
     const delay = difficulty === 'easy' ? 300 : difficulty === 'medium' ? 600 : 800;
 
     botTimeoutRef.current = setTimeout(() => {
-      const botMoveResult = getBotMove(gameState, difficulty);
+      const currentState = gameStateRef.current;
+      const botMoveResult = getBotMove(currentState, difficulty);
       if (botMoveResult) {
-        const newState = makeMove(gameState, botMoveResult.from, botMoveResult.to);
+        const newState = makeMove(currentState, botMoveResult.from, botMoveResult.to);
         if (newState) {
           setGameState(newState);
           setArrows([]);
@@ -90,7 +96,17 @@ export default function BotGame() {
     return () => {
       if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
     };
-  }, [gameState, gameStarted, isPlayerTurn, difficulty]);
+  }, [
+    botColor,
+    difficulty,
+    gameStarted,
+    gameState.board,
+    gameState.counting,
+    gameState.gameOver,
+    gameState.moveHistory.length,
+    gameState.turn,
+    isPlayerTurn,
+  ]);
 
   useEffect(() => {
     if (!gameStarted || gameState.gameOver) return;
