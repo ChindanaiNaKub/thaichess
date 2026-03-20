@@ -753,6 +753,7 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
 }) {
   const cls = analyzed.classification;
   const color = getClassificationColor(cls);
+  const theme = getClassificationTheme(cls);
   const icon = getClassificationIcon(cls);
   const moveStr = `${posToAlgebraic(analyzed.move.from)}${analyzed.move.captured ? 'x' : '-'}${posToAlgebraic(analyzed.move.to)}`;
   const evalStr = formatEval(analyzed.evalAfter);
@@ -775,8 +776,8 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
       <div className="p-3">
         <div className="flex items-start gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 shadow-md border-2 border-white/20"
-            style={{ backgroundColor: color }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 shadow-md border"
+            style={{ backgroundColor: theme.iconBg, borderColor: theme.iconBorder, color: theme.iconText }}
           >
             {icon}
           </div>
@@ -784,7 +785,12 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-sm font-bold text-text-bright">{moveStr}</span>
-              <span className="text-xs font-semibold" style={{ color }}>{t(`analysis.${cls}`)}</span>
+              <span
+                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold tracking-[0.02em]"
+                style={{ backgroundColor: theme.pillBg, borderColor: theme.pillBorder, color: theme.pillText }}
+              >
+                {t(`analysis.${cls}`)}
+              </span>
               <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-hover text-text-bright border border-white/8">
                 {evalStr}
               </span>
@@ -811,13 +817,76 @@ function ReviewCard({ analyzed, t, onNext, onPrev, hasNext, hasPrev }: {
           onClick={onNext}
           disabled={!hasNext}
           className="flex-1 py-2.5 text-sm font-semibold transition-colors disabled:opacity-30"
-          style={{ backgroundColor: hasNext ? `${color}26` : undefined, color: hasNext ? color : undefined }}
+          style={{
+            backgroundColor: hasNext ? theme.buttonBg : undefined,
+            color: hasNext ? theme.buttonText : undefined,
+          }}
         >
           {t('analysis.next')} ▶
         </button>
       </div>
     </div>
   );
+}
+
+function getClassificationTheme(classification: MoveClassification): {
+  iconBg: string;
+  iconBorder: string;
+  iconText: string;
+  pillBg: string;
+  pillBorder: string;
+  pillText: string;
+  buttonBg: string;
+  buttonText: string;
+} {
+  switch (classification) {
+    case 'best':
+    case 'excellent':
+    case 'good':
+      return {
+        iconBg: '#a9cc57',
+        iconBorder: '#d7ec9c',
+        iconText: '#233012',
+        pillBg: 'rgba(169, 204, 87, 0.2)',
+        pillBorder: 'rgba(191, 226, 109, 0.4)',
+        pillText: '#c6e57c',
+        buttonBg: '#37411f',
+        buttonText: '#b6db63',
+      };
+    case 'inaccuracy':
+      return {
+        iconBg: '#ffd04a',
+        iconBorder: '#ffe391',
+        iconText: '#4d3400',
+        pillBg: 'rgba(247, 198, 49, 0.18)',
+        pillBorder: 'rgba(255, 221, 113, 0.4)',
+        pillText: '#ffd457',
+        buttonBg: '#4b3c13',
+        buttonText: '#ffd04a',
+      };
+    case 'mistake':
+      return {
+        iconBg: '#f0a53e',
+        iconBorder: '#f7c474',
+        iconText: '#4a2600',
+        pillBg: 'rgba(230, 157, 40, 0.18)',
+        pillBorder: 'rgba(243, 186, 90, 0.4)',
+        pillText: '#f3b85a',
+        buttonBg: '#4d3010',
+        buttonText: '#f1b14e',
+      };
+    case 'blunder':
+      return {
+        iconBg: '#df5a56',
+        iconBorder: '#f08a86',
+        iconText: '#3f1110',
+        pillBg: 'rgba(202, 52, 49, 0.18)',
+        pillBorder: 'rgba(233, 109, 106, 0.38)',
+        pillText: '#f37f7b',
+        buttonBg: '#52201f',
+        buttonText: '#f08a86',
+      };
+  }
 }
 
 const ANALYSIS_CACHE_VERSION = 2;
