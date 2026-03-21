@@ -7,36 +7,38 @@ test.describe('Homepage', () => {
 
   test('has correct title and heading', async ({ page }) => {
     await expect(page).toHaveTitle(/ThaiChess/);
-    await expect(page.getByRole('heading', { name: /thai chess/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /play thaichess online/i })).toBeVisible();
   });
 
   test('displays game mode options', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /quick play/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /play with friend/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /play vs bot/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /puzzles/i })).toBeVisible();
+    const main = page.locator('#main-content');
+
+    await expect(main.getByRole('button', { name: /find opponent/i })).toBeVisible();
+    await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();
+    await expect(main.getByRole('button', { name: /play vs bot/i })).toBeVisible();
+    await expect(main.getByRole('button', { name: /^Puzzles$/ })).toBeVisible();
   });
 
   test('navigates to quick play', async ({ page }) => {
-    await page.getByRole('button', { name: /quick play/i }).click();
-    await expect(page).toHaveURL(/\/game\/[a-z0-9]+/);
-    await expect(page.getByText(/waiting for opponent/i)).toBeVisible();
+    await page.locator('#main-content').getByRole('button', { name: /find opponent/i }).click();
+    await expect(page).toHaveURL('/quick-play');
+    await expect(page.getByRole('heading', { name: /quick play/i })).toBeVisible();
   });
 
   test('navigates to local game', async ({ page }) => {
-    await page.getByRole('button', { name: /play with friend/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /play locally/i }).click();
     await expect(page).toHaveURL(/\/local/);
-    await expect(page.locator('.board-square-light')).toHaveCount(32);
-    await expect(page.locator('.board-square-dark')).toHaveCount(32);
+    await expect(page.getByTestId('board')).toBeVisible();
+    await expect(page.locator('[data-testid^="board-square-"]')).toHaveCount(64);
   });
 
   test('navigates to bot game', async ({ page }) => {
-    await page.getByRole('button', { name: /play vs bot/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /play vs bot/i }).click();
     await expect(page).toHaveURL('/bot');
   });
 
   test('navigates to puzzles', async ({ page }) => {
-    await page.getByRole('button', { name: /puzzles/i }).click();
-    await expect(page).toHaveURL(/\/puzzle/);
+    await page.locator('#main-content').getByRole('button', { name: /^Puzzles$/ }).click();
+    await expect(page).toHaveURL('/puzzles');
   });
 });
