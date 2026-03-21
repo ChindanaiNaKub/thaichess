@@ -529,21 +529,9 @@ export default function BotGame() {
         </div>
       )}
 
-      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
-          <div className="flex flex-col items-center gap-2 sm:gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
-            <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
-              botThinking
-                ? 'bg-accent/20 text-accent border border-accent/30'
-                : 'bg-surface-alt text-text-dim border border-surface-hover'
-            }`}>
-              <div className="flex items-center justify-center gap-2">
-                <PieceSVG type="K" color={botColor} size={20} />
-                <span>Bot ({t(difficultyConfig[difficulty].labelKey)})</span>
-                {botThinking && <span className="animate-pulse">{t('bot.thinking')}</span>}
-              </div>
-            </div>
-
+      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-3 sm:py-4">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-3 sm:gap-5 w-full max-w-[1100px]">
+          <div className="flex flex-col items-center gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-180px)] max-w-[720px]">
             <Clock
               time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
               isActive={gameState.turn === botColor && !gameState.gameOver}
@@ -576,18 +564,6 @@ export default function BotGame() {
               color={playerColor}
               playerName={`${t('common.you')} (${t(playerColor === 'white' ? 'common.white' : 'common.black')})`}
             />
-
-            <div className={`rounded-lg px-4 py-2 text-center text-sm font-medium w-full max-w-xs ${
-              isPlayerTurn && !gameState.gameOver
-                ? 'bg-primary/20 text-primary-light border border-primary/30'
-                : 'bg-surface-alt text-text-dim border border-surface-hover'
-            }`}>
-              <div className="flex items-center justify-center gap-2">
-                <PieceSVG type="K" color={playerColor} size={20} />
-                <span>{t('common.you')} ({t(playerColor === 'white' ? 'common.white' : 'common.black')})</span>
-                {isPlayerTurn && !gameState.gameOver && <span>· {t('bot.your_turn')}</span>}
-              </div>
-            </div>
           </div>
 
           <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">

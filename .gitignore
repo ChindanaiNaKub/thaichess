@@ -41,5 +41,7 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+assets/
 client/playwright-report/
 client/test-results/
+client/coverage/
