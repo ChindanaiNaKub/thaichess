@@ -11,6 +11,10 @@
     "build": "npm run build --workspace=client && npm run build --workspace=server",
     "lint": "npm run lint --workspace=client && npm run lint --workspace=server",
     "lint:fix": "npm run lint:fix --workspace=client && npm run lint:fix --workspace=server",
+    "test": "npm run test:client && npm run test:server",
+    "test:client": "npm run test:run --workspace=client",
+    "test:e2e": "npm run test:e2e --workspace=client",
+    "test:server": "npm run test --workspace=server",
     "validate:puzzles": "npm run validate:puzzles --workspace=server",
     "start": "npm run start --workspace=server"
   },

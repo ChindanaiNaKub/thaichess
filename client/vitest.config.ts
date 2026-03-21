@@ -21,6 +21,5 @@ export default defineConfig({
       reporter: ['text', 'html', 'json'],
       exclude: ['node_modules/', 'dist/', '**/*.test.{ts,tsx}', '**/test/', 'e2e/'],
     },
-    ui: true,
   },
 });

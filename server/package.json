@@ -6,6 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/server/src/index.js",
+    "test": "vitest run --config vitest.config.ts",
     "validate:puzzles": "tsx src/scripts/validatePuzzles.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

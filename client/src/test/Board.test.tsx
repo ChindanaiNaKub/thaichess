@@ -27,6 +27,17 @@ const createProps = (overrides: any = {}): any => ({
 describe('Board Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 0,
+      y: 0,
+      width: 800,
+      height: 800,
+      top: 0,
+      right: 800,
+      bottom: 800,
+      left: 0,
+      toJSON: () => ({}),
+    }));
   });
 
   describe('Rendering', () => {
@@ -128,6 +139,33 @@ describe('Board Component', () => {
       const svg = container.querySelector('svg');
       expect(svg).not.toBeInTheDocument();
     });
+
+    it('should create an arrow on right-drag when using internal arrows', () => {
+      const { getByTestId, container } = render(<Board {...createProps()} />);
+
+      fireEvent.mouseDown(getByTestId('board-square-2-4'), { button: 2, clientX: 450, clientY: 550 });
+      fireEvent.mouseMove(getByTestId('board'), { clientX: 450, clientY: 450 });
+      fireEvent.mouseUp(getByTestId('board'), { button: 2, clientX: 450, clientY: 450, shiftKey: true });
+
+      const arrowLines = container.querySelectorAll('svg line');
+      expect(arrowLines.length).toBe(1);
+      expect(arrowLines[0]).toHaveAttribute('stroke', '#e84040');
+    });
+
+    it('should clear external arrows on left mouse down before normal interaction', () => {
+      const onArrowsChange = vi.fn();
+      const arrows: Arrow[] = [
+        { from: { row: 2, col: 4 }, to: { row: 3, col: 4 }, color: '#15781B' },
+      ];
+
+      const { getByTestId } = render(
+        <Board {...createProps({ arrows, onArrowsChange })} />
+      );
+
+      fireEvent.mouseDown(getByTestId('board-square-2-4'), { button: 0, clientX: 450, clientY: 550 });
+
+      expect(onArrowsChange).toHaveBeenCalledWith([]);
+    });
   });
 
   describe('Board Orientation', () => {
@@ -154,6 +192,55 @@ describe('Board Component', () => {
       board.dispatchEvent(contextMenuEvent);
       expect(contextMenuEvent.defaultPrevented).toBe(true);
     });
+
+    it('should call onPieceDrop when dragging a piece to another square', () => {
+      const onPieceDrop = vi.fn();
+      const { getByTestId } = render(<Board {...createProps({ onPieceDrop })} />);
+
+      fireEvent.mouseDown(getByTestId('board-square-2-4'), { button: 0, clientX: 450, clientY: 550 });
+      fireEvent.mouseMove(getByTestId('board'), { clientX: 450, clientY: 450 });
+      fireEvent.mouseUp(getByTestId('board'), { button: 0, clientX: 450, clientY: 450 });
+
+      expect(onPieceDrop).toHaveBeenCalledWith({ row: 2, col: 4 }, { row: 3, col: 4 });
+    });
+
+    it('should call onPieceDrop when a touch drag ends on a different square', () => {
+      const onPieceDrop = vi.fn();
+      const { getByTestId } = render(<Board {...createProps({ onPieceDrop })} />);
+      const sourceSquare = getByTestId('board-square-2-4');
+      const board = getByTestId('board');
+
+      fireEvent.touchStart(sourceSquare, {
+        touches: [{ clientX: 450, clientY: 550 }],
+      });
+      fireEvent.touchMove(board, {
+        touches: [{ clientX: 450, clientY: 450 }],
+      });
+      fireEvent.touchEnd(board, {
+        changedTouches: [{ clientX: 450, clientY: 450 }],
+      });
+
+      expect(onPieceDrop).toHaveBeenCalledWith({ row: 2, col: 4 }, { row: 3, col: 4 });
+    });
+
+    it('should ignore click and touch interactions when disabled', () => {
+      const onSquareClick = vi.fn();
+      const onPieceDrop = vi.fn();
+      const { getByTestId } = render(
+        <Board {...createProps({ disabled: true, onSquareClick, onPieceDrop })} />
+      );
+
+      fireEvent.click(getByTestId('board-square-2-4'));
+      fireEvent.touchStart(getByTestId('board-square-2-4'), {
+        touches: [{ clientX: 450, clientY: 550 }],
+      });
+      fireEvent.touchEnd(getByTestId('board'), {
+        changedTouches: [{ clientX: 450, clientY: 450 }],
+      });
+
+      expect(onSquareClick).not.toHaveBeenCalled();
+      expect(onPieceDrop).not.toHaveBeenCalled();
+    });
   });
 
   describe('Edge Cases', () => {
@@ -168,6 +255,20 @@ describe('Board Component', () => {
       const { container } = render(<Board {...createProps({ board: emptyBoard })} />);
       const pieces = container.querySelectorAll('[data-testid^="piece-"]');
       expect(pieces.length).toBe(0);
+    });
+
+    it('should render square highlights and annotations', () => {
+      const { getByTestId, getByText } = render(
+        <Board
+          {...createProps({
+            squareHighlights: [{ pos: { row: 2, col: 4 }, color: 'rgb(255, 0, 0)' }],
+            squareAnnotations: [{ pos: { row: 2, col: 4 }, icon: '!', bgColor: 'gold' }],
+          })}
+        />
+      );
+
+      expect(getByTestId('board-square-2-4')).toHaveStyle({ backgroundColor: 'rgb(255, 0, 0)' });
+      expect(getByText('!')).toBeInTheDocument();
     });
   });
 });

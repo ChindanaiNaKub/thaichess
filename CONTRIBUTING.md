@@ -43,6 +43,13 @@ npm run build
 6. Commit with a descriptive message
 7. Push and open a Pull Request
 
+### Branch Policy
+
+- `main` is a protected branch and should only receive changes through pull requests
+- Direct pushes to `main` should be blocked for everyone, including admins/owners
+- Pull requests should only be merged after the required GitHub Actions checks pass
+- If you are working solo, keep the same rule for yourself to avoid bypassing CI by accident
+
 ## Areas Where Help is Needed
 
 - **Thai language support** — UI translations
