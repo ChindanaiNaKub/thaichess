@@ -1,147 +1,202 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-20
+**Analysis Date:** 2026-03-21
 
 ## Naming Patterns
 
 **Files:**
-- PascalCase for components: `Board.tsx`, `ErrorBoundary.tsx`, `PieceSVG.tsx`
-- camelCase for utilities and hooks: `useGameInteraction.ts`, `createInitialBoard.ts`
-- kebab-case for assets: `piece-images/king-white.svg`
-- Test files: `*.test.ts` and `*.test.tsx` (e.g., `Board.test.tsx`, `engine.test.ts`)
-- E2E test files: `*.spec.ts` (e.g., `home.spec.ts`)
+- PascalCase for components: `Board.tsx`, `PieceSVG.tsx`, `GameTimer.tsx`
+- camelCase for utilities and hooks: `useBoardLogic.ts`, `gameUtils.ts`
+- snake_case for test files: `board.test.ts`, `gameLogic.test.ts`
+- kebab-case for configuration and documentation
 
 **Functions:**
 - camelCase for all functions
-- Factory functions start with `create`: `createInitialBoard()`, `createInitialGameState()`
-- Hook names start with `use`: `useGameInteraction()`
-- Getter methods start with `get`: `getLegalMoves()`, `getAllPieces()`
-- Boolean prefix methods use `is`, `has`, `can`: `isInCheck()`, `hasAnyLegalMoves()`, `canMove()`
+- Event handlers prefixed with `on`: `onSquareClick`, `onPieceDrop`, `onMove`
+- State setters prefixed with `set`: `setSelectedSquare`, `setBoardState`
+- Internal functions prefixed with `_`: `_validateMove`, `_calculateLegalMoves`
 
 **Variables:**
-- camelCase for all variables
-- State variables: `const [selectedSquare, setSelectedSquare]`
-- Ref variables: `const boardRef = useRef<HTMLDivElement>(null)`
-- Boolean flags: `const isMyTurn`, `const isCheck`
-- Constants in UPPER_SNAKE_CASE: `const INITIAL_TIME = 300000`
+- camelCase for local variables and props
+- TypeScript interfaces with PascalCase
+- Constants with UPPER_SNAKE_CASE: `MAX_GAME_DURATION`, `DEFAULT_BOARD_SIZE`
+- Boolean variables with is/has prefixes: `isMyTurn`, `hasValidMoves`, `isSelected`
 
 **Types:**
-- PascalCase for type names: `interface Piece`, `type Position`, `type Board`
-- Union types use snake_case: `type PieceType`, `type PieceColor`
-- Generic type parameters: `T`, `K`, `V`
+- TypeScript interfaces for complex objects
+- Type aliases with descriptive names
+- Union types for enums: `PieceType = 'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'`
+- Generic types with descriptive parameter names
 
 ## Code Style
 
 **Formatting:**
-- No explicit linting configuration detected (no ESLint, Prettier, or stylelint files)
-- Code appears formatted with standard TypeScript/React conventions
-- Uses TypeScript strict mode enabled in `tsconfig.json`
+- ESLint with TypeScript support enabled
+- Standard JavaScript formatting rules
+- Semi-colons required
+- Double quotes for strings (unless template literals needed)
+- Indentation with 2 spaces
 
-**Imports:**
-- Always use named imports with specific module references
-- Relative imports for local files: `import Board from './Board'`
-- Absolute imports for shared packages: `import { createInitialBoard } from '@shared/engine'`
-- React imports: `import { useState, useCallback, memo } from 'react'`
-- Import order:
-  1. React
-  2. Third-party libraries
-  3. Shared modules (@shared/*)
-  4. Local imports
+**Linting:**
+- ESLint configuration in `eslint.config.js`
+- Separate configs for client and server code
+- React hooks rules enforced: `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`
+- TypeScript strict mode enabled
 
+## Import Organization
+
+**Order:**
+1. React imports
+2. Third-party library imports
+3. Shared imports from `@shared/*`
+4. Local project imports
+5. Relative imports
+
+**Path Aliases:**
+- `@shared/*` → `../shared/*` (shared types and utilities)
+
+**Import Patterns:**
 ```typescript
-import { useState, useCallback } from 'react';
+// Standard imports
+import React, { useState, useCallback, memo } from 'react';
 import { render, fireEvent } from '@testing-library/react';
-import type { Position, PieceColor } from '@shared/types';
-import Board from '../components/Board';
-```
 
-**Component Structure:**
-- Default export for components
-- Component names should start with capital letter
-- Interface Props for component props
-- Use `React.memo` for performance optimization
-- Use functional components with hooks
+// Type-only imports
+import type { Board, Position, PieceColor } from '@shared/types';
 
-```typescript
-interface BoardProps {
-  board: BoardType;
-  playerColor: PieceColor | null;
-  isMyTurn: boolean;
-  onSquareClick: (pos: Position) => void;
-}
-
-export default memo(function Board({
-  board,
-  playerColor,
-  isMyTurn,
-  onSquareClick,
-}: BoardProps) {
-  // Component logic
-});
+// Namespace imports
+import * as gameUtils from './gameUtils';
 ```
 
 ## Error Handling
 
 **Patterns:**
-- No try-catch blocks detected in component code
-- Errors handled through:
-  - React Error Boundaries: `ErrorBoundary` component catches rendering errors
-  - Validation functions return null for invalid operations
-  - Graceful fallbacks in UI for edge cases
-- Error logging: `console.error('[ErrorBoundary] Caught error:', error, errorInfo)`
+- Try-catch blocks for async operations
+- Error boundaries for React components
+- Graceful fallbacks for missing data
+- Logging errors with context
 
-**Error Boundaries:**
-- `ErrorBoundary` component catches and displays errors
-- Shows error message with recovery options
-- Reports errors to GitHub issues
-- Maintains app state without crashing
+**Error Types:**
+- Custom error classes for domain-specific errors
+- TypeScript discriminated unions for error handling
+- Proper error propagation up the call stack
 
-**Validation:**
-- Game engine returns `null` for invalid moves
-- Components handle null values gracefully
-- Type safety enforced by TypeScript strict mode
+**Example:**
+```typescript
+try {
+  const result = await moveValidationService.validateMove(move);
+  return result;
+} catch (error) {
+  logger.error('Move validation failed:', error);
+  throw new MoveValidationError('Invalid move', { originalError: error });
+}
+```
+
+## Logging
+
+**Framework:** Console logging and structured logging
+
+**Patterns:**
+- Use consistent log levels: info, warn, error
+- Include contextual information in logs
+- Remove console.log before commits
+- Use logger utilities for production
 
 ## Comments
 
 **When to Comment:**
-- Complex game logic in engine functions
-- Implementation details of algorithms
-- Edge cases in move validation
-- TODO items for future features
+- Complex business logic algorithms
+- Todo items with clear descriptions
+- Workarounds for temporary issues
+- Integration points with external systems
 
 **JSDoc/TSDoc:**
-- Limited use of TSDoc in components
-- Type annotations serve as documentation
-- Clear interface definitions for props
+- Required for all public APIs
+- Include examples for complex functions
+- Document parameters and return types
+- Document side effects
+
+**Function Example:**
+```typescript
+/**
+ * Validates a move according to Thai chess rules
+ * @param move - The move to validate
+ * @param gameState - Current game state
+ * @returns {ValidationResult} Object with validation result and error message
+ * @example
+ * const result = validateMove(move, gameState);
+ * if (result.isValid) {
+ *   // Move is valid
+ * } else {
+ *   console.error(result.error);
+ * }
+ */
+function validateMove(move: Move, gameState: GameState): ValidationResult {
+  // Implementation
+}
+```
 
 ## Function Design
 
 **Size:**
-- Small focused functions (5-20 lines)
+- Keep functions under 50 lines
 - Single responsibility principle
-- Helper functions extracted for reusability
+- Extract reusable logic into utilities
 
 **Parameters:**
-- Objects for multiple related parameters
+- 3-5 parameters maximum
+- Use object for multiple related parameters
 - Optional parameters with defaults
-- Explicit typing for all parameters
 
 **Return Values:**
 - Consistent return types
-- null for failure cases
-- typed responses (never untyped returns)
+- Avoid null/undefined when possible
+- Use discriminated unions for success/failure cases
 
 ## Module Design
 
 **Exports:**
-- Named exports for utilities and types
-- Default exports for React components
-- Barrel files for organizing exports
+- Named exports for functions and types
+- Default export only for main components
+- Barrel files for clean imports
 
 **Barrel Files:**
-- Not detected - direct imports from specific files
-- Shared package exports all functions from main files
+- `src/components/index.ts` - Re-export commonly used components
+- `src/types/index.ts` - All type exports
+- `src/utils/index.ts` - Utility functions
+
+## TypeScript Patterns
+
+**Strict Mode:**
+- Enabled with noImplicitAny, strictNullChecks
+- Explicit type annotations for public APIs
+- Interface types over type aliases for objects
+
+**Best Practices:**
+- Use `readonly` for immutable data
+- Literal types for enum-like values
+- Generics for reusable components
+- Utility types for common transformations
+
+## React Patterns
+
+**Component Design:**
+- Functional components with hooks
+- memo for expensive components
+- useCallback for event handlers
+- useMemo for expensive calculations
+
+**State Management:**
+- useState for component state
+- useReducer for complex state logic
+- Context for shared state
+- Custom hooks for reusable logic
+
+**Props:**
+- PropTypes for runtime validation
+- Default props where appropriate
+- Interface definitions for props
 
 ---
 
-*Convention analysis: 2026-03-20*
+*Convention analysis: 2026-03-21*

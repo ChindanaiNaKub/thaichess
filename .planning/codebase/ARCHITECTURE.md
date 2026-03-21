@@ -1,135 +1,138 @@
 # Architecture
 
-**Analysis Date:** 2026-03-20
+**Analysis Date:** 2026-03-21
 
 ## Pattern Overview
 
-**Overall:** Multi-tier client-server architecture with real-time features
+**Overall:** Multi-tier real-time web application with client-server separation
 
 **Key Characteristics:**
-- Frontend: React SPA with TypeScript and Vite
-- Backend: Express.js with Socket.IO for real-time communication
-- Shared: Shared TypeScript types for type safety across layers
-- State: React state + Socket.IO real-time synchronization
-- Database: SQLite for persistent storage
+- Client-server architecture with real-time bidirectional communication
+- Single-page application (SPA) with multiple game modes
+- Socket.IO for real-time game state synchronization
+- REST API for authentication, data persistence, and game state queries
+- In-memory game room management with database persistence
+- Thai chess (Makruk) specific game logic
 
 ## Layers
 
-**Presentation Layer (client/):**
-- Purpose: User interface and game visualization
-- Location: `/client/src`
-- Contains: React components, hooks, utilities, and assets
+**Client Layer:**
+- Purpose: React SPA for user interface and game presentation
+- Location: `client/src/`
+- Contains: React components, hooks, utilities, and configuration
 - Depends on: React, React Router, Socket.IO client
-- Used by: End users
+- Used by: End users through web browsers
 
-**Application Logic Layer (shared/):**
-- Purpose: Shared types and utilities across client/server
-- Location: `/shared/types.ts`, `/shared/utils/`
-- Contains: Game state interfaces, move types, Socket.IO events
-- Depends on: TypeScript type system
-- Used by: Both client and server
+**Server Layer:**
+- Purpose: Express.js backend with Socket.IO for real-time logic
+- Location: `server/src/`
+- Contains: Game logic, matchmaking, authentication, database access
+- Depends on: Express, Socket.IO, SQLite database
+- Used by: Client applications through HTTP and WebSocket
 
-**Business Logic Layer (server/):**
-- Purpose: Game rules, matchmaking, and game state management
-- Location: `/server/src`
-- Contains: GameManager, matchmaking queue, game rules
-- Depends on: Database layer, Socket.IO server
-- Used by: Socket.IO connections
+**Shared Layer:**
+- Purpose: TypeScript types and shared game logic
+- Location: `shared/`
+- Contains: Type definitions, game engine, board representation
+- Depends on: TypeScript, chess logic implementations
+- Used by: Both client and server for type safety and shared game rules
 
-**Data Layer (server/database.ts):**
-- Purpose: Persistent storage of games and feedback
-- Location: `/server/src/database.ts`
-- Contains: SQLite database operations
-- Depends on: better-sqlite3
-- Used by: Business logic layer
+**Data Layer:**
+- Purpose: Database operations and data persistence
+- Location: `server/src/database.ts`, SQLite database file
+- Contains: Game history, user accounts, feedback storage
+- Depends on: SQLite ORM and file storage
+- Used by: Server layer for persistent data
 
 ## Data Flow
 
-**Real-time Game Flow:**
+**Game Creation Flow:**
+1. Client → Server: `create_game` Socket.IO event
+2. Server: Create in-memory GameRoom via GameManager
+3. Server → Client: `game_created` event with gameId
+4. Server → Client: Game state updates via `game_joined` event
+5. Both players receive game state for immediate rendering
 
-1. Client connects via Socket.IO
-2. Game room created/joined
-3. GameManager maintains game state
-4. State changes broadcast to all clients
-5. UI updates based on new state
+**Real-time Game Play:**
+1. Player makes move → Client → Server: `make_move` Socket.IO event
+2. Server: Validate move via shared game engine
+3. Server → Both players: `move_made` event with updated state
+4. Server: Update in-memory game room
+5. On game end → Server: Save to database via saveCompletedGame
 
-**Move Flow:**
-1. User clicks/selects piece
-2. Client validates move locally
-3. Move sent to server via socket
-4. Server validates and updates game state
-5. Broadcast move confirmation to all clients
-6. UI reflects updated board state
+**Matchmaking Flow:**
+1. Client → Server: `find_game` Socket.IO event
+2. Server: Add to MatchmakingQueue with time control
+3. Server: Periodically try to find match in same time control
+4. Match found → Server: Create new game room
+5. Server → Both players: `matchmaking_found` event
 
-**State Management:**
-- Client: React useState, useEffect, and custom hooks
-- Server: GameManager singleton with in-memory state
-- Persistence: SQLite for completed games
+**Authentication Flow:**
+1. Client → Server: Email verification request to REST endpoint
+2. Server: Issue login code via configured service
+3. Client → Server: Login code verification
+4. Server: Set session cookie for authenticated requests
+5. Client: All subsequent requests include authentication
 
 ## Key Abstractions
 
 **GameRoom:**
-- Purpose: Represents a single game session
-- Examples: `/shared/types.ts` - GameRoom interface
-- Pattern: Centralized state management
+- Purpose: Represents a single game instance with state
+- Examples: `server/src/gameManager.ts` lines 22-29, `shared/types.ts` lines 70-81
+- Pattern: In-memory object with shared state management
 
-**ClientGameState:**
-- Purpose: Client-specific game state with UI-related data
-- Examples: `/shared/types.ts` - ClientGameState interface
-- Pattern: Separate client/server data models
-
-**useGameSocket Hook:**
-- Purpose: Encapsulates Socket.IO logic and event handling
-- Examples: `/client/src/hooks/useGameSocket.ts`
-- Pattern: Custom hook for side effects
+**GameState/ClientGameState:**
+- Purpose: Complete game state for display and synchronization
+- Examples: `shared/types.ts` lines 47-64, 82-101
+- Pattern: Immutable updates with new state objects
 
 **GameManager:**
-- Purpose: Core game logic and state management
-- Examples: `/server/src/gameManager.ts`
-- Pattern: Singleton with game room management
+- Purpose: Central game management and room lifecycle
+- Examples: `server/src/gameManager.ts`
+- Pattern: Singleton with room ID lookup and player tracking
+
+**SocketRateLimiter:**
+- Purpose: Rate limiting protection against abuse
+- Examples: `server/src/security.ts` lines 71-88
+- Pattern: Sliding window rate limiting per socket and IP
 
 ## Entry Points
 
-**Client Entry Point:**
-- Location: `/client/src/main.tsx`
-- Triggers: Initial app boot
-- Responsibilities: Mount React app with providers (ErrorBoundary, I18nProvider, Router)
+**Client Application:**
+- Location: `client/src/main.tsx`
+- Triggers: DOM load and React application bootstrapping
+- Responsibilities: Provider setup, error boundaries, routing
 
-**Server Entry Point:**
-- Location: `/server/src/index.ts`
-- Triggers: Server start and Socket.IO initialization
-- Responsibilities: Express app setup, Socket.IO server, API endpoints
+**Server Application:**
+- Location: `server/src/index.ts`
+- Triggers: Node.js startup and Express server initialization
+- Responsibilities: HTTP server, Socket.IO setup, route handlers
 
-**Route Entry Points:**
-- Location: `/client/src/App.tsx`
-- Triggers: Route-based component mounting
-- Responsibilities: Route definitions, lazy loading, layout
+**Client Router:**
+- Location: `client/src/App.tsx`
+- Triggers: React Router navigation
+- Responsibilities: Route matching and lazy loading of components
 
 ## Error Handling
 
-**Strategy:** Layered error handling with boundaries
+**Strategy:** Layered error handling with graceful degradation
 
 **Patterns:**
-- ErrorBoundary components for React component errors
-- Try/catch in game logic
-- Socket.IO error events
-- API endpoint error responses
+- Client boundaries: `ErrorBoundary`, `BoardErrorBoundary` components catch rendering errors
+- Server validation: All inputs validated before processing
+- Socket error handling: Client receives error events, server logs detailed errors
+- Global error reporting: Client errors reported via `/api/client-errors` endpoint
 
 ## Cross-Cutting Concerns
 
-**Logging:**
-- Server: Console logging for requests and errors
-- Client: Console errors, error boundaries with GitHub reporting
+**Logging:** Custom logging with different levels (logInfo, logWarn, logError) in `server/src/logger.ts`
 
-**Validation:**
-- Client: Move validation before sending
-- Server: Complete move validation
-- Types: TypeScript for compile-time safety
+**Validation:** Input validation in `server/src/security.ts` with sanitization of game IDs, positions, etc.
 
-**Authentication:**
-- Service: Not implemented - uses anonymous gameplay
-- Security: Rate limiting on API endpoints
+**Authentication:** Email-based authentication with session cookies via `server/src/auth.ts`
+
+**Monitoring:** Custom monitoring counters in `server/src/monitoring.ts` for tracking key metrics
 
 ---
 
-*Architecture analysis: 2026-03-20*
+*Architecture analysis: 2026-03-21*

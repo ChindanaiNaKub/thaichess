@@ -1,78 +1,83 @@
 # External Integrations
 
-**Analysis Date:** 2025-03-20
+**Analysis Date:** 2026-03-21
 
 ## APIs & External Services
 
-**Internal APIs:**
-- Custom REST API on /api/ - Game data, stats, and feedback
-- Custom WebSocket API - Real-time game events via Socket.IO
-
-## Data Storage
-
 **Databases:**
-- SQLite - Local file-based database
-  - Connection: Via better-sqlite3
-  - Storage: ./data/thaichess.db
-  - Schema: Games and feedback tables
+- Turso/SQLite - Primary database
+  - Client: @libsql/client
+  - URL: TURSO_DATABASE_URL
+  - Auth: TURSO_AUTH_TOKEN
+  - Fallback: Local SQLite file database
 
 **File Storage:**
-- Local filesystem only
-- No external cloud storage
+- Local filesystem only - SQLite database files
+- Data directory: DATA_DIR (default: /data)
 
 **Caching:**
-- In-memory only via Socket.IO rooms
-- No external caching service
+- None detected
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- None detected - Anonymous access only
-- No authentication system implemented
+- Custom email-based authentication
+  - Implementation: Session tokens with login codes
+  - Login codes: 6-digit numeric codes
+  - Session cookies with SameSite=Lax
+- Admin emails: ADMIN_EMAILS (comma-separated)
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None detected - Console logging only
-- No external error tracking service
+- None detected - Custom error logging in code
 
 **Logs:**
-- Console logging on server
-- Request logging for API endpoints
-- Socket.IO connection logging
+- Custom logger in `server/src/logger.ts`
+- Request logging middleware
+- Error tracking with structured logging
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Fly.io - Primary deployment target
-- Render.com - Free alternative
-- Supports persistent volumes for SQLite
+- Fly.io - Primary deployment
+  - Region: Singapore (sin)
+  - Size: shared-cpu-1x, 256mb
+  - Auto-deploy configured
+- Docker containerization
+- Build stage with Node.js 22-alpine
 
 **CI Pipeline:**
-- GitHub Actions - Build and test
-- Multi-stage Docker builds
-- Workspace-based build process
+- GitHub Actions (exists but not detailed)
 
 ## Environment Configuration
 
 **Required env vars:**
-- PORT - Server port (default: 3000)
-- NODE_ENV - Environment mode
-- DATA_DIR - Database directory path
+- PORT=3000
+- NODE_ENV=development/production
+- DATA_DIR=/path/to/data (default: ./data)
+- TURSO_DATABASE_URL (for production)
+- TURSO_AUTH_TOKEN (for production)
+- AUTH_SECRET (session signing)
+- RESEND_API_KEY (optional, email login codes)
+- AUTH_FROM_EMAIL (optional, email sender)
 
 **Secrets location:**
-- No external secrets required
-- Environment configuration in .env
+- .env file (local development)
+- Fly.io secrets (production)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None detected
+- Socket.IO events for real-time game communication
+- HTTP API endpoints for authentication and game data
 
 **Outgoing:**
-- None detected
+- Email notifications via Resend (optional)
+  - API key: RESEND_API_KEY
+  - From email: AUTH_FROM_EMAIL
 
 ---
 
-*Integration audit: 2025-03-20*
+*Integration audit: 2026-03-21*
 ```

@@ -1,125 +1,171 @@
 # Codebase Concerns
 
-**Analysis Date:** 2024-12-20
+**Analysis Date:** 2026-03-21
 
 ## Tech Debt
 
-**Audio Context API Handling:**
-- Issue: Web Audio API usage without proper cleanup or user interaction handling
-- Files: `client/src/lib/sounds.ts`
-- Impact: May fail to play sounds in browsers that require user interaction first
-- Fix approach: Implement audio context resume on user interaction and proper cleanup
+**Large React Components:**
+- Issue: GamePage.tsx (668 lines) and AnalysisPage.tsx (954 lines) violate single responsibility principle
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/components/GamePage.tsx`
+  - `/home/prab/Documents/markrukthai-1/client/src/components/AnalysisPage.tsx`
+- Impact: Hard to test, maintain, and understand
+- Fix approach: Extract business logic to custom hooks, split into smaller components
 
-**Type Safety Issues:**
-- Issue: Type casting using `(navigator as any).userLanguage` fallback
-- Files: `client/src/lib/i18n.tsx:17`
-- Impact: Weak type safety for browser language detection
-- Fix approach: Proper type declaration or alternative pattern for accessing browser language
+**Missing ESLint React Hooks Rule:**
+- Issue: Lack of exhaustive-deps rule detection leads to infinite re-render bugs
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/vite.config.ts`
+  - No evidence of eslint-plugin-react-hooks configuration
+- Impact: Production freezes, UI unresponsiveness, memory leaks
+- Fix approach: Add ESLint config with 'react-hooks/exhaustive-deps' rule
 
-**Timer Management:**
-- Issue: Multiple setTimeout/setInterval instances without proper cleanup in some components
-- Files: `client/src/components/FeedbackWidget.tsx`, `client/src/components/PuzzlePage.tsx`
-- Impact: Memory leaks if components unmount before timers clear
-- Fix approach: Always store timer references in useRef and clean up in useEffect cleanup
+**Auth Implementation Spread Across Components:**
+- Issue: Authentication logic duplicated in multiple files
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/lib/auth.tsx`
+  - `/home/prab/Documents/markrukthai-1/client/src/components/AccountPage.tsx`
+  - `/home/prab/Documents/markrukthai-1/client/src/components/LoginPage.tsx`
+- Impact: Inconsistent authentication flow, security gaps
+- Fix approach: Create centralized auth context provider
 
 ## Known Bugs
 
-**Audio Context Initialization:**
-- Issue: Audio context might not initialize properly without user interaction
-- Files: `client/src/lib/sounds.ts`
-- Symptoms: No sound playing on page load
-- Trigger: Direct instantiation without user interaction
-- Workaround: User needs to interact with the page first
+**Puzzle Validation Logic Missing:**
+- Issue: Template test file exists but no actual puzzle validation tests found
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/test/puzzleValidation.test.ts`
+- Symptoms: Puzzle solutions might not be correctly validated
+- Trigger: When puzzle answers are incorrect but system accepts them
+- Workaround: Manual testing required for puzzle functionality
 
-**Clipboard API Accessibility:**
-- Issue: Direct navigator.clipboard.writeText usage without fallback
-- Files: `client/src/components/GamePage.tsx:249`
-- Symptoms: Copy functionality fails on older browsers
-- Trigger: Users on browsers without Clipboard API
-- Workaround: Current implementation lacks document.execCommand fallback
+**Regression Test Template Unfilled:**
+- Issue: Template exists but no actual regression tests implemented
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/test/regression/template.test.ts`
+- Symptoms: Previously fixed bugs may reappear without warning
+- Trigger: Code changes without proper testing
+- Workaround: Manual regression testing before releases
 
 ## Security Considerations
 
-**Client-Side Feedback:**
-- Risk: Feedback submission includes user agent data without sanitization
-- Files: `client/src/components/FeedbackWidget.tsx:29`
-- Current mitigation: Basic sanitization through JSON.stringify
-- Recommendations: Implement server-side sanitization and rate limiting
+**X-Forwarded-For Header Reliance:**
+- Risk: Potential IP spoofing through proxy headers
+- Files:
+  - `/home/prab/Documents/markrukthai-1/server/src/security.ts:56-59`
+- Current mitigation: Basic header parsing but no validation
+- Recommendations: Add IP validation, consider using trusted proxies list
 
-**Socket Connection:**
-- Risk: Direct connection to localhost without validation
-- Files: `client/src/lib/socket.ts:4`
-- Current mitigation: Environment-based URL switching
-- Recommendations: Add proper SSL/TLS verification for production
+**Game ID Validation Limited:**
+- Risk: Simple regex validation may allow bypass
+- Files:
+  - `/home/prab/Documents/markrukthai-1/server/src/security.ts:65-67`
+- Current mitigation: Alphanumeric-only validation
+- Recommendations: Consider UUID generation instead, add server-side game ID verification
+
+**Client-Side Error Reporting:**
+- Risk: Error messages may contain sensitive information
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/lib/errorReporting.ts:13-27`
+- Current mitigation: Basic sanitization
+- Recommendations: Sanitize all error messages before transmission, avoid stack traces in prod
 
 ## Performance Bottlenecks
 
-**Large Translation File:**
-- Problem: 675-line i18n file loaded entirely
-- Files: `client/src/lib/i18n.tsx`
-- Cause: No lazy loading or chunking of translations
-- Improvement path: Split translations by sections and lazy load on demand
+**Large AnalysisPage Component:**
+- Problem: 954 lines likely causing render performance issues
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/components/AnalysisPage.tsx`
+- Cause: Complex board rendering, move history display
+- Improvement path: Virtualize move history, memoize calculations, break into smaller components
 
-**Analysis Page Size:**
-- Problem: 802-line monolithic component
-- Files: `client/src/components/AnalysisPage.tsx`
-- Cause: Multiple responsibilities in single component
-- Improvement path: Split into smaller components for analysis, graphs, and controls
+**Socket.IO Connection Management:**
+- Problem: Multiple socket connections possible without proper cleanup
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/hooks/useGameSocket.ts:37-150`
+- Cause: No connection pooling or connection reuse
+- Improvement path: Implement connection pooling, track active connections
 
 ## Fragile Areas
 
-**DOM API Dependencies:**
-- Files: `client/src/lib/i18n.tsx`, `client/src/components/GamePage.tsx`
-- Why fragile: Direct browser API access without proper shims
-- Safe modification: Use provided mock setup in tests
-- Test coverage: Present but needs DOM API mocking
+**Game State Dependencies:**
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/components/GamePage.tsx`
+  - `/home/prab/Documents/markrukthai-1/client/src/hooks/useGameSocket.ts`
+- Why fragile: Multiple useEffect hooks with complex dependencies
+- Safe modification: Create custom hooks for all game state operations
+- Test coverage: Missing tests for dependency edge cases
 
-**Error Boundary Stack:**
-- Files: `client/src/components/ErrorBoundary.tsx`, `client/src/components/AsyncErrorBoundary.tsx`, `client/src/components/BoardErrorBoundary.tsx`
-- Why fragile: Multiple error boundaries with similar patterns but different scopes
-- Safe modification: Extract common error handling pattern
-- Test coverage: Error boundaries need specific testing scenarios
+**Board Rendering Logic:**
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/components/Board.tsx`
+- Why fragile: Complex piece rendering with multiple conditions
+- Safe modification: Extract piece rendering logic into separate components
+- Test coverage: Limited unit tests for board interactions
+
+## Scaling Limits
+
+**In-Memory Rate Limiting:**
+- Current capacity: Limited by server memory
+- Files:
+  - `/home/prab/Documents/markrukthai-1/server/src/security.ts:15-45`
+- Limit: Map grows indefinitely without cleanup
+- Scaling path: Implement Redis-based rate limiting with automatic cleanup
+
+**Socket.IO Connections:**
+- Current capacity: Limited by file descriptors
+- Limit: OS-level connection limits
+- Scaling path: Implement connection pooling and connection management
 
 ## Dependencies at Risk
 
-**Testing Setup:**
-- Risk: Heavy mocking in setup file
-- Files: `client/src/test/setup.ts`
-- Impact: Tests may not catch real DOM API issues
-- Migration plan: Gradual reduction of mocking for APIs that work in test environment
+**React Testing Library:**
+- Risk: Heavy reliance without version pinning
+- Impact: Breaking changes in minor versions
+- Migration plan: Pin to specific versions, create test abstraction layer
+
+**Socket.IO:**
+- Risk: Version compatibility between client and server
+- Impact: Connection failures, event mismatches
+- Migration plan: Use exact version matching, create version compatibility tests
 
 ## Missing Critical Features
 
-**Audio Volume Control:**
-- Problem: No way for users to control or mute game sounds
-- Blocks: Accessibility for users with audio sensitivity
-- Implementation needed: Add volume slider and muting functionality
+**Game History Persistence:**
+- Problem: No evidence of game history storage beyond current session
+- Blocks: Cannot review past games, no statistics tracking
+- Priority: High for game analysis features
 
-**Offline Mode:**
-- Problem: No offline capability for puzzle solving
-- Blocks: Usage in low-connectivity scenarios
-- Implementation needed: Cache puzzle data and implement offline mode
+**Spectator Mode:**
+- Problem: Users cannot watch live games
+- Blocks: Cannot create tournament or spectator functionality
+- Priority: Medium for community features
 
 ## Test Coverage Gaps
 
-**Integration Testing:**
-- What's not tested: Socket connection integration with game state
-- Files: `client/src/lib/socket.ts`
-- Risk: Connection issues during gameplay may not be caught
-- Priority: High
+**Move Validation Logic:**
+- What's not tested: Special Makruk rules implementation
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/test/engine.test.ts`
+  - Missing tests for promoted pieces, bench pieces
+- Risk: Game rules incorrectly implemented
+- Priority: High - core game functionality
 
-**Accessibility Testing:**
-- What's not tested: ARIA compliance for screen reader navigation
-- Files: All components
-- Risk: Screen reader users may have poor experience
-- Priority: Medium
+**Error Boundary Testing:**
+- What's not tested: Error boundary recovery scenarios
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/components/ErrorBoundary.tsx`
+  - `/home/prab/Documents/markrukthai-1/client/src/components/BoardErrorBoundary.tsx`
+- Risk: Error boundaries may not catch all errors
+- Priority: Medium - user experience
 
-**Error State Testing:**
-- What's not tested: Error boundaries catching and displaying errors properly
-- Files: Error boundary components
-- Risk: Error UI may not work as expected
-- Priority: Medium
+**Socket.IO Reconnection:**
+- What's not tested: Network recovery scenarios
+- Files:
+  - `/home/prab/Documents/markrukthai-1/client/src/hooks/useGameSocket.ts`
+- Risk: Games lost on network interruption
+- Priority: High - network resilience
 
 ---
 
-*Concerns audit: 2024-12-20*
+*Concerns audit: 2026-03-21*

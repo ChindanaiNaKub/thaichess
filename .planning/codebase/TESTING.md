@@ -1,254 +1,288 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-20
+**Analysis Date:** 2026-03-21
 
 ## Test Framework
 
 **Runner:**
-- Vitest for unit and component tests
-- Playwright for E2E tests
-- Configuration files: `vitest.config.ts`, `playwright.config.ts`
+- Vitest for unit tests and integration tests
+- Playwright for end-to-end tests
+- Configuration in `client/vitest.config.ts`
 
 **Assertion Library:**
-- Vitest's built-in `expect`
-- `@testing-library/jest-dom` matchers for DOM assertions
-- `@testing-library/react` for component testing
-- `@testing-library/user-event` for user interaction simulation
+- Vitest built-in `expect`
+- `@testing-library/jest-dom` for DOM assertions
+- `jest-axe` for accessibility testing
 
 **Run Commands:**
 ```bash
-npm run test          # Run unit and component tests
+npm run test          # Run all tests (Vitest)
 npm run test:ui       # Run tests with UI
 npm run test:run      # Run tests without watch mode
-npm run test:coverage # Run tests with coverage
-npm run test:e2e       # Run E2E tests
+npm run test:coverage # Run tests with coverage report
+npm run test:e2e      # Run Playwright E2E tests
 npm run test:e2e:ui   # Run E2E tests with UI
 ```
 
 ## Test File Organization
 
 **Location:**
-- Unit tests: `client/src/test/` (co-located with source)
-- E2E tests: `client/e2e/` (separate directory)
-- Test files use `.test.ts` and `.test.tsx` suffixes
+- Unit/integration tests: `client/src/test/`
+- E2E tests: `client/e2e/`
+- Shared test utilities: `shared/test/`
 
 **Naming:**
-- Mirror source file names: `Board.test.tsx` tests `Board.tsx`
-- Feature-based naming: `engine.test.ts` for game engine
-- E2E tests: `home.spec.ts`, `local-game.spec.ts`
+- Test files: `{feature}.test.{ts,tsx}` or `{feature}.spec.{ts,tsx}`
+- Component tests: same as component file
+- E2E tests: descriptive names with context
 
-**Structure:**
+**Directory Structure:**
 ```
-client/src/test/
-├── engine.test.ts         # Game engine logic tests
-├── Board.test.tsx         # Board component tests
-└── a11y.test.tsx         # Accessibility tests
-
-client/e2e/
-├── home.spec.ts          # Homepage E2E tests
-└── local-game.spec.ts    # Local game E2E tests
+src/
+├── test/
+│   ├── engine.test.ts         # Core game logic
+│   ├── components/
+│   │   ├── Board.test.tsx     # Board component tests
+│   │   └── Piece.test.tsx     # Piece component tests
+│   ├── regression/
+│   │   └── template.test.ts  # Regression test template
+│   ├── a11y.test.tsx         # Accessibility tests
+│   └── setup.ts              # Test setup and mocks
+└── e2e/
+    ├── home.spec.ts           # Homepage E2E tests
+    └── local-game.spec.ts     # Local game E2E tests
 ```
 
 ## Test Structure
 
 **Suite Organization:**
 ```typescript
-describe('Game Engine', () => {
-  describe('createInitialBoard', () => {
-    it('should create an 8x8 board', () => {
-      // Test implementation
-    });
+describe('Feature: Component Name', () => {
+  beforeEach(() => {
+    // Setup
+    vi.clearAllMocks();
   });
 
-  describe('getLegalMoves - King (K)', () => {
-    it('should move 1 square in any direction', () => {
-      // Test implementation
+  describe('Behavior: Specific aspect', () => {
+    it('should do something', () => {
+      // Arrange
+      // Act
+      // Assert
     });
   });
 });
 ```
 
-**Patterns:**
-- Test file setup in `setup.ts` for global mocks
-- `beforeEach()` for test isolation
-- `vi.clearAllMocks()` for cleanup
-- Descriptive test names with context
+**Test Pattern (AAA):**
+```typescript
+it('should validate legal moves correctly', () => {
+  // Arrange
+  const board = createInitialBoard();
+  const piece = { type: 'P', color: 'white' };
+  board[6][4] = piece;
+
+  // Act
+  const moves = calculateLegalMoves(board, { row: 6, col: 4 });
+
+  // Assert
+  expect(moves).toHaveLength(2);
+  expect(moves).toEqual([
+    { from: { row: 6, col: 4 }, to: { row: 5, col: 4 } },
+    { from: { row: 6, col: 4 }, to: { row: 4, col: 4 } }
+  ]);
+});
+```
 
 ## Mocking
 
-**Framework:**
-- Vitest's `vi` for mocking
-- Manual mocking for components: `vi.mock('../components/PieceSVG')`
-- Mock of browser APIs for testing in Node.js
+**Framework:** Vi.js (Vitest's built-in mocking)
 
 **Patterns:**
 ```typescript
-// Component mocking
+// Mock component
 vi.mock('../components/PieceSVG', () => ({
   default: ({ type, color }: { type: string; color: string }) => {
     return <div data-testid={`piece-${type}-${color}`} />;
   },
 }));
 
-// Browser API mocking
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
+// Mock API calls
+vi.mock('../api/gameService', () => ({
+  makeMove: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+// Mock hooks
+const mockUseGame = vi.hook(() => ({
+  gameState: mockGameState,
+  makeMove: vi.fn(),
 }));
 ```
 
-**What to Mock:**
-- Complex SVG components
-- Browser APIs (IntersectionObserver, ResizeObserver)
-- Third-party libraries with side effects
-- Non-critical dependencies
-
-**What NOT to Mock:**
-- Core React functionality
-- Game engine logic (business rules)
-- CSS-in-JS styling
-- Custom hooks
+**Common Mocks:**
+- `IntersectionObserver` and `ResizeObserver` for board rendering
+- `requestAnimationFrame` and `cancelAnimationFrame`
+- `navigator.clipboard` for clipboard operations
+- Window APIs like `matchMedia`
 
 ## Fixtures and Factories
 
 **Test Data:**
-- Shared engine functions for test data creation
-- Factory functions in test files
-- Consistent piece and board setup
-
-**Patterns:**
 ```typescript
-// From shared engine
-import { createInitialBoard, createInitialGameState } from '@shared/engine';
+// Shared engine imports
+import { createInitialBoard } from '@shared/engine';
+import type { Board, Position, Piece, Move } from '@shared/types';
 
-// Custom factory in test
-const createProps = (overrides: any = {}): any => ({
-  board: createInitialBoard(),
-  playerColor: 'white' as PieceColor,
-  isMyTurn: true,
-  legalMoves: [],
-  selectedSquare: null,
-  lastMove: null,
-  isCheck: false,
-  checkSquare: null,
-  onSquareClick: vi.fn(),
-  onPieceDrop: vi.fn(),
-  ...overrides,
+// Factory functions
+const createTestBoard = (overrides?: Partial<Board>): Board => {
+  const board = createInitialBoard();
+  return overrides ? { ...board, ...overrides } : board;
+};
+
+const createTestPiece = (type: PieceType, color: PieceColor): Piece => ({
+  type,
+  color,
+});
+
+const createTestMove = (from: Position, to: Position): Move => ({
+  from,
+  to,
 });
 ```
 
+**Location:**
+- Factories imported from `@shared/test/factories.ts`
+- Test utilities in `client/src/test/utils/`
+
 ## Coverage
 
-**Requirements:**
-- Coverage configured in `vitest.config.ts`
-- Provider: V8
-- Reports: text, HTML, JSON formats
-- Excluded from coverage: node_modules, dist, test files, e2e
-- Target: Not explicitly defined in config
+**Requirements:** No specific target enforced in configuration
+
+**Coverage Provider:** V8
+- Reporter types: text, html, json
+- Excluded: node_modules/, dist/, test files, e2e/
 
 **View Coverage:**
 ```bash
 npm run test:coverage
-# Open coverage/index.html for HTML report
+# Opens coverage report in browser
+# HTML report: client/coverage/index.html
 ```
 
 ## Test Types
 
 **Unit Tests:**
-- Scope: Individual functions and utilities
-- Location: `client/src/test/engine.test.ts`
-- Focus: Game logic validation
-- Mocking: Minimal, only external dependencies
-- Examples: Piece movement, check detection, move validation
+- Focus on individual functions and components
+- Isolated from external dependencies
+- Mock all external interactions
+- Located in `src/test/`
 
-**Component Tests:**
-- Scope: React components
-- Location: `client/src/test/Board.test.tsx`, `a11y.test.tsx`
-- Focus: Rendering, user interactions, props handling
-- Tools: `@testing-library/react`, user event simulation
-- Patterns: Test rendering, event handling, accessibility
+**Integration Tests:**
+- Test component interactions
+- Test API integration points
+- Use real implementations where appropriate
+- Located alongside unit tests
 
 **E2E Tests:**
-- Scope: Full user workflows
-- Location: `client/e2e/`
-- Framework: Playwright
-- Focus: User journeys across multiple pages
-- Patterns: Page navigation, form submission, game play
+- Full user journey testing
+- Real browser environment
+- Test application flow and UI
+- Use Playwright for browser automation
+- Located in `e2e/` directory
 
 **Common Patterns:**
 
 **Async Testing:**
 ```typescript
-// Promise-based async code
-test('should handle async operation', async () => {
-  await expect(promise).resolves.toBe(true);
-});
+it('should fetch game data asynchronously', async () => {
+  const mockGame = { id: 'game1', state: 'waiting' };
+  vi.mocked(fetchGameData).mockResolvedValue(mockGame);
 
-// Timer-based async
-test('should update after delay', async () => {
-  jest.useFakeTimers();
-  act(() => {
-    jest.advanceTimersByTime(1000);
-  });
-  expect(updatedValue).toBe(true);
+  const result = await fetchGame('game1');
+
+  expect(result).toEqual(mockGame);
+  expect(fetchGameData).toHaveBeenCalledWith('game1');
 });
 ```
 
 **Error Testing:**
 ```typescript
-test('should handle invalid input', () => {
-  const result = functionThatShouldThrow();
-  expect(result).toThrow();
-});
+it('should handle API error gracefully', () => {
+  vi.mocked(makeMove).mockRejectedValue(new Error('Network error'));
 
-test('should return null for invalid move', () => {
-  const result = makeMove(state, invalidMove);
-  expect(result).toBeNull();
+  expect(() => makeMove('invalid')).rejects.toThrow('Network error');
 });
 ```
 
-**Accessibility Testing:**
+## Accessibility Testing
+
+**Framework:** Jest Axe with Testing Library
+
+**Pattern:**
 ```typescript
-test('should have accessible board squares', () => {
+import { axe, toHaveNoViolations } from 'jest-axe';
+
+expect.extend(toHaveNoViolations);
+
+it('should not have accessibility violations', async () => {
   const { container } = render(<Board {...props} />);
-  const squares = container.querySelectorAll('[class*="board-square"]');
-  expect(squares.length).toBe(64);
-});
 
-test('should have proper ARIA labels', () => {
-  const pieces = container.querySelectorAll('[data-testid^="piece-"]');
-  pieces.forEach(piece => {
-    expect(piece.getAttribute('aria-label')).toBeTruthy();
-  });
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
 });
 ```
 
-## Test Setup
+## Performance Tests
 
-**Global Setup:**
+**Framework:** Vitest benchmarks
+
+**Pattern:**
 ```typescript
-// client/src/test/setup.ts
-import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+import { bench } from 'vitest';
 
-// Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
-
-// Cleanup after each test
-afterEach(() => {
-  cleanup();
-});
-
-// Mock browser APIs
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+bench('calculate legal moves for all pieces', () => {
+  const board = createInitialBoard();
+  calculateAllLegalMoves(board);
+}, { iterations: 1000 });
 ```
+
+## Test Utilities
+
+**Custom Matchers:**
+```typescript
+// Custom matchers for game state
+expect.extend({
+  toBeInCheck(received, expectedColor) {
+    // Implementation
+  },
+  toHaveValidMoves(received, piece) {
+    // Implementation
+  }
+});
+```
+
+**Test Context:**
+```typescript
+// Mock context providers
+const MockGameProvider = ({ children }: { children: React.ReactNode }) => {
+  const [gameState, setGameState] = useState(mockGameState);
+
+  return (
+    <GameContext.Provider value={{ gameState, setGameState }}>
+      {children}
+    </GameContext.Provider>
+  );
+};
+```
+
+## Test Organization Tips
+
+1. **Group related tests** with nested `describe` blocks
+2. **Use beforeEach for cleanup** to prevent test pollution
+3. **Mock external APIs** to avoid flaky tests
+4. **Test error cases** alongside happy paths
+5. **Document complex tests** with clear comments
+6. **Use meaningful test names** that describe the behavior being tested
 
 ---
 
-*Testing analysis: 2026-03-20*
+*Testing analysis: 2026-03-21*
