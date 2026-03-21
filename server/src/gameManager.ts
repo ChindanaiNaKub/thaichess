@@ -218,7 +218,7 @@ export class GameManager {
 
   createRematch(gameId: string): GameRoom | null {
     const oldRoom = this.games.get(gameId);
-    if (!oldRoom) return null;
+    if (!oldRoom || oldRoom.status !== 'finished') return null;
 
     const newRoom = this.createGame(oldRoom.timeControl);
     // Swap colors for rematch

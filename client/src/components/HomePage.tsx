@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -46,30 +46,73 @@ export default function HomePage() {
   const { t } = useTranslation();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [joinId, setJoinId] = useState('');
   const [showJoin, setShowJoin] = useState(false);
+  const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
+  const connectHandlerRef = useRef<(() => void) | null>(null);
+  const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
+
+  const cleanupCreateHandlers = () => {
+    if (gameCreatedHandlerRef.current) {
+      socket.off('game_created', gameCreatedHandlerRef.current);
+      gameCreatedHandlerRef.current = null;
+    }
+
+    if (connectHandlerRef.current) {
+      socket.off('connect', connectHandlerRef.current);
+      connectHandlerRef.current = null;
+    }
+
+    if (errorHandlerRef.current) {
+      socket.off('error', errorHandlerRef.current);
+      errorHandlerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cleanupCreateHandlers();
+    };
+  }, []);
 
   const handleCreateGame = () => {
     setIsCreating(true);
+    setCreateError(null);
     connectSocket();
+    cleanupCreateHandlers();
 
     const handleCreated = ({ gameId }: { gameId: string }) => {
-      socket.off('game_created', handleCreated);
+      setIsCreating(false);
+      cleanupCreateHandlers();
       navigate(`/game/${gameId}`);
     };
 
-    socket.on('game_created', handleCreated);
+    const handleError = ({ message }: { message: string }) => {
+      setIsCreating(false);
+      setCreateError(message);
+      cleanupCreateHandlers();
+    };
 
-    socket.once('connect', () => {
+    gameCreatedHandlerRef.current = handleCreated;
+    errorHandlerRef.current = handleError;
+    socket.on('game_created', handleCreated);
+    socket.on('error', handleError);
+
+    const emitCreateGame = () => {
+      connectHandlerRef.current = null;
       socket.emit('create_game', {
         timeControl: { initial: selectedTime.initial, increment: selectedTime.increment },
       });
-    });
+    };
+
+    connectHandlerRef.current = emitCreateGame;
+    socket.once('connect', emitCreateGame);
 
     if (socket.connected) {
-      socket.emit('create_game', {
-        timeControl: { initial: selectedTime.initial, increment: selectedTime.increment },
-      });
+      socket.off('connect', emitCreateGame);
+      connectHandlerRef.current = null;
+      emitCreateGame();
     }
   };
 
@@ -179,6 +222,11 @@ export default function HomePage() {
           >
             {isCreating ? t('home.creating') : t('home.play_with_friend')}
           </button>
+          {createError && (
+            <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              {createError}
+            </p>
+          )}
           <div className="mt-3 flex items-center gap-3">
             <div className="flex-1 h-px bg-surface-hover" />
             <span className="text-text-dim text-xs">{t('home.or')}</span>

@@ -412,6 +412,7 @@ export default memo(function Board({
           <div
             key={`${displayRow}-${displayCol}`}
             className={`absolute ${getSquareClass(boardRow, boardCol)} select-none`}
+            data-testid={`board-square-${boardRow}-${boardCol}`}
             style={{
               left: `${displayCol * 12.5}%`,
               top: `${displayRow * 12.5}%`,
@@ -440,7 +441,10 @@ export default memo(function Board({
             {legal && hasCapture && <div className="legal-capture" />}
 
             {piece && !isDragging && (
-              <div className={`absolute inset-[6%] flex items-center justify-center piece ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}>
+              <div
+                className={`absolute inset-[6%] flex items-center justify-center piece ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
+                data-testid={`board-piece-${boardRow}-${boardCol}`}
+              >
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
               </div>
             )}
@@ -473,6 +477,7 @@ export default memo(function Board({
     <div
       ref={boardRef}
       className="relative aspect-square w-full select-none rounded-lg shadow-xl overflow-hidden board-no-select"
+      data-testid="board"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={(e) => {

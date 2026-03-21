@@ -28,6 +28,11 @@ export default function QuickPlay() {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
+  const searchingRef = useRef(false);
+  const requestPendingRef = useRef(false);
+
+  searchingRef.current = searching;
+  requestPendingRef.current = requestPending;
 
   useEffect(() => {
     connectSocket();
@@ -76,7 +81,7 @@ export default function QuickPlay() {
         socket.off('connect', connectHandlerRef.current);
         connectHandlerRef.current = null;
       }
-      if (socket.connected) {
+      if (socket.connected && (searchingRef.current || requestPendingRef.current)) {
         socket.emit('cancel_matchmaking');
       }
     };
