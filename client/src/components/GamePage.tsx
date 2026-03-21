@@ -73,6 +73,10 @@ export default function GamePage() {
       }
     };
 
+    const handleDisconnect = () => {
+      joinedRef.current = false;
+    };
+
     const handleJoined = ({ color, gameState: gs }: { color: PieceColor; gameState: ClientGameState }) => {
       setPlayerColor(color);
       setGameState(gs);
@@ -148,6 +152,7 @@ export default function GamePage() {
     };
 
     socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
     socket.on('game_joined', handleJoined);
     socket.on('game_state', handleGameState);
     socket.on('move_made', handleMoveMade);
@@ -166,6 +171,7 @@ export default function GamePage() {
 
     return () => {
       socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
       socket.off('game_joined', handleJoined);
       socket.off('game_state', handleGameState);
       socket.off('move_made', handleMoveMade);

@@ -50,6 +50,7 @@ describe('GameManager', () => {
     const room = manager.createGame(timeControl);
     manager.joinGame(room.id, 'white-socket');
     manager.joinGame(room.id, 'black-socket');
+    manager.resign(room.id, 'white-socket');
 
     const rematch = manager.createRematch(room.id);
 
@@ -57,6 +58,15 @@ describe('GameManager', () => {
     expect(rematch?.white).toBe('black-socket');
     expect(rematch?.black).toBe('white-socket');
     expect(rematch?.status).toBe('playing');
+  });
+
+  it('rejects rematches for games that are not finished', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+
+    expect(manager.createRematch(room.id)).toBeNull();
   });
 
   it('cleans up stale waiting, finished, and disconnected games', () => {
@@ -81,5 +91,111 @@ describe('GameManager', () => {
     expect(manager.getGame(finishedRoom.id)).toBeNull();
     expect(manager.getGame(disconnectedRoom.id)).toBeNull();
     expect(manager.getPlayerGame('disconnect-black')).toBeNull();
+  });
+
+  it('handles draw offers, decline, and acceptance rules correctly', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+
+    const offer = manager.offerDraw(room.id, 'white-socket');
+    expect(offer).toMatchObject({ by: 'white' });
+    expect(manager.getGame(room.id)?.drawOffer).toBe('white');
+
+    expect(manager.respondDraw(room.id, 'white-socket', true)).toBeNull();
+
+    const declined = manager.respondDraw(room.id, 'black-socket', false);
+    expect(declined?.drawOffer).toBeNull();
+    expect(declined?.status).toBe('playing');
+
+    manager.offerDraw(room.id, 'white-socket');
+    const accepted = manager.respondDraw(room.id, 'black-socket', true);
+    expect(accepted?.status).toBe('finished');
+    expect(accepted?.gameState.isDraw).toBe(true);
+    expect(accepted?.gameState.resultReason).toBe('draw_agreement');
+  });
+
+  it('updates reconnecting player sockets and exposes client state metadata', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-old');
+    manager.joinGame(room.id, 'black-old');
+
+    manager.offerDraw(room.id, 'white-old');
+    manager.handleDisconnect('white-old');
+    manager.updatePlayerSocket(room.id, 'white-old', 'white-new');
+
+    const updatedRoom = manager.getGame(room.id);
+    expect(updatedRoom?.white).toBe('white-new');
+    expect(manager.getPlayerGame('white-old')).toBeNull();
+    expect(manager.getPlayerGame('white-new')).toBe(room.id);
+
+    const clientState = manager.getClientGameState(updatedRoom!, 'white-new');
+    expect(clientState.playerColor).toBe('white');
+    expect(clientState.drawOffer).toBe('white');
+    expect(clientState.status).toBe('playing');
+    expect(clientState.gameId).toBe(room.id);
+  });
+
+  it('returns null for blocking-game lookup once a game is finished', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+
+    expect(manager.getBlockingPlayerGame('white-socket')).toBe(room.id);
+
+    manager.resign(room.id, 'white-socket');
+
+    expect(manager.getBlockingPlayerGame('white-socket')).toBeNull();
+    expect(manager.getPlayerGame('white-socket')).toBeNull();
+  });
+
+  it('starts and stops counting only for the current player and active counting state', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+    const activeRoom = manager.getGame(room.id)!;
+    activeRoom.gameState.counting = {
+      active: false,
+      type: 'board_honor',
+      countingColor: 'white',
+      strongerColor: 'black',
+      currentCount: 0,
+      limit: 64,
+      finalAttackPending: false,
+    };
+
+    expect(manager.startCounting(room.id, 'black-socket')).toBeNull();
+
+    const started = manager.startCounting(room.id, 'white-socket');
+    expect(started?.gameState.counting?.active).toBe(true);
+
+    expect(manager.stopCounting(room.id, 'black-socket')).toBeNull();
+
+    const stopped = manager.stopCounting(room.id, 'white-socket');
+    expect(stopped?.gameState.counting?.active).toBe(false);
+  });
+
+  it('ends the game on timeout when the running clock expires', () => {
+    const manager = new GameManager();
+    const fastTime: TimeControl = { initial: 1, increment: 0 };
+    const room = manager.createGame(fastTime);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+
+    let latestRoom = manager.getGame(room.id)!;
+    manager.startClock(room.id, (updatedRoom) => {
+      latestRoom = updatedRoom;
+    });
+
+    vi.advanceTimersByTime(1_100);
+
+    expect(latestRoom.status).toBe('finished');
+    expect(latestRoom.gameState.gameOver).toBe(true);
+    expect(latestRoom.gameState.resultReason).toBe('timeout');
+    expect(latestRoom.gameState.winner).toBe('black');
   });
 });
