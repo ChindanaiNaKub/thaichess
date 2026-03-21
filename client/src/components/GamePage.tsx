@@ -423,19 +423,20 @@ export default function GamePage() {
 
       {/* Compact Header for playing state */}
       <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
           <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <PieceSVG type="K" color="white" size={32} />
             <h1 className="text-lg font-bold text-text-bright tracking-tight">{t('app.name')}</h1>
           </button>
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-text-dim">
-            <label className="hidden sm:flex items-center gap-2">
-              <span className="uppercase tracking-[0.2em] text-[10px] text-text-dim">Pieces</span>
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-text-dim flex-wrap justify-end">
+            <label className="flex items-center gap-2">
+              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim sm:inline">Pieces</span>
               <select
                 value={pieceStyle}
                 onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western' | 'traditional')}
-                className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover"
+                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
                 title="Select piece style"
+                aria-label="Select piece style"
               >
                 <option value="classic">Current</option>
                 <option value="western">Western</option>

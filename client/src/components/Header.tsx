@@ -95,13 +95,14 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             )
           )}
 
-          <label className="hidden sm:flex items-center gap-2 text-xs text-text-dim">
-            <span className="uppercase tracking-[0.2em]">Pieces</span>
+          <label className="flex items-center gap-2 text-xs text-text-dim">
+            <span className="hidden uppercase tracking-[0.2em] sm:inline">Pieces</span>
             <select
               value={pieceStyle}
               onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western' | 'traditional')}
-              className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover"
+              className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
               title="Select piece style"
+              aria-label="Select piece style"
             >
               <option value="classic">Current</option>
               <option value="western">Western</option>
