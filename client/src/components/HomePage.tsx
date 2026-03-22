@@ -164,7 +164,7 @@ export default function HomePage() {
             <BotSVG size={60} className="mx-auto mb-4 text-text-bright" />
             <h3 className="display text-xl text-text-bright mb-2">{t('home.play_bot')}</h3>
             <p className="text-text-dim text-sm mb-4">{t('home.play_bot_desc')}</p>
-            <p className="text-text-dim text-sm mb-4">Challenge our AI opponent with varying difficulty levels. Perfect for practice and improvement.</p>
+            <p className="text-text-dim text-sm mb-4">{t('home.play_bot_long_desc')}</p>
             <button
               onClick={() => navigate('/bot')}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-bold rounded-lg transition-colors"
@@ -180,7 +180,7 @@ export default function HomePage() {
               <PuzzleSVG size={60} className="mx-auto mb-4 text-text-bright" />
               <h3 className="display text-xl text-text-bright mb-2">{t('home.puzzles')}</h3>
               <p className="text-text-dim text-sm mb-4">{t('home.puzzles_desc')}</p>
-              <p className="text-text-dim text-sm mb-4">Sharpen your tactical skills with curated puzzles from real games.</p>
+              <p className="text-text-dim text-sm mb-4">{t('home.puzzles_long_desc')}</p>
               <button
                 onClick={() => navigate('/puzzles')}
                 className="w-full py-3 px-6 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg transition-colors"
@@ -330,14 +330,14 @@ export default function HomePage() {
               <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
                 <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">GitHub</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>
             {/* Community */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">Community</h4>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('footer.community')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">Star on GitHub</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
                 <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
               </ul>
             </div>

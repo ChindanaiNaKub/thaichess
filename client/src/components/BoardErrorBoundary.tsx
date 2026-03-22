@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { reportClientError } from '../lib/errorReporting';
+import { translate } from '../lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -39,7 +40,7 @@ export class BoardErrorBoundary extends Component<Props, State> {
         <div className="relative aspect-square w-full bg-surface-alt rounded-lg shadow-xl flex items-center justify-center border border-surface-hover">
           <div className="text-center p-6">
             <div className="text-4xl mb-3 opacity-50">♞</div>
-            <p className="text-text-dim text-sm mb-4">Board display error</p>
+            <p className="text-text-dim text-sm mb-4">{translate('error.board_display')}</p>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => {
@@ -48,7 +49,7 @@ export class BoardErrorBoundary extends Component<Props, State> {
                 }}
                 className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-light transition-colors"
               >
-                Retry
+                {translate('common.retry')}
               </button>
             </div>
           </div>

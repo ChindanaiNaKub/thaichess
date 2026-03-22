@@ -519,12 +519,12 @@ export default function BotGame() {
       {/* Premove indicator */}
       {premove && (
         <div className="bg-blue-900/30 border-b border-blue-500/30 text-center py-1.5 text-xs text-blue-300 flex items-center justify-center gap-2">
-          <span>Pre-move set</span>
+          <span>{t('game.premove_set')}</span>
           <button
             onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
             className="px-2 py-0.5 bg-surface-hover rounded text-xs hover:bg-danger/20 hover:text-danger transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -642,7 +642,7 @@ export default function BotGame() {
 
             {gameState.moveHistory.length > 0 && (
               <div className="text-center text-xs text-text-dim">
-                Use arrow keys to navigate moves
+                {t('game.nav_hint')}
               </div>
             )}
 

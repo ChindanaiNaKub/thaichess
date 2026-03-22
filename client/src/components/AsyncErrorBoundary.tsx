@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { reportClientError } from '../lib/errorReporting';
+import { translate } from '../lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -64,15 +65,15 @@ export class AsyncErrorBoundary extends Component<Props, State> {
         <div className="flex items-center justify-center p-8">
           <div className="bg-surface-alt border border-danger/50 rounded-lg p-6 max-w-md w-full text-center">
             <div className="text-4xl mb-3">⚠️</div>
-            <h3 className="text-lg font-semibold text-danger mb-2">Connection Error</h3>
+            <h3 className="text-lg font-semibold text-danger mb-2">{translate('error.connection_title')}</h3>
             <p className="text-text-dim text-sm mb-4">
-              {this.state.error?.message || 'An error occurred while loading data'}
+              {this.state.error?.message || translate('error.connection_body')}
             </p>
             <button
               onClick={this.reset}
               className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-light transition-colors"
             >
-              Try Again
+              {translate('error.try_again')}
             </button>
           </div>
         </div>

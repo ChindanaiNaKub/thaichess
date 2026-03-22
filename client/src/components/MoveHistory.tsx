@@ -90,28 +90,28 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
           <button
             onClick={() => onMoveClick(-1)}
             className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title="First position"
+            title={t('moves.first_position')}
           >
             ⏮
           </button>
           <button
             onClick={() => onMoveClick(Math.max(-1, activeIndex - 1))}
             className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title="Previous move"
+            title={t('moves.previous_move')}
           >
             ◀
           </button>
           <button
             onClick={() => onMoveClick(Math.min(moves.length - 1, activeIndex + 1))}
             className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title="Next move"
+            title={t('moves.next_move')}
           >
             ▶
           </button>
           <button
             onClick={() => onMoveClick(moves.length - 1)}
             className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title="Last move"
+            title={t('moves.last_move')}
           >
             ⏭
           </button>

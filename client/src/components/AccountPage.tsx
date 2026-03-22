@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
+import { useTranslation } from '../lib/i18n';
 
 export default function AccountPage() {
   const navigate = useNavigate();
   const { user, loading, logout, updateProfile } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -31,9 +33,9 @@ export default function AccountPage() {
 
     try {
       await updateProfile(username);
-      setMessage('Profile updated.');
+      setMessage(t('account.profile_updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile.');
+      setError(err instanceof Error ? err.message : t('account.update_failed'));
     } finally {
       setSaving(false);
     }
@@ -42,7 +44,7 @@ export default function AccountPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center text-text-dim">
-        Loading account...
+        {t('common.loading')}
       </div>
     );
   }
@@ -54,7 +56,7 @@ export default function AccountPage() {
         <div className="bg-surface-alt border border-surface-hover rounded-2xl p-6">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-text-bright">Account</h1>
+              <h1 className="text-2xl font-bold text-text-bright">{t('account.title')}</h1>
               <p className="text-text-dim text-sm mt-1">{user.email}</p>
             </div>
             <span className="px-2 py-1 rounded-md text-xs font-semibold bg-surface text-text-bright border border-surface-hover">
@@ -64,12 +66,12 @@ export default function AccountPage() {
 
           <form onSubmit={handleSave} className="space-y-4">
             <label className="block">
-              <span className="block text-sm text-text-dim mb-2">Username</span>
+              <span className="block text-sm text-text-dim mb-2">{t('account.username')}</span>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="3-20 letters, numbers, or underscores"
+                placeholder={t('account.username_placeholder')}
                 className="w-full rounded-lg border border-surface-hover bg-surface px-3 py-2 text-text-bright outline-none"
               />
             </label>
@@ -78,7 +80,7 @@ export default function AccountPage() {
               disabled={saving}
               className="w-full py-2.5 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Save profile'}
+              {saving ? t('account.saving') : t('account.save_profile')}
             </button>
           </form>
 
@@ -91,7 +93,7 @@ export default function AccountPage() {
                 onClick={() => navigate('/feedback')}
                 className="w-full py-2 rounded-lg border border-surface-hover text-text"
               >
-                Open feedback moderation
+                {t('account.open_feedback')}
               </button>
             )}
             <button
@@ -101,7 +103,7 @@ export default function AccountPage() {
               }}
               className="w-full py-2 rounded-lg border border-danger/40 text-danger"
             >
-              Sign out
+              {t('account.sign_out')}
             </button>
           </div>
         </div>

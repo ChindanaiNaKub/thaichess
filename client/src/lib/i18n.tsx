@@ -20,6 +20,20 @@ function detectLanguage(): Language {
   return 'en';
 }
 
+export function translate(
+  key: string,
+  params?: Record<string, string | number>,
+  lang: Language = detectLanguage()
+): string {
+  let text = TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+  return text;
+}
+
 const EN: Record<string, string> = {
   // Common
   'app.name': 'ThaiChess',
@@ -39,8 +53,12 @@ const EN: Record<string, string> = {
   'common.close': 'Close',
   'common.retry': 'Retry',
   'common.new_game': 'New Game',
+  'common.loading': 'Loading...',
   'footer.tagline': 'ThaiChess — Free & Open Source',
   'footer.inspired': 'Inspired by',
+  'footer.community': 'Community',
+  'footer.github': 'GitHub',
+  'footer.star_github': 'Star on GitHub',
 
   // Home Page
   'home.hero_title': 'Play ThaiChess Online',
@@ -52,8 +70,10 @@ const EN: Record<string, string> = {
   'home.play_friend_desc': 'Share a link',
   'home.play_bot': 'Play vs Bot',
   'home.play_bot_desc': '3 difficulty levels',
+  'home.play_bot_long_desc': 'Challenge our AI opponent with varying difficulty levels. Perfect for practice and improvement.',
   'home.puzzles': 'Puzzles',
   'home.puzzles_desc': 'Tactical training',
+  'home.puzzles_long_desc': 'Sharpen your tactical skills with curated puzzles from real games.',
   'home.create_private': 'Create a Private Game',
   'home.time_control': 'Time Control',
   'home.play_with_friend': 'Play with a Friend',
@@ -181,6 +201,13 @@ const EN: Record<string, string> = {
   'game.counting_available': '{type}: {color} may start counting',
   'game.counting_start': 'Start Count',
   'game.counting_stop': 'Stop Count',
+  'game.premove_set': 'Pre-move set',
+  'game.nav_hint': 'Use arrow keys to navigate moves',
+  'game.select_piece_style': 'Select piece style',
+  'game.piece_style': 'Pieces',
+  'game.piece_style_current': 'Current',
+  'game.piece_style_western': 'Western',
+  'game.piece_style_makruk': 'Makruk',
 
   // Game Over Modal
   'gameover.you_win': 'You Win!',
@@ -206,6 +233,10 @@ const EN: Record<string, string> = {
   // Move History
   'moves.title': 'Moves',
   'moves.empty': 'No moves yet',
+  'moves.first_position': 'First position',
+  'moves.previous_move': 'Previous move',
+  'moves.next_move': 'Next move',
+  'moves.last_move': 'Last move',
 
   // Piece Guide
   'guide.title': 'Piece Guide',
@@ -327,6 +358,45 @@ const EN: Record<string, string> = {
   'analysis.desc_mistake': 'This move likely gives up some advantage. The quick review found a stronger option.',
   'analysis.desc_blunder': 'This move appears to lose a lot. The quick review found a much stronger option.',
 
+  // Auth / Account
+  'auth.sign_in': 'Sign in',
+  'auth.sign_in_desc': 'Accounts are optional. Anonymous play still works.',
+  'auth.email': 'Email',
+  'auth.code': '6-digit code',
+  'auth.send_code': 'Send sign-in code',
+  'auth.sending_code': 'Sending code...',
+  'auth.code_sent_notice': 'Check your email for a 6-digit sign-in code.',
+  'auth.code_sent_to': 'Code sent to {email}',
+  'auth.verify_code': 'Verify code',
+  'auth.signing_in': 'Signing in...',
+  'auth.use_another_email': 'Use another email',
+  'auth.send_code_failed': 'Failed to send code.',
+  'auth.sign_in_failed': 'Failed to sign in.',
+  'account.title': 'Account',
+  'account.username': 'Username',
+  'account.username_placeholder': '3-20 letters, numbers, or underscores',
+  'account.saving': 'Saving...',
+  'account.save_profile': 'Save profile',
+  'account.profile_updated': 'Profile updated.',
+  'account.update_failed': 'Failed to update profile.',
+  'account.open_feedback': 'Open feedback moderation',
+  'account.sign_out': 'Sign out',
+
+  // Error UI
+  'error.board_display': 'Board display error',
+  'error.connection_title': 'Connection Error',
+  'error.connection_body': 'An error occurred while loading data',
+  'error.try_again': 'Try Again',
+  'error.something_wrong': 'Something went wrong',
+  'error.unexpected': 'The app encountered an unexpected error. This has been noted.',
+  'error.unknown': 'Unknown error',
+  'error.reload_page': 'Reload Page',
+  'error.report_bug': 'Report this bug on GitHub',
+
+  // Header
+  'header.admin': 'Admin',
+  'header.sign_in': 'Sign In',
+
   // Language
   'lang.switch': 'TH',
 };
@@ -350,8 +420,12 @@ const TH: Record<string, string> = {
   'common.close': 'ปิด',
   'common.retry': 'ลองใหม่',
   'common.new_game': 'เกมใหม่',
+  'common.loading': 'กำลังโหลด...',
   'footer.tagline': 'ThaiChess — ฟรีและโอเพนซอร์ส',
   'footer.inspired': 'ได้แรงบันดาลใจจาก',
+  'footer.community': 'ชุมชน',
+  'footer.github': 'GitHub',
+  'footer.star_github': 'ติดดาวบน GitHub',
 
   // Home Page
   'home.hero_title': 'เล่น ThaiChess ออนไลน์',
@@ -363,8 +437,10 @@ const TH: Record<string, string> = {
   'home.play_friend_desc': 'แชร์ลิงก์',
   'home.play_bot': 'เล่นกับบอท',
   'home.play_bot_desc': '3 ระดับความยาก',
+  'home.play_bot_long_desc': 'ท้าทาย AI ด้วยระดับความยากที่หลากหลาย เหมาะสำหรับฝึกซ้อมและพัฒนาฝีมือ',
   'home.puzzles': 'ปริศนา',
   'home.puzzles_desc': 'ฝึกกลยุทธ์',
+  'home.puzzles_long_desc': 'ฝึกแทคติกด้วยปริศนาที่คัดมาจากเกมจริง',
   'home.create_private': 'สร้างเกมส่วนตัว',
   'home.time_control': 'เวลาเล่น',
   'home.play_with_friend': 'เล่นกับเพื่อน',
@@ -492,6 +568,13 @@ const TH: Record<string, string> = {
   'game.counting_available': '{type}: ฝั่ง{color} สามารถเริ่มนับได้',
   'game.counting_start': 'เริ่มนับ',
   'game.counting_stop': 'หยุดนับ',
+  'game.premove_set': 'ตั้งตาเดินล่วงหน้าแล้ว',
+  'game.nav_hint': 'ใช้ปุ่มลูกศรเพื่อดูตาเดิน',
+  'game.select_piece_style': 'เลือกรูปแบบตัวหมาก',
+  'game.piece_style': 'ตัวหมาก',
+  'game.piece_style_current': 'ปัจจุบัน',
+  'game.piece_style_western': 'สากล',
+  'game.piece_style_makruk': 'หมากรุก',
 
   // Game Over Modal
   'gameover.you_win': 'คุณชนะ!',
@@ -517,6 +600,10 @@ const TH: Record<string, string> = {
   // Move History
   'moves.title': 'ตาเดิน',
   'moves.empty': 'ยังไม่มีตาเดิน',
+  'moves.first_position': 'ตำแหน่งแรก',
+  'moves.previous_move': 'ตาก่อนหน้า',
+  'moves.next_move': 'ตาถัดไป',
+  'moves.last_move': 'ตำแหน่งล่าสุด',
 
   // Piece Guide
   'guide.title': 'คู่มือตัวหมาก',
@@ -637,6 +724,45 @@ const TH: Record<string, string> = {
   'analysis.desc_inaccuracy': 'ตานี้พอใช้ได้ แต่การตรวจแบบเร็วพบว่ามีตัวเลือกที่ดีกว่าเล็กน้อย',
   'analysis.desc_mistake': 'ตานี้น่าจะทำให้เสียเปรียบบางส่วน และการตรวจแบบเร็วพบตัวเลือกที่ดีกว่า',
   'analysis.desc_blunder': 'ตานี้ดูเสียหายค่อนข้างมาก และการตรวจแบบเร็วพบตัวเลือกที่ดีกว่ามาก',
+
+  // Auth / Account
+  'auth.sign_in': 'เข้าสู่ระบบ',
+  'auth.sign_in_desc': 'บัญชีผู้ใช้เป็นทางเลือก คุณยังเล่นแบบไม่ระบุตัวตนได้',
+  'auth.email': 'อีเมล',
+  'auth.code': 'รหัส 6 หลัก',
+  'auth.send_code': 'ส่งรหัสเข้าสู่ระบบ',
+  'auth.sending_code': 'กำลังส่งรหัส...',
+  'auth.code_sent_notice': 'ตรวจสอบอีเมลของคุณเพื่อรับรหัสเข้าสู่ระบบ 6 หลัก',
+  'auth.code_sent_to': 'ส่งรหัสไปที่ {email}',
+  'auth.verify_code': 'ยืนยันรหัส',
+  'auth.signing_in': 'กำลังเข้าสู่ระบบ...',
+  'auth.use_another_email': 'ใช้อีเมลอื่น',
+  'auth.send_code_failed': 'ส่งรหัสไม่สำเร็จ',
+  'auth.sign_in_failed': 'เข้าสู่ระบบไม่สำเร็จ',
+  'account.title': 'บัญชี',
+  'account.username': 'ชื่อผู้ใช้',
+  'account.username_placeholder': '3-20 ตัวอักษร ตัวเลข หรือขีดล่าง',
+  'account.saving': 'กำลังบันทึก...',
+  'account.save_profile': 'บันทึกโปรไฟล์',
+  'account.profile_updated': 'อัปเดตโปรไฟล์แล้ว',
+  'account.update_failed': 'อัปเดตโปรไฟล์ไม่สำเร็จ',
+  'account.open_feedback': 'เปิดหน้าจัดการความคิดเห็น',
+  'account.sign_out': 'ออกจากระบบ',
+
+  // Error UI
+  'error.board_display': 'เกิดข้อผิดพลาดในการแสดงกระดาน',
+  'error.connection_title': 'ข้อผิดพลาดการเชื่อมต่อ',
+  'error.connection_body': 'เกิดข้อผิดพลาดขณะโหลดข้อมูล',
+  'error.try_again': 'ลองอีกครั้ง',
+  'error.something_wrong': 'เกิดข้อผิดพลาดบางอย่าง',
+  'error.unexpected': 'แอปพบข้อผิดพลาดที่ไม่คาดคิด และได้บันทึกไว้แล้ว',
+  'error.unknown': 'ข้อผิดพลาดที่ไม่ทราบสาเหตุ',
+  'error.reload_page': 'โหลดหน้าใหม่',
+  'error.report_bug': 'รายงานบั๊กนี้บน GitHub',
+
+  // Header
+  'header.admin': 'แอดมิน',
+  'header.sign_in': 'เข้าสู่ระบบ',
 
   // Language
   'lang.switch': 'EN',

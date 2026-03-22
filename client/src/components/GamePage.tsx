@@ -436,17 +436,17 @@ export default function GamePage() {
           </button>
           <div className="flex items-center gap-2 text-xs sm:text-sm text-text-dim flex-wrap justify-end">
             <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim sm:inline">Pieces</span>
+              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim sm:inline">{t('game.piece_style')}</span>
               <select
                 value={pieceStyle}
                 onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western' | 'traditional')}
                 className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-                title="Select piece style"
-                aria-label="Select piece style"
+                title={t('game.select_piece_style')}
+                aria-label={t('game.select_piece_style')}
               >
-                <option value="classic">Current</option>
-                <option value="western">Western</option>
-                <option value="traditional">Makruk</option>
+                <option value="classic">{t('game.piece_style_current')}</option>
+                <option value="western">{t('game.piece_style_western')}</option>
+                <option value="traditional">{t('game.piece_style_makruk')}</option>
               </select>
             </label>
             <span>{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
@@ -491,12 +491,12 @@ export default function GamePage() {
       {/* Premove indicator */}
       {premove && (
         <div className="bg-blue-900/30 border-b border-blue-500/30 text-center py-1.5 text-xs text-blue-300 flex items-center justify-center gap-2">
-          <span>Pre-move set</span>
+          <span>{t('game.premove_set')}</span>
           <button
             onClick={() => { cancelPremove(); clearSelection(); }}
             className="px-2 py-0.5 bg-surface-hover rounded text-xs hover:bg-danger/20 hover:text-danger transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -617,7 +617,7 @@ export default function GamePage() {
             {/* Keyboard nav hint */}
             {gameState.gameOver && gameState.moveHistory.length > 0 && (
               <div className="text-center text-xs text-text-dim">
-                Use arrow keys to navigate moves
+                {t('game.nav_hint')}
               </div>
             )}
 

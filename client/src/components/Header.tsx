@@ -75,7 +75,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                     onClick={() => navigate('/feedback')}
                     className="hidden sm:inline h-7 px-2.5 rounded-md border border-surface-hover/60 bg-surface text-text-dim hover:text-text-bright text-xs font-semibold"
                   >
-                    Admin
+                    {t('header.admin')}
                   </button>
                 )}
                 <button
@@ -90,23 +90,23 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 onClick={() => navigate('/login')}
                 className="h-7 px-2.5 rounded-md bg-primary text-white text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
               >
-                Sign In
+                {t('header.sign_in')}
               </button>
             )
           )}
 
           <label className="flex items-center gap-2 text-xs text-text-dim">
-            <span className="hidden uppercase tracking-[0.2em] sm:inline">Pieces</span>
+            <span className="hidden uppercase tracking-[0.2em] sm:inline">{t('game.piece_style')}</span>
             <select
               value={pieceStyle}
               onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western' | 'traditional')}
               className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-              title="Select piece style"
-              aria-label="Select piece style"
+              title={t('game.select_piece_style')}
+              aria-label={t('game.select_piece_style')}
             >
-              <option value="classic">Current</option>
-              <option value="western">Western</option>
-              <option value="traditional">Makruk</option>
+              <option value="classic">{t('game.piece_style_current')}</option>
+              <option value="western">{t('game.piece_style_western')}</option>
+              <option value="traditional">{t('game.piece_style_makruk')}</option>
             </select>
           </label>
 

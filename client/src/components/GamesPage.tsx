@@ -201,14 +201,14 @@ export default function GamesPage() {
               <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
                 <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">GitHub</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>
             {/* Community */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">Community</h4>
+              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('footer.community')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">Star on GitHub</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
                 <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
               </ul>
             </div>
