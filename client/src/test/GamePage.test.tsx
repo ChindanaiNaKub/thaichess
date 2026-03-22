@@ -340,6 +340,19 @@ describe('GamePage', () => {
     expect(screen.getByTestId('board')).toBeInTheDocument();
   });
 
+  it('leaves a waiting private room when returning home', async () => {
+    renderGamePage('/game/waiting-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload({ gameId: 'waiting-room', status: 'waiting' }));
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.back_home' }));
+
+    expect(socketMock.emit).toHaveBeenCalledWith('leave_game', { gameId: 'waiting-room' });
+    expect(navigateMock).toHaveBeenCalledWith('/');
+  });
+
   it('handles move sounds, draw flow, and active controls during play', async () => {
     renderGamePage('/game/live-room');
 

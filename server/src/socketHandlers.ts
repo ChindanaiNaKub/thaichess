@@ -4,7 +4,15 @@ import type { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../..
 import type { GameManager } from './gameManager';
 import type { MatchmakingQueue, QueueEntry } from './matchmaking';
 import type { MonitoringStore } from './monitoring';
-import { getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl, SocketRateLimiter } from './security';
+import {
+  getSocketIp,
+  isValidBoolean,
+  isValidGameId,
+  isValidPosition,
+  isValidPrivateGameColorPreference,
+  isValidTimeControl,
+  SocketRateLimiter,
+} from './security';
 
 type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
@@ -157,9 +165,9 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('create_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'create_game', deps, ['socket', 'ip'])) return;
-      if (!payload || !isValidTimeControl(payload.timeControl)) {
+      if (!payload || !isValidTimeControl(payload.timeControl) || !isValidPrivateGameColorPreference(payload.colorPreference)) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Invalid time control.');
+        rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Invalid private game settings.');
         return;
       }
       if (deps.gameManager.getBlockingPlayerGame(socket.id) || deps.matchmaking.isInQueue(socket.id)) {
@@ -167,10 +175,32 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const room = deps.gameManager.createGame(payload.timeControl);
+      const room = deps.gameManager.createGame(payload.timeControl, {
+        ownerSocketId: socket.id,
+        ownerColorPreference: payload.colorPreference,
+      });
       deps.monitoring.increment('gamesCreated');
-      logInfo('game_created', { gameId: room.id, socketId: socket.id, timeControl: payload.timeControl });
+      logInfo('game_created', {
+        gameId: room.id,
+        socketId: socket.id,
+        timeControl: payload.timeControl,
+        colorPreference: payload.colorPreference,
+      });
       socket.emit('game_created', { gameId: room.id });
+    });
+
+    socket.on('leave_game', (payload) => {
+      if (payload?.gameId !== undefined && !isValidGameId(payload.gameId)) {
+        deps.monitoring.increment('socket.invalidPayload');
+        rejectSocketEvent(deps.monitoring, socket, 'leave_game', 'Invalid game ID.');
+        return;
+      }
+
+      const result = deps.gameManager.leaveGame(socket.id, payload?.gameId);
+      if (!result) return;
+
+      logInfo('game_left', { gameId: result.gameId, socketId: socket.id, deleted: result.deleted });
+      socket.emit('game_left', { gameId: result.gameId });
     });
 
     socket.on('join_game', (payload) => {

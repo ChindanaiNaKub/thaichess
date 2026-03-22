@@ -1,4 +1,5 @@
 export type PieceColor = 'white' | 'black';
+export type PrivateGameColorPreference = PieceColor | 'random';
 export type ResultReason =
   | 'checkmate'
   | 'stalemate'
@@ -78,6 +79,7 @@ export interface GameRoom {
   status: 'waiting' | 'playing' | 'finished';
   createdAt: number;
   drawOffer: PieceColor | null;
+  ownerColorPreference: PrivateGameColorPreference;
 }
 
 export interface ClientGameState {
@@ -119,11 +121,13 @@ export interface ServerToClientEvents {
   matchmaking_found: (data: { gameId: string; color: PieceColor }) => void;
   matchmaking_cancelled: () => void;
   queue_status: (data: { playersInQueue: number }) => void;
+  game_left: (data: { gameId: string }) => void;
 }
 
 export interface ClientToServerEvents {
-  create_game: (data: { timeControl: TimeControl }) => void;
+  create_game: (data: { timeControl: TimeControl; colorPreference: PrivateGameColorPreference }) => void;
   join_game: (data: { gameId: string }) => void;
+  leave_game: (data: { gameId?: string }) => void;
   make_move: (data: { from: Position; to: Position }) => void;
   resign: () => void;
   start_counting: () => void;
