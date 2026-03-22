@@ -18,7 +18,7 @@ import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
 
-import type { PieceType, PieceColor } from '@shared/types';
+import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
 const TIME_PRESETS = [
   { label: '1+0', nameKey: 'time.bullet', initial: 60, increment: 0 },
@@ -45,6 +45,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
+  const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [joinId, setJoinId] = useState('');
@@ -103,6 +104,7 @@ export default function HomePage() {
       connectHandlerRef.current = null;
       socket.emit('create_game', {
         timeControl: { initial: selectedTime.initial, increment: selectedTime.increment },
+        colorPreference: selectedColor,
       });
     };
 
@@ -211,6 +213,26 @@ export default function HomePage() {
                 >
                   <div className="font-bold">{preset.label}</div>
                   <div className="text-xs opacity-70">{t(preset.nameKey)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-5">
+            <label className="text-sm text-text-dim mb-2 block">{t('home.choose_color')}</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['random', 'white', 'black'] as const).map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setSelectedColor(color)}
+                  className={`
+                    py-2 px-3 rounded-lg text-sm font-medium transition-all
+                    ${selectedColor === color
+                      ? 'bg-accent text-white shadow-md'
+                      : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
+                    }
+                  `}
+                >
+                  {t(`home.color_${color}`)}
                 </button>
               ))}
             </div>

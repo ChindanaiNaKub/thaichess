@@ -93,6 +93,7 @@ describe('HomePage', () => {
     expect(connectSocketMock).toHaveBeenCalledTimes(1);
     expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
       timeControl: { initial: 300, increment: 0 },
+      colorPreference: 'random',
     });
   });
 
@@ -122,6 +123,21 @@ describe('HomePage', () => {
 
     expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
       timeControl: { initial: 600, increment: 5 },
+      colorPreference: 'random',
+    });
+  });
+
+  it('sends the selected color preference when creating a private game', () => {
+    socketMock.connected = true;
+
+    render(<HomePage />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /^white$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
+
+    expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
+      timeControl: { initial: 300, increment: 0 },
+      colorPreference: 'white',
     });
   });
 

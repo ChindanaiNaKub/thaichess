@@ -28,6 +28,25 @@ describe('GameManager', () => {
     expect(manager.getGame(room.id)?.status).toBe('playing');
   });
 
+  it('reserves the creator color for private games before the game page joins', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl, {
+      ownerSocketId: 'creator-socket',
+      ownerColorPreference: 'black',
+    });
+
+    expect(room.white).toBeNull();
+    expect(room.black).toBe('creator-socket');
+    expect(manager.getPlayerGame('creator-socket')).toBe(room.id);
+
+    const creatorJoin = manager.joinGame(room.id, 'creator-socket');
+    const guestJoin = manager.joinGame(room.id, 'guest-socket');
+
+    expect(creatorJoin).toMatchObject({ color: 'black' });
+    expect(guestJoin).toMatchObject({ color: 'white' });
+    expect(manager.getGame(room.id)?.status).toBe('playing');
+  });
+
   it('rejects moves from non-players and from the wrong turn', () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
@@ -150,6 +169,24 @@ describe('GameManager', () => {
 
     expect(manager.getBlockingPlayerGame('white-socket')).toBeNull();
     expect(manager.getPlayerGame('white-socket')).toBeNull();
+  });
+
+  it('removes waiting rooms when the only player leaves before the game starts', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl, {
+      ownerSocketId: 'creator-socket',
+      ownerColorPreference: 'white',
+    });
+
+    expect(manager.getBlockingPlayerGame('creator-socket')).toBe(room.id);
+
+    expect(manager.leaveGame('creator-socket', room.id)).toEqual({
+      gameId: room.id,
+      deleted: true,
+    });
+    expect(manager.getGame(room.id)).toBeNull();
+    expect(manager.getPlayerGame('creator-socket')).toBeNull();
+    expect(manager.getBlockingPlayerGame('creator-socket')).toBeNull();
   });
 
   it('starts and stops counting only for the current player and active counting state', () => {

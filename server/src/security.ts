@@ -1,5 +1,11 @@
 import type { Socket } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, Position, TimeControl } from '../../shared/types';
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Position,
+  TimeControl,
+  PrivateGameColorPreference,
+} from '../../shared/types';
 
 interface RateLimitRule {
   windowMs: number;
@@ -92,4 +98,8 @@ export function isValidTimeControl(value: unknown): value is TimeControl {
 
 export function isValidBoolean(value: unknown): value is boolean {
   return typeof value === 'boolean';
+}
+
+export function isValidPrivateGameColorPreference(value: unknown): value is PrivateGameColorPreference {
+  return value === 'white' || value === 'black' || value === 'random';
 }

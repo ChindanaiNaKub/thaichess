@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
-  GameRoom, GameState, TimeControl, PieceColor,
+  GameRoom, GameState, TimeControl, PieceColor, PrivateGameColorPreference,
   Position, ClientGameState, Move,
 } from '../../shared/types';
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
@@ -16,24 +16,35 @@ export class GameManager {
   private static readonly WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
   private static readonly DISCONNECTED_GAME_TTL_MS = 10 * 60 * 1000;
 
-  createGame(timeControl: TimeControl): GameRoom {
+  createGame(
+    timeControl: TimeControl,
+    options: { ownerSocketId?: string; ownerColorPreference?: PrivateGameColorPreference } = {},
+  ): GameRoom {
     const id = uuidv4().slice(0, 8);
     const initialMs = timeControl.initial * 1000;
     const gameState = createInitialGameState(initialMs, initialMs);
+    const ownerColorPreference = options.ownerColorPreference ?? 'random';
+    const resolvedOwnerColor = ownerColorPreference === 'random'
+      ? (Math.random() < 0.5 ? 'white' : 'black')
+      : ownerColorPreference;
 
     const room: GameRoom = {
       id,
-      white: null,
-      black: null,
+      white: options.ownerSocketId && resolvedOwnerColor === 'white' ? options.ownerSocketId : null,
+      black: options.ownerSocketId && resolvedOwnerColor === 'black' ? options.ownerSocketId : null,
       spectators: [],
       gameState,
       timeControl,
       status: 'waiting',
       createdAt: Date.now(),
       drawOffer: null,
+      ownerColorPreference,
     };
 
     this.games.set(id, room);
+    if (options.ownerSocketId) {
+      this.playerGames.set(options.ownerSocketId, id);
+    }
     this.touchGame(id);
     return room;
   }
@@ -52,6 +63,10 @@ export class GameManager {
       room.white = socketId;
       this.playerGames.set(socketId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
+      if (room.status === 'waiting' && room.black) {
+        room.status = 'playing';
+        room.gameState.lastMoveTime = Date.now();
+      }
       this.touchGame(gameId);
       return { room, color: 'white' };
     }
@@ -323,6 +338,35 @@ export class GameManager {
   setPlayerGame(socketId: string, gameId: string): void {
     this.playerGames.set(socketId, gameId);
     this.touchGame(gameId);
+  }
+
+  leaveGame(socketId: string, requestedGameId?: string): { gameId: string; deleted: boolean } | null {
+    const gameId = this.playerGames.get(socketId);
+    if (!gameId || (requestedGameId && requestedGameId !== gameId)) return null;
+
+    const room = this.games.get(gameId);
+    if (!room) {
+      this.playerGames.delete(socketId);
+      return null;
+    }
+
+    const playerColor = this.getPlayerColor(room, socketId);
+    if (room.status !== 'waiting' && playerColor) {
+      return null;
+    }
+
+    if (room.white === socketId) room.white = null;
+    if (room.black === socketId) room.black = null;
+    room.spectators = room.spectators.filter((spectatorId) => spectatorId !== socketId);
+    this.playerGames.delete(socketId);
+    this.touchGame(gameId);
+
+    const shouldDelete = room.status === 'waiting' && !room.white && !room.black && room.spectators.length === 0;
+    if (shouldDelete) {
+      this.deleteGame(gameId, room);
+    }
+
+    return { gameId, deleted: shouldDelete };
   }
 
   getClientGameState(room: GameRoom, socketId: string): ClientGameState {

@@ -96,6 +96,28 @@ describe('socket entry handlers', () => {
     expect(socket.emit).toHaveBeenCalledWith('error', { message: 'Invalid time control.' });
   });
 
+  it('creates private games with a reserved color preference and lets waiting rooms be left', () => {
+    const socket = connectSocket('socket-private');
+
+    socket.trigger('create_game', { timeControl, colorPreference: 'black' });
+
+    expect(socket.emit).toHaveBeenCalledWith('game_created', { gameId: expect.any(String) });
+
+    const createdCall = socket.emit.mock.calls.find((call: any[]) => call[0] === 'game_created');
+    const createdGameId = createdCall?.[1]?.gameId;
+    expect(createdGameId).toBeTypeOf('string');
+
+    const createdRoom = gameManager.getGame(createdGameId)!;
+    expect(createdRoom.black).toBe('socket-private');
+    expect(createdRoom.white).toBeNull();
+
+    socket.emit.mockClear();
+    socket.trigger('leave_game', { gameId: createdGameId });
+
+    expect(socket.emit).toHaveBeenCalledWith('game_left', { gameId: createdGameId });
+    expect(gameManager.getGame(createdGameId)).toBeNull();
+  });
+
   it('prevents duplicate matchmaking entries and emits cancellation when removed', () => {
     const socket = connectSocket('socket-queue');
 

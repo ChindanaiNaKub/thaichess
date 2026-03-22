@@ -36,6 +36,7 @@ export default function GamePage() {
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const joinedRef = useRef(false);
+  const latestGameStateRef = useRef<ClientGameState | null>(null);
 
   // Arrow state
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -45,6 +46,10 @@ export default function GamePage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isMyTurn = gameState?.turn === playerColor && gameState?.status === 'playing';
+
+  useEffect(() => {
+    latestGameStateRef.current = gameState;
+  }, [gameState]);
 
   // Use the game interaction hook for move handling
   const {
@@ -186,6 +191,15 @@ export default function GamePage() {
     };
   }, [gameId, navigate, clearSelection, cancelPremove]);
 
+  useEffect(() => {
+    return () => {
+      const latestGameState = latestGameStateRef.current;
+      if (latestGameState?.status === 'waiting' && socket.connected) {
+        socket.emit('leave_game', { gameId: latestGameState.gameId });
+      }
+    };
+  }, []);
+
   // Auto-execute premove when it becomes our turn
   useEffect(() => {
     if (!premove || !gameState || !playerColor || !isMyTurn) return;
@@ -258,6 +272,9 @@ export default function GamePage() {
   };
 
   const handleNewGame = () => {
+    if (gameState?.status === 'waiting') {
+      socket.emit('leave_game', { gameId: gameState.gameId });
+    }
     navigate('/');
   };
 
@@ -349,6 +366,12 @@ export default function GamePage() {
             <p className="text-text-dim text-xs sm:text-sm">
               {t('game.playing_as', { color: playerColor ? t(`common.${playerColor}`) : '' })}
             </p>
+            <button
+              onClick={handleNewGame}
+              className="mt-4 px-5 py-2 rounded-lg bg-surface hover:bg-surface-hover text-text-bright border border-surface-hover font-semibold transition-colors"
+            >
+              {t('common.back_home')}
+            </button>
           </div>
         </main>
       </div>
