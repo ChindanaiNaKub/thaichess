@@ -179,6 +179,33 @@ describe('GameManager', () => {
     expect(stopped?.gameState.counting?.active).toBe(false);
   });
 
+  it('resets the counting number when the counting side starts again after stopping', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+    const activeRoom = manager.getGame(room.id)!;
+    activeRoom.gameState.counting = {
+      active: false,
+      type: 'pieces_honor',
+      countingColor: 'white',
+      strongerColor: 'black',
+      currentCount: 12,
+      startCount: 3,
+      limit: 16,
+      finalAttackPending: true,
+    };
+
+    const restarted = manager.startCounting(room.id, 'white-socket');
+
+    expect(restarted?.gameState.counting).toMatchObject({
+      active: true,
+      currentCount: 3,
+      startCount: 3,
+      finalAttackPending: false,
+    });
+  });
+
   it('ends the game on timeout when the running clock expires', () => {
     const manager = new GameManager();
     const fastTime: TimeControl = { initial: 1, increment: 0 };
