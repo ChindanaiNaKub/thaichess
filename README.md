@@ -89,13 +89,13 @@ We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.
 ## Roadmap
 
 - [x] Thai language support (ภาษาไทย)
-- [ ] Player accounts (optional, anonymous play always available)
+- [x] Player accounts (optional, anonymous play always available)
 - [ ] ELO rating system
-- [ ] Puzzles and tactics trainer
-- [ ] Game analysis
+- [x] Puzzles and tactics trainer
+- [x] Game analysis
 - [x] AI opponent
 - [ ] Tournaments
-- [ ] ThaiChess counting rules (full implementation)
+- [x] ThaiChess counting rules (full implementation)
 - [ ] Spectator mode improvements
 
 ## License

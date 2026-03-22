@@ -15,6 +15,7 @@ import { MonitoringStore } from './monitoring';
 import { getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl, SocketRateLimiter } from './security';
 import { clearSessionCookie, getAuthenticatedUser, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler } from './socketHandlers';
+import { shouldServeSpaShell } from './spa';
 
 const app = express();
 const httpServer = createServer(app);
@@ -56,7 +57,27 @@ app.use((req, _res, next) => {
 
 // Serve static files in production (__dirname = server/dist/server/src when compiled)
 const clientDist = path.join(__dirname, '../../../../client/dist');
-app.use(express.static(clientDist));
+const assetDist = path.join(clientDist, 'assets');
+
+app.use('/assets', express.static(assetDist, {
+  immutable: true,
+  maxAge: '1y',
+  fallthrough: false,
+}));
+
+app.use(express.static(clientDist, {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return;
+    }
+
+    if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  },
+}));
 
 function getSiteUrl(req?: express.Request): string {
   const configuredUrl = process.env.SITE_URL || process.env.PUBLIC_SITE_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
@@ -452,17 +473,25 @@ app.get('/sitemap.xml', (req, res) => {
 
 // SPA fallback (must be last)
 app.get('*', (req, res) => {
+  // Never answer asset/file requests with the SPA shell.
+  if (!shouldServeSpaShell(req.path)) {
+    res.status(404).type('text/plain').send('Not found');
+    return;
+  }
+
   const indexPath = path.join(clientDist, 'index.html');
 
   try {
     const template = fs.readFileSync(indexPath, 'utf8');
     const html = renderSeoHtml(template, req.path, getSiteUrl(req));
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.type('html').send(html);
   } catch (error) {
     logWarn('spa_fallback_template_read_failed', {
       path: indexPath,
       error: error instanceof Error ? error.message : String(error),
     });
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(indexPath);
   }
 });

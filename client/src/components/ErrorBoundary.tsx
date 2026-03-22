@@ -11,6 +11,19 @@ interface State {
   error: Error | null;
 }
 
+const CHUNK_RELOAD_KEY = 'thaichess:chunk-reload-attempted';
+
+function isRecoverableChunkLoadError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('dynamically imported module')
+    || message.includes('failed to fetch dynamically imported module')
+    || message.includes('importing a module script failed')
+    || message.includes('loading module from')
+    || message.includes('chunk')
+  );
+}
+
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -22,6 +35,17 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    if (isRecoverableChunkLoadError(error)) {
+      const hasRetried = window.sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1';
+      if (!hasRetried) {
+        window.sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        return;
+      }
+    } else {
+      window.sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+    }
+
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
     void reportClientError({
       source: 'react_error_boundary',
@@ -32,13 +56,15 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const isChunkError = this.state.error ? isRecoverableChunkLoadError(this.state.error) : false;
+
       return (
         <div className="min-h-screen bg-surface flex items-center justify-center px-4">
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-8 max-w-md w-full text-center">
             <div className="text-5xl mb-4">⚠️</div>
             <h1 className="text-2xl font-bold text-text-bright mb-2">{translate('error.something_wrong')}</h1>
             <p className="text-text-dim mb-2">
-              {translate('error.unexpected')}
+              {isChunkError ? 'The app was updated. Reload to get the latest version.' : translate('error.unexpected')}
             </p>
             <p className="text-text-dim text-sm mb-6 font-mono bg-surface rounded p-2 break-all">
               {this.state.error?.message || translate('error.unknown')}
