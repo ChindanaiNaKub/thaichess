@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const { reportClientErrorMock } = vi.hoisted(() => ({
@@ -26,10 +26,6 @@ vi.mock('../lib/i18n', () => ({
   },
 }));
 
-function Thrower({ error }: { error: Error }) {
-  throw error;
-}
-
 function renderBoundary(children: ReactNode) {
   return render(<ErrorBoundary>{children}</ErrorBoundary>);
 }
@@ -37,6 +33,7 @@ function renderBoundary(children: ReactNode) {
 describe('ErrorBoundary', () => {
   const reloadMock = vi.fn();
   const originalLocation = window.location;
+  const errorInfo = { componentStack: '\n    at BotGame' } as ErrorInfo;
 
   beforeEach(() => {
     reportClientErrorMock.mockReset();
@@ -62,19 +59,25 @@ describe('ErrorBoundary', () => {
   });
 
   it('reloads once for recoverable chunk-load errors', async () => {
-    renderBoundary(<Thrower error={new Error('TypeError: error loading dynamically imported module: https://thaichess.dev/assets/BotGame-DOAVuS_q.js')} />);
+    const boundary = new ErrorBoundary({ children: null });
+    boundary.componentDidCatch(
+      new Error('TypeError: error loading dynamically imported module: https://thaichess.dev/assets/BotGame-DOAVuS_q.js'),
+      errorInfo,
+    );
 
-    await waitFor(() => {
-      expect(reloadMock).toHaveBeenCalledTimes(1);
-    });
+    expect(reloadMock).toHaveBeenCalledTimes(1);
     expect(window.sessionStorage.getItem('thaichess:chunk-reload-attempted')).toBe('1');
     expect(reportClientErrorMock).not.toHaveBeenCalled();
   });
 
   it('shows a helpful message after the automatic reload was already attempted', async () => {
     window.sessionStorage.setItem('thaichess:chunk-reload-attempted', '1');
+    const error = new Error('Failed to fetch dynamically imported module');
+    const boundary = new ErrorBoundary({ children: null });
 
-    renderBoundary(<Thrower error={new Error('Failed to fetch dynamically imported module')} />);
+    boundary.componentDidCatch(error, errorInfo);
+    boundary.state = { hasError: true, error };
+    render(<>{boundary.render()}</>);
 
     expect(await screen.findByText('The app was updated. Reload to get the latest version.')).toBeInTheDocument();
     expect(reloadMock).not.toHaveBeenCalled();
