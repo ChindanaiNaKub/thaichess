@@ -132,4 +132,47 @@ describe('socket entry handlers', () => {
 
     expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('opponent_disconnected');
   });
+
+  it('emits updated counting state to both players when counting starts', () => {
+    const room = gameManager.createGame(timeControl);
+    gameManager.joinGame(room.id, 'white-socket');
+    gameManager.joinGame(room.id, 'black-socket');
+    const activeRoom = gameManager.getGame(room.id)!;
+    activeRoom.gameState.counting = {
+      active: false,
+      type: 'pieces_honor',
+      countingColor: 'white',
+      strongerColor: 'black',
+      currentCount: 9,
+      startCount: 3,
+      limit: 16,
+      finalAttackPending: true,
+    };
+
+    const socket = connectSocket('white-socket');
+    socket.trigger('start_counting');
+
+    expect(ioMock.to('white-socket').emitMock).toHaveBeenCalledWith(
+      'game_state',
+      expect.objectContaining({
+        counting: expect.objectContaining({
+          active: true,
+          currentCount: 3,
+          startCount: 3,
+          finalAttackPending: false,
+        }),
+      }),
+    );
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith(
+      'game_state',
+      expect.objectContaining({
+        counting: expect.objectContaining({
+          active: true,
+          currentCount: 3,
+          startCount: 3,
+          finalAttackPending: false,
+        }),
+      }),
+    );
+  });
 });
