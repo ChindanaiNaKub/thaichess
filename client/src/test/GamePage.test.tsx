@@ -409,7 +409,7 @@ describe('GamePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'game.resign' }));
     expect(socketMock.emit).toHaveBeenCalledWith('resign');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Select piece style' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'game.select_piece_style' }), {
       target: { value: 'western' },
     });
     expect(setPieceStyleMock).toHaveBeenCalledWith('western');
@@ -486,7 +486,7 @@ describe('GamePage', () => {
       });
     });
 
-    expect(screen.getByText('Pre-move set')).toBeInTheDocument();
+    expect(screen.getByText('game.premove_set')).toBeInTheDocument();
 
     await act(async () => {
       emitSocketEvent('game_state', {
@@ -503,7 +503,7 @@ describe('GamePage', () => {
     expect(interactionState.cancelPremove).toHaveBeenCalled();
     expect(interactionState.clearSelection).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByText('Cancel'));
+    fireEvent.click(screen.getByText('common.cancel'));
     expect(interactionState.cancelPremove).toHaveBeenCalled();
     expect(interactionState.clearSelection).toHaveBeenCalled();
   });
