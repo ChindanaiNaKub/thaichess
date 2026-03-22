@@ -72,6 +72,15 @@ describe('Game Engine', () => {
         expect(board[4][col]).toBeNull();
       }
     });
+
+    it('should place kings and queens on the standard Makruk central squares', () => {
+      const board = createInitialBoard();
+
+      expect(board[0][3]).toEqual({ type: 'K', color: 'white' }); // d1
+      expect(board[0][4]).toEqual({ type: 'M', color: 'white' }); // e1
+      expect(board[7][3]).toEqual({ type: 'M', color: 'black' }); // d8
+      expect(board[7][4]).toEqual({ type: 'K', color: 'black' }); // e8
+    });
   });
 
   describe('getLegalMoves - King (K)', () => {
@@ -98,6 +107,17 @@ describe('Game Engine', () => {
 
       // King cannot move into the rook's line
       expect(kingMoves).not.toContainEqual({ row: 0, col: 4 });
+    });
+
+    it('should not allow kings to move adjacent to each other', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[4][4] = { type: 'K', color: 'white' };
+      board[6][5] = { type: 'K', color: 'black' };
+
+      const kingMoves = getLegalMoves(board, { row: 4, col: 4 });
+
+      expect(kingMoves).not.toContainEqual({ row: 5, col: 4 });
+      expect(kingMoves).not.toContainEqual({ row: 5, col: 5 });
     });
   });
 
@@ -328,6 +348,38 @@ describe('Game Engine', () => {
       expect(newState?.board[5][4]?.type).toBe('PM'); // Promoted
     });
 
+    it('should not promote a white pawn before the sixth rank', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[3][4] = { type: 'P', color: 'white' };
+      board[0][0] = { type: 'K', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+
+      const newState = makeMove(state, { row: 3, col: 4 }, { row: 4, col: 4 });
+
+      expect(newState?.board[4][4]?.type).toBe('P');
+      expect(newState?.moveHistory.at(-1)?.promoted).toBe(false);
+    });
+
+    it('should promote a black pawn on the third rank from blacks perspective', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[3][3] = { type: 'P', color: 'black' };
+      board[0][0] = { type: 'K', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'black';
+
+      const newState = makeMove(state, { row: 3, col: 3 }, { row: 2, col: 3 });
+
+      expect(newState?.board[2][3]?.type).toBe('PM');
+      expect(newState?.board[2][3]?.color).toBe('black');
+      expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
+    });
+
     it('should expose bare-king counting as available but undeclared', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[0][0] = { type: 'K', color: 'white' };
@@ -487,6 +539,24 @@ describe('Game Engine', () => {
       expect(newState?.isDraw).toBe(true);
       expect(newState?.gameOver).toBe(true);
       expect(newState?.resultReason).toBe('counting_rule');
+    });
+
+    it('should mark stalemate as a draw', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[2][2] = { type: 'K', color: 'black' };
+      board[3][1] = { type: 'R', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'black';
+
+      const newState = makeMove(state, { row: 3, col: 1 }, { row: 1, col: 1 });
+
+      expect(newState?.isStalemate).toBe(true);
+      expect(newState?.isDraw).toBe(true);
+      expect(newState?.winner).toBeNull();
+      expect(newState?.resultReason).toBe('stalemate');
     });
   });
 
