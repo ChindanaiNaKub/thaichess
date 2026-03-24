@@ -1,5 +1,6 @@
 export type PieceColor = 'white' | 'black';
 export type PrivateGameColorPreference = PieceColor | 'random';
+export type GameMode = 'quick_play' | 'private' | 'bot' | 'local';
 export type ResultReason =
   | 'checkmate'
   | 'stalemate'
@@ -73,6 +74,8 @@ export interface GameRoom {
   id: string;
   white: string | null;  // socket id
   black: string | null;
+  whiteUserId: string | null;
+  blackUserId: string | null;
   spectators: string[];
   gameState: GameState;
   timeControl: TimeControl;
@@ -80,6 +83,8 @@ export interface GameRoom {
   createdAt: number;
   drawOffer: PieceColor | null;
   ownerColorPreference: PrivateGameColorPreference;
+  gameMode: GameMode;
+  rated: boolean;
 }
 
 export interface ClientGameState {
@@ -101,6 +106,15 @@ export interface ClientGameState {
   playerColor: PieceColor | null;
   drawOffer: PieceColor | null;
   gameId: string;
+  gameMode: GameMode;
+  rated: boolean;
+}
+
+export interface RatingChangeSummary {
+  whiteBefore: number;
+  blackBefore: number;
+  whiteAfter: number;
+  blackAfter: number;
 }
 
 // Socket.IO Event types
@@ -109,7 +123,7 @@ export interface ServerToClientEvents {
   game_joined: (data: { color: PieceColor; gameState: ClientGameState }) => void;
   game_state: (data: ClientGameState) => void;
   move_made: (data: { move: Move; gameState: ClientGameState }) => void;
-  game_over: (data: { reason: string; winner: PieceColor | null; gameState: ClientGameState }) => void;
+  game_over: (data: { reason: string; winner: PieceColor | null; gameState: ClientGameState; ratingChange: RatingChangeSummary | null }) => void;
   clock_update: (data: { whiteTime: number; blackTime: number }) => void;
   draw_offered: (data: { by: PieceColor }) => void;
   draw_declined: () => void;

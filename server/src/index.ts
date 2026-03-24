@@ -13,15 +13,15 @@ import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
-import { createSocketConnectionHandler } from './socketHandlers';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 
 const app = express();
 const httpServer = createServer(app);
 const startTime = Date.now();
 
-const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:5174'],
     methods: ['GET', 'POST'],
@@ -158,16 +158,29 @@ setInterval(() => {
 
 async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
-  await saveCompletedGame({
+  return await saveCompletedGame({
     id: room.id,
     result: winner || 'draw',
     resultReason: reason,
+    whiteUserId: room.whiteUserId,
+    blackUserId: room.blackUserId,
+    rated: room.rated,
+    gameMode: room.gameMode,
     timeControl: room.timeControl,
     moves: room.gameState.moveHistory,
     finalBoard: room.gameState.board,
     moveCount: room.gameState.moveCount,
   });
 }
+
+io.use(async (socket, next) => {
+  try {
+    socket.data.authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
+    next();
+  } catch (error) {
+    next(error instanceof Error ? error : new Error('Socket authentication failed.'));
+  }
+});
 
 io.on('connection', createSocketConnectionHandler({
   io,

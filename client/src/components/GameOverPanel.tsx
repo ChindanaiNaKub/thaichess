@@ -1,19 +1,26 @@
-import type { PieceColor } from '@shared/types';
+import type { PieceColor, RatingChangeSummary } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
 
 interface GameOverPanelProps {
   winner: PieceColor | null;
   reason: string;
   playerColor: PieceColor | null;
+  rated?: boolean;
+  ratingChange?: RatingChangeSummary | null;
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
 }
 
-export default function GameOverPanel({ winner, reason, playerColor, onRematch, onNewGame, onAnalyze }: GameOverPanelProps) {
+export default function GameOverPanel({ winner, reason, playerColor, rated = false, ratingChange = null, onRematch, onNewGame, onAnalyze }: GameOverPanelProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
+  const playerRatingDelta = playerColor === 'white'
+    ? ratingChange ? ratingChange.whiteAfter - ratingChange.whiteBefore : null
+    : playerColor === 'black'
+      ? ratingChange ? ratingChange.blackAfter - ratingChange.blackBefore : null
+      : null;
 
   const getScore = () => {
     if (isDraw) return '½-½';
@@ -57,6 +64,18 @@ export default function GameOverPanel({ winner, reason, playerColor, onRematch, 
         </div>
         <div className="text-xs text-text-dim">
           {getResultLabel()} · {getReasonText()}
+        </div>
+        <div className="mt-2 flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em]">
+          <span className={`rounded-full px-2 py-1 ${
+            rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
+          }`}>
+            {rated ? t('game.rated') : t('game.casual')}
+          </span>
+          {rated && playerRatingDelta !== null && (
+            <span className={playerRatingDelta >= 0 ? 'text-primary-light' : 'text-danger'}>
+              {t('game.rating_change')} {playerRatingDelta >= 0 ? '+' : ''}{playerRatingDelta}
+            </span>
+          )}
         </div>
       </div>
 

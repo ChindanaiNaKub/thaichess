@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
-  GameRoom, GameState, TimeControl, PieceColor, PrivateGameColorPreference,
+  GameRoom, GameState, TimeControl, PieceColor, PrivateGameColorPreference, GameMode,
   Position, ClientGameState, Move,
 } from '../../shared/types';
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
@@ -18,7 +18,13 @@ export class GameManager {
 
   createGame(
     timeControl: TimeControl,
-    options: { ownerSocketId?: string; ownerColorPreference?: PrivateGameColorPreference } = {},
+    options: {
+      ownerSocketId?: string;
+      ownerUserId?: string | null;
+      ownerColorPreference?: PrivateGameColorPreference;
+      gameMode?: GameMode;
+      rated?: boolean;
+    } = {},
   ): GameRoom {
     const id = uuidv4().slice(0, 8);
     const initialMs = timeControl.initial * 1000;
@@ -32,6 +38,8 @@ export class GameManager {
       id,
       white: options.ownerSocketId && resolvedOwnerColor === 'white' ? options.ownerSocketId : null,
       black: options.ownerSocketId && resolvedOwnerColor === 'black' ? options.ownerSocketId : null,
+      whiteUserId: options.ownerSocketId && resolvedOwnerColor === 'white' ? (options.ownerUserId ?? null) : null,
+      blackUserId: options.ownerSocketId && resolvedOwnerColor === 'black' ? (options.ownerUserId ?? null) : null,
       spectators: [],
       gameState,
       timeControl,
@@ -39,6 +47,8 @@ export class GameManager {
       createdAt: Date.now(),
       drawOffer: null,
       ownerColorPreference,
+      gameMode: options.gameMode ?? 'private',
+      rated: options.rated ?? false,
     };
 
     this.games.set(id, room);
@@ -49,7 +59,7 @@ export class GameManager {
     return room;
   }
 
-  joinGame(gameId: string, socketId: string): { room: GameRoom; color: PieceColor } | null {
+  joinGame(gameId: string, socketId: string, options: { userId?: string | null } = {}): { room: GameRoom; color: PieceColor } | null {
     const room = this.games.get(gameId);
     if (!room) return null;
 
@@ -61,6 +71,7 @@ export class GameManager {
 
     if (!room.white) {
       room.white = socketId;
+      room.whiteUserId = options.userId ?? null;
       this.playerGames.set(socketId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
       if (room.status === 'waiting' && room.black) {
@@ -73,6 +84,7 @@ export class GameManager {
 
     if (!room.black) {
       room.black = socketId;
+      room.blackUserId = options.userId ?? null;
       this.playerGames.set(socketId, gameId);
       this.clearDisconnectedPlayer(gameId, 'black');
       if (room.status === 'waiting') {
@@ -239,6 +251,10 @@ export class GameManager {
     // Swap colors for rematch
     newRoom.white = oldRoom.black;
     newRoom.black = oldRoom.white;
+    newRoom.whiteUserId = oldRoom.blackUserId;
+    newRoom.blackUserId = oldRoom.whiteUserId;
+    newRoom.gameMode = oldRoom.gameMode;
+    newRoom.rated = oldRoom.rated;
 
     if (newRoom.white) this.playerGames.set(newRoom.white, newRoom.id);
     if (newRoom.black) this.playerGames.set(newRoom.black, newRoom.id);
@@ -355,8 +371,14 @@ export class GameManager {
       return null;
     }
 
-    if (room.white === socketId) room.white = null;
-    if (room.black === socketId) room.black = null;
+    if (room.white === socketId) {
+      room.white = null;
+      room.whiteUserId = null;
+    }
+    if (room.black === socketId) {
+      room.black = null;
+      room.blackUserId = null;
+    }
     room.spectators = room.spectators.filter((spectatorId) => spectatorId !== socketId);
     this.playerGames.delete(socketId);
     this.touchGame(gameId);
@@ -390,6 +412,8 @@ export class GameManager {
       playerColor: playerColor,
       drawOffer: room.drawOffer,
       gameId: room.id,
+      gameMode: room.gameMode,
+      rated: room.rated,
     };
   }
 

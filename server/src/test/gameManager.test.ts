@@ -32,19 +32,24 @@ describe('GameManager', () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl, {
       ownerSocketId: 'creator-socket',
+      ownerUserId: 'creator-user',
       ownerColorPreference: 'black',
+      gameMode: 'private',
+      rated: false,
     });
 
     expect(room.white).toBeNull();
     expect(room.black).toBe('creator-socket');
+    expect(room.blackUserId).toBe('creator-user');
     expect(manager.getPlayerGame('creator-socket')).toBe(room.id);
 
-    const creatorJoin = manager.joinGame(room.id, 'creator-socket');
-    const guestJoin = manager.joinGame(room.id, 'guest-socket');
+    const creatorJoin = manager.joinGame(room.id, 'creator-socket', { userId: 'creator-user' });
+    const guestJoin = manager.joinGame(room.id, 'guest-socket', { userId: 'guest-user' });
 
     expect(creatorJoin).toMatchObject({ color: 'black' });
     expect(guestJoin).toMatchObject({ color: 'white' });
     expect(manager.getGame(room.id)?.status).toBe('playing');
+    expect(manager.getGame(room.id)?.whiteUserId).toBe('guest-user');
   });
 
   it('rejects moves from non-players and from the wrong turn', () => {

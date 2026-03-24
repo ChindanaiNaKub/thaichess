@@ -1,20 +1,27 @@
-import type { PieceColor } from '@shared/types';
+import type { PieceColor, RatingChangeSummary } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
 
 interface GameOverModalProps {
   winner: PieceColor | null;
   reason: string;
   playerColor: PieceColor | null;
+  rated?: boolean;
+  ratingChange?: RatingChangeSummary | null;
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
   onClose?: () => void;
 }
 
-export default function GameOverModal({ winner, reason, playerColor, onRematch, onNewGame, onAnalyze, onClose }: GameOverModalProps) {
+export default function GameOverModal({ winner, reason, playerColor, rated = false, ratingChange = null, onRematch, onNewGame, onAnalyze, onClose }: GameOverModalProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
+  const playerRatingDelta = playerColor === 'white'
+    ? ratingChange ? ratingChange.whiteAfter - ratingChange.whiteBefore : null
+    : playerColor === 'black'
+      ? ratingChange ? ratingChange.blackAfter - ratingChange.blackBefore : null
+      : null;
 
   const getTitle = () => {
     if (isDraw) return t('gameover.draw');
@@ -68,6 +75,18 @@ export default function GameOverModal({ winner, reason, playerColor, onRematch, 
             {getTitle()}
           </h2>
           <p className="text-text-dim text-sm mb-6">{getReasonText()}</p>
+          <div className="mb-6 flex flex-col items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+              rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
+            }`}>
+              {rated ? t('game.rated') : t('game.casual')}
+            </span>
+            {rated && playerRatingDelta !== null && (
+              <p className={`text-sm font-semibold ${playerRatingDelta >= 0 ? 'text-primary-light' : 'text-danger'}`}>
+                {t('game.rating_change')} {playerRatingDelta >= 0 ? '+' : ''}{playerRatingDelta}
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-col gap-3">
             {onAnalyze && (

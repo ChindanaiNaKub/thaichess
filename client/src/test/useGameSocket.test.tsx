@@ -163,6 +163,8 @@ describe('useGameSocket', () => {
         color: 'white',
         gameState: {
           ...initialState,
+          gameMode: 'private',
+          rated: false,
           status: 'playing',
           playerColor: 'white',
           drawOffer: null,
@@ -205,6 +207,8 @@ describe('useGameSocket', () => {
     const initialState = createInitialGameState(300_000, 300_000);
     const waitingState = {
       ...initialState,
+      gameMode: 'private' as const,
+      rated: false,
       status: 'waiting' as const,
       playerColor: 'white' as const,
       drawOffer: null,
@@ -292,6 +296,7 @@ describe('useGameSocket', () => {
       emitSocketEvent('game_over', {
         reason: 'checkmate',
         winner: 'white',
+        ratingChange: null,
         gameState: {
           ...waitingState,
           status: 'finished',
@@ -303,7 +308,7 @@ describe('useGameSocket', () => {
     await waitFor(() => {
       expect(result.current.drawOffered).toBe(false);
       expect(result.current.opponentDisconnected).toBe(false);
-      expect(result.current.gameOverInfo).toEqual({ reason: 'checkmate', winner: 'white' });
+      expect(result.current.gameOverInfo).toEqual({ reason: 'checkmate', winner: 'white', ratingChange: null });
     });
 
     expect(playGameOverSoundMock).toHaveBeenCalledTimes(1);

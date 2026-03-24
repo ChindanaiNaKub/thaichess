@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Position, PieceColor, ClientGameState, Move } from '@shared/types';
+import type { Position, PieceColor, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
@@ -28,7 +28,7 @@ export default function GamePage() {
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
-  const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
+  const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null>(null);
   const [drawOffered, setDrawOffered] = useState(false);
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -111,9 +111,14 @@ export default function GamePage() {
       }
     };
 
-    const handleGameOver = ({ reason, winner, gameState: gs }: { reason: string; winner: PieceColor | null; gameState: ClientGameState }) => {
+    const handleGameOver = ({ reason, winner, gameState: gs, ratingChange }: {
+      reason: string;
+      winner: PieceColor | null;
+      gameState: ClientGameState;
+      ratingChange: RatingChangeSummary | null;
+    }) => {
       setGameState(gs);
-      setGameOverInfo({ reason, winner });
+      setGameOverInfo({ reason, winner, ratingChange });
       setShowGameOverModal(true);
       cancelPremove();
       playGameOverSound();
@@ -366,6 +371,11 @@ export default function GamePage() {
             <p className="text-text-dim text-xs sm:text-sm">
               {t('game.playing_as', { color: playerColor ? t(`common.${playerColor}`) : '' })}
             </p>
+            <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+              gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim border border-surface-hover'
+            }`}>
+              {gameState.rated ? t('game.rated') : t('game.casual')}
+            </div>
             <button
               onClick={handleNewGame}
               className="mt-4 px-5 py-2 rounded-lg bg-surface hover:bg-surface-hover text-text-bright border border-surface-hover font-semibold transition-colors"
@@ -473,6 +483,11 @@ export default function GamePage() {
               </select>
             </label>
             <span>{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+              gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
+            }`}>
+              {gameState.rated ? t('game.rated') : t('game.casual')}
+            </span>
             <button
               onClick={copyGameLink}
               className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
@@ -612,6 +627,8 @@ export default function GamePage() {
                 winner={gameOverInfo.winner}
                 reason={gameOverInfo.reason}
                 playerColor={playerColor}
+                rated={gameState.rated}
+                ratingChange={gameOverInfo.ratingChange}
                 onRematch={handleRematch}
                 onNewGame={handleNewGame}
                 onAnalyze={gameState.moveHistory.length > 0
@@ -681,6 +698,8 @@ export default function GamePage() {
           winner={gameOverInfo.winner}
           reason={gameOverInfo.reason}
           playerColor={playerColor}
+          rated={gameState.rated}
+          ratingChange={gameOverInfo.ratingChange}
           onRematch={handleRematch}
           onNewGame={handleNewGame}
           onAnalyze={gameState && gameState.moveHistory.length > 0

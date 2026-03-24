@@ -1,9 +1,10 @@
 import type { Socket } from 'socket.io';
 import { logInfo, logWarn } from './logger';
-import type { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
+import type { ServerToClientEvents, ClientToServerEvents, GameRoom, RatingChangeSummary } from '../../shared/types';
 import type { GameManager } from './gameManager';
 import type { MatchmakingQueue, QueueEntry } from './matchmaking';
 import type { MonitoringStore } from './monitoring';
+import type { AuthUser } from './database';
 import {
   getSocketIp,
   isValidBoolean,
@@ -14,7 +15,11 @@ import {
   SocketRateLimiter,
 } from './security';
 
-type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+export interface AuthenticatedSocketData {
+  authUser: AuthUser | null;
+}
+
+type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>;
 
 type SocketTarget = {
   emit: (...args: any[]) => unknown;
@@ -40,7 +45,7 @@ interface SocketHandlerDeps {
   socketRateLimiter: SocketRateLimiter;
   ipRateLimiter: SocketRateLimiter;
   monitoring: MonitoringStore;
-  saveGameToDb: (room: GameRoom, reason: string) => Promise<void>;
+  saveGameToDb: (room: GameRoom, reason: string) => Promise<{ ratingChange: RatingChangeSummary | null }>;
 }
 
 function emitQueueStatusForEntry(io: IoLike, matchmaking: MatchmakingQueue, entry: QueueEntry) {
@@ -132,12 +137,19 @@ function tryMatchmakeQueue(deps: SocketHandlerDeps) {
       deps.matchmaking.removeFromQueue(entry.socketId);
       deps.matchmaking.removeFromQueue(match.socketId);
 
-      const room = deps.gameManager.createGame(entryStillQueued.timeControl);
       const whiteId = Math.random() < 0.5 ? entry.socketId : match.socketId;
       const blackId = whiteId === entry.socketId ? match.socketId : entry.socketId;
+      const whiteEntry = whiteId === entry.socketId ? entryStillQueued : matchStillQueued;
+      const blackEntry = blackId === entry.socketId ? entryStillQueued : matchStillQueued;
+      const room = deps.gameManager.createGame(entryStillQueued.timeControl, {
+        gameMode: 'quick_play',
+        rated: Boolean(whiteEntry.userId && blackEntry.userId),
+      });
 
       room.white = whiteId;
       room.black = blackId;
+      room.whiteUserId = whiteEntry.userId;
+      room.blackUserId = blackEntry.userId;
       room.status = 'playing';
       room.gameState.lastMoveTime = Date.now();
 
@@ -177,7 +189,10 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
       const room = deps.gameManager.createGame(payload.timeControl, {
         ownerSocketId: socket.id,
+        ownerUserId: socket.data.authUser?.id ?? null,
         ownerColorPreference: payload.colorPreference,
+        gameMode: 'private',
+        rated: false,
       });
       deps.monitoring.increment('gamesCreated');
       logInfo('game_created', {
@@ -218,7 +233,9 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const result = deps.gameManager.joinGame(gameId, socket.id);
+      const result = deps.gameManager.joinGame(gameId, socket.id, {
+        userId: socket.data.authUser?.id ?? null,
+      });
       if (!result) {
         rejectSocketEvent(deps.monitoring, socket, 'join_game', 'Unable to join game. Game may be full or not found.', { gameId });
         return;
@@ -234,22 +251,24 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         deps.gameManager.startClock(gameId, (updatedRoom) => {
           if (updatedRoom.gameState.gameOver) {
             const reason = updatedRoom.gameState.whiteTime <= 0 || updatedRoom.gameState.blackTime <= 0 ? 'timeout' : 'unknown';
-            void deps.saveGameToDb(updatedRoom, reason);
-
-            if (updatedRoom.white) {
-              deps.io.to(updatedRoom.white).emit('game_over', {
-                reason,
-                winner: updatedRoom.gameState.winner,
-                gameState: deps.gameManager.getClientGameState(updatedRoom, updatedRoom.white),
-              });
-            }
-            if (updatedRoom.black) {
-              deps.io.to(updatedRoom.black).emit('game_over', {
-                reason,
-                winner: updatedRoom.gameState.winner,
-                gameState: deps.gameManager.getClientGameState(updatedRoom, updatedRoom.black),
-              });
-            }
+            void deps.saveGameToDb(updatedRoom, reason).then(({ ratingChange }) => {
+              if (updatedRoom.white) {
+                deps.io.to(updatedRoom.white).emit('game_over', {
+                  reason,
+                  winner: updatedRoom.gameState.winner,
+                  gameState: deps.gameManager.getClientGameState(updatedRoom, updatedRoom.white),
+                  ratingChange,
+                });
+              }
+              if (updatedRoom.black) {
+                deps.io.to(updatedRoom.black).emit('game_over', {
+                  reason,
+                  winner: updatedRoom.gameState.winner,
+                  gameState: deps.gameManager.getClientGameState(updatedRoom, updatedRoom.black),
+                  ratingChange,
+                });
+              }
+            });
           } else {
             deps.io.to(gameId).emit('clock_update', {
               whiteTime: updatedRoom.gameState.whiteTime,
@@ -298,22 +317,24 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       if (room.gameState.gameOver) {
         const reason = room.gameState.resultReason ?? 'draw';
         deps.monitoring.increment('gamesFinished');
-        void deps.saveGameToDb(room, reason);
-
-        if (room.white) {
-          deps.io.to(room.white).emit('game_over', {
-            reason,
-            winner: room.gameState.winner,
-            gameState: deps.gameManager.getClientGameState(room, room.white),
-          });
-        }
-        if (room.black) {
-          deps.io.to(room.black).emit('game_over', {
-            reason,
-            winner: room.gameState.winner,
-            gameState: deps.gameManager.getClientGameState(room, room.black),
-          });
-        }
+        void deps.saveGameToDb(room, reason).then(({ ratingChange }) => {
+          if (room.white) {
+            deps.io.to(room.white).emit('game_over', {
+              reason,
+              winner: room.gameState.winner,
+              gameState: deps.gameManager.getClientGameState(room, room.white),
+              ratingChange,
+            });
+          }
+          if (room.black) {
+            deps.io.to(room.black).emit('game_over', {
+              reason,
+              winner: room.gameState.winner,
+              gameState: deps.gameManager.getClientGameState(room, room.black),
+              ratingChange,
+            });
+          }
+        });
       }
     });
 
@@ -326,22 +347,24 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       if (!room) return;
 
       deps.monitoring.increment('gamesFinished');
-      void deps.saveGameToDb(room, 'resignation');
-
-      if (room.white) {
-        deps.io.to(room.white).emit('game_over', {
-          reason: 'resignation',
-          winner: room.gameState.winner,
-          gameState: deps.gameManager.getClientGameState(room, room.white),
-        });
-      }
-      if (room.black) {
-        deps.io.to(room.black).emit('game_over', {
-          reason: 'resignation',
-          winner: room.gameState.winner,
-          gameState: deps.gameManager.getClientGameState(room, room.black),
-        });
-      }
+      void deps.saveGameToDb(room, 'resignation').then(({ ratingChange }) => {
+        if (room.white) {
+          deps.io.to(room.white).emit('game_over', {
+            reason: 'resignation',
+            winner: room.gameState.winner,
+            gameState: deps.gameManager.getClientGameState(room, room.white),
+            ratingChange,
+          });
+        }
+        if (room.black) {
+          deps.io.to(room.black).emit('game_over', {
+            reason: 'resignation',
+            winner: room.gameState.winner,
+            gameState: deps.gameManager.getClientGameState(room, room.black),
+            ratingChange,
+          });
+        }
+      });
     });
 
     socket.on('offer_draw', () => {
@@ -398,22 +421,24 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
       if (payload.accept) {
         deps.monitoring.increment('gamesFinished');
-        void deps.saveGameToDb(room, 'draw_agreement');
-
-        if (room.white) {
-          deps.io.to(room.white).emit('game_over', {
-            reason: 'draw_agreement',
-            winner: null,
-            gameState: deps.gameManager.getClientGameState(room, room.white),
-          });
-        }
-        if (room.black) {
-          deps.io.to(room.black).emit('game_over', {
-            reason: 'draw_agreement',
-            winner: null,
-            gameState: deps.gameManager.getClientGameState(room, room.black),
-          });
-        }
+        void deps.saveGameToDb(room, 'draw_agreement').then(({ ratingChange }) => {
+          if (room.white) {
+            deps.io.to(room.white).emit('game_over', {
+              reason: 'draw_agreement',
+              winner: null,
+              gameState: deps.gameManager.getClientGameState(room, room.white),
+              ratingChange,
+            });
+          }
+          if (room.black) {
+            deps.io.to(room.black).emit('game_over', {
+              reason: 'draw_agreement',
+              winner: null,
+              gameState: deps.gameManager.getClientGameState(room, room.black),
+              ratingChange,
+            });
+          }
+        });
       } else {
         const offerer = room.white === socket.id ? room.black : room.white;
         if (offerer) deps.io.to(offerer).emit('draw_declined');
@@ -454,7 +479,9 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       deps.monitoring.increment('matchmakingStarted');
       logInfo('matchmaking_started', { socketId: socket.id, timeControl: payload.timeControl });
 
-      deps.matchmaking.addToQueue(socket.id, payload.timeControl);
+      deps.matchmaking.addToQueue(socket.id, payload.timeControl, {
+        userId: socket.data.authUser?.id ?? null,
+      });
       socket.emit('matchmaking_started');
       broadcastQueueStatus(deps.io, deps.matchmaking);
       tryMatchmakeQueue(deps);

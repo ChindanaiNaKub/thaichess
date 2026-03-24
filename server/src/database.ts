@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient, type Client, type InStatement, type Row } from '@libsql/client';
-import type { Move, Board, TimeControl } from '../../shared/types';
+import type { Move, Board, TimeControl, RatingChangeSummary } from '../../shared/types';
 import { logError, logInfo } from './logger';
 
 // Compiled to server/dist/server/src — repo data/ is four levels up
@@ -57,8 +57,16 @@ async function runSchemaMigration() {
         id TEXT PRIMARY KEY,
         white_name TEXT DEFAULT 'Anonymous',
         black_name TEXT DEFAULT 'Anonymous',
+        white_user_id TEXT,
+        black_user_id TEXT,
         result TEXT,
         result_reason TEXT,
+        rated INTEGER NOT NULL DEFAULT 0,
+        game_mode TEXT NOT NULL DEFAULT 'private',
+        white_rating_before INTEGER,
+        black_rating_before INTEGER,
+        white_rating_after INTEGER,
+        black_rating_after INTEGER,
         time_control_initial INTEGER,
         time_control_increment INTEGER,
         moves TEXT,
@@ -87,6 +95,11 @@ async function runSchemaMigration() {
         email TEXT NOT NULL UNIQUE,
         username TEXT UNIQUE,
         role TEXT NOT NULL DEFAULT 'user',
+        rating INTEGER NOT NULL DEFAULT 1500,
+        rated_games INTEGER NOT NULL DEFAULT 0,
+        wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0,
+        draws INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER DEFAULT (unixepoch()),
         updated_at INTEGER DEFAULT (unixepoch()),
         last_login_at INTEGER
@@ -129,6 +142,19 @@ async function runSchemaMigration() {
   await ensureColumn('feedback', 'deleted_by', 'TEXT');
   await ensureColumn('feedback', 'moderation_note', 'TEXT');
   await ensureColumn('feedback', 'user_id', 'TEXT');
+  await ensureColumn('users', 'rating', 'INTEGER NOT NULL DEFAULT 1500');
+  await ensureColumn('users', 'rated_games', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'draws', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('games', 'white_user_id', 'TEXT');
+  await ensureColumn('games', 'black_user_id', 'TEXT');
+  await ensureColumn('games', 'rated', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('games', 'game_mode', "TEXT NOT NULL DEFAULT 'private'");
+  await ensureColumn('games', 'white_rating_before', 'INTEGER');
+  await ensureColumn('games', 'black_rating_before', 'INTEGER');
+  await ensureColumn('games', 'white_rating_after', 'INTEGER');
+  await ensureColumn('games', 'black_rating_after', 'INTEGER');
 }
 
 function rowToSavedGame(row: Row): SavedGame {
@@ -136,8 +162,16 @@ function rowToSavedGame(row: Row): SavedGame {
     id: String(row.id),
     white_name: String(row.white_name ?? 'Anonymous'),
     black_name: String(row.black_name ?? 'Anonymous'),
+    white_user_id: row.white_user_id === null || row.white_user_id === undefined ? null : String(row.white_user_id),
+    black_user_id: row.black_user_id === null || row.black_user_id === undefined ? null : String(row.black_user_id),
     result: String(row.result ?? ''),
     result_reason: String(row.result_reason ?? ''),
+    rated: Number(row.rated ?? 0),
+    game_mode: String(row.game_mode ?? 'private'),
+    white_rating_before: row.white_rating_before === null || row.white_rating_before === undefined ? null : Number(row.white_rating_before),
+    black_rating_before: row.black_rating_before === null || row.black_rating_before === undefined ? null : Number(row.black_rating_before),
+    white_rating_after: row.white_rating_after === null || row.white_rating_after === undefined ? null : Number(row.white_rating_after),
+    black_rating_after: row.black_rating_after === null || row.black_rating_after === undefined ? null : Number(row.black_rating_after),
     time_control_initial: Number(row.time_control_initial ?? 0),
     time_control_increment: Number(row.time_control_increment ?? 0),
     moves: String(row.moves ?? '[]'),
@@ -170,6 +204,11 @@ export interface AuthUser {
   email: string;
   username: string | null;
   role: 'user' | 'admin';
+  rating: number;
+  rated_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
   created_at: number;
   updated_at: number;
   last_login_at: number | null;
@@ -181,6 +220,11 @@ function rowToAuthUser(row: Row): AuthUser {
     email: String(row.email),
     username: row.username === null || row.username === undefined ? null : String(row.username),
     role: String(row.role ?? 'user') === 'admin' ? 'admin' : 'user',
+    rating: Number(row.rating ?? 1500),
+    rated_games: Number(row.rated_games ?? 0),
+    wins: Number(row.wins ?? 0),
+    losses: Number(row.losses ?? 0),
+    draws: Number(row.draws ?? 0),
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
     last_login_at: row.last_login_at === null || row.last_login_at === undefined ? null : Number(row.last_login_at),
@@ -207,19 +251,115 @@ export async function saveCompletedGame(data: {
   moves: Move[];
   finalBoard: Board;
   moveCount: number;
-}): Promise<void> {
+  whiteUserId?: string | null;
+  blackUserId?: string | null;
+  rated?: boolean;
+  gameMode?: string;
+  whiteRatingBefore?: number | null;
+  blackRatingBefore?: number | null;
+  whiteRatingAfter?: number | null;
+  blackRatingAfter?: number | null;
+}): Promise<{ ratingChange: RatingChangeSummary | null }> {
   try {
+    const shouldRate = Boolean(data.rated && data.whiteUserId && data.blackUserId);
+    let whiteRatingBefore = data.whiteRatingBefore ?? null;
+    let blackRatingBefore = data.blackRatingBefore ?? null;
+    let whiteRatingAfter = data.whiteRatingAfter ?? null;
+    let blackRatingAfter = data.blackRatingAfter ?? null;
+
+    if (shouldRate) {
+      const existingResult = await db.execute({
+        sql: `
+          SELECT white_rating_before, black_rating_before, white_rating_after, black_rating_after
+          FROM games
+          WHERE id = ?
+          LIMIT 1
+        `,
+        args: [data.id],
+      });
+      const existingRow = existingResult.rows[0];
+      if (existingRow && existingRow.white_rating_after !== null && existingRow.black_rating_after !== null) {
+        return {
+          ratingChange: {
+            whiteBefore: Number(existingRow.white_rating_before ?? existingRow.white_rating_after),
+            blackBefore: Number(existingRow.black_rating_before ?? existingRow.black_rating_after),
+            whiteAfter: Number(existingRow.white_rating_after),
+            blackAfter: Number(existingRow.black_rating_after),
+          },
+        };
+      }
+
+      const [whiteUser, blackUser] = await Promise.all([
+        getUserById(data.whiteUserId!),
+        getUserById(data.blackUserId!),
+      ]);
+
+      if (whiteUser && blackUser) {
+        whiteRatingBefore = whiteUser.rating;
+        blackRatingBefore = blackUser.rating;
+
+        const ratingUpdate = calculateEloUpdate(whiteUser.rating, blackUser.rating, data.result);
+        whiteRatingAfter = ratingUpdate.whiteAfter;
+        blackRatingAfter = ratingUpdate.blackAfter;
+
+        await db.execute({
+          sql: `
+            UPDATE users
+            SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
+            WHERE id = ?
+          `,
+          args: [
+            whiteRatingAfter,
+            data.result === 'white' ? 1 : 0,
+            data.result === 'black' ? 1 : 0,
+            data.result === 'draw' ? 1 : 0,
+            data.whiteUserId!,
+          ],
+        });
+
+        await db.execute({
+          sql: `
+            UPDATE users
+            SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
+            WHERE id = ?
+          `,
+          args: [
+            blackRatingAfter,
+            data.result === 'black' ? 1 : 0,
+            data.result === 'white' ? 1 : 0,
+            data.result === 'draw' ? 1 : 0,
+            data.blackUserId!,
+          ],
+        });
+      }
+    }
+
+    const appliedRatedGame = shouldRate
+      && whiteRatingBefore !== null
+      && blackRatingBefore !== null
+      && whiteRatingAfter !== null
+      && blackRatingAfter !== null;
+
     await db.execute({
       sql: `
         INSERT OR REPLACE INTO games (
-          id, result, result_reason, time_control_initial, time_control_increment, moves, final_board, move_count, finished_at
+          id, white_user_id, black_user_id, result, result_reason, rated, game_mode, white_rating_before, black_rating_before,
+          white_rating_after, black_rating_after, time_control_initial, time_control_increment, moves, final_board, move_count, finished_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
       `,
       args: [
         data.id,
+        data.whiteUserId ?? null,
+        data.blackUserId ?? null,
         data.result,
         data.resultReason,
+        appliedRatedGame ? 1 : 0,
+        data.gameMode ?? 'private',
+        whiteRatingBefore,
+        blackRatingBefore,
+        whiteRatingAfter,
+        blackRatingAfter,
         data.timeControl.initial,
         data.timeControl.increment,
         JSON.stringify(data.moves),
@@ -227,17 +367,53 @@ export async function saveCompletedGame(data: {
         data.moveCount,
       ],
     });
+    return appliedRatedGame
+      ? {
+        ratingChange: {
+          whiteBefore: whiteRatingBefore!,
+          blackBefore: blackRatingBefore!,
+          whiteAfter: whiteRatingAfter!,
+          blackAfter: blackRatingAfter!,
+        },
+      }
+      : { ratingChange: null };
   } catch (err) {
     logError('database_save_completed_game_failed', err, { gameId: data.id });
+    return { ratingChange: null };
   }
+}
+
+function calculateEloUpdate(
+  whiteRating: number,
+  blackRating: number,
+  result: 'white' | 'black' | 'draw',
+  kFactor: number = 24,
+) {
+  const expectedWhite = 1 / (1 + 10 ** ((blackRating - whiteRating) / 400));
+  const whiteScore = result === 'white' ? 1 : result === 'draw' ? 0.5 : 0;
+  const whiteDelta = Math.round(kFactor * (whiteScore - expectedWhite));
+  const blackDelta = -whiteDelta;
+
+  return {
+    whiteAfter: whiteRating + whiteDelta,
+    blackAfter: blackRating + blackDelta,
+  };
 }
 
 export interface SavedGame {
   id: string;
   white_name: string;
   black_name: string;
+  white_user_id: string | null;
+  black_user_id: string | null;
   result: string;
   result_reason: string;
+  rated: number;
+  game_mode: string;
+  white_rating_before: number | null;
+  black_rating_before: number | null;
+  white_rating_after: number | null;
+  black_rating_after: number | null;
   time_control_initial: number;
   time_control_increment: number;
   moves: string;

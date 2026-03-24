@@ -2,6 +2,7 @@ import { TimeControl } from '../../shared/types';
 
 export interface QueueEntry {
   socketId: string;
+  userId: string | null;
   timeControl: TimeControl;
   joinedAt: number;
 }
@@ -10,11 +11,12 @@ export class MatchmakingQueue {
   private queue: QueueEntry[] = [];
   private playerInQueue: Map<string, number> = new Map();
 
-  addToQueue(socketId: string, timeControl: TimeControl): void {
+  addToQueue(socketId: string, timeControl: TimeControl, options: { userId?: string | null } = {}): void {
     this.removeFromQueue(socketId);
 
     this.queue.push({
       socketId,
+      userId: options.userId ?? null,
       timeControl,
       joinedAt: Date.now(),
     });

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket, connectSocket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
+import { useAuth } from '../lib/auth';
 import type { PieceColor } from '@shared/types';
 import Header from './Header';
 
@@ -20,6 +21,7 @@ const TIME_PRESETS = [
 export default function QuickPlay() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [searching, setSearching] = useState(false);
   const [requestPending, setRequestPending] = useState(false);
@@ -175,6 +177,18 @@ export default function QuickPlay() {
           <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
             <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">{t('quick.title')}</h2>
             <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
+            <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
+              <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+                user
+                  ? 'bg-primary/15 text-primary-light border border-primary/30'
+                  : 'bg-accent/15 text-accent border border-accent/30'
+              }`}>
+                {user ? t('quick.rated_available') : t('quick.casual_only')}
+              </div>
+              <p className="mt-2 text-xs text-text-dim">
+                {user ? t('quick.rated_signed_in') : t('quick.rated_sign_in')}
+              </p>
+            </div>
 
             <div className="mb-5">
               <label className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</label>

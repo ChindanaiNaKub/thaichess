@@ -5,6 +5,11 @@ export interface AuthUser {
   email: string;
   username: string | null;
   role: 'user' | 'admin';
+  rating: number;
+  rated_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
   created_at: number;
   updated_at: number;
   last_login_at: number | null;

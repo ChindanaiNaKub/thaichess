@@ -223,6 +223,8 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
   return {
     ...base,
     gameId: 'room-123',
+    gameMode: 'private',
+    rated: false,
     status: 'playing',
     playerColor: 'white',
     moveHistory: [],
@@ -542,6 +544,12 @@ describe('GamePage', () => {
       emitSocketEvent('game_over', {
         reason: 'checkmate',
         winner: 'white',
+        ratingChange: {
+          whiteBefore: 1500,
+          blackBefore: 1500,
+          whiteAfter: 1512,
+          blackAfter: 1488,
+        },
         gameState: makeGameState({
           moveHistory,
           gameOver: true,
@@ -553,6 +561,13 @@ describe('GamePage', () => {
     expect(screen.getByTestId('game-over-modal')).toBeInTheDocument();
     expect(playGameOverSoundMock).toHaveBeenCalledTimes(1);
     expect(interactionState.cancelPremove).toHaveBeenCalled();
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rated).toBe(false);
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].ratingChange).toEqual({
+      whiteBefore: 1500,
+      blackBefore: 1500,
+      whiteAfter: 1512,
+      blackAfter: 1488,
+    });
 
     fireEvent.click(screen.getByText('close-modal'));
     expect(screen.queryByTestId('game-over-modal')).not.toBeInTheDocument();

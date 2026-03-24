@@ -90,7 +90,7 @@ We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.
 
 - [x] Thai language support (ภาษาไทย)
 - [x] Player accounts (optional, anonymous play always available)
-- [ ] ELO rating system
+- [x] ELO rating system
 - [x] Puzzles and tactics trainer
 - [x] Game analysis
 - [x] AI opponent

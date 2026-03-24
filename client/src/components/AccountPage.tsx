@@ -65,6 +65,32 @@ export default function AccountPage() {
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('account.rating')}</div>
+                <div className="mt-2 text-2xl font-bold text-text-bright">{user.rating}</div>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('account.rated_games')}</div>
+                <div className="mt-2 text-2xl font-bold text-text-bright">{user.rated_games}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-surface-hover bg-surface p-4 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('account.wins')}</div>
+                <div className="mt-2 text-xl font-bold text-primary">{user.wins}</div>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface p-4 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('account.losses')}</div>
+                <div className="mt-2 text-xl font-bold text-danger">{user.losses}</div>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface p-4 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('account.draws')}</div>
+                <div className="mt-2 text-xl font-bold text-text-bright">{user.draws}</div>
+              </div>
+            </div>
+
             <label className="block">
               <span className="block text-sm text-text-dim mb-2">{t('account.username')}</span>
               <input

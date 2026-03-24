@@ -7,6 +7,8 @@ interface GameEntry {
   id: string;
   result: string;
   result_reason: string;
+  rated?: number;
+  game_mode?: string;
   time_control_initial: number;
   time_control_increment: number;
   move_count: number;
@@ -120,7 +122,16 @@ export default function GamesPage() {
                         onClick={() => navigate(`/game/${game.id}`)}
                       >
                         <td className="px-3 sm:px-4 py-3">
-                          <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
+                            <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                              game.rated
+                                ? 'bg-primary/15 text-primary-light'
+                                : 'bg-surface text-text-dim border border-surface-hover'
+                            }`}>
+                              {game.rated ? t('game.rated') : t('game.casual')}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-text-dim hidden sm:table-cell">
                           {formatTimeControl(game.time_control_initial, game.time_control_increment)}

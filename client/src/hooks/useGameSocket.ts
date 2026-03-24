@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ClientGameState, PieceColor, Move } from '@shared/types';
+import type { ClientGameState, PieceColor, Move, RatingChangeSummary } from '@shared/types';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 
@@ -11,7 +11,7 @@ interface UseGameSocketOptions {
 interface UseGameSocketReturn {
   gameState: ClientGameState | null;
   playerColor: PieceColor | null;
-  gameOverInfo: { reason: string; winner: PieceColor | null } | null;
+  gameOverInfo: { reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null;
   drawOffered: boolean;
   opponentDisconnected: boolean;
   error: string | null;
@@ -28,7 +28,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
-  const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
+  const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null>(null);
   const [drawOffered, setDrawOffered] = useState(false);
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,13 +77,14 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
       }
     };
 
-    const handleGameOver = ({ reason, winner, gameState: gs }: {
+    const handleGameOver = ({ reason, winner, gameState: gs, ratingChange }: {
       reason: string;
       winner: PieceColor | null;
       gameState: ClientGameState;
+      ratingChange: RatingChangeSummary | null;
     }) => {
       setGameState(gs);
-      setGameOverInfo({ reason, winner });
+      setGameOverInfo({ reason, winner, ratingChange });
       playGameOverSound();
     };
 

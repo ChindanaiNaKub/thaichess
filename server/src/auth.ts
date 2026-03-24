@@ -121,7 +121,11 @@ export async function setSessionCookie(res: Response, userId: string) {
 }
 
 export async function getAuthenticatedUser(req: Request): Promise<AuthUser | null> {
-  const cookies = parseCookies(req.headers.cookie);
+  return getAuthenticatedUserFromCookieHeader(req.headers.cookie);
+}
+
+export async function getAuthenticatedUserFromCookieHeader(cookieHeader?: string): Promise<AuthUser | null> {
+  const cookies = parseCookies(cookieHeader);
   const token = cookies[SESSION_COOKIE_NAME];
   if (!token) return null;
 

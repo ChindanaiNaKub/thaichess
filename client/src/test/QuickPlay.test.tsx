@@ -9,6 +9,7 @@ const {
   navigateMock,
   connectSocketMock,
   socketMock,
+  authState,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
@@ -18,6 +19,35 @@ const {
     on: vi.fn(),
     off: vi.fn(),
     once: vi.fn(),
+  },
+  authState: {
+    user: {
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player_one',
+      role: 'user' as const,
+      rating: 1500,
+      rated_games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      created_at: 0,
+      updated_at: 0,
+      last_login_at: null,
+    } as {
+      id: string;
+      email: string;
+      username: string;
+      role: 'user';
+      rating: number;
+      rated_games: number;
+      wins: number;
+      losses: number;
+      draws: number;
+      created_at: number;
+      updated_at: number;
+      last_login_at: null;
+    } | null,
   },
 }));
 
@@ -33,6 +63,10 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../lib/socket', () => ({
   socket: socketMock,
   connectSocket: connectSocketMock,
+}));
+
+vi.mock('../lib/auth', () => ({
+  useAuth: () => authState,
 }));
 
 vi.mock('../components/Header', () => ({
@@ -57,6 +91,20 @@ describe('QuickPlay', () => {
     socketMock.on.mockReset();
     socketMock.off.mockReset();
     socketMock.once.mockReset();
+    authState.user = {
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player_one',
+      role: 'user',
+      rating: 1500,
+      rated_games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      created_at: 0,
+      updated_at: 0,
+      last_login_at: null,
+    };
   });
 
   afterEach(() => {
@@ -186,5 +234,18 @@ describe('QuickPlay', () => {
     expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
       timeControl: { initial: 600, increment: 5 },
     });
+  });
+
+  it('shows rated availability for signed-in users and casual-only for anonymous users', () => {
+    const { rerender } = render(<QuickPlay />, { wrapper });
+
+    expect(screen.getByText('Rated Available')).toBeInTheDocument();
+    expect(screen.getByText('Rated if your opponent is also signed in.')).toBeInTheDocument();
+
+    authState.user = null;
+    rerender(<QuickPlay />);
+
+    expect(screen.getByText('Casual Only')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to unlock rated games.')).toBeInTheDocument();
   });
 });
