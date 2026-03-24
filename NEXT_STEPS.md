@@ -22,6 +22,7 @@
 - Game pages now show `Rated` / `Casual` badges
 - Rated game-over UI now shows rating delta
 - Recent games list now shows `Rated` / `Casual` labels
+- Added leaderboard page with ranked rated players
 - Account page now shows:
   - rating
   - rated games
@@ -30,7 +31,7 @@
 ## Verified
 
 - Server tests passed
-- Client tests for account, quick play, game page, game socket, and games list passed
+- Client tests for account, quick play, game page, game socket, games list, and leaderboard passed
 - Server build passed
 - Client build passed
 
@@ -40,8 +41,8 @@ Move from rating foundations into richer rating UX:
 
 1. Show player ratings in recent games list
 2. Show player ratings on game page header / waiting room
-3. Add a leaderboard page
-4. Add rating filters or rated-only filters in recent games
+3. Add rating filters or rated-only filters in recent games
+4. Add a leaderboard link from more entry points, like the home page or account page
 
 ## Resume Prompt
 
@@ -61,10 +62,11 @@ Already implemented:
 - game-page rated/casual badges
 - post-game rating delta
 - recent games rated/casual labels
+- leaderboard page
 - account page rating stats
 
 Next task:
-Show player ratings in game history and add a leaderboard page.
+Show player ratings in game history and on the live game header.
 ```
 
 ## Note

@@ -78,7 +78,15 @@ export default function GamesPage() {
 
       <main id="main-content" className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface-alt text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
+            >
+              {t('games.view_leaderboard')}
+            </button>
+          </div>
           <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
         </div>
 
@@ -212,6 +220,7 @@ export default function GamesPage() {
               <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
                 <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href="/leaderboard" className="hover:text-primary transition-colors">{t('leaderboard.title')}</a></li>
                 <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>

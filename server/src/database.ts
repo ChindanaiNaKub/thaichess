@@ -214,6 +214,16 @@ export interface AuthUser {
   last_login_at: number | null;
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  display_name: string;
+  rating: number;
+  rated_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 function rowToAuthUser(row: Row): AuthUser {
   return {
     id: String(row.id),
@@ -228,6 +238,34 @@ function rowToAuthUser(row: Row): AuthUser {
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
     last_login_at: row.last_login_at === null || row.last_login_at === undefined ? null : Number(row.last_login_at),
+  };
+}
+
+function getPublicDisplayName(username: string | null, email: string): string {
+  if (username && username.trim().length > 0) {
+    return username.trim();
+  }
+
+  const localPart = email.split('@')[0]?.trim() || 'player';
+  if (localPart.length <= 2) {
+    return `${localPart.slice(0, 1)}***`;
+  }
+
+  return `${localPart.slice(0, 2)}***`;
+}
+
+function rowToLeaderboardEntry(row: Row): LeaderboardEntry {
+  const username = row.username === null || row.username === undefined ? null : String(row.username);
+  const email = String(row.email ?? '');
+
+  return {
+    id: String(row.id),
+    display_name: getPublicDisplayName(username, email),
+    rating: Number(row.rating ?? 1500),
+    rated_games: Number(row.rated_games ?? 0),
+    wins: Number(row.wins ?? 0),
+    losses: Number(row.losses ?? 0),
+    draws: Number(row.draws ?? 0),
   };
 }
 
@@ -461,6 +499,36 @@ export async function getGameCount(): Promise<number> {
     return Number(result.rows[0]?.count ?? 0);
   } catch (err) {
     logError('database_get_game_count_failed', err);
+    return 0;
+  }
+}
+
+export async function getLeaderboard(limit: number = 50, offset: number = 0): Promise<LeaderboardEntry[]> {
+  try {
+    const result = await db.execute({
+      sql: `
+        SELECT id, username, email, rating, rated_games, wins, losses, draws
+        FROM users
+        WHERE rated_games > 0
+        ORDER BY rating DESC, rated_games DESC, wins DESC, draws DESC, updated_at ASC
+        LIMIT ? OFFSET ?
+      `,
+      args: [limit, offset],
+    });
+
+    return result.rows.map(rowToLeaderboardEntry);
+  } catch (err) {
+    logError('database_get_leaderboard_failed', err, { limit, offset });
+    return [];
+  }
+}
+
+export async function getLeaderboardCount(): Promise<number> {
+  try {
+    const result = await db.execute('SELECT COUNT(*) as count FROM users WHERE rated_games > 0');
+    return Number(result.rows[0]?.count ?? 0);
+  } catch (err) {
+    logError('database_get_leaderboard_count_failed', err);
     return 0;
   }
 }

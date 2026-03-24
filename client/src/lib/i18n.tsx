@@ -304,6 +304,7 @@ const EN: Record<string, string> = {
   'games.prev': 'Prev',
   'games.next': 'Next',
   'games.page': 'Page {current} of {total}',
+  'games.view_leaderboard': 'Leaderboard',
   'games.reason_checkmate': 'Checkmate',
   'games.reason_resignation': 'Resignation',
   'games.reason_timeout': 'Timeout',
@@ -397,6 +398,23 @@ const EN: Record<string, string> = {
   'account.update_failed': 'Failed to update profile.',
   'account.open_feedback': 'Open feedback moderation',
   'account.sign_out': 'Sign out',
+
+  // Leaderboard
+  'leaderboard.eyebrow': 'Rated Ladder',
+  'leaderboard.title': 'Leaderboard',
+  'leaderboard.desc': 'Top rated players from finished rated quick-play games.',
+  'leaderboard.count': '{count} ranked player(s)',
+  'leaderboard.empty': 'No rated players yet',
+  'leaderboard.empty_desc': 'Finish a rated quick-play game to appear here.',
+  'leaderboard.col_rank': 'Rank',
+  'leaderboard.col_player': 'Player',
+  'leaderboard.col_rating': 'Rating',
+  'leaderboard.col_games': 'Games',
+  'leaderboard.col_record': 'Record',
+  'leaderboard.col_winrate': 'Win Rate',
+  'leaderboard.you': 'You',
+  'leaderboard.view_recent': 'Recent Games',
+  'leaderboard.mobile_stats': '{games} games • {record} • {winrate}',
 
   // Error UI
   'error.board_display': 'Board display error',
@@ -687,6 +705,7 @@ const TH: Record<string, string> = {
   'games.prev': 'ก่อนหน้า',
   'games.next': 'ถัดไป',
   'games.page': 'หน้า {current} จาก {total}',
+  'games.view_leaderboard': 'ตารางคะแนน',
   'games.reason_checkmate': 'รุกจน',
   'games.reason_resignation': 'ยอมแพ้',
   'games.reason_timeout': 'หมดเวลา',
@@ -780,6 +799,23 @@ const TH: Record<string, string> = {
   'account.update_failed': 'อัปเดตโปรไฟล์ไม่สำเร็จ',
   'account.open_feedback': 'เปิดหน้าจัดการความคิดเห็น',
   'account.sign_out': 'ออกจากระบบ',
+
+  // Leaderboard
+  'leaderboard.eyebrow': 'อันดับเกมจัดอันดับ',
+  'leaderboard.title': 'ตารางคะแนน',
+  'leaderboard.desc': 'ผู้เล่นเรตติ้งสูงสุดจากเกมควิกเพลย์แบบจัดอันดับที่จบแล้ว',
+  'leaderboard.count': 'ผู้เล่นติดอันดับ {count} คน',
+  'leaderboard.empty': 'ยังไม่มีผู้เล่นจัดอันดับ',
+  'leaderboard.empty_desc': 'เล่นควิกเพลย์แบบจัดอันดับให้จบสักเกม แล้วชื่อจะขึ้นที่นี่',
+  'leaderboard.col_rank': 'อันดับ',
+  'leaderboard.col_player': 'ผู้เล่น',
+  'leaderboard.col_rating': 'เรตติ้ง',
+  'leaderboard.col_games': 'เกม',
+  'leaderboard.col_record': 'สถิติ',
+  'leaderboard.col_winrate': 'อัตราชนะ',
+  'leaderboard.you': 'คุณ',
+  'leaderboard.view_recent': 'เกมล่าสุด',
+  'leaderboard.mobile_stats': '{games} เกม • {record} • {winrate}',
 
   // Error UI
   'error.board_display': 'เกิดข้อผิดพลาดในการแสดงกระดาน',

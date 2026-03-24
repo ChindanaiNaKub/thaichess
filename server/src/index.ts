@@ -7,7 +7,7 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue, QueueEntry } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername } from './database';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
@@ -262,6 +262,16 @@ app.get('/api/games/recent', async (_req, res) => {
     getGameCount(),
   ]);
   res.json({ games, total, page, limit });
+});
+
+app.get('/api/leaderboard', async (req, res) => {
+  const page = Math.max(0, Math.min(parseInt(req.query.page as string) || 0, 1000));
+  const limit = Math.min(parseInt(req.query.limit as string) || 25, 100);
+  const [players, total] = await Promise.all([
+    getLeaderboard(limit, page * limit),
+    getLeaderboardCount(),
+  ]);
+  res.json({ players, total, page, limit });
 });
 
 app.get('/api/stats', async (_req, res) => {

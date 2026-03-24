@@ -13,6 +13,7 @@ const PuzzlePlayer = lazy(() => import('./components/PuzzlePage').then(m => ({ d
 const QuickPlay = lazy(() => import('./components/QuickPlay'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const GamesPage = lazy(() => import('./components/GamesPage'));
+const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
 const AnalysisPage = lazy(() => import('./components/AnalysisPage'));
 const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/quick-play" element={<QuickPlay />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/games" element={<GamesPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/analysis/:gameId" element={<AnalysisPage />} />
           <Route path="/analysis" element={<AnalysisPage />} />
           <Route path="/feedback" element={<FeedbackMessagesPage />} />
