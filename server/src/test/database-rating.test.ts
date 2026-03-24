@@ -126,4 +126,60 @@ describe('database rated game persistence', () => {
     expect(savedGame?.rated).toBe(0);
     expect(savedGame?.white_rating_after).toBeNull();
   });
+
+  it('returns leaderboard entries ordered by rating with public display names', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    await database.upsertUserByEmail({
+      id: 'top-user',
+      email: 'topplayer@example.com',
+      role: 'user',
+    });
+    await database.upsertUserByEmail({
+      id: 'second-user',
+      email: 'second@example.com',
+      role: 'user',
+    });
+    await database.updateUsername('top-user', 'Champion');
+
+    await database.saveCompletedGame({
+      id: 'leaderboard-game-1',
+      result: 'white',
+      resultReason: 'checkmate',
+      whiteUserId: 'top-user',
+      blackUserId: 'second-user',
+      rated: true,
+      gameMode: 'quick_play',
+      timeControl: { initial: 300, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 20,
+    });
+
+    const leaderboard = await database.getLeaderboard(10, 0);
+    const total = await database.getLeaderboardCount();
+
+    expect(total).toBe(2);
+    expect(leaderboard).toHaveLength(2);
+    expect(leaderboard[0]).toMatchObject({
+      id: 'top-user',
+      display_name: 'Champion',
+      rating: 1512,
+      rated_games: 1,
+      wins: 1,
+      losses: 0,
+      draws: 0,
+    });
+    expect(leaderboard[1]).toMatchObject({
+      id: 'second-user',
+      display_name: 'se***',
+      rating: 1488,
+      rated_games: 1,
+      wins: 0,
+      losses: 1,
+      draws: 0,
+    });
+  });
 });
