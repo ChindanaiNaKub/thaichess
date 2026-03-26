@@ -93,6 +93,70 @@ describe('database rated game persistence', () => {
     expect(blackAfterSecond?.rated_games).toBe(1);
   });
 
+  it('applies Elo exactly once when duplicate rated saves race concurrently', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    await database.upsertUserByEmail({
+      id: 'white-user',
+      email: 'white@example.com',
+      role: 'user',
+    });
+    await database.upsertUserByEmail({
+      id: 'black-user',
+      email: 'black@example.com',
+      role: 'user',
+    });
+
+    const payload = {
+      id: 'rated-game-race',
+      result: 'white' as const,
+      resultReason: 'checkmate',
+      whiteUserId: 'white-user',
+      blackUserId: 'black-user',
+      rated: true,
+      gameMode: 'quick_play',
+      timeControl: { initial: 300, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 42,
+    };
+
+    vi.useRealTimers();
+    const [first, second] = await Promise.all([
+      database.saveCompletedGame(payload),
+      database.saveCompletedGame(payload),
+    ]);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-22T00:00:00Z'));
+
+    const whiteAfter = await database.getUserById('white-user');
+    const blackAfter = await database.getUserById('black-user');
+    const savedGame = await database.getGame('rated-game-race');
+
+    expect(whiteAfter?.rating).toBe(1512);
+    expect(blackAfter?.rating).toBe(1488);
+    expect(whiteAfter?.rated_games).toBe(1);
+    expect(blackAfter?.rated_games).toBe(1);
+    expect(savedGame?.white_rating_after).toBe(1512);
+    expect(savedGame?.black_rating_after).toBe(1488);
+    expect([first.ratingChange, second.ratingChange]).toEqual([
+      {
+        whiteBefore: 1500,
+        blackBefore: 1500,
+        whiteAfter: 1512,
+        blackAfter: 1488,
+      },
+      {
+        whiteBefore: 1500,
+        blackBefore: 1500,
+        whiteAfter: 1512,
+        blackAfter: 1488,
+      },
+    ]);
+  });
+
   it('keeps mixed-auth games casual with no rating changes', async () => {
     const database = await import('../database');
 

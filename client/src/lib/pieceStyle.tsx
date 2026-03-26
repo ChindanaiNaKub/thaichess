@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
-export type PieceStyle = 'classic' | 'western' | 'traditional';
+export type PieceStyle = 'classic' | 'western';
 
 type PieceStyleContextValue = {
   pieceStyle: PieceStyle;
@@ -15,9 +15,8 @@ function getInitialPieceStyle(): PieceStyle {
   if (typeof window === 'undefined') return 'classic';
 
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved === 'classic' || saved === 'western' || saved === 'traditional') {
-    return saved;
-  }
+  if (saved === 'western') return 'western';
+  if (saved === 'classic' || saved === 'traditional') return 'classic';
 
   return 'classic';
 }

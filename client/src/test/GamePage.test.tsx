@@ -15,7 +15,6 @@ const {
   playGameOverSoundMock,
   playGameStartSoundMock,
   getLegalMovesMock,
-  setPieceStyleMock,
   interactionState,
   boardPropsMock,
   moveHistoryPropsMock,
@@ -23,6 +22,7 @@ const {
   gameOverPanelPropsMock,
   pieceGuidePropsMock,
   socketMock,
+  pieceStyleState,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
@@ -32,7 +32,6 @@ const {
   playGameOverSoundMock: vi.fn(),
   playGameStartSoundMock: vi.fn(),
   getLegalMovesMock: vi.fn(),
-  setPieceStyleMock: vi.fn(),
   interactionState: {
     selectedSquare: null,
     legalMoves: [],
@@ -52,6 +51,10 @@ const {
     emit: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
+  },
+  pieceStyleState: {
+    pieceStyle: 'classic',
+    setPieceStyle: vi.fn(),
   },
 }));
 
@@ -113,11 +116,14 @@ vi.mock('../lib/i18n', () => ({
   }),
 }));
 
-vi.mock('../lib/pieceStyle', () => ({
-  usePieceStyle: () => ({
-    pieceStyle: 'classic',
-    setPieceStyle: setPieceStyleMock,
+vi.mock('../lib/auth', () => ({
+  useAuth: () => ({
+    user: null,
   }),
+}));
+
+vi.mock('../lib/pieceStyle', () => ({
+  usePieceStyle: () => pieceStyleState,
 }));
 
 vi.mock('../hooks/useGameInteraction', () => ({
@@ -255,7 +261,6 @@ describe('GamePage', () => {
     playGameOverSoundMock.mockReset();
     playGameStartSoundMock.mockReset();
     getLegalMovesMock.mockReset();
-    setPieceStyleMock.mockReset();
     boardPropsMock.mockReset();
     moveHistoryPropsMock.mockReset();
     gameOverModalPropsMock.mockReset();
@@ -270,6 +275,8 @@ describe('GamePage', () => {
     interactionState.clearSelection.mockReset();
     socketMock.connected = false;
     socketMock.emit.mockReset();
+    pieceStyleState.pieceStyle = 'classic';
+    pieceStyleState.setPieceStyle.mockReset();
     socketMock.on.mockImplementation((event: string, handler: EventHandler) => {
       addListener(event, handler);
       return socketMock;
@@ -423,11 +430,6 @@ describe('GamePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'game.resign' }));
     expect(socketMock.emit).toHaveBeenCalledWith('resign');
-
-    fireEvent.change(screen.getByRole('combobox', { name: 'game.select_piece_style' }), {
-      target: { value: 'western' },
-    });
-    expect(setPieceStyleMock).toHaveBeenCalledWith('western');
   });
 
   it('updates clocks, clears banners, and supports both counting actions', async () => {

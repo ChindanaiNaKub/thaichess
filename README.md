@@ -75,6 +75,11 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 └── package.json       # Workspace root
 ```
 
+## Documentation
+
+- [ADR: realtime identity and rated-game persistence](docs/adr-2026-03-26-realtime-identity-and-rated-game-persistence.md)
+- [Deployment note: Render + Turso](docs/deployment-render-turso.md)
+
 ## Contributing
 
 We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

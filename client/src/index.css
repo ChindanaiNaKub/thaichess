@@ -8,8 +8,10 @@
 
 @theme {
   /* Board */
-  --color-board-light: oklch(0.82 0.06 75);
-  --color-board-dark: oklch(0.62 0.08 60);
+  --color-board-base: oklch(0.78 0.08 78);
+  --color-board-grid: oklch(0.58 0.05 72 / 0.42);
+  --color-board-light: var(--color-board-base);
+  --color-board-dark: var(--color-board-base);
   --color-board-selected: oklch(0.60 0.10 130);
   --color-board-legal: oklch(0.50 0.08 120);
   --color-board-lastmove: oklch(0.80 0.12 100);
@@ -125,23 +127,35 @@
 @layer components {
   /* Board squares */
   .board-square-light {
-    background-color: var(--color-board-light);
+    background-color: var(--color-board-base);
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
+    box-sizing: border-box;
   }
 
   .board-square-dark {
-    background-color: var(--color-board-dark);
+    background-color: var(--color-board-base);
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
+    box-sizing: border-box;
   }
 
   .board-square-selected {
-    background-color: var(--color-board-selected) !important;
+    background:
+      radial-gradient(circle at 50% 42%, oklch(0.78 0.11 110 / 0.42), transparent 62%),
+      linear-gradient(180deg, oklch(0.69 0.11 118), oklch(0.58 0.09 122)) !important;
+    box-shadow:
+      inset 0 0 0 1px var(--color-board-grid),
+      inset 0 0 0 1px oklch(0.86 0.09 105 / 0.42),
+      inset 0 10px 16px oklch(1 0 0 / 0.08);
   }
 
   .board-square-lastmove-light {
     background-color: oklch(0.80 0.12 100) !important;
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
   }
 
   .board-square-lastmove-dark {
     background-color: oklch(0.65 0.12 100) !important;
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
   }
 
   .board-square-check {
@@ -155,10 +169,12 @@
 
   .board-square-premove-light {
     background-color: oklch(0.65 0.14 250) !important;
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
   }
 
   .board-square-premove-dark {
     background-color: oklch(0.50 0.14 250) !important;
+    box-shadow: inset 0 0 0 1px var(--color-board-grid);
   }
 
   /* Board touch handling */
@@ -196,23 +212,48 @@
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
-    transition: transform 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    will-change: transform;
+    transform-origin: 50% 58%;
+    transition:
+      transform 0.14s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      filter 0.16s ease,
+      opacity 0.16s ease;
+    filter: drop-shadow(0 1px 1px oklch(0.18 0.02 65 / 0.18));
+    will-change: transform, filter;
+  }
+
+  .piece svg {
+    overflow: visible;
+    transition: transform 0.14s ease, filter 0.16s ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .piece:hover {
+      transform: translateY(-1px) scale(1.035);
+      filter: drop-shadow(0 5px 10px oklch(0.12 0.02 65 / 0.22));
+    }
   }
 
   .piece:active {
     cursor: grabbing;
+    transform: scale(1.02);
+  }
+
+  .piece-selected {
+    transform: translateY(-1px) scale(1.045);
+    filter:
+      drop-shadow(0 0 0.45rem oklch(0.84 0.1 92 / 0.24))
+      drop-shadow(0 5px 10px oklch(0.10 0.02 65 / 0.22));
   }
 
   .piece-dragging {
     z-index: 100;
-    transform: scale(1.1);
-    filter: drop-shadow(0 8px 16px oklch(0.10 0.02 65 / 0.6));
+    transform: scale(1.13);
+    filter: drop-shadow(0 10px 18px oklch(0.10 0.02 65 / 0.38));
     will-change: transform, filter;
   }
 
   .piece-lift {
-    transform: scale(1.1);
+    transform: translateY(-1px) scale(1.07);
     transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 

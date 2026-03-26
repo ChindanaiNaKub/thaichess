@@ -152,8 +152,8 @@ describe('GameManager', () => {
 
     const updatedRoom = manager.getGame(room.id);
     expect(updatedRoom?.white).toBe('white-new');
-    expect(manager.getPlayerGame('white-old')).toBeNull();
-    expect(manager.getPlayerGame('white-new')).toBe(room.id);
+    expect(manager.getPlayerGame('white-old')).toBe(room.id);
+    expect(manager.getPlayerGame('white-new')).toBeNull();
 
     const clientState = manager.getClientGameState(updatedRoom!, 'white-new');
     expect(clientState.playerColor).toBe('white');
