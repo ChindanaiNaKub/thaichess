@@ -442,7 +442,7 @@ export default memo(function Board({
 
             {piece && !isDragging && (
               <div
-                className={`absolute inset-[6%] flex items-center justify-center piece ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
+                className={`absolute inset-[4.5%] flex items-center justify-center piece ${isSelected(boardRow, boardCol) ? 'piece-selected' : ''} ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
                 data-testid={`board-piece-${boardRow}-${boardCol}`}
               >
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
@@ -506,7 +506,7 @@ export default memo(function Board({
               height: '12.5%',
             }}
           >
-            <div className="absolute inset-[6%]">
+            <div className="absolute inset-[4.5%]">
               <PieceSVG
                 type={draggedPiece.type}
                 color={draggedPiece.color}
