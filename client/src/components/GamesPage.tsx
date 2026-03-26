@@ -77,18 +77,20 @@ export default function GamesPage() {
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="games" />
 
-      <main id="main-content" className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 sm:mb-6">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
-            <button
-              onClick={() => navigate(routes.leaderboard)}
-              className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface-alt text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
-            >
-              {t('games.view_leaderboard')}
-            </button>
+      <main id="main-content" className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
+        <div className="rounded-2xl border border-surface-hover bg-surface-alt/80 px-4 py-4 sm:px-5 sm:py-5 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
+              <button
+                onClick={() => navigate(routes.leaderboard)}
+                className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
+              >
+                {t('games.view_leaderboard')}
+              </button>
+            </div>
+            <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
           </div>
-          <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
         </div>
 
         {loading ? (
@@ -96,16 +98,24 @@ export default function GamesPage() {
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : games.length === 0 ? (
-          <div className="text-center py-12 sm:py-16">
+          <div className="rounded-2xl border border-surface-hover bg-surface-alt px-6 py-10 sm:px-10 sm:py-12 text-center">
             <div className="text-4xl mb-4">♟</div>
-            <p className="text-text-dim text-base sm:text-lg mb-2">{t('games.empty')}</p>
-            <p className="text-text-dim text-sm mb-6">{t('games.empty_desc')}</p>
-            <button
-              onClick={() => navigate(routes.home)}
-              className="px-5 sm:px-6 py-2.5 sm:py-3 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
-            >
-              {t('games.start')}
-            </button>
+            <p className="text-text-bright text-lg sm:text-xl font-semibold mb-2">{t('games.empty')}</p>
+            <p className="text-text-dim text-sm sm:text-base mb-6 max-w-md mx-auto">{t('games.empty_desc')}</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => navigate(routes.quickPlay)}
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+              >
+                {t('home.find_opponent')}
+              </button>
+              <button
+                onClick={() => navigate(routes.puzzles)}
+                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-surface hover:bg-surface-hover text-text-bright font-semibold rounded-lg border border-surface-hover transition-colors text-sm sm:text-base"
+              >
+                {t('nav.puzzles')}
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -158,10 +168,10 @@ export default function GamesPage() {
                         <td className="px-3 sm:px-4 py-3 text-right">
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(savedGameAnalysisRoute(game.id)); }}
-                            className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs rounded transition-colors"
+                            className="px-2.5 py-1 rounded-md border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary-light text-xs font-semibold transition-colors"
                             title={t('analysis.analyze')}
                           >
-                            🔍
+                            {t('analysis.view')}
                           </button>
                         </td>
                       </tr>

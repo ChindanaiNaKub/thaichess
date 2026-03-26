@@ -65,9 +65,14 @@ describe('HomePage', () => {
     socketMock.once.mockReset();
   });
 
+  function openCreatePanel() {
+    fireEvent.click(screen.getByRole('button', { name: /create a private game/i }));
+  }
+
   it('cleans up create-game socket listeners on unmount', () => {
     const { unmount } = render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
     expect(connectSocketMock).toHaveBeenCalledTimes(1);
@@ -88,6 +93,7 @@ describe('HomePage', () => {
 
     render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
     expect(connectSocketMock).toHaveBeenCalledTimes(1);
@@ -100,6 +106,7 @@ describe('HomePage', () => {
   it('recovers from create_game errors by re-enabling the button and showing the message', () => {
     render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
     const errorHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
@@ -118,6 +125,7 @@ describe('HomePage', () => {
 
     render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
@@ -132,6 +140,7 @@ describe('HomePage', () => {
 
     render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /^white$/i }));
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
@@ -144,6 +153,7 @@ describe('HomePage', () => {
   it('navigates to the created game when the server returns a game id', () => {
     render(<HomePage />, { wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
     const createdHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'game_created')?.[1];
@@ -160,7 +170,7 @@ describe('HomePage', () => {
   it('reveals the join form and navigates with a trimmed game id from button click or enter key', () => {
     render(<HomePage />, { wrapper });
 
-    fireEvent.click(screen.getByRole('button', { name: /have a game code\? join a game/i }));
+    fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
 
     const input = screen.getByPlaceholderText(/enter game code/i);
     fireEvent.change(input, { target: { value: '  room-abc  ' } });
@@ -178,7 +188,7 @@ describe('HomePage', () => {
   it('ignores blank join ids and routes the other main actions', () => {
     render(<HomePage />, { wrapper });
 
-    fireEvent.click(screen.getByRole('button', { name: /have a game code\? join a game/i }));
+    fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
     const input = screen.getByPlaceholderText(/enter game code/i);
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: /^join$/i }));
