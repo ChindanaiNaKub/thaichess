@@ -22,6 +22,7 @@ const {
   gameOverPanelPropsMock,
   pieceGuidePropsMock,
   socketMock,
+  pieceStyleState,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
@@ -50,6 +51,10 @@ const {
     emit: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
+  },
+  pieceStyleState: {
+    pieceStyle: 'classic',
+    setPieceStyle: vi.fn(),
   },
 }));
 
@@ -115,6 +120,10 @@ vi.mock('../lib/auth', () => ({
   useAuth: () => ({
     user: null,
   }),
+}));
+
+vi.mock('../lib/pieceStyle', () => ({
+  usePieceStyle: () => pieceStyleState,
 }));
 
 vi.mock('../hooks/useGameInteraction', () => ({
@@ -266,6 +275,8 @@ describe('GamePage', () => {
     interactionState.clearSelection.mockReset();
     socketMock.connected = false;
     socketMock.emit.mockReset();
+    pieceStyleState.pieceStyle = 'classic';
+    pieceStyleState.setPieceStyle.mockReset();
     socketMock.on.mockImplementation((event: string, handler: EventHandler) => {
       addListener(event, handler);
       return socketMock;

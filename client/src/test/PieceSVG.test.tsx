@@ -3,6 +3,14 @@ import { vi } from 'vitest';
 import { render } from './utils';
 import PieceSVG from '../components/PieceSVG';
 
+const pieceStyleState = {
+  pieceStyle: 'classic',
+};
+
+vi.mock('../lib/pieceStyle', () => ({
+  usePieceStyle: () => pieceStyleState,
+}));
+
 vi.mock('../assets/pieces/traditional/Bia_black.svg?raw', () => ({
   default: '<svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="100" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="60" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="20" fill="#14110F" /></svg>',
 }));
@@ -27,6 +35,8 @@ vi.mock('../assets/pieces/traditional/Ruea_black.svg?raw', () => ({
 
 describe('PieceSVG', () => {
   it('renders traditional Makruk pieces from inline black SVG sources for both colors', () => {
+    pieceStyleState.pieceStyle = 'classic';
+
     const cases: Array<{ type: PieceType; color: PieceColor; fill: string; stroke: string }> = [
       { type: 'K', color: 'white', fill: '#f2eadb', stroke: '#5f5245' },
       { type: 'K', color: 'black', fill: '#22252a', stroke: '#111111' },
@@ -59,11 +69,24 @@ describe('PieceSVG', () => {
   });
 
   it('keeps traditional white pawns solid by rendering an opaque base shape', () => {
+    pieceStyleState.pieceStyle = 'classic';
+
     const { container } = render(<PieceSVG type="P" color="white" />);
 
     const circles = container.querySelectorAll('circle');
     expect(circles.length).toBeGreaterThan(0);
     expect(circles[0]?.getAttribute('fill') ?? '').toContain('url(#traditional-fill-');
     expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
+  });
+
+  it('renders the western set when western style is selected', () => {
+    pieceStyleState.pieceStyle = 'western';
+
+    const { container } = render(<PieceSVG type="K" color="white" />);
+
+    expect(container.querySelector('linearGradient')).not.toBeInTheDocument();
+    expect(container.querySelector('filter')).not.toBeInTheDocument();
+    expect(container.querySelector('rect')).toBeInTheDocument();
+    expect(container.innerHTML.toLowerCase()).toContain('#fbfbfa');
   });
 });
