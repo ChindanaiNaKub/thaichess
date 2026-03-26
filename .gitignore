@@ -42,6 +42,10 @@ Thumbs.db
 *.temp
 .cache/
 assets/
+!client/src/assets/
+!client/src/assets/pieces/
+!client/src/assets/pieces/traditional/
+!client/src/assets/pieces/traditional/*.svg
 client/playwright-report/
 client/test-results/
 client/coverage/
