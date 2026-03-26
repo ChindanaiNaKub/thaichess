@@ -18,6 +18,7 @@ const SESSION_COOKIE_NAME = 'thaichess_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const LOGIN_CODE_TTL_SECONDS = 60 * 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
+const GUEST_PLAYER_ID_PATTERN = /^guest_[A-Za-z0-9-]{16,128}$/;
 const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS || '')
     .split(',')
@@ -44,6 +45,13 @@ export function normalizeEmail(email: string) {
 
 export function normalizeUsername(username: string) {
   return username.trim().replace(/\s+/g, ' ');
+}
+
+export function normalizeGuestPlayerId(value: unknown) {
+  if (typeof value !== 'string') return null;
+
+  const normalized = value.trim();
+  return GUEST_PLAYER_ID_PATTERN.test(normalized) ? normalized : null;
 }
 
 export function isValidEmail(email: string) {

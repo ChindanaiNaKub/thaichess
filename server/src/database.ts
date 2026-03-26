@@ -14,6 +14,7 @@ const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL?.trim() || undefined;
 const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN?.trim() || undefined;
 
 let db: Client;
+type SqlExecutor = Pick<Client, 'execute'>;
 
 async function ensureColumn(table: string, column: string, definition: string) {
   const result = await db.execute(`PRAGMA table_info(${table})`);
@@ -269,6 +270,15 @@ function rowToLeaderboardEntry(row: Row): LeaderboardEntry {
   };
 }
 
+async function getUserByIdFromExecutor(executor: SqlExecutor, id: string): Promise<AuthUser | null> {
+  const result = await executor.execute({
+    sql: 'SELECT * FROM users WHERE id = ? LIMIT 1',
+    args: [id],
+  });
+  const row = result.rows[0];
+  return row ? rowToAuthUser(row) : null;
+}
+
 export async function initDatabase(): Promise<void> {
   const config = getDatabaseConfig();
   db = config.client;
@@ -298,15 +308,18 @@ export async function saveCompletedGame(data: {
   whiteRatingAfter?: number | null;
   blackRatingAfter?: number | null;
 }): Promise<{ ratingChange: RatingChangeSummary | null }> {
-  try {
-    const shouldRate = Boolean(data.rated && data.whiteUserId && data.blackUserId);
-    let whiteRatingBefore = data.whiteRatingBefore ?? null;
-    let blackRatingBefore = data.blackRatingBefore ?? null;
-    let whiteRatingAfter = data.whiteRatingAfter ?? null;
-    let blackRatingAfter = data.blackRatingAfter ?? null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let transaction: Awaited<ReturnType<Client['transaction']>> | null = null;
 
-    if (shouldRate) {
-      const existingResult = await db.execute({
+    try {
+      transaction = await db.transaction('write');
+      const shouldRate = Boolean(data.rated && data.whiteUserId && data.blackUserId);
+      let whiteRatingBefore = data.whiteRatingBefore ?? null;
+      let blackRatingBefore = data.blackRatingBefore ?? null;
+      let whiteRatingAfter = data.whiteRatingAfter ?? null;
+      let blackRatingAfter = data.blackRatingAfter ?? null;
+
+      const existingResult = await transaction.execute({
         sql: `
           SELECT white_rating_before, black_rating_before, white_rating_after, black_rating_after
           FROM games
@@ -316,109 +329,156 @@ export async function saveCompletedGame(data: {
         args: [data.id],
       });
       const existingRow = existingResult.rows[0];
-      if (existingRow && existingRow.white_rating_after !== null && existingRow.black_rating_after !== null) {
-        return {
+      if (existingRow) {
+        await transaction.commit();
+        if (existingRow.white_rating_after !== null && existingRow.black_rating_after !== null) {
+          return {
+            ratingChange: {
+              whiteBefore: Number(existingRow.white_rating_before ?? existingRow.white_rating_after),
+              blackBefore: Number(existingRow.black_rating_before ?? existingRow.black_rating_after),
+              whiteAfter: Number(existingRow.white_rating_after),
+              blackAfter: Number(existingRow.black_rating_after),
+            },
+          };
+        }
+
+        return { ratingChange: null };
+      }
+
+      if (shouldRate) {
+        const [whiteUser, blackUser] = await Promise.all([
+          getUserByIdFromExecutor(transaction, data.whiteUserId!),
+          getUserByIdFromExecutor(transaction, data.blackUserId!),
+        ]);
+
+        if (whiteUser && blackUser) {
+          whiteRatingBefore = whiteUser.rating;
+          blackRatingBefore = blackUser.rating;
+
+          const ratingUpdate = calculateEloUpdate(whiteUser.rating, blackUser.rating, data.result);
+          whiteRatingAfter = ratingUpdate.whiteAfter;
+          blackRatingAfter = ratingUpdate.blackAfter;
+
+          await transaction.execute({
+            sql: `
+              UPDATE users
+              SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
+              WHERE id = ?
+            `,
+            args: [
+              whiteRatingAfter,
+              data.result === 'white' ? 1 : 0,
+              data.result === 'black' ? 1 : 0,
+              data.result === 'draw' ? 1 : 0,
+              data.whiteUserId!,
+            ],
+          });
+
+          await transaction.execute({
+            sql: `
+              UPDATE users
+              SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
+              WHERE id = ?
+            `,
+            args: [
+              blackRatingAfter,
+              data.result === 'black' ? 1 : 0,
+              data.result === 'white' ? 1 : 0,
+              data.result === 'draw' ? 1 : 0,
+              data.blackUserId!,
+            ],
+          });
+        }
+      }
+
+      const appliedRatedGame = shouldRate
+        && whiteRatingBefore !== null
+        && blackRatingBefore !== null
+        && whiteRatingAfter !== null
+        && blackRatingAfter !== null;
+
+      await transaction.execute({
+        sql: `
+          INSERT OR REPLACE INTO games (
+            id, white_user_id, black_user_id, result, result_reason, rated, game_mode, white_rating_before, black_rating_before,
+            white_rating_after, black_rating_after, time_control_initial, time_control_increment, moves, final_board, move_count, finished_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+        `,
+        args: [
+          data.id,
+          data.whiteUserId ?? null,
+          data.blackUserId ?? null,
+          data.result,
+          data.resultReason,
+          appliedRatedGame ? 1 : 0,
+          data.gameMode ?? 'private',
+          whiteRatingBefore,
+          blackRatingBefore,
+          whiteRatingAfter,
+          blackRatingAfter,
+          data.timeControl.initial,
+          data.timeControl.increment,
+          JSON.stringify(data.moves),
+          JSON.stringify(data.finalBoard),
+          data.moveCount,
+        ],
+      });
+
+      await transaction.commit();
+
+      return appliedRatedGame
+        ? {
           ratingChange: {
-            whiteBefore: Number(existingRow.white_rating_before ?? existingRow.white_rating_after),
-            blackBefore: Number(existingRow.black_rating_before ?? existingRow.black_rating_after),
-            whiteAfter: Number(existingRow.white_rating_after),
-            blackAfter: Number(existingRow.black_rating_after),
+            whiteBefore: whiteRatingBefore!,
+            blackBefore: blackRatingBefore!,
+            whiteAfter: whiteRatingAfter!,
+            blackAfter: blackRatingAfter!,
           },
-        };
+        }
+        : { ratingChange: null };
+    } catch (err) {
+      if (transaction && !transaction.closed) {
+        await transaction.rollback().catch(() => undefined);
       }
-
-      const [whiteUser, blackUser] = await Promise.all([
-        getUserById(data.whiteUserId!),
-        getUserById(data.blackUserId!),
-      ]);
-
-      if (whiteUser && blackUser) {
-        whiteRatingBefore = whiteUser.rating;
-        blackRatingBefore = blackUser.rating;
-
-        const ratingUpdate = calculateEloUpdate(whiteUser.rating, blackUser.rating, data.result);
-        whiteRatingAfter = ratingUpdate.whiteAfter;
-        blackRatingAfter = ratingUpdate.blackAfter;
-
-        await db.execute({
-          sql: `
-            UPDATE users
-            SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
-            WHERE id = ?
-          `,
-          args: [
-            whiteRatingAfter,
-            data.result === 'white' ? 1 : 0,
-            data.result === 'black' ? 1 : 0,
-            data.result === 'draw' ? 1 : 0,
-            data.whiteUserId!,
-          ],
-        });
-
-        await db.execute({
-          sql: `
-            UPDATE users
-            SET rating = ?, rated_games = rated_games + 1, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = unixepoch()
-            WHERE id = ?
-          `,
-          args: [
-            blackRatingAfter,
-            data.result === 'black' ? 1 : 0,
-            data.result === 'white' ? 1 : 0,
-            data.result === 'draw' ? 1 : 0,
-            data.blackUserId!,
-          ],
-        });
+      if (isSqliteBusyError(err) && attempt < 2) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        continue;
       }
+      if (isSqliteBusyError(err)) {
+        const existingResult = await db.execute({
+          sql: `
+            SELECT white_rating_before, black_rating_before, white_rating_after, black_rating_after
+            FROM games
+            WHERE id = ?
+            LIMIT 1
+          `,
+          args: [data.id],
+        });
+        const existingRow = existingResult.rows[0];
+        if (existingRow) {
+          if (existingRow.white_rating_after !== null && existingRow.black_rating_after !== null) {
+            return {
+              ratingChange: {
+                whiteBefore: Number(existingRow.white_rating_before ?? existingRow.white_rating_after),
+                blackBefore: Number(existingRow.black_rating_before ?? existingRow.black_rating_after),
+                whiteAfter: Number(existingRow.white_rating_after),
+                blackAfter: Number(existingRow.black_rating_after),
+              },
+            };
+          }
+
+          return { ratingChange: null };
+        }
+      }
+      logError('database_save_completed_game_failed', err, { gameId: data.id, attempt: attempt + 1 });
+      return { ratingChange: null };
+    } finally {
+      transaction?.close();
     }
-
-    const appliedRatedGame = shouldRate
-      && whiteRatingBefore !== null
-      && blackRatingBefore !== null
-      && whiteRatingAfter !== null
-      && blackRatingAfter !== null;
-
-    await db.execute({
-      sql: `
-        INSERT OR REPLACE INTO games (
-          id, white_user_id, black_user_id, result, result_reason, rated, game_mode, white_rating_before, black_rating_before,
-          white_rating_after, black_rating_after, time_control_initial, time_control_increment, moves, final_board, move_count, finished_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
-      `,
-      args: [
-        data.id,
-        data.whiteUserId ?? null,
-        data.blackUserId ?? null,
-        data.result,
-        data.resultReason,
-        appliedRatedGame ? 1 : 0,
-        data.gameMode ?? 'private',
-        whiteRatingBefore,
-        blackRatingBefore,
-        whiteRatingAfter,
-        blackRatingAfter,
-        data.timeControl.initial,
-        data.timeControl.increment,
-        JSON.stringify(data.moves),
-        JSON.stringify(data.finalBoard),
-        data.moveCount,
-      ],
-    });
-    return appliedRatedGame
-      ? {
-        ratingChange: {
-          whiteBefore: whiteRatingBefore!,
-          blackBefore: blackRatingBefore!,
-          whiteAfter: whiteRatingAfter!,
-          blackAfter: blackRatingAfter!,
-        },
-      }
-      : { ratingChange: null };
-  } catch (err) {
-    logError('database_save_completed_game_failed', err, { gameId: data.id });
-    return { ratingChange: null };
   }
+
+  return { ratingChange: null };
 }
 
 function calculateEloUpdate(
@@ -436,6 +496,10 @@ function calculateEloUpdate(
     whiteAfter: whiteRating + whiteDelta,
     blackAfter: blackRating + blackDelta,
   };
+}
+
+function isSqliteBusyError(error: unknown) {
+  return error instanceof Error && error.message.includes('SQLITE_BUSY');
 }
 
 export interface SavedGame {

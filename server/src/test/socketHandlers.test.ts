@@ -9,10 +9,11 @@ import type { AuthUser } from '../database';
 
 const timeControl: TimeControl = { initial: 300, increment: 0 };
 
-type Handler = (payload?: any) => void;
+// eslint-disable-next-line no-unused-vars
+type Handler = (...args: [] | [any]) => void;
 
 function createIoMock() {
-  const targets = new Map<string, { emit: (...args: any[]) => unknown; emitMock: ReturnType<typeof vi.fn> }>();
+  const targets = new Map<string, { emit: ReturnType<typeof vi.fn>; emitMock: ReturnType<typeof vi.fn> }>();
 
   return {
     targets,
@@ -20,7 +21,7 @@ function createIoMock() {
       if (!targets.has(id)) {
         const emitMock = vi.fn();
         targets.set(id, {
-          emit: (...args: any[]) => emitMock(...args),
+          emit: emitMock,
           emitMock,
         });
       }
@@ -29,7 +30,7 @@ function createIoMock() {
   };
 }
 
-function createSocketMock(id: string, authUser: AuthUser | null = null) {
+function createSocketMock(id: string, authUser: AuthUser | null = null, playerId?: string) {
   const handlers = new Map<string, Handler>();
   const roomTarget = { emit: vi.fn() };
 
@@ -37,6 +38,7 @@ function createSocketMock(id: string, authUser: AuthUser | null = null) {
     id,
     data: {
       authUser,
+      playerId: playerId ?? authUser?.id ?? id,
     },
     handshake: {
       headers: {},
@@ -76,8 +78,8 @@ describe('socket entry handlers', () => {
     ioMock = createIoMock();
   });
 
-  function connectSocket(socketId: string, authUser: AuthUser | null = null) {
-    const socket = createSocketMock(socketId, authUser);
+  function connectSocket(socketId: string, authUser: AuthUser | null = null, playerId?: string) {
+    const socket = createSocketMock(socketId, authUser, playerId);
     const handler = createSocketConnectionHandler({
       io: ioMock,
       gameManager,
@@ -257,6 +259,29 @@ describe('socket entry handlers', () => {
     socket.trigger('disconnect');
 
     expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('opponent_disconnected');
+  });
+
+  it('restores a disconnected player seat when the same player reconnects with a new socket id', () => {
+    const room = gameManager.createGame(timeControl, {
+      ownerSocketId: 'white-old',
+      ownerPlayerId: 'guest_white',
+      ownerColorPreference: 'white',
+    });
+    gameManager.joinGame(room.id, 'black-old', { playerId: 'guest_black' });
+
+    const disconnectedSocket = connectSocket('white-old', null, 'guest_white');
+    disconnectedSocket.trigger('disconnect');
+
+    const reconnectedSocket = connectSocket('white-new', null, 'guest_white');
+    reconnectedSocket.trigger('join_game', { gameId: room.id });
+
+    expect(reconnectedSocket.emit).toHaveBeenCalledWith(
+      'game_joined',
+      expect.objectContaining({ color: 'white' }),
+    );
+    expect(gameManager.getGame(room.id)?.white).toBe('white-new');
+    expect(gameManager.getPlayerGame('guest_white')).toBe(room.id);
+    expect(ioMock.to('black-old').emitMock).toHaveBeenCalledWith('opponent_reconnected');
   });
 
   it('emits updated counting state to both players when counting starts', () => {
