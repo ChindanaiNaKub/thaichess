@@ -131,7 +131,8 @@ function getPieceHonorLimit(board: Board, strongerColor: PieceColor): number {
   let rooks = 0;
   let bishops = 0;
   let knights = 0;
-  let others = 0;
+  let promotedPawns = 0;
+  let otherPieces = 0;
 
   for (const row of board) {
     for (const piece of row) {
@@ -143,8 +144,10 @@ function getPieceHonorLimit(board: Board, strongerColor: PieceColor): number {
         bishops++;
       } else if (piece.type === 'N') {
         knights++;
+      } else if (piece.type === 'PM') {
+        promotedPawns++;
       } else {
-        others++;
+        otherPieces++;
       }
     }
   }
@@ -154,6 +157,9 @@ function getPieceHonorLimit(board: Board, strongerColor: PieceColor): number {
   if (bishops >= 2) return 22;
   if (knights >= 2) return 32;
   if (bishops === 1) return 44;
+  if (knights === 1) return 64;
+  if (promotedPawns >= 3) return 64;
+  if (promotedPawns > 0 || otherPieces > 0) return 64;
   return 64;
 }
 
@@ -505,26 +511,13 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
   let isDraw = false;
   let gameOver = false;
 
-  if (counting?.type === 'pieces_honor' && counting.active && counting.currentCount > counting.limit) {
-    isDraw = true;
-    gameOver = true;
-    winner = null;
-    resultReason = 'counting_rule';
-  }
-
-  if (!gameOver && isCheckmate && state.counting?.active && state.turn === state.counting.countingColor) {
-    isDraw = true;
-    gameOver = true;
-    winner = null;
-    resultReason = 'counting_rule';
-  }
-
   if (!gameOver && counting?.active && state.turn === counting.countingColor) {
     counting = cloneCountingState(counting);
     counting.currentCount += 1;
 
     if (counting.type === 'board_honor') {
-      if (counting.currentCount >= counting.limit) {
+      // Board honor draws only after the counting side completes the 65th move.
+      if (counting.currentCount > counting.limit) {
         isDraw = true;
         gameOver = true;
         winner = null;
