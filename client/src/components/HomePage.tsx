@@ -48,7 +48,7 @@ interface HomeStats {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
   const [isCreating, setIsCreating] = useState(false);
@@ -152,6 +152,42 @@ export default function HomePage() {
     setShowJoin(true);
     setShowCreate(false);
   };
+
+  const learnCards = lang === 'th'
+    ? [
+      {
+        href: routes.whatIsMakruk,
+        title: 'หมากรุกไทยคืออะไร',
+        desc: 'ดูภาพรวมของเกมก่อน ว่าทำไมหมากรุกไทยถึงต่างจากหมากรุกสากล',
+      },
+      {
+        href: routes.howToPlayMakruk,
+        title: 'วิธีเล่นหมากรุกไทย',
+        desc: 'เรียนการเดินหมาก การหงาย และกฎการนับแบบเข้าใจง่าย',
+      },
+      {
+        href: routes.playMakrukOnline,
+        title: 'เล่นหมากรุกไทยออนไลน์',
+        desc: 'ดูว่าเริ่มจากบอท โจทย์ หรือเกมคนจริงแบบไหนเหมาะที่สุด',
+      },
+    ]
+    : [
+      {
+        href: routes.whatIsMakruk,
+        title: 'What Is Makruk?',
+        desc: 'Get the big picture first and see why Thai chess feels different from western chess.',
+      },
+      {
+        href: routes.howToPlayMakruk,
+        title: 'How to Play Makruk',
+        desc: 'Learn piece movement, promotion, and the counting rule without the usual confusion.',
+      },
+      {
+        href: routes.playMakrukOnline,
+        title: 'Play Makruk Online',
+        desc: 'See whether bot games, puzzles, or live play make the best first step for you.',
+      },
+    ];
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -421,6 +457,37 @@ export default function HomePage() {
               </div>
             </details>
           </div>
+
+          <section className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+                  {lang === 'th' ? 'คู่มือเริ่มต้น' : 'Learn'}
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-text-bright">
+                  {lang === 'th' ? 'เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง' : 'Start With the Pages That Actually Help'}
+                </h2>
+              </div>
+              <p className="max-w-xl text-sm leading-6 text-text-dim">
+                {lang === 'th'
+                  ? 'ถ้าคุณเพิ่งเข้ามาใหม่ 3 หน้านี้จะพาคุณจากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง'
+                  : 'If you are new here, these three pages take you from basic context to your first real Makruk session.'}
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {learnCards.map((card) => (
+                <a
+                  key={card.href}
+                  href={card.href}
+                  className="rounded-2xl border border-surface-hover bg-surface/55 px-4 py-4 transition-colors hover:bg-surface-hover"
+                >
+                  <div className="text-lg font-semibold text-text-bright">{card.title}</div>
+                  <div className="mt-2 text-sm leading-6 text-text-dim">{card.desc}</div>
+                </a>
+              ))}
+            </div>
+          </section>
         </div>
       </main>
 
@@ -448,6 +515,8 @@ export default function HomePage() {
               <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
                 <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href={routes.whatIsMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'หมากรุกไทยคืออะไร' : 'What Is Makruk?'}</a></li>
+                <li><a href={routes.howToPlayMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'วิธีเล่นหมากรุกไทย' : 'How to Play Makruk'}</a></li>
                 <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>

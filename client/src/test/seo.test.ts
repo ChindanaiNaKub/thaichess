@@ -10,6 +10,9 @@ describe('shared SEO routes', () => {
       routes.about,
       routes.games,
       routes.leaderboard,
+      routes.whatIsMakruk,
+      routes.howToPlayMakruk,
+      routes.playMakrukOnline,
       routes.puzzles,
       routes.quickPlay,
       routes.bot,
@@ -25,6 +28,19 @@ describe('shared SEO routes', () => {
     expect(seo.title).toContain('Leaderboard');
     expect(seo.description).toContain('Makruk ratings');
     expect(seo.robots).toBeUndefined();
+  });
+
+  it('returns dedicated guide metadata for the evergreen content pages', () => {
+    const whatIs = getPublicSeoRoute(routes.whatIsMakruk, 'https://thaichess.dev');
+    const howTo = getPublicSeoRoute(routes.howToPlayMakruk, 'https://thaichess.dev');
+    const playOnline = getPublicSeoRoute(routes.playMakrukOnline, 'https://thaichess.dev');
+
+    expect(whatIs.title).toContain('What Is Makruk');
+    expect(howTo.title).toContain('How to Play Makruk');
+    expect(playOnline.title).toContain('Play Makruk Online');
+    expect(whatIs.robots).toBeUndefined();
+    expect(howTo.robots).toBeUndefined();
+    expect(playOnline.robots).toBeUndefined();
   });
 
   it('marks non-public app routes as noindex', () => {

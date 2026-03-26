@@ -91,6 +91,21 @@ function buildHomeFaqSchema(): Record<string, unknown> {
   };
 }
 
+function buildFaqSchema(entries: Array<{ question: string; answer: string }>): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: entries.map((entry) => ({
+      '@type': 'Question',
+      name: entry.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: entry.answer,
+      },
+    })),
+  };
+}
+
 export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteData {
   const cleanPath = pathname.split('?')[0].split('#')[0] || '/';
 
@@ -159,6 +174,98 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           url: `${baseUrl}/leaderboard`,
           description: 'A public leaderboard of rated ThaiChess players.',
         },
+      ],
+    };
+  }
+
+  if (cleanPath === '/what-is-makruk') {
+    return {
+      title: 'What Is Makruk? | Learn Thai Chess',
+      description: 'Learn what Makruk is, how Thai chess differs from western chess, and why this traditional game rewards patient, technical play.',
+      path: '/what-is-makruk',
+      keywords: [...defaultKeywords, 'what is Makruk', 'learn Makruk', 'Thai chess explained'],
+      type: 'article',
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: 'What Is Makruk?',
+          about: ['Makruk', 'Thai chess'],
+          url: `${baseUrl}/what-is-makruk`,
+          description: 'An introduction to Makruk, the traditional chess game of Thailand.',
+          inLanguage: ['en', 'th'],
+        },
+        buildFaqSchema([
+          {
+            question: 'Is Makruk the same as western chess?',
+            answer: 'No. Makruk is related to chess, but the pieces and strategic patterns are different enough that it should be treated as its own game.',
+          },
+          {
+            question: 'Is Makruk hard to learn?',
+            answer: 'The basic rules are approachable. Most players can start after learning the piece movement, promotion, and the main endgame draw rules.',
+          },
+        ]),
+      ],
+    };
+  }
+
+  if (cleanPath === '/how-to-play-makruk') {
+    return {
+      title: 'How to Play Makruk | Thai Chess Rules for Beginners',
+      description: 'Learn how to play Makruk with board setup, piece movement, promotion, and the counting rule in a beginner-friendly Thai chess guide.',
+      path: '/how-to-play-makruk',
+      keywords: [...defaultKeywords, 'Makruk rules', 'how to play Makruk', 'Thai chess rules'],
+      type: 'article',
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'HowTo',
+          name: 'How to Play Makruk',
+          url: `${baseUrl}/how-to-play-makruk`,
+          description: 'A beginner-friendly guide to the rules of Thai chess.',
+          inLanguage: ['en', 'th'],
+        },
+        buildFaqSchema([
+          {
+            question: 'Does Makruk have castling or en passant?',
+            answer: 'No. Makruk has no castling, no en passant, and no two-square pawn jump.',
+          },
+          {
+            question: 'What is the hardest rule for beginners?',
+            answer: 'Usually the counting rule, because it affects how some winning endgames are converted or drawn.',
+          },
+        ]),
+      ],
+    };
+  }
+
+  if (cleanPath === '/play-makruk-online') {
+    return {
+      title: 'Play Makruk Online | Thai Chess in Your Browser',
+      description: 'Play Makruk online in your browser, practice against the bot, solve Thai chess puzzles, or challenge other players without installing anything.',
+      path: '/play-makruk-online',
+      keywords: [...defaultKeywords, 'play Makruk online', 'Thai chess online', 'browser Makruk'],
+      type: 'article',
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: 'Play Makruk Online',
+          about: ['Makruk', 'Thai chess online'],
+          url: `${baseUrl}/play-makruk-online`,
+          description: 'A guide to the best ways to start playing Makruk online.',
+          inLanguage: ['en', 'th'],
+        },
+        buildFaqSchema([
+          {
+            question: 'Do I need an account to play Makruk online?',
+            answer: 'No. Core play modes can be started without registration, though accounts help with rated play and a persistent identity.',
+          },
+          {
+            question: 'What if there are not many live players online?',
+            answer: 'Bot games and puzzles are still useful ways to practice Makruk while the live player pool is quiet.',
+          },
+        ]),
       ],
     };
   }
@@ -257,6 +364,9 @@ export function getIndexablePaths(): string[] {
     '/about',
     '/games',
     '/leaderboard',
+    '/what-is-makruk',
+    '/how-to-play-makruk',
+    '/play-makruk-online',
     '/puzzles',
     '/quick-play',
     '/bot',
