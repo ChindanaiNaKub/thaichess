@@ -145,6 +145,24 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     };
   }
 
+  if (cleanPath === '/leaderboard') {
+    return {
+      title: 'ThaiChess Leaderboard | Top Rated Makruk Players',
+      description: 'See the top rated ThaiChess players, compare Makruk ratings, and track the strongest active competitors on the leaderboard.',
+      path: '/leaderboard',
+      keywords: [...defaultKeywords, 'Makruk leaderboard', 'Thai chess rating', 'top Makruk players'],
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'ThaiChess Leaderboard',
+          url: `${baseUrl}/leaderboard`,
+          description: 'A public leaderboard of rated ThaiChess players.',
+        },
+      ],
+    };
+  }
+
   if (cleanPath === '/puzzles') {
     return {
       title: 'ThaiChess Puzzles | Practice Makruk Tactics Online',
@@ -238,6 +256,7 @@ export function getIndexablePaths(): string[] {
     '/',
     '/about',
     '/games',
+    '/leaderboard',
     '/puzzles',
     '/quick-play',
     '/bot',
