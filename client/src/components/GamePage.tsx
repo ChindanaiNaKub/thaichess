@@ -5,6 +5,7 @@ import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engin
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { useAuth } from '../lib/auth';
 import { liveGameRoute, routes, savedGameAnalysisRoute } from '../lib/routes';
 import { useGameInteraction } from '../hooks/useGameInteraction';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -24,6 +25,7 @@ export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
@@ -423,6 +425,26 @@ export default function GamePage() {
 
   const opponentColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+  const myDisplayName = user?.username?.trim()
+    || (user?.email ? user.email.split('@')[0] : '')
+    || t('common.you');
+  const opponentDisplayName = t('game.opponent');
+  const playerRating = typeof user?.rating === 'number'
+    ? user.rating
+    : gameOverInfo?.ratingChange
+      ? (playerColor === 'white' ? gameOverInfo.ratingChange.whiteBefore : gameOverInfo.ratingChange.blackBefore)
+      : null;
+  const opponentRating = gameOverInfo?.ratingChange
+    ? (opponentColor === 'white' ? gameOverInfo.ratingChange.whiteBefore : gameOverInfo.ratingChange.blackBefore)
+    : null;
+  const playerSubtitle = t(playerColor === 'white' ? 'common.white' : 'common.black');
+  const opponentSubtitle = t(opponentColor === 'white' ? 'common.white' : 'common.black');
+  const playerStatus = gameState.status === 'playing' && gameState.turn === playerColor ? 'active' : 'online';
+  const opponentStatus = opponentDisconnected
+    ? 'offline'
+    : gameState.status === 'playing' && gameState.turn === opponentColor
+      ? 'active'
+      : 'online';
   const countingLabel = gameState.counting
     ? !gameState.counting.active
       ? t('game.counting_available', {
@@ -534,7 +556,10 @@ export default function GamePage() {
               time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}
               isActive={gameState.turn === opponentColor && gameState.status === 'playing'}
               color={opponentColor}
-              playerName={opponentColor === 'white' ? t('common.white') : t('common.black')}
+              playerName={opponentDisplayName}
+              rating={opponentRating}
+              status={opponentStatus}
+              subtitle={opponentSubtitle}
             />
 
             {/* Board */}
@@ -562,7 +587,10 @@ export default function GamePage() {
               time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
               isActive={gameState.turn === playerColor && gameState.status === 'playing'}
               color={playerColor || 'white'}
-              playerName={playerColor === 'white' ? t('common.white') : t('common.black')}
+              playerName={myDisplayName}
+              rating={playerRating}
+              status={playerStatus}
+              subtitle={playerSubtitle}
             />
           </div>
 

@@ -111,9 +111,9 @@ vi.mock('../lib/i18n', () => ({
   }),
 }));
 
-vi.mock('../lib/pieceStyle', () => ({
-  usePieceStyle: () => ({
-    pieceStyle: 'traditional',
+vi.mock('../lib/auth', () => ({
+  useAuth: () => ({
+    user: null,
   }),
 }));
 
