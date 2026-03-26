@@ -1,6 +1,20 @@
 import { memo } from 'react';
 import type { PieceType, PieceColor } from '@shared/types';
 import { usePieceStyle } from '../lib/pieceStyle';
+import biaBlackUrl from '../assets/pieces/traditional/Bia_black.svg';
+import biaWhiteUrl from '../assets/pieces/traditional/Bia_white.svg';
+import biangaiBlackUrl from '../assets/pieces/traditional/Biangai_black.svg';
+import biangaiWhiteUrl from '../assets/pieces/traditional/Biangai_white.svg';
+import khonBlackUrl from '../assets/pieces/traditional/Khon_black.svg';
+import khonWhiteUrl from '../assets/pieces/traditional/Khon_white.svg';
+import khunBlackUrl from '../assets/pieces/traditional/Khun_black.svg';
+import khunWhiteUrl from '../assets/pieces/traditional/Khun_white.svg';
+import maBlackUrl from '../assets/pieces/traditional/Ma_black.svg';
+import maWhiteUrl from '../assets/pieces/traditional/Ma_white.svg';
+import metBlackUrl from '../assets/pieces/traditional/Met_black.svg';
+import metWhiteUrl from '../assets/pieces/traditional/Met_white.svg';
+import rueaBlackUrl from '../assets/pieces/traditional/Ruea_black.svg';
+import rueaWhiteUrl from '../assets/pieces/traditional/Ruea_white.svg';
 
 interface PieceSVGProps {
   type: PieceType;
@@ -27,11 +41,26 @@ function getWesternPalette(color: PieceColor) {
   };
 }
 
-function getTraditionalPalette(color: PieceColor) {
-  return color === 'white'
-    ? { fill: '#f5e7c6', stroke: '#5d4630', accent: '#d7b87a' }
-    : { fill: '#d5483a', stroke: '#1a1412', accent: '#ffb16a' };
-}
+const traditionalPieceAssets: Record<PieceColor, Record<PieceType, string>> = {
+  white: {
+    K: khunWhiteUrl,
+    M: metWhiteUrl,
+    S: khonWhiteUrl,
+    R: rueaWhiteUrl,
+    N: maWhiteUrl,
+    P: biaWhiteUrl,
+    PM: biangaiWhiteUrl,
+  },
+  black: {
+    K: khunBlackUrl,
+    M: metBlackUrl,
+    S: khonBlackUrl,
+    R: rueaBlackUrl,
+    N: maBlackUrl,
+    P: biaBlackUrl,
+    PM: biangaiBlackUrl,
+  },
+};
 
 function renderClassic(type: PieceType, color: PieceColor) {
   const palette = getClassicPalette(color);
@@ -224,80 +253,16 @@ function renderWestern(type: PieceType, color: PieceColor) {
 }
 
 function renderTraditional(type: PieceType, color: PieceColor) {
-  const palette = getTraditionalPalette(color);
-  const baseBoat = (
-    <path
-      d="M24 59 Q40 51 56 59 L54 65 Q40 68 26 65 Z"
-      fill={palette.fill}
-      stroke={palette.stroke}
-      strokeWidth="2.2"
-      strokeLinejoin="round"
+  return (
+    <image
+      href={traditionalPieceAssets[color][type]}
+      x="0"
+      y="0"
+      width="80"
+      height="80"
+      preserveAspectRatio="xMidYMid meet"
     />
   );
-
-  switch (type) {
-    case 'K':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round">
-          {baseBoat}
-          <path d="M31 58 L31 44 L35 35 L40 24 L45 35 L49 44 L49 58 Z" />
-          <rect x="38.8" y="18" width="2.4" height="9" rx="1" fill={palette.stroke} stroke="none" />
-          <circle cx="40" cy="17" r="2.3" fill={palette.accent} stroke="none" />
-        </g>
-      );
-    case 'M':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round">
-          {baseBoat}
-          <path d="M33 58 L33 46 L36 37 L40 29 L44 37 L47 46 L47 58 Z" />
-          <path d="M36 44 L44 44" fill="none" />
-          <circle cx="40" cy="24" r="2.5" fill={palette.accent} stroke="none" />
-        </g>
-      );
-    case 'PM':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round">
-          <circle cx="40" cy="44" r="13" fill={palette.fill} stroke={palette.stroke} />
-          <circle cx="40" cy="44" r="8" fill="none" stroke={palette.accent} />
-          <path d="M37 26 L40 20 L43 26 Z" fill={palette.accent} stroke={palette.stroke} />
-        </g>
-      );
-    case 'S':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round">
-          {baseBoat}
-          <path d="M34 58 L34 45 L40 31 L46 45 L46 58 Z" />
-          <path d="M37 39 L43 39" fill="none" />
-          <path d="M40 23 L43 29 L37 29 Z" fill={palette.accent} stroke={palette.stroke} />
-        </g>
-      );
-    case 'R':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round">
-          <path d="M22 57 L26 43 L54 43 L58 57 Q40 64 22 57 Z" />
-          <path d="M28 43 L32 34 L48 34 L52 43" />
-          <path d="M32 34 L32 29 L48 29 L48 34" />
-        </g>
-      );
-    case 'N':
-      return (
-        <g fill={palette.fill} stroke={palette.stroke} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round">
-          {baseBoat}
-          <path d="M31 58 L31 44 L36 31 L46 29 L50 38 L46 45 L48 58 Z" />
-          <circle cx="41" cy="35" r="1.7" fill={palette.stroke} stroke="none" />
-        </g>
-      );
-    case 'P':
-      return (
-        <g fill="none" stroke={palette.stroke} strokeWidth="2.2">
-          <circle cx="40" cy="44" r="14" fill={palette.fill} />
-          <circle cx="40" cy="44" r="10.2" stroke={palette.accent} />
-          <circle cx="40" cy="44" r="6.4" stroke={palette.stroke} />
-        </g>
-      );
-    default:
-      return baseBoat;
-  }
 }
 
 const PieceSVG = memo(function PieceSVG({ type, color, size, className }: PieceSVGProps) {
