@@ -1,4 +1,4 @@
-import type { Server, Socket } from 'socket.io';
+import type { Socket } from 'socket.io';
 import { logInfo, logWarn } from './logger';
 import type { ServerToClientEvents, ClientToServerEvents, GameRoom, RatingChangeSummary } from '../../shared/types';
 import type { GameManager } from './gameManager';
@@ -21,7 +21,13 @@ export interface AuthenticatedSocketData {
 }
 
 type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>;
-type IoLike = Pick<Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>, 'to'>;
+type IoLike = {
+  // eslint-disable-next-line no-unused-vars
+  to: (roomOrSocketId: string) => {
+    // eslint-disable-next-line no-unused-vars
+    emit: (...args: any[]) => unknown;
+  };
+};
 
 export const SOCKET_RATE_LIMITS = {
   create_game: { windowMs: 60 * 1000, max: 6 },

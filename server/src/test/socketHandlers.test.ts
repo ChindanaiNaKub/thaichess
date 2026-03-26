@@ -13,7 +13,9 @@ const timeControl: TimeControl = { initial: 300, increment: 0 };
 type Handler = (...args: [] | [any]) => void;
 
 function createIoMock() {
-  const targets = new Map<string, { emit: ReturnType<typeof vi.fn>; emitMock: ReturnType<typeof vi.fn> }>();
+  // eslint-disable-next-line no-unused-vars
+  type IoTarget = { emit: (...args: any[]) => unknown; emitMock: ReturnType<typeof vi.fn> };
+  const targets = new Map<string, IoTarget>();
 
   return {
     targets,
@@ -21,7 +23,7 @@ function createIoMock() {
       if (!targets.has(id)) {
         const emitMock = vi.fn();
         targets.set(id, {
-          emit: emitMock,
+          emit: (...args: any[]) => emitMock(...args),
           emitMock,
         });
       }
