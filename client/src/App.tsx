@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import FeedbackWidget from './components/FeedbackWidget';
+import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
 
 // Lazy load route components for code splitting
@@ -40,21 +41,21 @@ export default function App() {
       </a>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/game/:gameId" element={<GamePage />} />
-          <Route path="/local" element={<LocalGame />} />
-          <Route path="/bot" element={<BotGame />} />
-          <Route path="/puzzles" element={<PuzzleListPage />} />
-          <Route path="/puzzle/:id" element={<PuzzlePlayer />} />
-          <Route path="/quick-play" element={<QuickPlay />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/analysis/:gameId" element={<AnalysisPage />} />
-          <Route path="/analysis" element={<AnalysisPage />} />
-          <Route path="/feedback" element={<FeedbackMessagesPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/account" element={<AccountPage />} />
+          <Route path={routes.home} element={<HomePage />} />
+          <Route path={routes.liveGamePattern} element={<GamePage />} />
+          <Route path={routes.local} element={<LocalGame />} />
+          <Route path={routes.bot} element={<BotGame />} />
+          <Route path={routes.puzzles} element={<PuzzleListPage />} />
+          <Route path={routes.puzzlePattern} element={<PuzzlePlayer />} />
+          <Route path={routes.quickPlay} element={<QuickPlay />} />
+          <Route path={routes.about} element={<AboutPage />} />
+          <Route path={routes.games} element={<GamesPage />} />
+          <Route path={routes.leaderboard} element={<LeaderboardPage />} />
+          <Route path={routes.analysisPattern} element={<AnalysisPage />} />
+          <Route path={routes.analysisRoot} element={<AnalysisPage />} />
+          <Route path={routes.feedback} element={<FeedbackMessagesPage />} />
+          <Route path={routes.login} element={<LoginPage />} />
+          <Route path={routes.account} element={<AccountPage />} />
         </Routes>
       </Suspense>
       <FeedbackWidget />

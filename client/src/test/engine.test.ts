@@ -402,6 +402,50 @@ describe('Game Engine', () => {
       });
     });
 
+    it('should use the 64-move pieces-honor limit against a lone knight', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[2][2] = { type: 'N', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'white';
+
+      const newState = makeMove(state, { row: 2, col: 2 }, { row: 4, col: 3 });
+
+      expect(newState?.counting).toMatchObject({
+        active: false,
+        type: 'pieces_honor',
+        countingColor: 'black',
+        strongerColor: 'white',
+        limit: 64,
+      });
+    });
+
+    it('should use the 64-move pieces-honor limit against three promoted pawns', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[1][1] = { type: 'PM', color: 'white' };
+      board[2][3] = { type: 'PM', color: 'white' };
+      board[3][5] = { type: 'PM', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'white';
+
+      const newState = makeMove(state, { row: 1, col: 1 }, { row: 2, col: 0 });
+
+      expect(newState?.counting).toMatchObject({
+        active: false,
+        type: 'pieces_honor',
+        countingColor: 'black',
+        strongerColor: 'white',
+        limit: 64,
+      });
+    });
+
     it('should allow the counting side to start and stop counting', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[0][0] = { type: 'K', color: 'white' };
@@ -462,7 +506,7 @@ describe('Game Engine', () => {
       });
     });
 
-    it('should draw when the active board-honor count reaches the limit', () => {
+    it('should keep playing on the 64th board-honor move and only draw on the 65th', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[0][0] = { type: 'K', color: 'white' };
       board[0][1] = { type: 'R', color: 'white' };
@@ -477,19 +521,32 @@ describe('Game Engine', () => {
         type: 'board_honor',
         countingColor: 'black',
         strongerColor: 'white',
-        currentCount: 64,
+        currentCount: 63,
         limit: 64,
         finalAttackPending: false,
       };
 
-      const newState = makeMove(state, { row: 7, col: 7 }, { row: 7, col: 6 });
+      const sixtyFourthMoveState = makeMove(state, { row: 7, col: 7 }, { row: 7, col: 6 });
 
-      expect(newState?.isDraw).toBe(true);
-      expect(newState?.gameOver).toBe(true);
-      expect(newState?.resultReason).toBe('counting_rule');
+      expect(sixtyFourthMoveState?.isDraw).toBe(false);
+      expect(sixtyFourthMoveState?.gameOver).toBe(false);
+      expect(sixtyFourthMoveState?.counting?.currentCount).toBe(64);
+
+      const followUpState = {
+        ...sixtyFourthMoveState!,
+        board: sixtyFourthMoveState!.board.map((row) => row.map((piece) => piece ? { ...piece } : null)),
+        turn: 'white' as const,
+      };
+      const afterStrongerMove = makeMove(followUpState, { row: 0, col: 1 }, { row: 1, col: 1 });
+
+      const sixtyFifthMoveState = makeMove(afterStrongerMove!, { row: 7, col: 6 }, { row: 7, col: 5 });
+
+      expect(sixtyFifthMoveState?.isDraw).toBe(true);
+      expect(sixtyFifthMoveState?.gameOver).toBe(true);
+      expect(sixtyFifthMoveState?.resultReason).toBe('counting_rule');
     });
 
-    it('should draw if the disadvantaged side checkmates while still counting', () => {
+    it('should still award checkmate if the counting side mates the opponent', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[7][0] = { type: 'K', color: 'black' };
       board[5][1] = { type: 'K', color: 'white' };
@@ -510,9 +567,9 @@ describe('Game Engine', () => {
 
       const newState = makeMove(state, { row: 6, col: 2 }, { row: 7, col: 2 });
 
-      expect(newState?.isDraw).toBe(true);
-      expect(newState?.winner).toBeNull();
-      expect(newState?.resultReason).toBe('counting_rule');
+      expect(newState?.isDraw).toBe(false);
+      expect(newState?.winner).toBe('white');
+      expect(newState?.resultReason).toBe('checkmate');
     });
 
     it('should draw after the final attacker move in a bare-king count', () => {

@@ -1,21 +1,22 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server, type Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
-import { MatchmakingQueue, QueueEntry } from './matchmaking';
+import { MatchmakingQueue } from './matchmaking';
 import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
-import { getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { SocketRateLimiter } from './security';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
+import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
 
 const app = express();
 const httpServer = createServer(app);
@@ -175,7 +176,10 @@ async function saveGameToDb(room: GameRoom, reason: string) {
 
 io.use(async (socket, next) => {
   try {
-    socket.data.authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
+    const authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
+    const guestPlayerId = normalizeGuestPlayerId(socket.handshake.auth?.guestPlayerId);
+    socket.data.authUser = authUser;
+    socket.data.playerId = authUser?.id ?? guestPlayerId ?? `guest_${socket.id}`;
     next();
   } catch (error) {
     next(error instanceof Error ? error : new Error('Socket authentication failed.'));
@@ -265,8 +269,8 @@ app.get('/api/games/recent', async (_req, res) => {
 });
 
 app.get('/api/leaderboard', async (req, res) => {
-  const page = Math.max(0, Math.min(parseInt(req.query.page as string) || 0, 1000));
-  const limit = Math.min(parseInt(req.query.limit as string) || 25, 100);
+  const page = normalizeLeaderboardPage(req.query.page as string | undefined);
+  const limit = normalizeLeaderboardLimit(req.query.limit as string | undefined);
   const [players, total] = await Promise.all([
     getLeaderboard(limit, page * limit),
     getLeaderboardCount(),

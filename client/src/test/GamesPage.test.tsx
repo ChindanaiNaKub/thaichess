@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -78,5 +78,36 @@ describe('GamesPage', () => {
 
     expect(screen.getByText('Rated')).toBeInTheDocument();
     expect(screen.getByText('Casual')).toBeInTheDocument();
+  });
+
+  it('opens finished games in analysis instead of the live game route', async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        games: [
+          {
+            id: 'finished-1',
+            result: 'white',
+            result_reason: 'timeout',
+            rated: 1,
+            game_mode: 'quick_play',
+            time_control_initial: 60,
+            time_control_increment: 0,
+            move_count: 77,
+            finished_at: Math.floor(Date.now() / 1000),
+          },
+        ],
+        total: 1,
+      }),
+    });
+
+    render(<GamesPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('finished-1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('finished-1'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/analysis/finished-1');
   });
 });

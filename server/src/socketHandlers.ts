@@ -17,16 +17,16 @@ import {
 
 export interface AuthenticatedSocketData {
   authUser: AuthUser | null;
+  playerId: string;
 }
 
 type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>;
-
-type SocketTarget = {
-  emit: (...args: any[]) => unknown;
-};
-
 type IoLike = {
-  to: (roomOrSocketId: string) => SocketTarget;
+  // eslint-disable-next-line no-unused-vars
+  to: (roomOrSocketId: string) => {
+    // eslint-disable-next-line no-unused-vars
+    emit: (...args: any[]) => unknown;
+  };
 };
 
 export const SOCKET_RATE_LIMITS = {
@@ -45,7 +45,8 @@ interface SocketHandlerDeps {
   socketRateLimiter: SocketRateLimiter;
   ipRateLimiter: SocketRateLimiter;
   monitoring: MonitoringStore;
-  saveGameToDb: (room: GameRoom, reason: string) => Promise<{ ratingChange: RatingChangeSummary | null }>;
+  // eslint-disable-next-line no-unused-vars
+  saveGameToDb: (...args: [GameRoom, string]) => Promise<{ ratingChange: RatingChangeSummary | null }>;
 }
 
 function emitQueueStatusForEntry(io: IoLike, matchmaking: MatchmakingQueue, entry: QueueEntry) {
@@ -148,13 +149,17 @@ function tryMatchmakeQueue(deps: SocketHandlerDeps) {
 
       room.white = whiteId;
       room.black = blackId;
+      room.whitePlayerId = whiteEntry.playerId;
+      room.blackPlayerId = blackEntry.playerId;
       room.whiteUserId = whiteEntry.userId;
       room.blackUserId = blackEntry.userId;
       room.status = 'playing';
       room.gameState.lastMoveTime = Date.now();
 
-      deps.gameManager.setPlayerGame(whiteId, room.id);
-      deps.gameManager.setPlayerGame(blackId, room.id);
+      deps.gameManager.setSocketGame(whiteId, room.id);
+      deps.gameManager.setSocketGame(blackId, room.id);
+      deps.gameManager.setPlayerGame(whiteEntry.playerId, room.id);
+      deps.gameManager.setPlayerGame(blackEntry.playerId, room.id);
       deps.monitoring.increment('matchmakingMatched');
 
       logInfo('match_found', { whiteId, blackId, gameId: room.id });
@@ -182,13 +187,14 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Invalid private game settings.');
         return;
       }
-      if (deps.gameManager.getBlockingPlayerGame(socket.id) || deps.matchmaking.isInQueue(socket.id)) {
+      if (deps.gameManager.getBlockingPlayerGame(socket.data.playerId) || deps.matchmaking.isInQueue(socket.id)) {
         rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Leave your current game or queue before creating another game.');
         return;
       }
 
       const room = deps.gameManager.createGame(payload.timeControl, {
         ownerSocketId: socket.id,
+        ownerPlayerId: socket.data.playerId,
         ownerUserId: socket.data.authUser?.id ?? null,
         ownerColorPreference: payload.colorPreference,
         gameMode: 'private',
@@ -227,13 +233,14 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       }
 
       const { gameId } = payload;
-      const currentGameId = deps.gameManager.getBlockingPlayerGame(socket.id);
+      const currentGameId = deps.gameManager.getBlockingPlayerGame(socket.data.playerId);
       if (currentGameId && currentGameId !== gameId) {
         rejectSocketEvent(deps.monitoring, socket, 'join_game', 'Leave your current game before joining another one.');
         return;
       }
 
       const result = deps.gameManager.joinGame(gameId, socket.id, {
+        playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
       });
       if (!result) {
@@ -241,11 +248,18 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const { room, color } = result;
+      const { room, color, reconnected } = result;
       socket.join(gameId);
 
       socket.emit('game_joined', { color, gameState: deps.gameManager.getClientGameState(room, socket.id) });
       socket.to(gameId).emit('game_state', deps.gameManager.getClientGameState(room, room.white || ''));
+
+      if (reconnected && room.status === 'playing') {
+        const opponentId = color === 'white' ? room.black : room.white;
+        if (opponentId) {
+          deps.io.to(opponentId).emit('opponent_reconnected');
+        }
+      }
 
       if (room.status === 'playing') {
         deps.gameManager.startClock(gameId, (updatedRoom) => {
@@ -287,7 +301,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) {
         rejectSocketEvent(deps.monitoring, socket, 'make_move', 'You are not in a game');
         return;
@@ -340,7 +354,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('resign', () => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const room = deps.gameManager.resign(gameId, socket.id);
@@ -369,7 +383,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('offer_draw', () => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const result = deps.gameManager.offerDraw(gameId, socket.id);
@@ -383,7 +397,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('start_counting', () => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const room = deps.gameManager.startCounting(gameId, socket.id);
@@ -395,7 +409,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('stop_counting', () => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const room = deps.gameManager.stopCounting(gameId, socket.id);
@@ -413,7 +427,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const room = deps.gameManager.respondDraw(gameId, socket.id, payload.accept);
@@ -447,7 +461,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('request_rematch', () => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      const gameId = deps.gameManager.getPlayerGame(socket.id);
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
       const room = deps.gameManager.getGame(gameId);
@@ -467,7 +481,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         rejectSocketEvent(deps.monitoring, socket, 'find_game', 'Invalid time control.');
         return;
       }
-      if (deps.gameManager.getBlockingPlayerGame(socket.id)) {
+      if (deps.gameManager.getBlockingPlayerGame(socket.data.playerId)) {
         rejectSocketEvent(deps.monitoring, socket, 'find_game', 'Leave your current game before entering matchmaking.');
         return;
       }
@@ -480,6 +494,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       logInfo('matchmaking_started', { socketId: socket.id, timeControl: payload.timeControl });
 
       deps.matchmaking.addToQueue(socket.id, payload.timeControl, {
+        playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
       });
       socket.emit('matchmaking_started');

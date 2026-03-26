@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { routes } from '../lib/routes';
 
 interface LeaderboardEntry {
   id: string;
@@ -63,7 +64,7 @@ export default function LeaderboardPage() {
           <div className="flex items-center gap-2">
             <span className="text-text-dim text-xs sm:text-sm">{t('leaderboard.count', { count: total })}</span>
             <button
-              onClick={() => navigate('/games')}
+              onClick={() => navigate(routes.games)}
               className="px-3 py-2 rounded-lg border border-surface-hover bg-surface-alt text-text-bright text-sm font-semibold hover:bg-surface-hover transition-colors"
             >
               {t('leaderboard.view_recent')}

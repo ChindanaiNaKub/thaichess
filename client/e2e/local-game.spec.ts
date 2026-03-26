@@ -59,4 +59,31 @@ test.describe('Local Game', () => {
     await board.click({ button: 'right' });
     await expect(board).toBeVisible();
   });
+
+  test('keeps the page anchored while move history auto-scrolls on tablet layouts', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+    const initialBoardTop = await page.getByTestId('board').evaluate((element) => element.getBoundingClientRect().top);
+
+    const repeatableMoves = [
+      { from: 'board-square-0-1', to: 'board-square-1-3', piece: 'board-piece-1-3' },
+      { from: 'board-square-7-1', to: 'board-square-6-3', piece: 'board-piece-6-3' },
+      { from: 'board-square-1-3', to: 'board-square-0-1', piece: 'board-piece-0-1' },
+      { from: 'board-square-6-3', to: 'board-square-7-1', piece: 'board-piece-7-1' },
+    ];
+
+    for (let cycle = 0; cycle < 8; cycle += 1) {
+      for (const move of repeatableMoves) {
+        await page.getByTestId(move.from).click();
+        await page.getByTestId(move.to).click();
+        await expect(page.getByTestId(move.piece)).toBeVisible();
+      }
+    }
+
+    const scrollY = await page.evaluate(() => window.scrollY);
+    const boardTop = await page.getByTestId('board').evaluate((element) => element.getBoundingClientRect().top);
+
+    expect(scrollY).toBeLessThan(initialScrollY + 40);
+    expect(Math.abs(boardTop - initialBoardTop)).toBeLessThan(40);
+  });
 });

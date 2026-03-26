@@ -74,6 +74,8 @@ export interface GameRoom {
   id: string;
   white: string | null;  // socket id
   black: string | null;
+  whitePlayerId: string | null;
+  blackPlayerId: string | null;
   whiteUserId: string | null;
   blackUserId: string | null;
   spectators: string[];

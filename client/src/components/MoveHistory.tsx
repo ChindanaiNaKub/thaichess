@@ -42,7 +42,18 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
 
   useEffect(() => {
     if (activeMoveRef.current && scrollRef.current) {
-      activeMoveRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      const scrollContainer = scrollRef.current;
+      const activeMove = activeMoveRef.current;
+      const moveTop = activeMove.offsetTop;
+      const moveBottom = moveTop + activeMove.offsetHeight;
+      const visibleTop = scrollContainer.scrollTop;
+      const visibleBottom = visibleTop + scrollContainer.clientHeight;
+
+      if (moveTop < visibleTop) {
+        scrollContainer.scrollTop = moveTop;
+      } else if (moveBottom > visibleBottom) {
+        scrollContainer.scrollTop = moveBottom - scrollContainer.clientHeight;
+      }
     }
   }, [activeIndex]);
 

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ClientGameState, PieceColor, Move, RatingChangeSummary } from '@shared/types';
 import { socket, connectSocket } from '../lib/socket';
+import { liveGameRoute, routes } from '../lib/routes';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 
 interface UseGameSocketOptions {
@@ -113,7 +114,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
       setGameState(null);
       setGameOverInfo(null);
       setDrawOffered(false);
-      navigate(`/game/${newGameId}`);
+      navigate(liveGameRoute(newGameId));
     };
 
     const handleError = ({ message }: { message: string }) => {
@@ -192,7 +193,7 @@ export function useGameActions() {
   }, []);
 
   const handleNewGame = useCallback(() => {
-    navigate('/');
+    navigate(routes.home);
   }, [navigate]);
 
   return {

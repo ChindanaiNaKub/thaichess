@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { socket, connectSocket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { liveGameRoute, routes } from '../lib/routes';
 import type { PieceColor } from '@shared/types';
 import Header from './Header';
 
@@ -43,7 +44,7 @@ export default function QuickPlay() {
       setSearching(false);
       setRequestPending(false);
       setError(null);
-      navigate(`/game/${gameId}`);
+      navigate(liveGameRoute(gameId));
     };
 
     const handleMatchmakingStarted = () => {
@@ -225,7 +226,7 @@ export default function QuickPlay() {
             )}
 
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(routes.home)}
               className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
             >
               {t('common.back_home')}

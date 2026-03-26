@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { socket, connectSocket } from '../lib/socket';
+import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
 
@@ -86,7 +87,7 @@ export default function HomePage() {
     const handleCreated = ({ gameId }: { gameId: string }) => {
       setIsCreating(false);
       cleanupCreateHandlers();
-      navigate(`/game/${gameId}`);
+      navigate(liveGameRoute(gameId));
     };
 
     const handleError = ({ message }: { message: string }) => {
@@ -120,7 +121,7 @@ export default function HomePage() {
 
   const handleJoinGame = () => {
     if (!joinId.trim()) return;
-    navigate(`/game/${joinId.trim()}`);
+    navigate(liveGameRoute(joinId.trim()));
   };
 
   return (
@@ -153,7 +154,7 @@ export default function HomePage() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/quick-play')}
+            onClick={() => navigate(routes.quickPlay)}
             className="w-full py-3 px-6 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg text-lg transition-colors shadow-md"
           >
             {t('home.find_opponent')}
@@ -168,7 +169,7 @@ export default function HomePage() {
             <p className="text-text-dim text-sm mb-4">{t('home.play_bot_desc')}</p>
             <p className="text-text-dim text-sm mb-4">{t('home.play_bot_long_desc')}</p>
             <button
-              onClick={() => navigate('/bot')}
+              onClick={() => navigate(routes.bot)}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-bold rounded-lg transition-colors"
             >
               {t('home.play_bot')}
@@ -184,7 +185,7 @@ export default function HomePage() {
               <p className="text-text-dim text-sm mb-4">{t('home.puzzles_desc')}</p>
               <p className="text-text-dim text-sm mb-4">{t('home.puzzles_long_desc')}</p>
               <button
-                onClick={() => navigate('/puzzles')}
+                onClick={() => navigate(routes.puzzles)}
                 className="w-full py-3 px-6 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg transition-colors"
               >
                 {t('home.puzzles')}
@@ -255,7 +256,7 @@ export default function HomePage() {
             <div className="flex-1 h-px bg-surface-hover" />
           </div>
           <button
-            onClick={() => navigate('/local')}
+            onClick={() => navigate(routes.local)}
             className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
           >
             {t('home.play_local')}

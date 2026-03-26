@@ -5,6 +5,7 @@ import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engin
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { liveGameRoute, routes, savedGameAnalysisRoute } from '../lib/routes';
 import { useGameInteraction } from '../hooks/useGameInteraction';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -152,7 +153,7 @@ export default function GamePage() {
       cancelPremove();
       setArrows([]);
       setViewMoveIndex(null);
-      navigate(`/game/${newGameId}`);
+      navigate(liveGameRoute(newGameId));
     };
 
     const handleError = ({ message }: { message: string }) => {
@@ -278,7 +279,7 @@ export default function GamePage() {
     if (gameState?.status === 'waiting') {
       socket.emit('leave_game', { gameId: gameState.gameId });
     }
-    navigate('/');
+    navigate(routes.home);
   };
 
   const copyGameLink = () => {
@@ -396,7 +397,7 @@ export default function GamePage() {
             <div className="text-4xl mb-4">⚠️</div>
             <h2 className="text-lg sm:text-xl font-bold text-danger mb-2">{t('game.error')}</h2>
             <p className="text-text-dim mb-4 text-sm sm:text-base">{error}</p>
-            <button onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold text-sm sm:text-base">
+            <button onClick={() => navigate(routes.home)} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold text-sm sm:text-base">
               {t('common.back_home')}
             </button>
           </div>
@@ -461,7 +462,7 @@ export default function GamePage() {
       {/* Compact Header for playing state */}
       <header className="bg-surface-alt border-b border-surface-hover">
         <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(routes.home)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <PieceSVG type="K" color="white" size={32} />
             <h1 className="text-lg font-bold text-text-bright tracking-tight">{t('app.name')}</h1>
           </button>
@@ -615,8 +616,8 @@ export default function GamePage() {
                 ratingChange={gameOverInfo.ratingChange}
                 onRematch={handleRematch}
                 onNewGame={handleNewGame}
-                onAnalyze={gameState.moveHistory.length > 0
-                  ? () => navigate(`/analysis/${gameId}`)
+                onAnalyze={gameId && gameState.moveHistory.length > 0
+                  ? () => navigate(savedGameAnalysisRoute(gameId))
                   : undefined
                 }
               />
@@ -686,8 +687,8 @@ export default function GamePage() {
           ratingChange={gameOverInfo.ratingChange}
           onRematch={handleRematch}
           onNewGame={handleNewGame}
-          onAnalyze={gameState && gameState.moveHistory.length > 0
-            ? () => navigate(`/analysis/${gameId}`)
+          onAnalyze={gameId && gameState && gameState.moveHistory.length > 0
+            ? () => navigate(savedGameAnalysisRoute(gameId))
             : undefined
           }
           onClose={() => setShowGameOverModal(false)}

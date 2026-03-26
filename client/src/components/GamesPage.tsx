@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../lib/i18n';
+import { routes, savedGameAnalysisRoute } from '../lib/routes';
 import Header from './Header';
 
 interface GameEntry {
@@ -81,7 +82,7 @@ export default function GamesPage() {
           <div className="flex items-center gap-3">
             <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
             <button
-              onClick={() => navigate('/leaderboard')}
+              onClick={() => navigate(routes.leaderboard)}
               className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface-alt text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
             >
               {t('games.view_leaderboard')}
@@ -100,7 +101,7 @@ export default function GamesPage() {
             <p className="text-text-dim text-base sm:text-lg mb-2">{t('games.empty')}</p>
             <p className="text-text-dim text-sm mb-6">{t('games.empty_desc')}</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(routes.home)}
               className="px-5 sm:px-6 py-2.5 sm:py-3 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
             >
               {t('games.start')}
@@ -127,7 +128,7 @@ export default function GamesPage() {
                       <tr
                         key={game.id}
                         className="border-b border-surface-hover/50 hover:bg-surface-hover/30 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/game/${game.id}`)}
+                        onClick={() => navigate(savedGameAnalysisRoute(game.id))}
                       >
                         <td className="px-3 sm:px-4 py-3">
                           <div className="flex flex-col gap-1">
@@ -156,7 +157,7 @@ export default function GamesPage() {
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-right">
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/analysis/${game.id}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(savedGameAnalysisRoute(game.id)); }}
                             className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs rounded transition-colors"
                             title={t('analysis.analyze')}
                           >
