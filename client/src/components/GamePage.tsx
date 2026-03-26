@@ -72,6 +72,7 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
 
@@ -157,6 +158,7 @@ export default function GamePage() {
       setGameState(gs);
       setGameOverInfo({ reason, winner, ratingChange });
       setShowGameOverModal(true);
+      setRematchState('idle');
       cancelPremove();
       playGameOverSound();
     };
@@ -181,11 +183,17 @@ export default function GamePage() {
       setOpponentDisconnected(false);
     };
 
+    const handleRematchOffered = () => {
+      setRematchState((current) => (current === 'sent' ? current : 'received'));
+      setShowGameOverModal(true);
+    };
+
     const handleGameCreated = ({ gameId: newGameId }: { gameId: string }) => {
       joinedRef.current = false;
       setGameState(null);
       setGameOverInfo(null);
       setShowGameOverModal(false);
+      setRematchState('idle');
       clearSelection();
       setDrawOffered(false);
       cancelPremove();
@@ -195,6 +203,7 @@ export default function GamePage() {
     };
 
     const handleError = ({ message }: { message: string }) => {
+      setRematchState('idle');
       setError(message);
     };
 
@@ -207,6 +216,7 @@ export default function GamePage() {
     socket.on('clock_update', handleClockUpdate);
     socket.on('draw_offered', handleDrawOffered);
     socket.on('draw_declined', handleDrawDeclined);
+    socket.on('rematch_offered', handleRematchOffered);
     socket.on('opponent_disconnected', handleOpponentDisconnected);
     socket.on('opponent_reconnected', handleOpponentReconnected);
     socket.on('game_created', handleGameCreated);
@@ -226,6 +236,7 @@ export default function GamePage() {
       socket.off('clock_update', handleClockUpdate);
       socket.off('draw_offered', handleDrawOffered);
       socket.off('draw_declined', handleDrawDeclined);
+      socket.off('rematch_offered', handleRematchOffered);
       socket.off('opponent_disconnected', handleOpponentDisconnected);
       socket.off('opponent_reconnected', handleOpponentReconnected);
       socket.off('game_created', handleGameCreated);
@@ -236,7 +247,7 @@ export default function GamePage() {
   useEffect(() => {
     return () => {
       const latestGameState = latestGameStateRef.current;
-      if (latestGameState?.status === 'waiting' && socket.connected) {
+      if (latestGameState && latestGameState.status !== 'playing' && socket.connected) {
         socket.emit('leave_game', { gameId: latestGameState.gameId });
       }
     };
@@ -310,6 +321,8 @@ export default function GamePage() {
   };
 
   const handleRematch = () => {
+    if (rematchState === 'sent') return;
+    setRematchState('sent');
     socket.emit('request_rematch');
   };
 
@@ -525,6 +538,16 @@ export default function GamePage() {
     : isMyTurn
       ? t('game.your_turn')
       : t('game.opponent_turn');
+  const rematchLabel = rematchState === 'received'
+    ? t('gameover.rematch_accept')
+    : rematchState === 'sent'
+      ? t('gameover.rematch_sent')
+      : t('gameover.rematch');
+  const rematchNotice = rematchState === 'received'
+    ? t('gameover.rematch_incoming')
+    : rematchState === 'sent'
+      ? t('gameover.rematch_waiting')
+      : null;
 
   return (
     <div ref={containerRef} className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
@@ -722,6 +745,9 @@ export default function GamePage() {
                 ratingChange={gameOverInfo.ratingChange}
                 onRematch={handleRematch}
                 onNewGame={handleNewGame}
+                rematchLabel={rematchLabel}
+                rematchDisabled={rematchState === 'sent'}
+                rematchNotice={rematchNotice}
                 onAnalyze={gameId && gameState.moveHistory.length > 0
                   ? () => navigate(savedGameAnalysisRoute(gameId))
                   : undefined
@@ -781,6 +807,9 @@ export default function GamePage() {
           ratingChange={gameOverInfo.ratingChange}
           onRematch={handleRematch}
           onNewGame={handleNewGame}
+          rematchLabel={rematchLabel}
+          rematchDisabled={rematchState === 'sent'}
+          rematchNotice={rematchNotice}
           onAnalyze={gameId && gameState && gameState.moveHistory.length > 0
             ? () => navigate(savedGameAnalysisRoute(gameId))
             : undefined

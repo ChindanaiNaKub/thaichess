@@ -34,6 +34,11 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const joinedRef = useRef(false);
+  const latestGameStateRef = useRef<ClientGameState | null>(null);
+
+  useEffect(() => {
+    latestGameStateRef.current = gameState;
+  }, [gameState]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -156,6 +161,15 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
       socket.off('error', handleError);
     };
   }, [gameId, navigate]);
+
+  useEffect(() => {
+    return () => {
+      const latestGameState = latestGameStateRef.current;
+      if (latestGameState && latestGameState.status !== 'playing' && socket.connected) {
+        socket.emit('leave_game', { gameId: latestGameState.gameId });
+      }
+    };
+  }, []);
 
   return {
     gameState,
