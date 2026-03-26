@@ -257,6 +257,10 @@ const EN: Record<string, string> = {
   'gameover.by_material': 'by insufficient material',
   'gameover.by_counting': 'by counting rule',
   'gameover.rematch': 'Rematch',
+  'gameover.rematch_accept': 'Accept Rematch',
+  'gameover.rematch_sent': 'Rematch Sent',
+  'gameover.rematch_waiting': 'Rematch request sent. Waiting for your opponent.',
+  'gameover.rematch_incoming': 'Your opponent wants a rematch.',
   'gameover.is_victorious': 'is victorious',
 
   // Local Game
@@ -704,6 +708,10 @@ const TH: Record<string, string> = {
   'gameover.by_material': 'ตัวหมากไม่เพียงพอ',
   'gameover.by_counting': 'โดยกฎการนับ',
   'gameover.rematch': 'แข่งอีกครั้ง',
+  'gameover.rematch_accept': 'ยอมรับแข่งอีกครั้ง',
+  'gameover.rematch_sent': 'ส่งคำขอแล้ว',
+  'gameover.rematch_waiting': 'ส่งคำขอแข่งอีกครั้งแล้ว กำลังรอคู่แข่งตอบรับ',
+  'gameover.rematch_incoming': 'คู่แข่งต้องการแข่งอีกครั้ง',
   'gameover.is_victorious': 'ชนะ',
 
   // Local Game

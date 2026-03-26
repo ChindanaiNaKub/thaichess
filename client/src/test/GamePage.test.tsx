@@ -610,9 +610,35 @@ describe('GamePage', () => {
 
     fireEvent.click(screen.getByText('panel-rematch'));
     expect(socketMock.emit).toHaveBeenCalledWith('request_rematch');
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rematchDisabled).toBe(true);
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rematchLabel).toBe('gameover.rematch_sent');
+
+    await act(async () => {
+      emitSocketEvent('rematch_offered', { by: 'black' });
+    });
+
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rematchNotice).toBe('gameover.rematch_waiting');
 
     fireEvent.click(screen.getByText('panel-new-game'));
     expect(navigateMock).toHaveBeenCalledWith('/');
+  });
+
+  it('leaves finished games on unmount so stale post-game state is cleaned up', async () => {
+    const view = renderGamePage('/game/finished-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload({
+        gameOver: true,
+        gameId: 'finished-room',
+        status: 'finished',
+      }));
+    });
+
+    socketMock.emit.mockClear();
+    socketMock.connected = true;
+    view.unmount();
+
+    expect(socketMock.emit).toHaveBeenCalledWith('leave_game', { gameId: 'finished-room' });
   });
 
   it('recovers from server errors, toggles the piece guide, and handles game replacement', async () => {

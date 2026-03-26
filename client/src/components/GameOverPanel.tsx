@@ -10,9 +10,24 @@ interface GameOverPanelProps {
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
+  rematchLabel?: string;
+  rematchDisabled?: boolean;
+  rematchNotice?: string | null;
 }
 
-export default function GameOverPanel({ winner, reason, playerColor, rated = false, ratingChange = null, onRematch, onNewGame, onAnalyze }: GameOverPanelProps) {
+export default function GameOverPanel({
+  winner,
+  reason,
+  playerColor,
+  rated = false,
+  ratingChange = null,
+  onRematch,
+  onNewGame,
+  onAnalyze,
+  rematchLabel,
+  rematchDisabled = false,
+  rematchNotice = null,
+}: GameOverPanelProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
@@ -80,6 +95,11 @@ export default function GameOverPanel({ winner, reason, playerColor, rated = fal
 
       <div className="grid gap-2 p-2.5">
         <div className="grid gap-2">
+          {rematchNotice && (
+            <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-center text-[11px] font-medium text-primary-light">
+              {rematchNotice}
+            </div>
+          )}
           {onAnalyze && (
             <button
               onClick={onAnalyze}
@@ -91,9 +111,10 @@ export default function GameOverPanel({ winner, reason, playerColor, rated = fal
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onRematch}
-              className="w-full py-2 px-2 bg-primary hover:bg-primary-light text-white font-semibold text-xs rounded-lg transition-colors"
+              disabled={rematchDisabled}
+              className="w-full py-2 px-2 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg transition-colors"
             >
-              {t('gameover.rematch')}
+              {rematchLabel ?? t('gameover.rematch')}
             </button>
             <button
               onClick={onNewGame}

@@ -252,6 +252,51 @@ describe('socket entry handlers', () => {
     expect(ioMock.targets.size).toBe(0);
   });
 
+  it('requires explicit confirmation from both players before creating a rematch', () => {
+    const room = gameManager.createGame(timeControl);
+    gameManager.joinGame(room.id, 'white-socket');
+    gameManager.joinGame(room.id, 'black-socket');
+    gameManager.resign(room.id, 'white-socket');
+
+    const whiteSocket = connectSocket('white-socket');
+    const blackSocket = connectSocket('black-socket');
+
+    whiteSocket.trigger('request_rematch');
+
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('rematch_offered', { by: 'white' });
+    expect(ioMock.to('white-socket').emitMock).not.toHaveBeenCalledWith('game_created', expect.anything());
+    expect(ioMock.to('black-socket').emitMock).not.toHaveBeenCalledWith('game_created', expect.anything());
+
+    blackSocket.trigger('request_rematch');
+
+    expect(ioMock.to('white-socket').emitMock).toHaveBeenCalledWith('game_created', { gameId: expect.any(String) });
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('game_created', { gameId: expect.any(String) });
+  });
+
+  it('clears pending rematch offers when a player leaves a finished game', () => {
+    const room = gameManager.createGame(timeControl);
+    gameManager.joinGame(room.id, 'white-socket');
+    gameManager.joinGame(room.id, 'black-socket');
+    gameManager.resign(room.id, 'white-socket');
+
+    const whiteSocket = connectSocket('white-socket');
+    const blackSocket = connectSocket('black-socket');
+
+    whiteSocket.trigger('request_rematch');
+    whiteSocket.emit.mockClear();
+
+    whiteSocket.trigger('leave_game', { gameId: room.id });
+
+    expect(whiteSocket.emit).toHaveBeenCalledWith('game_left', { gameId: room.id });
+    expect(gameManager.getPlayerGame('white-socket')).toBeNull();
+
+    blackSocket.trigger('request_rematch');
+
+    expect(blackSocket.emit).toHaveBeenCalledWith('error', { message: 'Your opponent already left the finished game.' });
+    expect(ioMock.to('white-socket').emitMock).not.toHaveBeenCalledWith('game_created', expect.anything());
+    expect(ioMock.to('black-socket').emitMock).not.toHaveBeenCalledWith('game_created', expect.anything());
+  });
+
   it('notifies the opponent on disconnect from a live game', () => {
     const room = gameManager.createGame(timeControl);
     gameManager.joinGame(room.id, 'white-socket');
