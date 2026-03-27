@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { PieceColor } from '@shared/types';
+import type { PieceColor, PieceType } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
+import PieceSVG from './PieceSVG';
 
 interface ClockProps {
   time: number;
@@ -12,6 +13,8 @@ interface ClockProps {
   flag?: string | null;
   status?: 'online' | 'offline' | 'active';
   subtitle?: string | null;
+  capturedPieces?: Array<{ type: PieceType; count: number; capturedColor: PieceColor }>;
+  materialDelta?: number | null;
 }
 
 function formatTime(ms: number): string {
@@ -39,6 +42,10 @@ function getInitials(name: string, color: PieceColor) {
     .slice(0, 2);
 }
 
+function formatMaterial(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 export default function Clock({
   time,
   isActive,
@@ -49,6 +56,8 @@ export default function Clock({
   flag = null,
   status,
   subtitle = null,
+  capturedPieces = [],
+  materialDelta = null,
 }: ClockProps) {
   const { t } = useTranslation();
   const [displayTime, setDisplayTime] = useState(time);
@@ -86,7 +95,7 @@ export default function Clock({
 
   return (
     <div className={`
-      w-full rounded-2xl border px-3.5 py-3 sm:px-4
+      w-full rounded-2xl border px-3.5 py-3 sm:px-4 lg:px-2.5 lg:py-1.5
       transition-all duration-200
       ${isActive
         ? isCritical
@@ -96,16 +105,16 @@ export default function Clock({
       }
     `}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 lg:gap-2">
           <div className={`
-            relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border
+            relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border lg:h-8 lg:w-8
             ${isActive ? 'border-primary/35 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
           `}>
             {avatarUrl ? (
               <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className={`
-                flex h-full w-full items-center justify-center text-sm font-semibold
+                flex h-full w-full items-center justify-center text-sm font-semibold lg:text-[11px]
                 ${color === 'white' ? 'bg-[#f2eadb] text-[#5f5245]' : 'bg-[#24282d] text-[#d7d0c3]'}
               `}>
                 {initials}
@@ -119,35 +128,53 @@ export default function Clock({
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:gap-1.5">
               {flag && <span className="text-sm leading-none">{flag}</span>}
-              <div className="truncate text-sm font-semibold text-text-bright sm:text-[15px]">
+              <div className="truncate text-sm font-semibold text-text-bright sm:text-[15px] lg:text-[13px]">
                 {displayName}
               </div>
               {isActive && (
-                <span className="hidden rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex">
+                <span className="hidden rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex lg:px-1.5">
                   {t('game.to_move')}
                 </span>
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-text-dim">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-text-dim lg:mt-0 lg:gap-1 lg:text-[9px]">
               {showColorChip && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-surface-hover/70 bg-surface/55 px-2 py-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/55 px-2 py-1 lg:px-1.25 lg:py-0.5">
                   <span className={`h-1.5 w-1.5 rounded-full ${color === 'white' ? 'bg-[#f2eadb]' : 'bg-[#22252a]'}`} />
                   {colorLabel}
                 </span>
               )}
               {typeof rating === 'number' && (
-                <span className="inline-flex items-center rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text">
+                <span className="inline-flex items-center rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
                   {t('leaderboard.col_rating')} {rating}
                 </span>
               )}
             </div>
+            {(capturedPieces.length > 0 || materialDelta) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 lg:mt-0.5 lg:gap-1">
+                {capturedPieces.map(({ type, count, capturedColor }) => (
+                  <span
+                    key={`${type}-${capturedColor}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-surface-hover/70 bg-surface/55 px-1.5 py-0.5"
+                  >
+                    <PieceSVG type={type} color={capturedColor} size={12} />
+                    {count > 1 && <span className="text-[10px] font-semibold text-text-bright">x{count}</span>}
+                  </span>
+                ))}
+                {materialDelta && (
+                  <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary-light">
+                    +{formatMaterial(materialDelta)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         <div className={`
-          min-w-[104px] rounded-xl border px-3 py-2 text-right
+          min-w-[104px] rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
           ${isCritical
             ? 'border-danger/30 bg-danger/10'
             : isActive
@@ -155,11 +182,11 @@ export default function Clock({
               : 'border-surface-hover/65 bg-surface/55'
           }
         `}>
-          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-text-dim">
+          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-text-dim lg:text-[9px]">
             {isActive ? t('game.to_move') : statusLabel}
           </div>
           <div className={`
-            font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl
+            font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl lg:text-[1.45rem]
             ${isCritical ? 'text-danger' : isLow ? 'text-accent' : 'text-text-bright'}
             ${isActive && isCritical ? 'animate-pulse' : ''}
           `}>

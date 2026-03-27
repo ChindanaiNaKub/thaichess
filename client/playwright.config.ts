@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 const runAllBrowsers = process.env.PLAYWRIGHT_ALL_BROWSERS === '1';
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
   testDir: './e2e',
@@ -42,6 +45,7 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
+    cwd: repoRoot,
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
   },

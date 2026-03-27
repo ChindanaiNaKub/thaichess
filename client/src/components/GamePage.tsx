@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Position, PieceColor, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
+import type { Position, PieceColor, PieceType, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
@@ -20,7 +20,41 @@ import PieceGuide from './PieceGuide';
 import ConnectionStatus from './ConnectionStatus';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
-import CapturedPiecesPanel from './CapturedPiecesPanel';
+
+const CAPTURE_DISPLAY_ORDER: PieceType[] = ['R', 'N', 'S', 'M', 'PM', 'P'];
+const CAPTURE_VALUES: Record<PieceType, number> = {
+  K: 0,
+  R: 5,
+  N: 3,
+  S: 2.5,
+  M: 2,
+  PM: 2,
+  P: 1,
+};
+
+function getMoveColor(index: number): PieceColor {
+  return index % 2 === 0 ? 'white' : 'black';
+}
+
+function getCapturedSummary(moves: Move[], captorColor: PieceColor) {
+  const capturedPieces = moves
+    .filter((move, index) => move.captured && getMoveColor(index) === captorColor)
+    .map((move) => move.captured!.type);
+  const capturedColor: PieceColor = captorColor === 'white' ? 'black' : 'white';
+  const pieces = CAPTURE_DISPLAY_ORDER
+    .map((type) => ({
+      type,
+      count: capturedPieces.filter((piece) => piece === type).length,
+      capturedColor,
+    }))
+    .filter((entry) => entry.count > 0);
+  const material = capturedPieces.reduce((sum, piece) => sum + CAPTURE_VALUES[piece], 0);
+
+  return {
+    pieces,
+    material: material > 0 ? material : null,
+  };
+}
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -38,6 +72,7 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
 
@@ -123,6 +158,7 @@ export default function GamePage() {
       setGameState(gs);
       setGameOverInfo({ reason, winner, ratingChange });
       setShowGameOverModal(true);
+      setRematchState('idle');
       cancelPremove();
       playGameOverSound();
     };
@@ -147,11 +183,17 @@ export default function GamePage() {
       setOpponentDisconnected(false);
     };
 
+    const handleRematchOffered = () => {
+      setRematchState((current) => (current === 'sent' ? current : 'received'));
+      setShowGameOverModal(true);
+    };
+
     const handleGameCreated = ({ gameId: newGameId }: { gameId: string }) => {
       joinedRef.current = false;
       setGameState(null);
       setGameOverInfo(null);
       setShowGameOverModal(false);
+      setRematchState('idle');
       clearSelection();
       setDrawOffered(false);
       cancelPremove();
@@ -161,6 +203,7 @@ export default function GamePage() {
     };
 
     const handleError = ({ message }: { message: string }) => {
+      setRematchState('idle');
       setError(message);
     };
 
@@ -173,6 +216,7 @@ export default function GamePage() {
     socket.on('clock_update', handleClockUpdate);
     socket.on('draw_offered', handleDrawOffered);
     socket.on('draw_declined', handleDrawDeclined);
+    socket.on('rematch_offered', handleRematchOffered);
     socket.on('opponent_disconnected', handleOpponentDisconnected);
     socket.on('opponent_reconnected', handleOpponentReconnected);
     socket.on('game_created', handleGameCreated);
@@ -192,6 +236,7 @@ export default function GamePage() {
       socket.off('clock_update', handleClockUpdate);
       socket.off('draw_offered', handleDrawOffered);
       socket.off('draw_declined', handleDrawDeclined);
+      socket.off('rematch_offered', handleRematchOffered);
       socket.off('opponent_disconnected', handleOpponentDisconnected);
       socket.off('opponent_reconnected', handleOpponentReconnected);
       socket.off('game_created', handleGameCreated);
@@ -202,7 +247,7 @@ export default function GamePage() {
   useEffect(() => {
     return () => {
       const latestGameState = latestGameStateRef.current;
-      if (latestGameState?.status === 'waiting' && socket.connected) {
+      if (latestGameState && latestGameState.status !== 'playing' && socket.connected) {
         socket.emit('leave_game', { gameId: latestGameState.gameId });
       }
     };
@@ -276,6 +321,8 @@ export default function GamePage() {
   };
 
   const handleRematch = () => {
+    if (rematchState === 'sent') return;
+    setRematchState('sent');
     socket.emit('request_rematch');
   };
 
@@ -482,21 +529,40 @@ export default function GamePage() {
     playerColor === gameState.counting.countingColor &&
     gameState.turn === playerColor,
   );
+  const moveCount = gameState.moveHistory.length;
+  const visibleMoves = getVisibleMoves();
+  const playerCaptureSummary = getCapturedSummary(visibleMoves, playerColor || 'white');
+  const opponentCaptureSummary = getCapturedSummary(visibleMoves, opponentColor);
+  const statusText = gameState.gameOver
+    ? t('game.reviewing_position')
+    : isMyTurn
+      ? t('game.your_turn')
+      : t('game.opponent_turn');
+  const rematchLabel = rematchState === 'received'
+    ? t('gameover.rematch_accept')
+    : rematchState === 'sent'
+      ? t('gameover.rematch_sent')
+      : t('gameover.rematch');
+  const rematchNotice = rematchState === 'received'
+    ? t('gameover.rematch_incoming')
+    : rematchState === 'sent'
+      ? t('gameover.rematch_waiting')
+      : null;
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
+    <div ref={containerRef} className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
       <ConnectionStatus />
 
       {/* Compact Header for playing state */}
-      <header className="bg-surface-alt border-b border-surface-hover">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
-          <button onClick={() => navigate(routes.home)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <PieceSVG type="K" color="white" size={32} />
-            <h1 className="text-lg font-bold text-text-bright tracking-tight">{t('app.name')}</h1>
+      <header className="bg-surface-alt/95 border-b border-surface-hover shrink-0">
+        <div className="max-w-[1240px] mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
+          <button onClick={() => navigate(routes.home)} className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
+            <PieceSVG type="K" color="white" size={26} />
+            <h1 className="text-base font-bold text-text-bright tracking-tight">{t('app.name')}</h1>
           </button>
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-text-dim flex-wrap justify-end">
+          <div className="flex items-center gap-1.5 text-xs text-text-dim flex-wrap justify-end">
             <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim sm:inline">{t('game.piece_style')}</span>
+              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
               <select
                 value={pieceStyle}
                 onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
@@ -508,7 +574,7 @@ export default function GamePage() {
                 <option value="western">{t('game.piece_style_western')}</option>
               </select>
             </label>
-            <span>{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
+            <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
               gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
             }`}>
@@ -552,25 +618,10 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Premove indicator */}
-      {premove && (
-        <div className="bg-blue-900/30 border-b border-blue-500/30 text-center py-1.5 text-xs text-blue-300 flex items-center justify-center gap-2">
-          <span>{t('game.premove_set')}</span>
-          <button
-            onClick={() => { cancelPremove(); clearSelection(); }}
-            className="px-2 py-0.5 bg-surface-hover rounded text-xs hover:bg-danger/20 hover:text-danger transition-colors"
-          >
-            {t('common.cancel')}
-          </button>
-        </div>
-      )}
-
       {/* Main Game Area */}
-      <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6 py-4">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
-          {/* Board Column */}
-          <div className="flex flex-col items-center gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-180px)] max-w-[720px]">
-            {/* Opponent Clock */}
+      <main id="main-content" className="flex-1 min-h-0 px-3 py-2 sm:px-4 sm:py-3">
+        <div className="mx-auto grid h-full w-full max-w-[1240px] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_288px]">
+          <div className="flex min-h-0 flex-col items-center gap-1.5 w-full">
             <Clock
               time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}
               isActive={gameState.turn === opponentColor && gameState.status === 'playing'}
@@ -579,29 +630,61 @@ export default function GamePage() {
               rating={opponentRating}
               status={opponentStatus}
               subtitle={opponentSubtitle}
+              capturedPieces={opponentCaptureSummary.pieces}
+              materialDelta={opponentCaptureSummary.material}
             />
 
-            {/* Board */}
-            <BoardErrorBoundary onRetry={() => window.location.reload()}>
-              <Board
-                board={getDisplayBoard()}
-                playerColor={playerColor}
-                isMyTurn={isMyTurn}
-                legalMoves={isViewingHistory ? [] : legalMoves}
-                selectedSquare={isViewingHistory ? null : selectedSquare}
-                lastMove={getLastMove()}
-                isCheck={isViewingHistory ? false : gameState.isCheck}
-                checkSquare={getCheckSquare()}
-                onSquareClick={handleSquareClick}
-                onPieceDrop={handlePieceDrop}
-                disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-                premove={premove}
-                arrows={arrows}
-                onArrowsChange={setArrows}
-              />
-            </BoardErrorBoundary>
+            <div className="w-full lg:w-[min(100%,calc(100dvh-15.4rem))] xl:w-[min(100%,calc(100dvh-14.8rem))]">
+              <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                <div className="text-sm font-semibold text-text-bright">
+                  {isViewingHistory ? t('game.reviewing_history') : statusText}
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                  {premove && (
+                    <>
+                      <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
+                        {t('game.premove_set')}
+                      </span>
+                      <button
+                        onClick={() => { cancelPremove(); clearSelection(); }}
+                        className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                    </>
+                  )}
+                  <span className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1">
+                    {t('moves.title')} {moveCount}
+                  </span>
+                  {gameState.isCheck && !isViewingHistory && (
+                    <span className="rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
+                      {t('game.check_status')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-[1.75rem] border border-accent/25 bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.12),transparent_40%),linear-gradient(180deg,rgba(58,45,31,0.88),rgba(24,20,18,0.96))] p-1.5 shadow-[0_26px_70px_rgba(0,0,0,0.24)]">
+                <BoardErrorBoundary onRetry={() => window.location.reload()}>
+                  <Board
+                    board={getDisplayBoard()}
+                    playerColor={playerColor}
+                    isMyTurn={isMyTurn}
+                    legalMoves={isViewingHistory ? [] : legalMoves}
+                    selectedSquare={isViewingHistory ? null : selectedSquare}
+                    lastMove={getLastMove()}
+                    isCheck={isViewingHistory ? false : gameState.isCheck}
+                    checkSquare={getCheckSquare()}
+                    onSquareClick={handleSquareClick}
+                    onPieceDrop={handlePieceDrop}
+                    disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+                    premove={premove}
+                    arrows={arrows}
+                    onArrowsChange={setArrows}
+                  />
+                </BoardErrorBoundary>
+              </div>
+            </div>
 
-            {/* Player Clock */}
             <Clock
               time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
               isActive={gameState.turn === playerColor && gameState.status === 'playing'}
@@ -610,26 +693,26 @@ export default function GamePage() {
               rating={playerRating}
               status={playerStatus}
               subtitle={playerSubtitle}
+              capturedPieces={playerCaptureSummary.pieces}
+              materialDelta={playerCaptureSummary.material}
             />
           </div>
 
-          {/* Side Panel */}
-          <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
-            {/* Turn Indicator (only when game is in progress) */}
-            {!gameState.gameOver && (
-              <div className={`
-                rounded-lg px-4 py-3 text-center font-semibold text-sm
-                ${isMyTurn
-                  ? 'bg-primary/20 text-primary-light border border-primary/30'
-                  : 'bg-surface-alt text-text-dim border border-surface-hover'
-                }
-              `}>
-                {isMyTurn ? t('game.your_turn') : t('game.opponent_turn')}
+          <aside className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1">
+            <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="font-semibold text-text-bright">{statusText}</div>
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                  <span>{playerSubtitle}</span>
+                  <span className={`rounded-full px-2 py-1 ${gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim border border-surface-hover'}`}>
+                    {gameState.rated ? t('game.rated') : t('game.casual')}
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
 
             {!gameState.gameOver && countingLabel && (
-              <div className="rounded-lg px-4 py-3 bg-accent/10 text-accent border border-accent/30">
+              <div className="rounded-xl px-4 py-3 bg-accent/10 text-accent border border-accent/30">
                 <div className="text-xs uppercase tracking-wide font-semibold mb-1">
                   {t('game.counting_title')}
                 </div>
@@ -653,7 +736,6 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* Inline Game Over Panel (Lichess-style) */}
             {gameOverInfo && (
               <GameOverPanel
                 winner={gameOverInfo.winner}
@@ -663,6 +745,9 @@ export default function GamePage() {
                 ratingChange={gameOverInfo.ratingChange}
                 onRematch={handleRematch}
                 onNewGame={handleNewGame}
+                rematchLabel={rematchLabel}
+                rematchDisabled={rematchState === 'sent'}
+                rematchNotice={rematchNotice}
                 onAnalyze={gameId && gameState.moveHistory.length > 0
                   ? () => navigate(savedGameAnalysisRoute(gameId))
                   : undefined
@@ -670,7 +755,6 @@ export default function GamePage() {
               />
             )}
 
-            {/* Move History */}
             <MoveHistory
               moves={gameState.moveHistory}
               initialBoard={createInitialBoard()}
@@ -678,34 +762,24 @@ export default function GamePage() {
               onMoveClick={gameState.gameOver ? handleMoveClick : undefined}
             />
 
-            <CapturedPiecesPanel
-              moves={getVisibleMoves()}
-              topColor={opponentColor}
-              topLabel={opponentColor === 'white' ? t('common.white') : t('common.black')}
-              bottomColor={playerColor || 'white'}
-              bottomLabel={playerColor === 'white' ? t('common.white') : t('common.black')}
-            />
-
-            {/* Keyboard nav hint */}
             {gameState.gameOver && gameState.moveHistory.length > 0 && (
-              <div className="text-center text-xs text-text-dim">
+              <div className="text-center text-[11px] text-text-dim">
                 {t('game.nav_hint')}
               </div>
             )}
 
-            {/* Game Controls */}
             {!gameState.gameOver && gameState.status === 'playing' && (
-              <div className="flex gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <button
                   onClick={handleOfferDraw}
-                  className="flex-1 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
+                  className="py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
                   title={t('game.offer_draw')}
                 >
                   {t('game.offer_draw')}
                 </button>
                 <button
                   onClick={handleResign}
-                  className="flex-1 py-2 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-lg border border-surface-hover transition-colors"
+                  className="py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
                   title={t('game.resign')}
                 >
                   {t('game.resign')}
@@ -713,14 +787,13 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* Piece Guide Button */}
             <button
               onClick={() => setShowGuide(true)}
-              className="w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
+              className="w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright text-sm rounded-xl border border-surface-hover transition-colors"
             >
               {t('game.piece_guide')}
             </button>
-          </div>
+          </aside>
         </div>
       </main>
 
@@ -734,6 +807,9 @@ export default function GamePage() {
           ratingChange={gameOverInfo.ratingChange}
           onRematch={handleRematch}
           onNewGame={handleNewGame}
+          rematchLabel={rematchLabel}
+          rematchDisabled={rematchState === 'sent'}
+          rematchNotice={rematchNotice}
           onAnalyze={gameId && gameState && gameState.moveHistory.length > 0
             ? () => navigate(savedGameAnalysisRoute(gameId))
             : undefined

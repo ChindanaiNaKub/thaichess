@@ -63,18 +63,18 @@ function CapturedRow({
   const capturedColor: PieceColor = captorColor === 'white' ? 'black' : 'white';
 
   return (
-    <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-text-dim">
+    <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2">
+      <div className="mb-1.5 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-text-dim">
         <span>Captured by {label}</span>
         <span>{total > 0 ? `+${formatMaterial(materialWon)}` : '0'}</span>
       </div>
-      <div className="flex min-h-9 flex-wrap items-center gap-2">
+      <div className="flex min-h-8 flex-wrap items-center gap-1.5">
         {counts.map(({ type, count }) => (
           <div
             key={`${captorColor}-${type}`}
-            className="flex items-center gap-1 rounded-md border border-surface-hover/70 bg-surface px-2 py-1"
+            className="flex items-center gap-1 rounded-md border border-surface-hover/70 bg-surface px-1.5 py-0.5"
           >
-            <PieceSVG type={type} color={capturedColor} size={18} />
+            <PieceSVG type={type} color={capturedColor} size={16} />
             <span className="text-xs font-semibold text-text-bright">x{count}</span>
           </div>
         ))}
@@ -105,10 +105,10 @@ export default function CapturedPiecesPanel({
       <div className="mb-1 text-xs font-semibold uppercase tracking-[0.22em] text-text-dim">
         Material
       </div>
-      <div className="mb-3 text-sm font-semibold text-text-bright">
+      <div className="mb-2 text-sm font-semibold text-text-bright">
         {summary}
       </div>
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         <CapturedRow captorColor={topColor} label={topLabel} moves={moves} />
         <CapturedRow captorColor={bottomColor} label={bottomLabel} moves={moves} />
       </div>
