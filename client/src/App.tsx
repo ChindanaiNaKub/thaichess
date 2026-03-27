@@ -15,6 +15,7 @@ const QuickPlay = lazy(() => import('./components/QuickPlay'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const GamesPage = lazy(() => import('./components/GamesPage'));
 const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
+const GuidePage = lazy(() => import('./components/GuidePage'));
 const AnalysisPage = lazy(() => import('./components/AnalysisPage'));
 const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
@@ -51,6 +52,9 @@ export default function App() {
           <Route path={routes.about} element={<AboutPage />} />
           <Route path={routes.games} element={<GamesPage />} />
           <Route path={routes.leaderboard} element={<LeaderboardPage />} />
+          <Route path={routes.whatIsMakruk} element={<GuidePage slug="what-is-makruk" />} />
+          <Route path={routes.howToPlayMakruk} element={<GuidePage slug="how-to-play-makruk" />} />
+          <Route path={routes.playMakrukOnline} element={<GuidePage slug="play-makruk-online" />} />
           <Route path={routes.analysisPattern} element={<AnalysisPage />} />
           <Route path={routes.analysisRoot} element={<AnalysisPage />} />
           <Route path={routes.feedback} element={<FeedbackMessagesPage />} />

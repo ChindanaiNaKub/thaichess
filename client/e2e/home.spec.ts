@@ -7,16 +7,25 @@ test.describe('Homepage', () => {
 
   test('has correct title and heading', async ({ page }) => {
     await expect(page).toHaveTitle(/ThaiChess/);
-    await expect(page.getByRole('heading', { name: /play thaichess online/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /play makruk instantly/i })).toBeVisible();
   });
 
   test('displays game mode options', async ({ page }) => {
     const main = page.locator('#main-content');
 
     await expect(main.getByRole('button', { name: /find opponent/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();
+    await expect(main.getByRole('button', { name: /create a private game/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /play vs bot/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /^Puzzles$/ })).toBeVisible();
+    await expect(main.getByRole('button', { name: /puzzles/i })).toBeVisible();
+  });
+
+  test('reveals the private game setup on demand', async ({ page }) => {
+    const main = page.locator('#main-content');
+
+    await main.getByRole('button', { name: /create a private game/i }).click();
+
+    await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();
+    await expect(main.getByText(/choose a time control/i)).toBeVisible();
   });
 
   test('navigates to quick play', async ({ page }) => {
@@ -38,7 +47,7 @@ test.describe('Homepage', () => {
   });
 
   test('navigates to puzzles', async ({ page }) => {
-    await page.locator('#main-content').getByRole('button', { name: /^Puzzles$/ }).click();
+    await page.locator('#main-content').getByRole('button', { name: /puzzles/i }).click();
     await expect(page).toHaveURL('/puzzles');
   });
 });

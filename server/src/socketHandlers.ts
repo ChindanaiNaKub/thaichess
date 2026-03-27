@@ -484,10 +484,26 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
-      const room = deps.gameManager.getGame(gameId);
-      if (!room) return;
+      const rematchResult = deps.gameManager.requestRematch(gameId, socket.id);
+      if (!rematchResult) return;
 
-      const newRoom = deps.gameManager.createRematch(gameId);
+      if (rematchResult.kind === 'duplicate') {
+        return;
+      }
+
+      if (rematchResult.kind === 'unavailable') {
+        rejectSocketEvent(deps.monitoring, socket, 'request_rematch', 'Your opponent already left the finished game.');
+        return;
+      }
+
+      if (rematchResult.kind === 'offered') {
+        if (rematchResult.opponentSocketId) {
+          deps.io.to(rematchResult.opponentSocketId).emit('rematch_offered', { by: rematchResult.by });
+        }
+        return;
+      }
+
+      const newRoom = rematchResult.room;
       if (!newRoom) return;
 
       if (newRoom.white) deps.io.to(newRoom.white).emit('game_created', { gameId: newRoom.id });

@@ -11,9 +11,25 @@ interface GameOverModalProps {
   onNewGame: () => void;
   onAnalyze?: () => void;
   onClose?: () => void;
+  rematchLabel?: string;
+  rematchDisabled?: boolean;
+  rematchNotice?: string | null;
 }
 
-export default function GameOverModal({ winner, reason, playerColor, rated = false, ratingChange = null, onRematch, onNewGame, onAnalyze, onClose }: GameOverModalProps) {
+export default function GameOverModal({
+  winner,
+  reason,
+  playerColor,
+  rated = false,
+  ratingChange = null,
+  onRematch,
+  onNewGame,
+  onAnalyze,
+  onClose,
+  rematchLabel,
+  rematchDisabled = false,
+  rematchNotice = null,
+}: GameOverModalProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
@@ -89,6 +105,11 @@ export default function GameOverModal({ winner, reason, playerColor, rated = fal
           </div>
 
           <div className="flex flex-col gap-3">
+            {rematchNotice && (
+              <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-center text-sm font-medium text-primary-light">
+                {rematchNotice}
+              </div>
+            )}
             {onAnalyze && (
               <button
                 onClick={onAnalyze}
@@ -99,9 +120,10 @@ export default function GameOverModal({ winner, reason, playerColor, rated = fal
             )}
             <button
               onClick={onRematch}
-              className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors"
+              disabled={rematchDisabled}
+              className="w-full py-3 px-6 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
             >
-              {t('gameover.rematch')}
+              {rematchLabel ?? t('gameover.rematch')}
             </button>
             <button
               onClick={onNewGame}

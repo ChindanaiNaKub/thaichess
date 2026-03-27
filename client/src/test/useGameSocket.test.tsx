@@ -203,6 +203,34 @@ describe('useGameSocket', () => {
     expect(result.current.error).toBe('rate limited');
   });
 
+  it('leaves non-live games on unmount to clear stale socket state', async () => {
+    const { unmount } = renderHook(() => useGameSocket({ gameId: 'room-finished' }), { wrapper });
+
+    act(() => {
+      emitSocketEvent('game_joined', {
+        color: 'white',
+        gameState: {
+          ...createInitialGameState(300_000, 300_000),
+          gameMode: 'private',
+          rated: false,
+          status: 'finished',
+          gameOver: true,
+          playerColor: 'white',
+          drawOffer: null,
+          gameId: 'room-finished',
+          whitePlayerName: 'White',
+          blackPlayerName: 'Black',
+        },
+      });
+    });
+
+    socketMock.connected = true;
+    socketMock.emit.mockClear();
+    unmount();
+
+    expect(socketMock.emit).toHaveBeenCalledWith('leave_game', { gameId: 'room-finished' });
+  });
+
   it('handles transition, sound, timing, draw, game-over, and replacement events', async () => {
     const initialState = createInitialGameState(300_000, 300_000);
     const waitingState = {

@@ -55,20 +55,22 @@ export default function LeaderboardPage() {
       <Header active="games" subtitle={t('leaderboard.title')} />
 
       <main id="main-content" className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary-light">{t('leaderboard.eyebrow')}</p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-text-bright mt-2">{t('leaderboard.title')}</h1>
-            <p className="text-sm text-text-dim mt-2">{t('leaderboard.desc')}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-text-dim text-xs sm:text-sm">{t('leaderboard.count', { count: total })}</span>
-            <button
-              onClick={() => navigate(routes.games)}
-              className="px-3 py-2 rounded-lg border border-surface-hover bg-surface-alt text-text-bright text-sm font-semibold hover:bg-surface-hover transition-colors"
-            >
-              {t('leaderboard.view_recent')}
-            </button>
+        <div className="rounded-2xl border border-surface-hover bg-surface-alt/80 px-4 py-4 sm:px-5 sm:py-5 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary-light">{t('leaderboard.eyebrow')}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-text-bright mt-2">{t('leaderboard.title')}</h1>
+              <p className="text-sm text-text-dim mt-2">{t('leaderboard.desc')}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-text-dim text-xs sm:text-sm">{t('leaderboard.count', { count: total })}</span>
+              <button
+                onClick={() => navigate(routes.games)}
+                className="px-3 py-2 rounded-lg border border-surface-hover bg-surface text-text-bright text-sm font-semibold hover:bg-surface-hover transition-colors"
+              >
+                {t('leaderboard.view_recent')}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -77,10 +79,25 @@ export default function LeaderboardPage() {
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : players.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl border border-surface-hover bg-surface-alt">
+          <div className="text-center py-16 rounded-2xl border border-surface-hover bg-surface-alt px-6">
             <div className="text-4xl mb-4">🏆</div>
             <p className="text-text-bright text-lg font-semibold">{t('leaderboard.empty')}</p>
             <p className="text-text-dim text-sm mt-2">{t('leaderboard.empty_desc')}</p>
+            <p className="text-text-dim text-sm mt-3">{user ? t('quick.rated_signed_in') : t('quick.rated_sign_in')}</p>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => navigate(routes.quickPlay)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary-light transition-colors"
+              >
+                {t('home.find_opponent')}
+              </button>
+              <button
+                onClick={() => navigate(user ? routes.puzzles : routes.login)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-surface-hover bg-surface text-text-bright font-semibold hover:bg-surface-hover transition-colors"
+              >
+                {user ? t('nav.puzzles') : t('auth.sign_in')}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="rounded-2xl border border-surface-hover bg-surface-alt overflow-hidden">
