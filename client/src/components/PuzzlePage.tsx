@@ -389,7 +389,10 @@ function PuzzlePlayer() {
   const hintSquare = showHint && hintMove ? hintMove.from : null;
   const nextPuzzle = getNextPuzzle();
   const prevPuzzle = getPrevPuzzle();
-  const colorLabel = puzzle.toMove === 'white' ? t('common.white') : t('common.black');
+  const solverColorLabel = puzzle.toMove === 'white' ? t('common.white') : t('common.black');
+  const currentTurn = gameState?.turn ?? puzzle.toMove;
+  const currentTurnLabel = currentTurn === 'white' ? t('common.white') : t('common.black');
+  const isSolverTurn = status === 'playing' && gameState?.turn === puzzle.toMove;
   const currentStep = gameState ? Math.min(gameState.moveHistory.length + 1, puzzle.solution.length) : 1;
 
   return (
@@ -445,7 +448,7 @@ function PuzzlePlayer() {
               <p className="text-text-dim text-xs sm:text-sm mb-3">{puzzle.description}</p>
               <div className="flex flex-wrap items-center gap-2 text-xs text-text-dim">
                 <span className="px-2 py-0.5 rounded bg-surface border border-surface-hover">{t('theme.' + puzzle.theme)}</span>
-                <span>{t('puzzle.to_move', { color: colorLabel })}</span>
+                <span>{t('puzzle.to_move', { color: currentTurnLabel })}</span>
                 <span className="ml-auto">{t('puzzle.source')}: {puzzle.source}</span>
               </div>
             </div>
@@ -453,7 +456,9 @@ function PuzzlePlayer() {
             {status === 'playing' && (
               <div className="bg-primary/10 border border-primary/30 rounded-lg px-4 py-3 text-center">
                 <p className="text-primary-light font-semibold text-sm">
-                  {t('puzzle.find_best', { color: colorLabel })}
+                  {isSolverTurn
+                    ? t('puzzle.find_best', { color: solverColorLabel })
+                    : t('puzzle.to_move', { color: currentTurnLabel })}
                 </p>
                 <p className="text-text-dim text-xs mt-1">
                   {t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}

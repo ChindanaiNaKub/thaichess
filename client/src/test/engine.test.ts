@@ -119,6 +119,16 @@ describe('Game Engine', () => {
       expect(kingMoves).not.toContainEqual({ row: 5, col: 4 });
       expect(kingMoves).not.toContainEqual({ row: 5, col: 5 });
     });
+
+    it('should not allow a king to capture the opposing king directly', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[4][4] = { type: 'K', color: 'white' };
+      board[5][5] = { type: 'K', color: 'black' };
+
+      const kingMoves = getLegalMoves(board, { row: 4, col: 4 });
+
+      expect(kingMoves).not.toContainEqual({ row: 5, col: 5 });
+    });
   });
 
   describe('getLegalMoves - Rook (R)', () => {
@@ -151,6 +161,17 @@ describe('Game Engine', () => {
 
       // After moving forward, blocked by pawn at row 2
       expect(rookMoves).not.toContainEqual({ row: 2, col: 0 });
+    });
+
+    it('should not allow a rook to capture the opposing king directly', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[6][4] = { type: 'R', color: 'white' };
+      board[7][4] = { type: 'K', color: 'black' };
+
+      const rookMoves = getLegalMoves(board, { row: 6, col: 4 });
+
+      expect(rookMoves).not.toContainEqual({ row: 7, col: 4 });
     });
   });
 
@@ -298,6 +319,20 @@ describe('Game Engine', () => {
   });
 
   describe('makeMove', () => {
+    it('should reject a move that captures the opposing king', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[6][4] = { type: 'R', color: 'white' };
+      board[7][4] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+
+      const result = makeMove(state, { row: 6, col: 4 }, { row: 7, col: 4 });
+
+      expect(result).toBeNull();
+    });
+
     it('should execute a legal move', () => {
       const state = createInitialGameState(300000, 300000);
 

@@ -317,7 +317,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
         const nr = row + dr, nc = col + dc;
         if (isInBounds(nr, nc)) {
           const target = board[nr][nc];
-          if (!target || target.color !== piece.color) {
+          if (!target || (target.color !== piece.color && target.type !== 'K')) {
             moves.push({ row: nr, col: nc });
           }
         }
@@ -333,7 +333,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
         const nr = row + dr, nc = col + dc;
         if (isInBounds(nr, nc)) {
           const target = board[nr][nc];
-          if (!target || target.color !== piece.color) {
+          if (!target || (target.color !== piece.color && target.type !== 'K')) {
             moves.push({ row: nr, col: nc });
           }
         }
@@ -348,7 +348,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
         const nr = row + dr, nc = col + dc;
         if (isInBounds(nr, nc)) {
           const target = board[nr][nc];
-          if (!target || target.color !== piece.color) {
+          if (!target || (target.color !== piece.color && target.type !== 'K')) {
             moves.push({ row: nr, col: nc });
           }
         }
@@ -367,7 +367,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
           if (!target) {
             moves.push({ row: nr, col: nc });
           } else {
-            if (target.color !== piece.color) {
+            if (target.color !== piece.color && target.type !== 'K') {
               moves.push({ row: nr, col: nc });
             }
             break;
@@ -384,7 +384,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
         const nr = row + dr, nc = col + dc;
         if (isInBounds(nr, nc)) {
           const target = board[nr][nc];
-          if (!target || target.color !== piece.color) {
+          if (!target || (target.color !== piece.color && target.type !== 'K')) {
             moves.push({ row: nr, col: nc });
           }
         }
@@ -402,7 +402,7 @@ function getRawMoves(board: Board, pos: Position): Position[] {
         const nc = col + dc;
         if (isInBounds(nr, nc)) {
           const target = board[nr][nc];
-          if (target && target.color !== piece.color) {
+          if (target && target.color !== piece.color && target.type !== 'K') {
             moves.push({ row: nr, col: nc });
           }
         }
@@ -414,12 +414,94 @@ function getRawMoves(board: Board, pos: Position): Position[] {
   return moves;
 }
 
+function getAttackSquares(board: Board, pos: Position): Position[] {
+  const piece = board[pos.row][pos.col];
+  if (!piece) return [];
+
+  const attacks: Position[] = [];
+  const { row, col } = pos;
+  const forward = getForwardDirection(piece.color);
+
+  switch (piece.type) {
+    case 'K': {
+      const kingDirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+      for (const [dr, dc] of kingDirs) {
+        const nr = row + dr, nc = col + dc;
+        if (isInBounds(nr, nc)) {
+          attacks.push({ row: nr, col: nc });
+        }
+      }
+      break;
+    }
+
+    case 'M':
+    case 'PM': {
+      const metDirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      for (const [dr, dc] of metDirs) {
+        const nr = row + dr, nc = col + dc;
+        if (isInBounds(nr, nc)) {
+          attacks.push({ row: nr, col: nc });
+        }
+      }
+      break;
+    }
+
+    case 'S': {
+      const khonDirs = [[-1,-1],[-1,1],[1,-1],[1,1],[forward, 0]];
+      for (const [dr, dc] of khonDirs) {
+        const nr = row + dr, nc = col + dc;
+        if (isInBounds(nr, nc)) {
+          attacks.push({ row: nr, col: nc });
+        }
+      }
+      break;
+    }
+
+    case 'R': {
+      const rookDirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      for (const [dr, dc] of rookDirs) {
+        for (let dist = 1; dist < 8; dist++) {
+          const nr = row + dr * dist, nc = col + dc * dist;
+          if (!isInBounds(nr, nc)) break;
+          attacks.push({ row: nr, col: nc });
+          if (board[nr][nc]) break;
+        }
+      }
+      break;
+    }
+
+    case 'N': {
+      const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+      for (const [dr, dc] of knightMoves) {
+        const nr = row + dr, nc = col + dc;
+        if (isInBounds(nr, nc)) {
+          attacks.push({ row: nr, col: nc });
+        }
+      }
+      break;
+    }
+
+    case 'P': {
+      const nr = row + forward;
+      for (const dc of [-1, 1]) {
+        const nc = col + dc;
+        if (isInBounds(nr, nc)) {
+          attacks.push({ row: nr, col: nc });
+        }
+      }
+      break;
+    }
+  }
+
+  return attacks;
+}
+
 function isSquareAttacked(board: Board, pos: Position, byColor: PieceColor): boolean {
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const piece = board[row][col];
       if (piece && piece.color === byColor) {
-        const attacks = getRawMoves(board, { row, col });
+        const attacks = getAttackSquares(board, { row, col });
         if (attacks.some(m => m.row === pos.row && m.col === pos.col)) {
           return true;
         }

@@ -57,4 +57,30 @@ describe('puzzleValidation', () => {
     expect(forcingMoves).toHaveLength(1);
     expect(forcingMoves[0]).toMatchObject(puzzle!.solution[0]);
   });
+
+  it('rejects puzzle lines that try to capture the king directly', () => {
+    const board = emptyBoard();
+    board[0][0] = p('K', 'white');
+    board[6][4] = p('R', 'white');
+    board[7][4] = p('K', 'black');
+
+    const puzzle: Puzzle = {
+      id: 1000,
+      title: 'Illegal King Capture',
+      description: 'This puzzle line incorrectly ends by taking the king directly.',
+      explanation: 'A valid Makruk puzzle must finish with checkmate or another legal ending, never by capturing the king.',
+      source: 'test fixture',
+      theme: 'Checkmate',
+      difficulty: 'beginner',
+      toMove: 'white',
+      board,
+      solution: [{ from: { row: 6, col: 4 }, to: { row: 7, col: 4 } }],
+    };
+
+    const result = validatePuzzle(puzzle);
+    const forcingMoves = getForcingMoves(createGameStateFromPuzzle(puzzle), puzzle);
+
+    expect(result.errors).toContain('First solution move is illegal in the starting position.');
+    expect(forcingMoves).toHaveLength(0);
+  });
 });
