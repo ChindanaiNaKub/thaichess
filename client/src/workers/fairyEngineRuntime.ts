@@ -29,9 +29,29 @@ type StockfishModule = {
   addMessageListener: (listener: (line: string) => void) => void;
   removeMessageListener: (listener: (line: string) => void) => void;
   postMessage: (message: string) => void;
+  terminate?: () => void;
 };
 
 let runtimePromise: Promise<FairyEngineRuntime | null> | null = null;
+const ENGINE_INIT_TIMEOUT_MS = 8000;
+const ENGINE_SEARCH_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 function supportsBrowserEngine(): boolean {
   return typeof SharedArrayBuffer !== 'undefined'
@@ -115,20 +135,26 @@ class FairyEngineRuntime {
       URL.revokeObjectURL(stockfishWorkerUrl);
     };
 
+    let engine: StockfishModule | null = null;
     try {
-      const engine = await StockfishFactory({
-        locateFile: (file: string) => {
-          if (file.endsWith('stockfish.wasm')) return stockfishWasmUrl;
-          if (file.endsWith('stockfish.worker.js')) return stockfishWorkerUrl;
-          return file;
-        },
-        mainScriptUrlOrBlob: stockfishScriptUrl,
-      }) as StockfishModule;
+      engine = await withTimeout(
+        StockfishFactory({
+          locateFile: (file: string) => {
+            if (file.endsWith('stockfish.wasm')) return stockfishWasmUrl;
+            if (file.endsWith('stockfish.worker.js')) return stockfishWorkerUrl;
+            return file;
+          },
+          mainScriptUrlOrBlob: stockfishScriptUrl,
+        }) as Promise<StockfishModule>,
+        ENGINE_INIT_TIMEOUT_MS,
+        'Fairy-Stockfish startup',
+      );
 
       const runtime = new FairyEngineRuntime(engine);
-      await runtime.initialize();
+      await withTimeout(runtime.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Fairy-Stockfish initialization');
       return runtime;
     } catch {
+      engine?.terminate?.();
       cleanupUrls();
       return null;
     }
@@ -142,25 +168,29 @@ class FairyEngineRuntime {
     let latestScore: EngineScore | null = null;
     let principalVariationMove: string | null = null;
 
-    const bestMoveUci = await this.runUntil<string | null>(
-      [positionCommand, `go depth ${normalizeSearchDepth(depth)}`],
-      (line) => {
-        if (line.startsWith('info ')) {
-          const score = parseInfoScore(line);
-          if (score) latestScore = score;
+    const bestMoveUci = await withTimeout(
+      this.runUntil<string | null>(
+        [positionCommand, `go depth ${normalizeSearchDepth(depth)}`],
+        (line) => {
+          if (line.startsWith('info ')) {
+            const score = parseInfoScore(line);
+            if (score) latestScore = score;
 
-          const pvMatch = line.match(/\bpv\s+(\S+)/);
-          if (pvMatch) principalVariationMove = pvMatch[1];
+            const pvMatch = line.match(/\bpv\s+(\S+)/);
+            if (pvMatch) principalVariationMove = pvMatch[1];
+            return undefined;
+          }
+
+          if (line.startsWith('bestmove ')) {
+            return parseBestMove(line) ?? principalVariationMove;
+          }
+
           return undefined;
-        }
-
-        if (line.startsWith('bestmove ')) {
-          return parseBestMove(line) ?? principalVariationMove;
-        }
-
-        return undefined;
-      },
-      20000,
+        },
+        ENGINE_SEARCH_TIMEOUT_MS,
+      ),
+      ENGINE_SEARCH_TIMEOUT_MS,
+      'Fairy-Stockfish search',
     );
 
     return {
@@ -219,7 +249,17 @@ class FairyEngineRuntime {
 
 async function getRuntime(): Promise<FairyEngineRuntime | null> {
   runtimePromise ??= FairyEngineRuntime.create();
-  return runtimePromise;
+
+  try {
+    const runtime = await runtimePromise;
+    if (!runtime) {
+      runtimePromise = null;
+    }
+    return runtime;
+  } catch {
+    runtimePromise = null;
+    return null;
+  }
 }
 
 export async function findBestMoveWithFairyStockfish(
@@ -229,8 +269,13 @@ export async function findBestMoveWithFairyStockfish(
   const runtime = await getRuntime();
   if (!runtime) return null;
 
-  const result = await runtime.search(moves, depth);
-  return result.bestMove;
+  try {
+    const result = await runtime.search(moves, depth);
+    return result.bestMove;
+  } catch {
+    runtimePromise = null;
+    return null;
+  }
 }
 
 export async function analyzeWithFairyStockfish(
@@ -241,73 +286,78 @@ export async function analyzeWithFairyStockfish(
   const runtime = await getRuntime();
   if (!runtime) return null;
 
-  const analyzedMoves: AnalyzedMove[] = [];
-  const evaluations: number[] = [];
-  const whiteSummary = createEmptySummary();
-  const blackSummary = createEmptySummary();
-  const whiteClassifications: MoveClassification[] = [];
-  const blackClassifications: MoveClassification[] = [];
+  try {
+    const analyzedMoves: AnalyzedMove[] = [];
+    const evaluations: number[] = [];
+    const whiteSummary = createEmptySummary();
+    const blackSummary = createEmptySummary();
+    const whiteClassifications: MoveClassification[] = [];
+    const blackClassifications: MoveClassification[] = [];
 
-  let state = createInitialGameState(0, 0);
-  let currentSearch = await runtime.search(state.moveHistory, depth);
-  evaluations.push(currentSearch.scoreWhite);
+    let state = createInitialGameState(0, 0);
+    let currentSearch = await runtime.search(state.moveHistory, depth);
+    evaluations.push(currentSearch.scoreWhite);
 
-  for (let i = 0; i < moves.length; i++) {
-    const move = moves[i];
-    const color = state.turn;
-    const evalBefore = currentSearch.scoreWhite;
-    const bestMove = currentSearch.bestMove;
+    for (let i = 0; i < moves.length; i++) {
+      const move = moves[i];
+      const color = state.turn;
+      const evalBefore = currentSearch.scoreWhite;
+      const bestMove = currentSearch.bestMove;
 
-    const nextState = makeMove(state, move.from, move.to);
-    if (!nextState) return null;
+      const nextState = makeMove(state, move.from, move.to);
+      if (!nextState) return null;
 
-    const nextSearch = await runtime.search(nextState.moveHistory, depth);
-    const evalAfter = nextSearch.scoreWhite;
-    const bestEval = evalBefore;
-    const evalDelta = color === 'white' ? bestEval - evalAfter : evalAfter - bestEval;
+      const nextSearch = await runtime.search(nextState.moveHistory, depth);
+      const evalAfter = nextSearch.scoreWhite;
+      const bestEval = evalBefore;
+      const evalDelta = color === 'white' ? bestEval - evalAfter : evalAfter - bestEval;
 
-    const isExactBestMove = Boolean(
-      bestMove
-      && bestMove.from.row === move.from.row
-      && bestMove.from.col === move.from.col
-      && bestMove.to.row === move.to.row
-      && bestMove.to.col === move.to.col,
-    );
+      const isExactBestMove = Boolean(
+        bestMove
+        && bestMove.from.row === move.from.row
+        && bestMove.from.col === move.from.col
+        && bestMove.to.row === move.to.row
+        && bestMove.to.col === move.to.col,
+      );
 
-    const classification = classifyMove(evalDelta, isExactBestMove);
+      const classification = classifyMove(evalDelta, isExactBestMove);
 
-    analyzedMoves.push({
-      move,
-      moveIndex: i,
-      evalBefore,
-      evalAfter,
-      evalDelta,
-      bestMove,
-      bestEval,
-      classification,
-      color,
-    });
+      analyzedMoves.push({
+        move,
+        moveIndex: i,
+        evalBefore,
+        evalAfter,
+        evalDelta,
+        bestMove,
+        bestEval,
+        classification,
+        color,
+      });
 
-    if (color === 'white') {
-      whiteSummary[classification]++;
-      whiteClassifications.push(classification);
-    } else {
-      blackSummary[classification]++;
-      blackClassifications.push(classification);
+      if (color === 'white') {
+        whiteSummary[classification]++;
+        whiteClassifications.push(classification);
+      } else {
+        blackSummary[classification]++;
+        blackClassifications.push(classification);
+      }
+
+      state = nextState;
+      currentSearch = nextSearch;
+      evaluations.push(evalAfter);
+      onProgress?.({ current: i + 1, total: moves.length, done: i === moves.length - 1 });
     }
 
-    state = nextState;
-    currentSearch = nextSearch;
-    evaluations.push(evalAfter);
-    onProgress?.({ current: i + 1, total: moves.length, done: i === moves.length - 1 });
+    return {
+      moves: analyzedMoves,
+      evaluations,
+      engine: 'fairy-stockfish' satisfies AnalysisEngine,
+      whiteAccuracy: computeAccuracy(whiteClassifications),
+      blackAccuracy: computeAccuracy(blackClassifications),
+      summary: { white: whiteSummary, black: blackSummary },
+    };
+  } catch {
+    runtimePromise = null;
+    return null;
   }
-
-  return {
-    moves: analyzedMoves,
-    evaluations,
-    engine: 'fairy-stockfish' satisfies AnalysisEngine,
-    whiteAccuracy: computeAccuracy(whiteClassifications),
-    blackAccuracy: computeAccuracy(blackClassifications),
-    summary: { white: whiteSummary, black: blackSummary },
-  };
 }

@@ -22,6 +22,7 @@ import type { BestMoveResponse, ErrorResponse } from '../workers/botWorker';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
+const EXTERNAL_BOT_TIMEOUT_MS = 6000;
 
 export default function BotGame() {
   const navigate = useNavigate();
@@ -76,8 +77,15 @@ export default function BotGame() {
       }
 
       const requestId = ++botRequestIdRef.current;
+      const timer = setTimeout(() => {
+        cleanup();
+        botWorkerRef.current?.terminate();
+        botWorkerRef.current = null;
+        reject(new Error('Bot engine timed out'));
+      }, EXTERNAL_BOT_TIMEOUT_MS);
 
       const cleanup = () => {
+        clearTimeout(timer);
         worker?.removeEventListener('message', handleMessage);
         worker?.removeEventListener('error', handleError);
       };
