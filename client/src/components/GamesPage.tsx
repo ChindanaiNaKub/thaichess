@@ -6,10 +6,16 @@ import Header from './Header';
 
 interface GameEntry {
   id: string;
+  white_name: string;
+  black_name: string;
   result: string;
   result_reason: string;
   rated?: number;
   game_mode?: string;
+  white_rating_before?: number | null;
+  black_rating_before?: number | null;
+  white_rating_after?: number | null;
+  black_rating_after?: number | null;
   time_control_initial: number;
   time_control_increment: number;
   move_count: number;
@@ -25,6 +31,11 @@ function formatResult(result: string, reason: string): { text: string; color: st
   if (result === 'draw') return { text: '½-½', color: 'text-accent' };
   if (result === 'white') return { text: '1-0', color: 'text-text-bright' };
   return { text: '0-1', color: 'text-text-bright' };
+}
+
+function formatPlayerLabel(name: string, rating: number | null | undefined): string {
+  const displayName = name.trim() || 'Anonymous';
+  return typeof rating === 'number' ? `${displayName} (${rating})` : displayName;
 }
 
 export default function GamesPage() {
@@ -134,6 +145,8 @@ export default function GamesPage() {
                 <tbody>
                   {games.map(game => {
                     const result = formatResult(game.result, game.result_reason);
+                    const whiteRating = game.white_rating_before ?? game.white_rating_after ?? null;
+                    const blackRating = game.black_rating_before ?? game.black_rating_after ?? null;
                     return (
                       <tr
                         key={game.id}
@@ -143,6 +156,9 @@ export default function GamesPage() {
                         <td className="px-3 sm:px-4 py-3">
                           <div className="flex flex-col gap-1">
                             <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
+                            <span className="text-text-bright text-xs sm:text-sm truncate block max-w-[220px] sm:max-w-[340px]">
+                              {formatPlayerLabel(game.white_name, whiteRating)} vs {formatPlayerLabel(game.black_name, blackRating)}
+                            </span>
                             <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
                               game.rated
                                 ? 'bg-primary/15 text-primary-light'

@@ -150,7 +150,12 @@ vi.mock('../components/Board', () => ({
 }));
 
 vi.mock('../components/Clock', () => ({
-  default: (props: any) => <div data-testid="clock">{props.playerName}</div>,
+  default: (props: any) => (
+    <div data-testid="clock">
+      {props.playerName}
+      {typeof props.rating === 'number' ? ` (${props.rating})` : ''}
+    </div>
+  ),
 }));
 
 vi.mock('../components/MoveHistory', () => ({
@@ -235,6 +240,8 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     playerColor: 'white',
     whitePlayerName: 'White Player',
     blackPlayerName: 'Black Player',
+    whiteRating: null,
+    blackRating: null,
     moveHistory: [],
     gameOver: false,
     winner: null,
@@ -341,15 +348,32 @@ describe('GamePage', () => {
     expect(screen.queryByText('game.opponent')).not.toBeInTheDocument();
   });
 
+  it('shows live player ratings from the joined game state', async () => {
+    renderGamePage('/game/rated-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload({
+        whitePlayerName: 'MifiAndPrab',
+        blackPlayerName: 'RivalPlayer',
+        whiteRating: 1612,
+        blackRating: 1588,
+      }));
+    });
+
+    expect(screen.getByText('MifiAndPrab (1612)')).toBeInTheDocument();
+    expect(screen.getByText('RivalPlayer (1588)')).toBeInTheDocument();
+  });
+
   it('renders waiting-room state, copies the invite link, and plays the start sound on transition to playing', async () => {
     renderGamePage('/game/waiting-room');
 
     await act(async () => {
-      emitSocketEvent('game_joined', joinPayload({ status: 'waiting' }));
+      emitSocketEvent('game_joined', joinPayload({ status: 'waiting', whiteRating: 1720 }));
     });
 
     expect(screen.getByText('game.waiting_title')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'game.copy' })).toBeInTheDocument();
+    expect(screen.getByText('leaderboard.col_rating 1720')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'game.copy' }));
 

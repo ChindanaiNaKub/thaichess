@@ -25,6 +25,7 @@ export class GameManager {
       ownerPlayerId?: string;
       ownerUserId?: string | null;
       ownerDisplayName?: string | null;
+      ownerRating?: number | null;
       ownerColorPreference?: PrivateGameColorPreference;
       gameMode?: GameMode;
       rated?: boolean;
@@ -49,6 +50,8 @@ export class GameManager {
       blackUserId: options.ownerSocketId && resolvedOwnerColor === 'black' ? (options.ownerUserId ?? null) : null,
       whitePlayerName: options.ownerSocketId && resolvedOwnerColor === 'white' ? (options.ownerDisplayName ?? null) : null,
       blackPlayerName: options.ownerSocketId && resolvedOwnerColor === 'black' ? (options.ownerDisplayName ?? null) : null,
+      whiteRating: options.ownerSocketId && resolvedOwnerColor === 'white' ? (options.ownerRating ?? null) : null,
+      blackRating: options.ownerSocketId && resolvedOwnerColor === 'black' ? (options.ownerRating ?? null) : null,
       spectators: [],
       gameState,
       timeControl,
@@ -74,7 +77,7 @@ export class GameManager {
   joinGame(
     gameId: string,
     socketId: string,
-    options: { playerId?: string; userId?: string | null; displayName?: string | null } = {},
+    options: { playerId?: string; userId?: string | null; displayName?: string | null; rating?: number | null } = {},
   ): { room: GameRoom; color: PieceColor; reconnected: boolean } | null {
     const room = this.games.get(gameId);
     if (!room) return null;
@@ -95,6 +98,7 @@ export class GameManager {
       room.white = socketId;
       room.whiteUserId = options.userId ?? room.whiteUserId;
       room.whitePlayerName = options.displayName ?? room.whitePlayerName;
+      room.whiteRating = options.rating ?? room.whiteRating;
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
@@ -109,6 +113,7 @@ export class GameManager {
       room.black = socketId;
       room.blackUserId = options.userId ?? room.blackUserId;
       room.blackPlayerName = options.displayName ?? room.blackPlayerName;
+      room.blackRating = options.rating ?? room.blackRating;
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'black');
@@ -121,6 +126,7 @@ export class GameManager {
       room.whitePlayerId = playerId;
       room.whiteUserId = options.userId ?? null;
       room.whitePlayerName = options.displayName ?? null;
+      room.whiteRating = options.rating ?? null;
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
@@ -137,6 +143,7 @@ export class GameManager {
       room.blackPlayerId = playerId;
       room.blackUserId = options.userId ?? null;
       room.blackPlayerName = options.displayName ?? null;
+      room.blackRating = options.rating ?? null;
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'black');
@@ -312,6 +319,8 @@ export class GameManager {
     newRoom.blackUserId = oldRoom.whiteUserId;
     newRoom.whitePlayerName = oldRoom.blackPlayerName;
     newRoom.blackPlayerName = oldRoom.whitePlayerName;
+    newRoom.whiteRating = oldRoom.blackRating;
+    newRoom.blackRating = oldRoom.whiteRating;
     newRoom.gameMode = oldRoom.gameMode;
     newRoom.rated = oldRoom.rated;
 
@@ -503,11 +512,13 @@ export class GameManager {
       room.whitePlayerId = null;
       room.whiteUserId = null;
       room.whitePlayerName = null;
+      room.whiteRating = null;
     }
     if (room.status === 'waiting' && leavingBlack) {
       room.blackPlayerId = null;
       room.blackUserId = null;
       room.blackPlayerName = null;
+      room.blackRating = null;
     }
     room.spectators = room.spectators.filter((spectatorId) => spectatorId !== socketId);
     this.socketGames.delete(socketId);
@@ -543,6 +554,8 @@ export class GameManager {
       playerColor: playerColor,
       whitePlayerName: room.whitePlayerName,
       blackPlayerName: room.blackPlayerName,
+      whiteRating: room.whiteRating,
+      blackRating: room.blackRating,
       drawOffer: room.drawOffer,
       gameId: room.id,
       gameMode: room.gameMode,

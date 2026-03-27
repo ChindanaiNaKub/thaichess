@@ -114,6 +114,12 @@ export default function AccountPage() {
           {error && <p className="text-sm text-danger mt-4">{error}</p>}
 
           <div className="mt-6 pt-6 border-t border-surface-hover space-y-3">
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="w-full py-2 rounded-lg border border-surface-hover text-text"
+            >
+              {t('leaderboard.title')}
+            </button>
             {user.role === 'admin' && (
               <button
                 onClick={() => navigate('/feedback')}

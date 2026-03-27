@@ -34,6 +34,7 @@ describe('GameManager', () => {
       ownerSocketId: 'creator-socket',
       ownerUserId: 'creator-user',
       ownerDisplayName: 'CreatorName',
+      ownerRating: 1675,
       ownerColorPreference: 'black',
       gameMode: 'private',
       rated: false,
@@ -44,8 +45,8 @@ describe('GameManager', () => {
     expect(room.blackUserId).toBe('creator-user');
     expect(manager.getPlayerGame('creator-socket')).toBe(room.id);
 
-    const creatorJoin = manager.joinGame(room.id, 'creator-socket', { userId: 'creator-user', displayName: 'CreatorName' });
-    const guestJoin = manager.joinGame(room.id, 'guest-socket', { userId: 'guest-user', displayName: 'GuestName' });
+    const creatorJoin = manager.joinGame(room.id, 'creator-socket', { userId: 'creator-user', displayName: 'CreatorName', rating: 1675 });
+    const guestJoin = manager.joinGame(room.id, 'guest-socket', { userId: 'guest-user', displayName: 'GuestName', rating: 1520 });
 
     expect(creatorJoin).toMatchObject({ color: 'black' });
     expect(guestJoin).toMatchObject({ color: 'white' });
@@ -53,6 +54,8 @@ describe('GameManager', () => {
     expect(manager.getGame(room.id)?.whiteUserId).toBe('guest-user');
     expect(manager.getGame(room.id)?.whitePlayerName).toBe('GuestName');
     expect(manager.getGame(room.id)?.blackPlayerName).toBe('CreatorName');
+    expect(manager.getGame(room.id)?.whiteRating).toBe(1520);
+    expect(manager.getGame(room.id)?.blackRating).toBe(1675);
   });
 
   it('rejects moves from non-players and from the wrong turn', () => {
@@ -184,8 +187,8 @@ describe('GameManager', () => {
   it('updates reconnecting player sockets and exposes client state metadata', () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-old', { displayName: 'WhiteUser' });
-    manager.joinGame(room.id, 'black-old', { displayName: 'BlackUser' });
+    manager.joinGame(room.id, 'white-old', { displayName: 'WhiteUser', rating: 1601 });
+    manager.joinGame(room.id, 'black-old', { displayName: 'BlackUser', rating: 1584 });
 
     manager.offerDraw(room.id, 'white-old');
     manager.handleDisconnect('white-old');
@@ -203,6 +206,8 @@ describe('GameManager', () => {
     expect(clientState.gameId).toBe(room.id);
     expect(clientState.whitePlayerName).toBe('WhiteUser');
     expect(clientState.blackPlayerName).toBe('BlackUser');
+    expect(clientState.whiteRating).toBe(1601);
+    expect(clientState.blackRating).toBe(1584);
   });
 
   it('returns null for blocking-game lookup once a game is finished', () => {

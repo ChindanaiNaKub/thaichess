@@ -389,6 +389,14 @@ export default function GamePage() {
 
   // Waiting room
   if (gameState && gameState.status === 'waiting') {
+    const waitingPlayerName = playerColor === 'white'
+      ? gameState.whitePlayerName?.trim() || user?.username?.trim() || (user?.email ? user.email.split('@')[0] : '') || t('common.you')
+      : gameState.blackPlayerName?.trim() || user?.username?.trim() || (user?.email ? user.email.split('@')[0] : '') || t('common.you');
+    const waitingPlayerRating = playerColor === 'white'
+      ? gameState.whiteRating
+      : playerColor === 'black'
+        ? gameState.blackRating
+        : null;
     return (
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
@@ -398,6 +406,21 @@ export default function GamePage() {
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />
             <h2 className="text-xl sm:text-2xl font-bold text-text-bright mb-2">{t('game.waiting_title')}</h2>
             <p className="text-text-dim mb-6 text-sm sm:text-base">{t('game.waiting_desc')}</p>
+
+            <div className="mb-4 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-left">
+              <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('game.playing_as_label')}</div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-base font-semibold text-text-bright">{waitingPlayerName}</div>
+                  <div className="text-xs text-text-dim">{playerColor ? t(`common.${playerColor}`) : t('common.you')}</div>
+                </div>
+                {typeof waitingPlayerRating === 'number' && (
+                  <span className="rounded-full border border-surface-hover bg-surface-alt px-3 py-1 text-xs font-semibold text-text-bright">
+                    {t('leaderboard.col_rating')} {waitingPlayerRating}
+                  </span>
+                )}
+              </div>
+            </div>
 
             <div className="flex items-center gap-2 bg-surface rounded-lg p-2 mb-4">
               <input
@@ -418,9 +441,6 @@ export default function GamePage() {
               </button>
             </div>
 
-            <p className="text-text-dim text-xs sm:text-sm">
-              {t('game.playing_as', { color: playerColor ? t(`common.${playerColor}`) : '' })}
-            </p>
             <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
               gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim border border-surface-hover'
             }`}>
@@ -476,20 +496,22 @@ export default function GamePage() {
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
   const whitePlayerName = gameState.whitePlayerName?.trim() || '';
   const blackPlayerName = gameState.blackPlayerName?.trim() || '';
+  const whiteRating = gameState.whiteRating
+    ?? (gameOverInfo?.ratingChange ? gameOverInfo.ratingChange.whiteBefore : null);
+  const blackRating = gameState.blackRating
+    ?? (gameOverInfo?.ratingChange ? gameOverInfo.ratingChange.blackBefore : null);
   const myDisplayName = playerColor === 'white'
     ? whitePlayerName || user?.username?.trim() || (user?.email ? user.email.split('@')[0] : '') || t('common.you')
     : blackPlayerName || user?.username?.trim() || (user?.email ? user.email.split('@')[0] : '') || t('common.you');
   const opponentDisplayName = opponentColor === 'white'
     ? whitePlayerName || t('game.opponent')
     : blackPlayerName || t('game.opponent');
-  const playerRating = typeof user?.rating === 'number'
-    ? user.rating
-    : gameOverInfo?.ratingChange
-      ? (playerColor === 'white' ? gameOverInfo.ratingChange.whiteBefore : gameOverInfo.ratingChange.blackBefore)
+  const playerRating = playerColor === 'white'
+    ? whiteRating
+    : playerColor === 'black'
+      ? blackRating
       : null;
-  const opponentRating = gameOverInfo?.ratingChange
-    ? (opponentColor === 'white' ? gameOverInfo.ratingChange.whiteBefore : gameOverInfo.ratingChange.blackBefore)
-    : null;
+  const opponentRating = opponentColor === 'white' ? whiteRating : blackRating;
   const playerSubtitle = t(playerColor === 'white' ? 'common.white' : 'common.black');
   const opponentSubtitle = t(opponentColor === 'white' ? 'common.white' : 'common.black');
   const playerStatus = gameState.status === 'playing' && gameState.turn === playerColor ? 'active' : 'online';

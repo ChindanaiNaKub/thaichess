@@ -247,6 +247,12 @@ export default function HomePage() {
                   >
                     {t('home.find_opponent')}
                   </button>
+                  <button
+                    onClick={() => navigate(routes.leaderboard)}
+                    className="w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
+                  >
+                    {t('leaderboard.title')}
+                  </button>
                   <p className="text-xs sm:text-sm text-text-dim">
                     {t('quick.rated_available')}
                   </p>

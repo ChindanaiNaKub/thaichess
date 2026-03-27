@@ -44,10 +44,14 @@ describe('GamesPage', () => {
         games: [
           {
             id: 'rated-1',
+            white_name: 'Rated White',
+            black_name: 'Rated Black',
             result: 'white',
             result_reason: 'checkmate',
             rated: 1,
             game_mode: 'quick_play',
+            white_rating_before: 1500,
+            black_rating_before: 1500,
             time_control_initial: 300,
             time_control_increment: 0,
             move_count: 32,
@@ -55,6 +59,8 @@ describe('GamesPage', () => {
           },
           {
             id: 'casual-1',
+            white_name: 'Guest One',
+            black_name: 'Guest Two',
             result: 'draw',
             result_reason: 'draw',
             rated: 0,
@@ -78,6 +84,8 @@ describe('GamesPage', () => {
 
     expect(screen.getByText('Rated')).toBeInTheDocument();
     expect(screen.getByText('Casual')).toBeInTheDocument();
+    expect(screen.getByText('Rated White (1500) vs Rated Black (1500)')).toBeInTheDocument();
+    expect(screen.getByText('Guest One vs Guest Two')).toBeInTheDocument();
   });
 
   it('opens finished games in analysis instead of the live game route', async () => {
@@ -86,6 +94,8 @@ describe('GamesPage', () => {
         games: [
           {
             id: 'finished-1',
+            white_name: 'White Side',
+            black_name: 'Black Side',
             result: 'white',
             result_reason: 'timeout',
             rated: 1,

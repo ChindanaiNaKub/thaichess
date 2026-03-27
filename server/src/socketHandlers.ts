@@ -171,6 +171,8 @@ function tryMatchmakeQueue(deps: SocketHandlerDeps) {
       room.blackUserId = blackEntry.userId;
       room.whitePlayerName = whiteEntry.displayName;
       room.blackPlayerName = blackEntry.displayName;
+      room.whiteRating = whiteEntry.rating;
+      room.blackRating = blackEntry.rating;
       room.status = 'playing';
       room.gameState.lastMoveTime = Date.now();
 
@@ -215,6 +217,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         ownerPlayerId: socket.data.playerId,
         ownerUserId: socket.data.authUser?.id ?? null,
         ownerDisplayName: getSocketDisplayName(socket),
+        ownerRating: socket.data.authUser?.rating ?? null,
         ownerColorPreference: payload.colorPreference,
         gameMode: 'private',
         rated: false,
@@ -262,6 +265,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
         displayName: getSocketDisplayName(socket),
+        rating: socket.data.authUser?.rating ?? null,
       });
       if (!result) {
         rejectSocketEvent(deps.monitoring, socket, 'join_game', 'Unable to join game. Game may be full or not found.', { gameId });
@@ -533,6 +537,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
         displayName: getSocketDisplayName(socket),
+        rating: socket.data.authUser?.rating ?? null,
       });
       socket.emit('matchmaking_started');
       broadcastQueueStatus(deps.io, deps.matchmaking);
