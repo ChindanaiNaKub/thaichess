@@ -35,7 +35,6 @@ export default function BotGame() {
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
-  const [engineStatus, setEngineStatus] = useState<'unknown' | 'fairy-stockfish' | 'fallback'>('unknown');
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botWorkerRef = useRef<Worker | null>(null);
   const botRequestIdRef = useRef(0);
@@ -148,7 +147,6 @@ export default function BotGame() {
       const fallbackMove = () => finishMove(getBotMove(currentState, difficulty));
 
       if (difficulty !== 'hard') {
-        setEngineStatus('fallback');
         fallbackMove();
         return;
       }
@@ -160,7 +158,6 @@ export default function BotGame() {
             return;
           }
 
-          setEngineStatus(move ? 'fairy-stockfish' : 'fallback');
           finishMove(move ?? getBotMove(currentState, difficulty));
         })
         .catch(() => {
@@ -169,7 +166,6 @@ export default function BotGame() {
             return;
           }
 
-          setEngineStatus('fallback');
           fallbackMove();
         });
     }, delay);
@@ -400,7 +396,6 @@ export default function BotGame() {
     setGameOverInfo(null);
     setShowGameOverModal(false);
     setBotThinking(false);
-    setEngineStatus(difficulty === 'hard' ? 'unknown' : 'fallback');
     setGameStarted(true);
     setArrows([]);
     setViewMoveIndex(null);
@@ -419,7 +414,6 @@ export default function BotGame() {
     setGameOverInfo(null);
     setShowGameOverModal(false);
     setBotThinking(false);
-    setEngineStatus('unknown');
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
@@ -659,23 +653,6 @@ export default function BotGame() {
 
           <div className="flex flex-col gap-3 lg:w-72 w-full max-w-[720px]">
             {/* Turn indicator (only during play) */}
-            <div className="rounded-lg px-4 py-2 bg-surface-alt text-xs text-text border border-surface-hover flex items-center justify-between gap-2">
-              <span className="uppercase tracking-wide font-semibold text-text-dim">{t('engine.label')}</span>
-              <span className={
-                engineStatus === 'fairy-stockfish'
-                  ? 'text-primary-light font-semibold'
-                  : engineStatus === 'fallback'
-                  ? 'text-text'
-                  : 'text-text-dim'
-              }>
-                {engineStatus === 'fairy-stockfish'
-                  ? t('engine.external')
-                  : engineStatus === 'fallback'
-                  ? t('engine.fallback')
-                  : t('engine.pending')}
-              </span>
-            </div>
-
             {!gameState.gameOver && (
               <div className={`
                 rounded-lg px-4 py-3 text-center font-semibold text-sm

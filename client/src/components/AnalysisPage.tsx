@@ -473,16 +473,7 @@ export default function AnalysisPage() {
             {/* Accuracy Summary */}
             {analysis && (
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <h3 className="text-sm font-semibold text-text-bright">{t('analysis.accuracy')}</h3>
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                    analysis.engine === 'fairy-stockfish'
-                      ? 'border-primary/40 bg-primary/15 text-primary-light'
-                      : 'border-white/10 bg-surface-hover text-text'
-                  }`}>
-                    {analysis.engine === 'fairy-stockfish' ? t('analysis.engine_external') : t('analysis.engine_fallback')}
-                  </span>
-                </div>
+                <h3 className="text-sm font-semibold text-text-bright mb-3">{t('analysis.accuracy')}</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <AccuracyCard color="white" accuracy={analysis.whiteAccuracy} summary={analysis.summary.white} t={t} />
                   <AccuracyCard color="black" accuracy={analysis.blackAccuracy} summary={analysis.summary.black} t={t} />
