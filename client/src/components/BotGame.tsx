@@ -518,7 +518,7 @@ export default function BotGame() {
 
       {/* Premove indicator */}
       {premove && (
-        <div className="bg-blue-900/30 border-b border-blue-500/30 text-center py-1.5 text-xs text-blue-300 flex items-center justify-center gap-2">
+        <div className="border-b border-primary/15 bg-primary/8 text-center py-1.5 text-xs text-primary-light flex items-center justify-center gap-2">
           <span>{t('game.premove_set')}</span>
           <button
             onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}

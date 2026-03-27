@@ -10,9 +10,24 @@ interface GameOverPanelProps {
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
+  rematchLabel?: string;
+  rematchDisabled?: boolean;
+  rematchNotice?: string | null;
 }
 
-export default function GameOverPanel({ winner, reason, playerColor, rated = false, ratingChange = null, onRematch, onNewGame, onAnalyze }: GameOverPanelProps) {
+export default function GameOverPanel({
+  winner,
+  reason,
+  playerColor,
+  rated = false,
+  ratingChange = null,
+  onRematch,
+  onNewGame,
+  onAnalyze,
+  rematchLabel,
+  rematchDisabled = false,
+  rematchNotice = null,
+}: GameOverPanelProps) {
   const { t } = useTranslation();
   const isDraw = !winner;
   const isWinner = winner === playerColor;
@@ -49,7 +64,6 @@ export default function GameOverPanel({ winner, reason, playerColor, rated = fal
 
   return (
     <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
-      {/* Result header */}
       <div className={`px-4 py-3 text-center border-b border-surface-hover ${
         isDraw
           ? 'bg-accent/10'
@@ -65,7 +79,7 @@ export default function GameOverPanel({ winner, reason, playerColor, rated = fal
         <div className="text-xs text-text-dim">
           {getResultLabel()} · {getReasonText()}
         </div>
-        <div className="mt-2 flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em]">
+        <div className="mt-2 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.18em]">
           <span className={`rounded-full px-2 py-1 ${
             rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
           }`}>
@@ -79,29 +93,36 @@ export default function GameOverPanel({ winner, reason, playerColor, rated = fal
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="p-3 flex flex-col gap-2">
-        {onAnalyze && (
-          <button
-            onClick={onAnalyze}
-            className="w-full py-2.5 px-4 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-semibold text-sm rounded-lg border border-blue-600/30 transition-colors"
-          >
-            🔍 {t('analysis.analyze')}
-          </button>
-        )}
-        <div className="flex gap-2">
-          <button
-            onClick={onRematch}
-            className="flex-1 py-2.5 px-3 bg-primary hover:bg-primary-light text-white font-semibold text-sm rounded-lg transition-colors"
-          >
-            {t('gameover.rematch')}
-          </button>
-          <button
-            onClick={onNewGame}
-            className="flex-1 py-2.5 px-3 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold text-sm rounded-lg transition-colors"
-          >
-            {t('common.new_game')}
-          </button>
+      <div className="grid gap-2 p-2.5">
+        <div className="grid gap-2">
+          {rematchNotice && (
+            <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-center text-[11px] font-medium text-primary-light">
+              {rematchNotice}
+            </div>
+          )}
+          {onAnalyze && (
+            <button
+              onClick={onAnalyze}
+              className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-semibold text-xs rounded-lg border border-blue-600/30 transition-colors"
+            >
+              {t('analysis.analyze')}
+            </button>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onRematch}
+              disabled={rematchDisabled}
+              className="w-full py-2 px-2 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg transition-colors"
+            >
+              {rematchLabel ?? t('gameover.rematch')}
+            </button>
+            <button
+              onClick={onNewGame}
+              className="w-full py-2 px-2 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold text-xs rounded-lg transition-colors"
+            >
+              {t('common.new_game')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

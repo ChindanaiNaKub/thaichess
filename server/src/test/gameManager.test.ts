@@ -96,6 +96,44 @@ describe('GameManager', () => {
     expect(manager.createRematch(room.id)).toBeNull();
   });
 
+  it('stores a rematch offer until the opponent explicitly accepts it', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+    manager.resign(room.id, 'white-socket');
+
+    const offered = manager.requestRematch(room.id, 'white-socket');
+    expect(offered).toEqual({
+      kind: 'offered',
+      by: 'white',
+      opponentSocketId: 'black-socket',
+    });
+
+    const accepted = manager.requestRematch(room.id, 'black-socket');
+    expect(accepted?.kind).toBe('accepted');
+    expect(accepted?.room?.white).toBe('black-socket');
+    expect(accepted?.room?.black).toBe('white-socket');
+    expect(accepted?.room?.status).toBe('playing');
+  });
+
+  it('treats rematch offers as unavailable once the opponent leaves the finished game', () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+    manager.resign(room.id, 'white-socket');
+
+    manager.requestRematch(room.id, 'white-socket');
+    manager.leaveGame('white-socket', room.id);
+
+    expect(manager.requestRematch(room.id, 'black-socket')).toEqual({
+      kind: 'unavailable',
+      by: 'black',
+      opponentSocketId: null,
+    });
+  });
+
   it('cleans up stale waiting, finished, and disconnected games', () => {
     const manager = new GameManager();
 

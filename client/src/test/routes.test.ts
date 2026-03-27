@@ -11,4 +11,10 @@ describe('routes', () => {
     expect(routes.liveGamePattern).toBe('/game/:gameId');
     expect(routes.analysisPattern).toBe('/analysis/:gameId');
   });
+
+  it('exposes the evergreen guide routes for SEO pages', () => {
+    expect(routes.whatIsMakruk).toBe('/what-is-makruk');
+    expect(routes.howToPlayMakruk).toBe('/how-to-play-makruk');
+    expect(routes.playMakrukOnline).toBe('/play-makruk-online');
+  });
 });

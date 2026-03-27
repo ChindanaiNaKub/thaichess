@@ -62,31 +62,33 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
       <div className="px-3 py-2 border-b border-surface-hover">
         <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
       </div>
-      <div ref={scrollRef} className="max-h-[300px] overflow-y-auto p-1">
+      <div ref={scrollRef} className="max-h-[240px] overflow-y-auto p-1 lg:max-h-[168px]">
         {movePairs.length === 0 ? (
           <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
         ) : (
-          <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-sm">
+          <div className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 text-sm lg:text-[13px]">
             {movePairs.map(({ num, white, black, whiteIdx, blackIdx }) => (
               <div key={num} className="contents">
-                <span className="text-text-dim px-2 py-0.5 text-right">{num}.</span>
+                <span className="text-text-dim px-1.5 py-0.5 text-right">{num}.</span>
                 <span
                   ref={activeIndex === whiteIdx ? activeMoveRef : undefined}
-                  className={`text-text-bright px-2 py-0.5 font-mono ${
+                  className={`text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
                     activeIndex === whiteIdx ? 'move-active' : 'move-clickable'
                   }`}
                   onClick={() => onMoveClick?.(whiteIdx)}
+                  title={white}
                 >
                   {white}
                 </span>
                 <span
                   ref={activeIndex === blackIdx ? activeMoveRef : undefined}
-                  className={`text-text-bright px-2 py-0.5 font-mono ${
+                  className={`text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
                     black
                       ? activeIndex === blackIdx ? 'move-active' : 'move-clickable'
                       : ''
                   }`}
                   onClick={() => black && onMoveClick?.(blackIdx)}
+                  title={black}
                 >
                   {black || ''}
                 </span>
@@ -97,7 +99,7 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
       </div>
 
       {onMoveClick && moves.length > 0 && (
-        <div className="flex items-center justify-center gap-1 px-3 py-2 border-t border-surface-hover">
+        <div className="flex items-center justify-center gap-1 px-3 py-2 border-t border-surface-hover lg:py-1.5">
           <button
             onClick={() => onMoveClick(-1)}
             className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
