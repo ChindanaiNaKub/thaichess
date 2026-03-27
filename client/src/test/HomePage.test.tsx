@@ -65,6 +65,12 @@ describe('HomePage', () => {
     socketMock.once.mockReset();
   });
 
+  it('does not render the home-page rules section', () => {
+    render(<HomePage />, { wrapper });
+
+    expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
+  });
+
   function openCreatePanel() {
     fireEvent.click(screen.getByRole('button', { name: /create a private game/i }));
   }

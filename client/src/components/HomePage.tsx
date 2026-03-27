@@ -427,37 +427,6 @@ export default function HomePage() {
             </aside>
           </section>
 
-          <div className="mx-auto w-full max-w-2xl">
-            <details className="bg-surface-alt border border-surface-hover rounded-2xl overflow-hidden">
-              <summary className="px-5 sm:px-6 py-4 cursor-pointer text-text-bright display font-semibold hover:bg-surface-hover transition-colors">
-                {t('home.rules_title')}
-              </summary>
-              <div className="px-5 sm:px-6 pb-5 text-text-dim text-sm space-y-3">
-                <p>{t('home.rules_intro')}</p>
-                <div>
-                  <strong className="text-text-bright">{t('home.rules_pieces')}</strong>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>{t('home.piece_king')}</li>
-                    <li>{t('home.piece_queen')}</li>
-                    <li>{t('home.piece_bishop')}</li>
-                    <li>{t('home.piece_rook')}</li>
-                    <li>{t('home.piece_knight')}</li>
-                    <li>{t('home.piece_pawn')}</li>
-                  </ul>
-                </div>
-                <div>
-                  <strong className="text-text-bright">{t('home.rules_special')}</strong>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>{t('home.rule_pawn_rank')}</li>
-                    <li>{t('home.rule_promote')}</li>
-                    <li>{t('home.rule_no_special')}</li>
-                    <li>{t('home.rule_checkmate')}</li>
-                  </ul>
-                </div>
-              </div>
-            </details>
-          </div>
-
           <section className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
