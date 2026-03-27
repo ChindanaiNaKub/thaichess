@@ -34,6 +34,16 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  }
+
+  next();
+});
+
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
 app.set('trust proxy', 1);
 
