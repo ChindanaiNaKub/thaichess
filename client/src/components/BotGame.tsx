@@ -23,6 +23,7 @@ import type { BestMoveResponse, ErrorResponse } from '../workers/botWorker';
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
 const EXTERNAL_BOT_TIMEOUT_MS = 6000;
+const HARD_BOT_FAILSAFE_TIMEOUT_MS = 9000;
 
 export default function BotGame() {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ export default function BotGame() {
   const [botThinking, setBotThinking] = useState(false);
   const [engineStatus, setEngineStatus] = useState<'unknown' | 'fairy-stockfish' | 'fallback'>('unknown');
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botFailsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botWorkerRef = useRef<Worker | null>(null);
   const botRequestIdRef = useRef(0);
   const gameStateRef = useRef(gameState);
@@ -59,6 +61,7 @@ export default function BotGame() {
       botWorkerRef.current?.terminate();
       botWorkerRef.current = null;
       if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+      if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
     };
   }, []);
 
@@ -130,9 +133,17 @@ export default function BotGame() {
 
     botTimeoutRef.current = setTimeout(() => {
       const currentState = gameStateRef.current;
-      const finishMove = (botMoveResult: { from: Position; to: Position } | null) => {
+      const moveCountAtStart = currentState.moveHistory.length;
+      const canApplyBotResult = () => {
+        const latestState = gameStateRef.current;
+        return !latestState.gameOver
+          && latestState.turn === botColor
+          && latestState.moveHistory.length === moveCountAtStart;
+      };
+
+      const finishMove = (baseState: GameState, botMoveResult: { from: Position; to: Position } | null) => {
         if (botMoveResult) {
-          const newState = makeMove(currentState, botMoveResult.from, botMoveResult.to);
+          const newState = makeMove(baseState, botMoveResult.from, botMoveResult.to);
           if (newState) {
             setGameState(newState);
             setArrows([]);
@@ -153,7 +164,15 @@ export default function BotGame() {
         setBotThinking(false);
       };
 
-      const fallbackMove = () => finishMove(getBotMove(currentState, difficulty));
+      const fallbackMove = () => {
+        const latestState = gameStateRef.current;
+        if (!canApplyBotResult()) {
+          setBotThinking(false);
+          return;
+        }
+
+        finishMove(latestState, getBotMove(latestState, difficulty));
+      };
 
       if (difficulty !== 'hard') {
         setEngineStatus('fallback');
@@ -161,18 +180,39 @@ export default function BotGame() {
         return;
       }
 
+      botFailsafeRef.current = setTimeout(() => {
+        botFailsafeRef.current = null;
+
+        if (!canApplyBotResult()) {
+          setBotThinking(false);
+          return;
+        }
+
+        botWorkerRef.current?.terminate();
+        botWorkerRef.current = null;
+        setEngineStatus('fallback');
+        fallbackMove();
+      }, HARD_BOT_FAILSAFE_TIMEOUT_MS);
+
       requestExternalBotMove(currentState.moveHistory)
         .then((move) => {
-          if (gameStateRef.current !== currentState || gameStateRef.current.gameOver || gameStateRef.current.turn !== botColor) {
+          if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
+          botFailsafeRef.current = null;
+
+          if (!canApplyBotResult()) {
             setBotThinking(false);
             return;
           }
 
+          const latestState = gameStateRef.current;
           setEngineStatus(move ? 'fairy-stockfish' : 'fallback');
-          finishMove(move ?? getBotMove(currentState, difficulty));
+          finishMove(latestState, move ?? getBotMove(latestState, difficulty));
         })
         .catch(() => {
-          if (gameStateRef.current !== currentState || gameStateRef.current.gameOver || gameStateRef.current.turn !== botColor) {
+          if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
+          botFailsafeRef.current = null;
+
+          if (!canApplyBotResult()) {
             setBotThinking(false);
             return;
           }
@@ -184,6 +224,7 @@ export default function BotGame() {
 
     return () => {
       if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+      if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
     };
   }, [
     botColor,
@@ -402,6 +443,7 @@ export default function BotGame() {
     botWorkerRef.current?.terminate();
     botWorkerRef.current = null;
     if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+    if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
     setLegalMoves([]);
@@ -420,6 +462,7 @@ export default function BotGame() {
     botWorkerRef.current?.terminate();
     botWorkerRef.current = null;
     if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+    if (botFailsafeRef.current) clearTimeout(botFailsafeRef.current);
     setGameStarted(false);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
