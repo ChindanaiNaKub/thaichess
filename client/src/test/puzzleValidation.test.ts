@@ -26,6 +26,9 @@ describe('puzzleValidation', () => {
     expect(PUZZLES).toHaveLength(9);
     expect(QUARANTINED_PUZZLES).toHaveLength(10);
     expect(ALL_PUZZLES).toHaveLength(19);
+    expect(PUZZLES.every(puzzle => puzzle.reviewStatus === 'ship')).toBe(true);
+    expect(QUARANTINED_PUZZLES.every(puzzle => puzzle.reviewStatus === 'quarantine')).toBe(true);
+    expect(ALL_PUZZLES.every(puzzle => puzzle.motif.trim().length > 0)).toBe(true);
   });
 
   it('rejects puzzles with multiple winning first moves', () => {
@@ -42,7 +45,9 @@ describe('puzzleValidation', () => {
       explanation: 'Either rook can climb to the back rank, which makes the first move ambiguous.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Ambiguous rook mate',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 2 }, to: { row: 7, col: 2 } }],
@@ -79,7 +84,9 @@ describe('puzzleValidation', () => {
       explanation: 'A valid Makruk puzzle must finish with checkmate or another legal ending, never by capturing the king.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Illegal king capture',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 4 }, to: { row: 7, col: 4 } }],
@@ -106,7 +113,9 @@ describe('puzzleValidation', () => {
       explanation: 'A legal puzzle cannot start with the non-moving side already in check.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Illegal start in check',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
       toMove: 'white',
       board,
       solution: [{ from: { row: 2, col: 4 }, to: { row: 1, col: 3 } }],
