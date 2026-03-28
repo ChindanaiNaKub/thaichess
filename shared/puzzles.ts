@@ -7,13 +7,13 @@ export interface Puzzle {
   explanation: string;
   source: string;
   theme: string;
+  motif: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
+  reviewStatus: 'ship' | 'quarantine';
   toMove: PieceColor;
   board: Board;
   solution: { from: Position; to: Position }[];
 }
-
-const SHIPPED_PUZZLE_IDS = new Set([1, 6, 8, 10, 12, 13, 15, 17, 19]);
 
 type Placement = [square: string, type: PieceType, color: PieceColor];
 
@@ -66,7 +66,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook lands on the mating rank while your Khon and king cover the last escape squares.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Rook mate with khon support',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['a1', 'S', 'white'],
@@ -83,7 +85,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'Open files are deadly in Makruk. Once the rook reaches the first rank, the black king has no safe square left.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Long-file rook mate',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['g1', 'K', 'black'],
@@ -99,7 +103,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook checks across the third rank, and your king keeps the black king boxed in on the rim.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Side-rank rook mate',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['g3', 'R', 'white'],
@@ -115,7 +121,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook climbs to the back rank, while the Khon and king close every reply around the cornered king.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Rook lift mate',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['d5', 'S', 'white'],
@@ -132,7 +140,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook invades the eighth rank and the supporting pieces take away the king squares around f8.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Central rook lift mate',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['d4', 'S', 'white'],
@@ -149,7 +159,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The Met covers the key diagonals, so the rook can sweep across and deliver a clean mate on the sixth rank.',
     source: 'Starter pack: mate in 1',
     theme: 'Checkmate',
+    motif: 'Rook mate with met support',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['f3', 'M', 'white'],
@@ -166,7 +178,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'A single quiet step is enough. Once the pawn reaches the sixth rank, it becomes a promoted Met.',
     source: 'Starter pack: promotion',
     theme: 'Promotion',
+    motif: 'Supported promotion',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['g4', 'S', 'black'],
@@ -183,7 +197,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'This is the basic Makruk promotion pattern: step to the sixth rank and the Bia turns into a promoted Met.',
     source: 'Starter pack: promotion',
     theme: 'Promotion',
+    motif: 'Quiet promotion',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['b2', 'K', 'white'],
@@ -199,7 +215,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The Met and king keep the key squares under control, so the pawn can promote cleanly on the next step.',
     source: 'Starter pack: promotion',
     theme: 'Promotion',
+    motif: 'Promotion with met escort',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['f2', 'K', 'black'],
@@ -216,7 +234,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook has a clear file to the target, and taking the knight leaves White with a clean material gain.',
     source: 'Starter pack: tactic',
     theme: 'Tactic',
+    motif: 'Rook wins loose knight',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['b1', 'K', 'black'],
@@ -233,7 +253,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook can retreat and capture because the black king cannot punish it, turning a safe line into free material.',
     source: 'Starter pack: tactic',
     theme: 'Tactic',
+    motif: 'Rook wins hanging khon',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['d1', 'K', 'black'],
@@ -251,7 +273,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'Horizontal rook moves are powerful when the path is clear. Capture the black rook and keep the extra material.',
     source: 'Starter pack: tactic',
     theme: 'Tactic',
+    motif: 'Rook wins rook on open rank',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['a2', 'R', 'black'],
@@ -270,7 +294,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'Makruk Mets are small but sharp. The diagonal capture on d1 wins a full rook with no tactical drawback.',
     source: 'Starter pack: tactic',
     theme: 'Tactic',
+    motif: 'Met wins rook',
     difficulty: 'beginner',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['d1', 'R', 'black'],
@@ -287,7 +313,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'When a high-value piece is loose on an open rank, the rook should not hesitate. This capture wins material cleanly.',
     source: 'Starter pack: tactic',
     theme: 'Tactic',
+    motif: 'Rook wins loose met',
     difficulty: 'beginner',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['f2', 'K', 'black'],
@@ -305,7 +333,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The first rook move cuts the king off and forces a single reply. After that, the rook drops to d1 for mate.',
     source: 'Starter pack: mate in 2',
     theme: 'Checkmate',
+    motif: 'Rook pivot mate in 2',
     difficulty: 'intermediate',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['e1', 'K', 'black'],
@@ -323,7 +353,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook first changes files to trap the king’s path, and the follow-up on d8 completes the mating net.',
     source: 'Starter pack: mate in 2',
     theme: 'Checkmate',
+    motif: 'Back-rank rook switch mate in 2',
     difficulty: 'intermediate',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['a2', 'R', 'white'],
@@ -341,7 +373,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The rook shift to c5 restricts the king, and the knight helps make the final rook drop on c1 checkmate.',
     source: 'Starter pack: mate in 2',
     theme: 'Checkmate',
+    motif: 'Rook fence mate in 2',
     difficulty: 'intermediate',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['b1', 'K', 'black'],
@@ -358,7 +392,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'The first rook lift forces the black king one square, and the second sweep along the fifth rank closes the net.',
     source: 'Starter pack: mate in 2',
     theme: 'Checkmate',
+    motif: 'Fifth-rank rook sweep mate in 2',
     difficulty: 'intermediate',
+    reviewStatus: 'quarantine',
     toMove: 'white',
     board: board(
       ['c1', 'M', 'white'],
@@ -375,7 +411,9 @@ export const ALL_PUZZLES: Puzzle[] = [
     explanation: 'Two rooks coordinate beautifully in Makruk. The first move forces the king deeper, and the second rook lands the mate.',
     source: 'Starter pack: mate in 2',
     theme: 'Checkmate',
+    motif: 'Double rook mate in 2',
     difficulty: 'intermediate',
+    reviewStatus: 'ship',
     toMove: 'white',
     board: board(
       ['f2', 'R', 'white'],
@@ -387,9 +425,9 @@ export const ALL_PUZZLES: Puzzle[] = [
   },
 ];
 
-export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => SHIPPED_PUZZLE_IDS.has(puzzle.id));
+export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'ship');
 
-export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => !SHIPPED_PUZZLE_IDS.has(puzzle.id));
+export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'quarantine');
 
 export function getPuzzleById(id: number): Puzzle | undefined {
   return PUZZLES.find(p => p.id === id);

@@ -1,0 +1,85 @@
+import { makeMove } from './engine';
+import type { GameState, PieceType } from './types';
+import type { Puzzle } from './puzzles';
+import { createGameStateFromPuzzle, getMaterialSwing, isTacticalTheme } from './puzzleSolver';
+
+export interface PuzzleAuditRow {
+  puzzleId: number;
+  title: string;
+  reviewStatus: Puzzle['reviewStatus'];
+  motif: string;
+  family: string;
+  qualityScore: number;
+  flags: string[];
+}
+
+function getFirstMovePieceType(puzzle: Puzzle): PieceType | 'unknown' {
+  const firstMove = puzzle.solution[0];
+  if (!firstMove) return 'unknown';
+
+  return puzzle.board[firstMove.from.row]?.[firstMove.from.col]?.type ?? 'unknown';
+}
+
+function playSolution(puzzle: Puzzle): GameState | null {
+  let state = createGameStateFromPuzzle(puzzle);
+
+  for (const step of puzzle.solution) {
+    const nextState = makeMove(state, step.from, step.to);
+    if (!nextState) return null;
+    state = nextState;
+  }
+
+  return state;
+}
+
+function getPuzzleFamily(puzzle: Puzzle): string {
+  return `${puzzle.theme}:${puzzle.solution.length}:${getFirstMovePieceType(puzzle)}`;
+}
+
+export function auditPuzzles(puzzles: Puzzle[]): PuzzleAuditRow[] {
+  const familyCounts = new Map<string, number>();
+
+  for (const puzzle of puzzles) {
+    const family = getPuzzleFamily(puzzle);
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
+  }
+
+  return puzzles.map(puzzle => {
+    const family = getPuzzleFamily(puzzle);
+    const familyCount = familyCounts.get(family) ?? 1;
+    const finalState = playSolution(puzzle);
+    const materialSwing = finalState ? getMaterialSwing(puzzle, finalState) : 0;
+    const flags: string[] = [];
+    let qualityScore = 2;
+
+    if (puzzle.solution.length >= 3) qualityScore += 2;
+    else flags.push('single-move puzzle');
+
+    if (puzzle.theme === 'Promotion') qualityScore += 1;
+    if (isTacticalTheme(puzzle.theme)) qualityScore += materialSwing >= 300 ? 2 : 1;
+    if (puzzle.theme === 'Checkmate' && puzzle.solution.length >= 3) qualityScore += 1;
+
+    if (familyCount >= 3) {
+      qualityScore -= 1;
+      flags.push(`overrepresented family: ${family}`);
+    }
+
+    if (puzzle.reviewStatus === 'quarantine') {
+      flags.push('manual quarantine');
+    }
+
+    if (qualityScore <= 1) {
+      flags.push('weak candidate');
+    }
+
+    return {
+      puzzleId: puzzle.id,
+      title: puzzle.title,
+      reviewStatus: puzzle.reviewStatus,
+      motif: puzzle.motif,
+      family,
+      qualityScore,
+      flags,
+    };
+  });
+}
