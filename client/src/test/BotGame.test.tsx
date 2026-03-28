@@ -29,6 +29,13 @@ vi.mock('../lib/i18n', () => ({
   }),
 }));
 
+vi.mock('../lib/pieceStyle', () => ({
+  usePieceStyle: () => ({
+    pieceStyle: 'classic',
+    setPieceStyle: vi.fn(),
+  }),
+}));
+
 vi.mock('../lib/sounds', () => ({
   playMoveSound: vi.fn(),
   playCaptureSound: vi.fn(),
@@ -72,10 +79,6 @@ vi.mock('../components/GameOverPanel', () => ({
 
 vi.mock('../components/PieceSVG', () => ({
   default: () => <div data-testid="piece-svg" />,
-}));
-
-vi.mock('../components/CapturedPiecesPanel', () => ({
-  default: () => <div data-testid="captured-pieces" />,
 }));
 
 function renderBotGame() {

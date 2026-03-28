@@ -1,31 +1,65 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from '../lib/i18n';
 
 interface GameScreenLayoutProps {
-  boardColumn: ReactNode;
+  topPanel: ReactNode;
+  board: ReactNode;
+  bottomPanel: ReactNode;
   sidePanel: ReactNode;
-  boardColumnClassName?: string;
-  sidePanelClassName?: string;
+  statusText: ReactNode;
+  moveCount: number;
+  isViewingHistory?: boolean;
+  showCheckBadge?: boolean;
+  toolbar?: ReactNode;
 }
 
-const DEFAULT_BOARD_COLUMN_CLASS =
-  'flex flex-col items-center gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-180px)] max-w-[720px]';
-const DEFAULT_SIDE_PANEL_CLASS = 'flex flex-col gap-3 lg:w-72 w-full max-w-[720px]';
-
 export default function GameScreenLayout({
-  boardColumn,
+  topPanel,
+  board,
+  bottomPanel,
   sidePanel,
-  boardColumnClassName = DEFAULT_BOARD_COLUMN_CLASS,
-  sidePanelClassName = DEFAULT_SIDE_PANEL_CLASS,
+  statusText,
+  moveCount,
+  isViewingHistory = false,
+  showCheckBadge = false,
+  toolbar = null,
 }: GameScreenLayoutProps) {
+  const { t } = useTranslation();
+
   return (
-    <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6 py-4">
-      <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 w-full max-w-[1100px]">
-        <div className={boardColumnClassName}>
-          {boardColumn}
+    <main id="main-content" className="flex-1 min-h-0 px-3 py-2 sm:px-4 sm:py-3">
+      <div className="mx-auto grid h-full w-full max-w-[1240px] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_288px]">
+        <div className="flex min-h-0 flex-col items-center gap-1.5 w-full">
+          {topPanel}
+
+          <div className="w-full lg:w-[min(100%,calc(100dvh-15.4rem))] xl:w-[min(100%,calc(100dvh-14.8rem))]">
+            <div className="mb-1 flex items-center justify-between gap-2 px-1">
+              <div className="text-sm font-semibold text-text-bright">
+                {isViewingHistory ? t('game.reviewing_history') : statusText}
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim flex-wrap justify-end">
+                {toolbar}
+                <span className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1">
+                  {t('moves.title')} {moveCount}
+                </span>
+                {showCheckBadge && !isViewingHistory && (
+                  <span className="rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
+                    {t('game.check_status')}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-[1.75rem] border border-accent/25 bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.12),transparent_40%),linear-gradient(180deg,rgba(58,45,31,0.88),rgba(24,20,18,0.96))] p-1.5 shadow-[0_26px_70px_rgba(0,0,0,0.24)]">
+              {board}
+            </div>
+          </div>
+
+          {bottomPanel}
         </div>
-        <div className={sidePanelClassName}>
+
+        <aside className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1">
           {sidePanel}
-        </div>
+        </aside>
       </div>
     </main>
   );
