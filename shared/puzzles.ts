@@ -13,6 +13,8 @@ export interface Puzzle {
   solution: { from: Position; to: Position }[];
 }
 
+const SHIPPED_PUZZLE_IDS = new Set([1, 6, 8, 10, 12, 13, 15, 17, 19]);
+
 type Placement = [square: string, type: PieceType, color: PieceColor];
 
 function p(type: PieceType, color: PieceColor): Piece {
@@ -56,7 +58,7 @@ function line(...steps: string[]): { from: Position; to: Position }[] {
   });
 }
 
-export const PUZZLES: Puzzle[] = [
+export const ALL_PUZZLES: Puzzle[] = [
   {
     id: 1,
     title: 'Corner Clamp',
@@ -384,6 +386,10 @@ export const PUZZLES: Puzzle[] = [
     solution: line('a6-a7', 'g8-h8', 'f2-f8'),
   },
 ];
+
+export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => SHIPPED_PUZZLE_IDS.has(puzzle.id));
+
+export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => !SHIPPED_PUZZLE_IDS.has(puzzle.id));
 
 export function getPuzzleById(id: number): Puzzle | undefined {
   return PUZZLES.find(p => p.id === id);
