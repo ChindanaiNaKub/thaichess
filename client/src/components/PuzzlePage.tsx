@@ -11,6 +11,9 @@ import Header from './Header';
 import Board from './Board';
 
 type PuzzleStatus = 'playing' | 'success' | 'failed';
+type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
+
+const PUZZLE_FILTERS: PuzzleListFilter[] = ['all', 'beginner', 'intermediate', 'advanced'];
 
 function getPublicPuzzleTitle(title: string): string {
   return title
@@ -42,15 +45,61 @@ function getPuzzleSourceLabel(
 function PuzzleListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+  const [filter, setFilter] = useState<PuzzleListFilter>('all');
+  const [themeFilter, setThemeFilter] = useState<string>('all');
 
   const completedPuzzles = new Set(
     JSON.parse(localStorage.getItem('completedPuzzles') || '[]') as number[]
   );
 
-  const filteredPuzzles = filter === 'all'
-    ? PUZZLES
-    : PUZZLES.filter(p => p.difficulty === filter);
+  const puzzlesForFilter = (difficulty: PuzzleListFilter) => (
+    difficulty === 'all'
+      ? PUZZLES
+      : PUZZLES.filter(p => p.difficulty === difficulty)
+  );
+
+  const difficultyFilteredPuzzles = puzzlesForFilter(filter);
+  const availableThemes = Array.from(
+    difficultyFilteredPuzzles.reduce((themes, puzzle) => {
+      themes.set(puzzle.theme, (themes.get(puzzle.theme) ?? 0) + 1);
+      return themes;
+    }, new Map<string, number>()),
+  )
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    });
+
+  useEffect(() => {
+    if (themeFilter === 'all') return;
+    const themeStillVisible = availableThemes.some(([theme]) => theme === themeFilter);
+    if (!themeStillVisible) {
+      setThemeFilter('all');
+    }
+  }, [availableThemes, themeFilter]);
+
+  const filteredPuzzles = themeFilter === 'all'
+    ? difficultyFilteredPuzzles
+    : difficultyFilteredPuzzles.filter(puzzle => puzzle.theme === themeFilter);
+  const completedInFilter = filteredPuzzles.filter(puzzle => completedPuzzles.has(puzzle.id));
+  const unsolvedInFilter = filteredPuzzles.filter(puzzle => !completedPuzzles.has(puzzle.id));
+  const sortedFilteredPuzzles = [...unsolvedInFilter, ...completedInFilter];
+  const recommendedPuzzle = unsolvedInFilter[0] ?? filteredPuzzles[0] ?? null;
+  const filterCompletionPercent = filteredPuzzles.length > 0
+    ? Math.round((completedInFilter.length / filteredPuzzles.length) * 100)
+    : 0;
+
+  const filterThemeSummary = Array.from(
+    filteredPuzzles.reduce((themes, puzzle) => {
+      themes.set(puzzle.theme, (themes.get(puzzle.theme) ?? 0) + 1);
+      return themes;
+    }, new Map<string, number>()),
+  )
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .slice(0, 3);
 
   const getDifficultyColor = (d: string) => {
     switch (d) {
@@ -77,70 +126,268 @@ function PuzzleListPage() {
     advanced: t('puzzle.advanced'),
   };
 
+  const filterDescriptions: Record<PuzzleListFilter, string> = {
+    all: t('puzzle.filter_all_desc'),
+    beginner: t('puzzle.filter_beginner_desc'),
+    intermediate: t('puzzle.filter_intermediate_desc'),
+    advanced: t('puzzle.filter_advanced_desc'),
+  };
+
+  const selectionLabel = themeFilter === 'all'
+    ? filterLabels[filter]
+    : `${filterLabels[filter]} · ${t(`theme.${themeFilter}`)}`;
+
+  const emptyTitle = themeFilter === 'all'
+    ? t('puzzle.empty_title')
+    : t('puzzle.empty_theme_title', { theme: t(`theme.${themeFilter}`) });
+
+  const emptyDesc = themeFilter === 'all'
+    ? t('puzzle.empty_desc')
+    : t('puzzle.empty_theme_desc', { theme: t(`theme.${themeFilter}`), track: filterLabels[filter] });
+
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="puzzles" subtitle={t('nav.puzzles')} />
 
-      <main id="main-content" className="flex-1 px-4 py-6 sm:py-8 max-w-3xl mx-auto w-full">
-        <div className="text-center mb-6 sm:mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-text-bright mb-2">{t('puzzle.title')}</h2>
-          <p className="text-text-dim text-sm sm:text-base">
-            {t('puzzle.desc')}
-          </p>
-          <p className="text-primary text-sm mt-1">
-            {t('puzzle.completed', { done: completedPuzzles.size, total: PUZZLES.length })}
-          </p>
+      <main id="main-content" className="flex-1 px-4 py-6 sm:py-8 max-w-5xl mx-auto w-full">
+        <div className="grid gap-4 mb-6 sm:mb-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
+          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-surface-alt to-surface p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-primary/80 mb-2">{t('nav.puzzles')}</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-text-bright mb-2">{t('puzzle.title')}</h2>
+                <p className="text-text-dim text-sm sm:text-base max-w-2xl">
+                  {t('puzzle.desc')}
+                </p>
+              </div>
+              <div className="rounded-xl border border-primary/25 bg-surface/80 px-4 py-3 min-w-[168px]">
+                <p className="text-xs uppercase tracking-[0.18em] text-text-dim mb-1">{t('puzzle.completed_summary')}</p>
+                <p className="text-xl font-semibold text-text-bright">
+                  {t('puzzle.completed', { done: completedPuzzles.size, total: PUZZLES.length })}
+                </p>
+                <p className="text-xs text-text-dim mt-1">{t('puzzle.progress_hint')}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <p className="text-text-bright font-medium">
+                  {t('puzzle.track_progress', { track: selectionLabel })}
+                </p>
+                <p className="text-text-dim">
+                  {t('puzzle.track_completed', { done: completedInFilter.length, total: filteredPuzzles.length })}
+                </p>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-surface overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${filterCompletionPercent}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-surface-hover bg-surface/70 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-text-dim mb-1">{t('puzzle.filter_label')}</p>
+                <p className="font-semibold text-text-bright">{selectionLabel}</p>
+                <p className="text-xs text-text-dim mt-1">{filterDescriptions[filter]}</p>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface/70 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-text-dim mb-1">{t('puzzle.remaining_label')}</p>
+                <p className="font-semibold text-text-bright">{unsolvedInFilter.length}</p>
+                <p className="text-xs text-text-dim mt-1">{t('puzzle.remaining_desc')}</p>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface/70 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-text-dim mb-1">{t('puzzle.focus_label')}</p>
+                <p className="font-semibold text-text-bright">
+                  {filterThemeSummary.length > 0
+                    ? filterThemeSummary.map(([theme]) => t(`theme.${theme}`)).join(' · ')
+                    : t('puzzle.focus_empty')}
+                </p>
+                <p className="text-xs text-text-dim mt-1">{t('puzzle.focus_desc')}</p>
+              </div>
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-surface-hover bg-surface-alt p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-primary/80 mb-2">{t('puzzle.next_up')}</p>
+            {recommendedPuzzle ? (
+              <>
+                <h3 className="text-xl font-semibold text-text-bright">
+                  #{recommendedPuzzle.id} · {getPublicPuzzleTitle(recommendedPuzzle.title)}
+                </h3>
+                <p className="text-sm text-text-dim mt-2">{recommendedPuzzle.description}</p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className={`text-xs px-2 py-1 rounded border ${getDifficultyBg(recommendedPuzzle.difficulty)} ${getDifficultyColor(recommendedPuzzle.difficulty)}`}>
+                    {t(`puzzle.${recommendedPuzzle.difficulty}`)}
+                  </span>
+                  <span className="text-xs px-2 py-1 rounded bg-surface border border-surface-hover text-text-dim">
+                    {t(`theme.${recommendedPuzzle.theme}`)}
+                  </span>
+                </div>
+                <p className="text-xs text-text-dim mt-4">
+                  {completedPuzzles.has(recommendedPuzzle.id)
+                    ? t('puzzle.next_up_review')
+                    : t('puzzle.next_up_fresh')}
+                </p>
+                <button
+                  onClick={() => navigate(`/puzzle/${recommendedPuzzle.id}`)}
+                  className="mt-4 w-full rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-3 transition-colors"
+                >
+                  {completedPuzzles.has(recommendedPuzzle.id) ? t('common.retry') : t('puzzle.start_here')}
+                </button>
+              </>
+            ) : (
+              <div className="rounded-xl border border-surface-hover bg-surface/70 px-4 py-4">
+                <h3 className="text-lg font-semibold text-text-bright">{emptyTitle}</h3>
+                <p className="text-sm text-text-dim mt-2">{emptyDesc}</p>
+              </div>
+            )}
+          </aside>
         </div>
 
-        <div className="flex gap-2 mb-6 justify-center flex-wrap">
-          {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(f => (
+        <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-4">
+          {PUZZLE_FILTERS.map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`rounded-xl border px-3 py-3 text-left transition-all ${
                 filter === f
-                  ? 'bg-primary text-white'
-                  : 'bg-surface-alt hover:bg-surface-hover text-text border border-surface-hover'
+                  ? 'bg-primary/15 border-primary/40 text-text-bright shadow-lg shadow-primary/10'
+                  : 'bg-surface-alt hover:bg-surface-hover text-text border-surface-hover'
               }`}
             >
-              {filterLabels[f]}
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium">{filterLabels[f]}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                  filter === f ? 'border-primary/40 text-primary-light' : 'border-surface-hover text-text-dim'
+                }`}>
+                  {puzzlesForFilter(f).length}
+                </span>
+              </div>
+              <p className={`mt-1 text-xs ${filter === f ? 'text-text' : 'text-text-dim'}`}>
+                {filterDescriptions[f]}
+              </p>
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filteredPuzzles.map(puzzle => (
+        <div className="mb-6">
+          <div className="flex items-end justify-between gap-3 mb-3">
+            <div>
+              <h3 className="text-lg font-semibold text-text-bright">{t('puzzle.theme_drill_title')}</h3>
+              <p className="text-sm text-text-dim mt-1">{t('puzzle.theme_drill_desc')}</p>
+            </div>
+            <p className="text-sm text-text-dim">
+              {t('puzzle.theme_drill_count', { count: availableThemes.length })}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              key={puzzle.id}
-              onClick={() => navigate(`/puzzle/${puzzle.id}`)}
-              className="bg-surface-alt border border-surface-hover rounded-xl p-4 sm:p-5 text-left hover:border-primary/50 transition-all hover:shadow-lg group"
+              onClick={() => setThemeFilter('all')}
+              className={`rounded-full border px-3 py-2 text-sm transition-colors ${
+                themeFilter === 'all'
+                  ? 'bg-primary/15 border-primary/40 text-text-bright'
+                  : 'bg-surface-alt border-surface-hover text-text hover:bg-surface-hover'
+              }`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-text-bright group-hover:text-primary-light transition-colors text-sm sm:text-base">
-                  #{puzzle.id} · {getPublicPuzzleTitle(puzzle.title)}
-                </h3>
-                {completedPuzzles.has(puzzle.id) && (
-                  <span className="text-primary text-sm font-bold">✓</span>
-                )}
-              </div>
-              <p className="text-text-dim text-xs sm:text-sm mb-3">{puzzle.description}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded border ${getDifficultyBg(puzzle.difficulty)} ${getDifficultyColor(puzzle.difficulty)}`}>
-                  {t('puzzle.' + puzzle.difficulty)}
-                </span>
-                <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
-                  {t('theme.' + puzzle.theme)}
-                </span>
-                <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
-                  {getPuzzleSourceLabel(puzzle.source, t)}
-                </span>
-                <span className="text-xs text-text-dim ml-auto">
-                  {t('puzzle.to_move', { color: puzzle.toMove === 'white' ? t('common.white') : t('common.black') })}
-                </span>
-              </div>
+              {t('puzzle.theme_all')}
             </button>
-          ))}
+            {availableThemes.map(([theme, count]) => (
+              <button
+                key={theme}
+                onClick={() => setThemeFilter(theme)}
+                className={`rounded-full border px-3 py-2 text-sm transition-colors ${
+                  themeFilter === theme
+                    ? 'bg-primary/15 border-primary/40 text-text-bright'
+                    : 'bg-surface-alt border-surface-hover text-text hover:bg-surface-hover'
+                }`}
+              >
+                {t(`theme.${theme}`)} <span className="text-text-dim">{count}</span>
+              </button>
+            ))}
+          </div>
         </div>
+
+        <div className="flex items-end justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-lg sm:text-xl font-semibold text-text-bright">{t('puzzle.practice_title')}</h3>
+            <p className="text-sm text-text-dim mt-1">{t('puzzle.practice_desc')}</p>
+          </div>
+          {filteredPuzzles.length > 0 && (
+            <p className="text-sm text-text-dim">
+              {t('puzzle.track_completed', { done: completedInFilter.length, total: filteredPuzzles.length })}
+            </p>
+          )}
+        </div>
+
+        {filteredPuzzles.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-surface-hover bg-surface-alt p-8 text-center">
+            <h3 className="text-xl font-semibold text-text-bright">{emptyTitle}</h3>
+            <p className="text-sm text-text-dim mt-2">{emptyDesc}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {sortedFilteredPuzzles.map((puzzle, index) => {
+              const isCompleted = completedPuzzles.has(puzzle.id);
+              const isRecommended = recommendedPuzzle?.id === puzzle.id && !isCompleted && index === 0;
+
+              return (
+                <button
+                  key={puzzle.id}
+                  onClick={() => navigate(`/puzzle/${puzzle.id}`)}
+                  className={`rounded-2xl p-4 sm:p-5 text-left transition-all group border ${
+                    isRecommended
+                      ? 'bg-primary/10 border-primary/35 hover:border-primary/55 shadow-lg shadow-primary/10'
+                      : isCompleted
+                        ? 'bg-surface-alt/80 border-surface-hover hover:border-primary/35'
+                        : 'bg-surface-alt border-surface-hover hover:border-primary/50 hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {isRecommended && (
+                          <span className="text-[11px] uppercase tracking-[0.18em] text-primary-light bg-primary/15 border border-primary/30 rounded-full px-2 py-1">
+                            {t('puzzle.start_here')}
+                          </span>
+                        )}
+                        <span className={`text-[11px] uppercase tracking-[0.18em] rounded-full px-2 py-1 border ${
+                          isCompleted
+                            ? 'text-primary border-primary/30 bg-primary/10'
+                            : 'text-text-dim border-surface-hover bg-surface'
+                        }`}>
+                          {isCompleted ? t('puzzle.solved_badge') : t('puzzle.new_badge')}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-text-bright group-hover:text-primary-light transition-colors text-sm sm:text-base">
+                        #{puzzle.id} · {getPublicPuzzleTitle(puzzle.title)}
+                      </h3>
+                    </div>
+                    {isCompleted && (
+                      <span className="text-primary text-sm font-bold">✓</span>
+                    )}
+                  </div>
+                  <p className="text-text-dim text-xs sm:text-sm mb-3">{puzzle.description}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded border ${getDifficultyBg(puzzle.difficulty)} ${getDifficultyColor(puzzle.difficulty)}`}>
+                      {t(`puzzle.${puzzle.difficulty}`)}
+                    </span>
+                    <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
+                      {t(`theme.${puzzle.theme}`)}
+                    </span>
+                    <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
+                      {getPuzzleSourceLabel(puzzle.source, t)}
+                    </span>
+                    <span className="text-xs text-text-dim ml-auto">
+                      {t('puzzle.to_move', { color: puzzle.toMove === 'white' ? t('common.white') : t('common.black') })}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-6 sm:mt-8 text-center">
           <button
