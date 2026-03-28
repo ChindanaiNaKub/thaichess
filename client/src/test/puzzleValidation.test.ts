@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ALL_PUZZLES, PUZZLES, QUARANTINED_PUZZLES, type Puzzle } from '@shared/puzzles';
+import { IMPORTED_PUZZLE_CANDIDATES, createImportedPuzzleCandidate } from '@shared/puzzleImportQueue';
 import { validatePuzzle, validatePuzzles } from '@shared/puzzleValidation';
 import { createGameStateFromPuzzle, getForcingMoves } from '@shared/puzzleSolver';
 import type { Board, Piece, PieceColor, PieceType } from '@shared/types';
@@ -26,9 +27,26 @@ describe('puzzleValidation', () => {
     expect(PUZZLES).toHaveLength(9);
     expect(QUARANTINED_PUZZLES).toHaveLength(10);
     expect(ALL_PUZZLES).toHaveLength(19);
+    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(0);
     expect(PUZZLES.every(puzzle => puzzle.reviewStatus === 'ship')).toBe(true);
     expect(QUARANTINED_PUZZLES.every(puzzle => puzzle.reviewStatus === 'quarantine')).toBe(true);
     expect(ALL_PUZZLES.every(puzzle => puzzle.motif.trim().length > 0)).toBe(true);
+  });
+
+  it('defaults imported puzzle candidates to quarantine', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
+    expect(basePuzzle).toBeDefined();
+
+    const { reviewStatus: _reviewStatus, ...draft } = {
+      ...basePuzzle!,
+      id: 9999,
+      source: 'Generated candidate import',
+    };
+
+    const candidate = createImportedPuzzleCandidate(draft);
+
+    expect(candidate.reviewStatus).toBe('quarantine');
+    expect(candidate.id).toBe(9999);
   });
 
   it('rejects puzzles with multiple winning first moves', () => {

@@ -1,4 +1,5 @@
 import type { Board, Piece, PieceColor, PieceType, Position } from './types';
+import { IMPORTED_PUZZLE_CANDIDATES } from './puzzleImportQueue';
 
 export interface Puzzle {
   id: number;
@@ -58,7 +59,7 @@ function line(...steps: string[]): { from: Position; to: Position }[] {
   });
 }
 
-export const ALL_PUZZLES: Puzzle[] = [
+const CATALOG_PUZZLES: Puzzle[] = [
   {
     id: 1,
     title: 'Corner Clamp',
@@ -425,7 +426,9 @@ export const ALL_PUZZLES: Puzzle[] = [
   },
 ];
 
-export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'ship');
+export const PUZZLES: Puzzle[] = CATALOG_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'ship');
+
+export const ALL_PUZZLES: Puzzle[] = [...CATALOG_PUZZLES, ...IMPORTED_PUZZLE_CANDIDATES];
 
 export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'quarantine');
 

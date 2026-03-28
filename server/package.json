@@ -8,7 +8,9 @@
     "start": "node dist/server/src/index.js",
     "test": "vitest run --config vitest.config.ts",
     "audit:puzzles": "tsx src/scripts/auditPuzzles.ts",
+    "audit:puzzle-candidates": "tsx src/scripts/auditPuzzleCandidates.ts",
     "validate:puzzles": "tsx src/scripts/validatePuzzles.ts",
+    "validate:puzzle-candidates": "tsx src/scripts/validatePuzzleCandidates.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
