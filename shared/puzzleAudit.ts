@@ -1,6 +1,7 @@
 import { makeMove } from './engine';
 import type { GameState, PieceType } from './types';
 import type { Puzzle } from './puzzles';
+import { hasPassingReviewChecklist, isPuzzleReadyToShip } from './puzzles';
 import { createGameStateFromPuzzle, getMaterialSwing, isTacticalTheme } from './puzzleSolver';
 
 export interface PuzzleAuditRow {
@@ -64,8 +65,17 @@ export function auditPuzzles(puzzles: Puzzle[]): PuzzleAuditRow[] {
       flags.push(`overrepresented family: ${family}`);
     }
 
-    if (puzzle.reviewStatus === 'quarantine') {
-      flags.push('manual quarantine');
+    if (!hasPassingReviewChecklist(puzzle)) {
+      const checklist = puzzle.reviewChecklist;
+      const incomplete = checklist.themeClarity === 'unreviewed' ||
+        checklist.teachingValue === 'unreviewed' ||
+        checklist.duplicateRisk === 'unreviewed';
+
+      flags.push(incomplete ? 'review checklist incomplete' : 'review checklist failed');
+    }
+
+    if (!isPuzzleReadyToShip(puzzle)) {
+      flags.push('not ready to ship');
     }
 
     if (qualityScore <= 1) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALL_PUZZLES, PUZZLES, QUARANTINED_PUZZLES, type Puzzle } from '@shared/puzzles';
+import { ALL_PUZZLES, PUZZLES, QUARANTINED_PUZZLES, isPuzzleReadyToShip, type Puzzle } from '@shared/puzzles';
 import { IMPORTED_PUZZLE_CANDIDATES, createImportedPuzzleCandidate } from '@shared/puzzleImportQueue';
 import { validatePuzzle, validatePuzzles } from '@shared/puzzleValidation';
 import { createGameStateFromPuzzle, getForcingMoves } from '@shared/puzzleSolver';
@@ -29,6 +29,7 @@ describe('puzzleValidation', () => {
     expect(ALL_PUZZLES).toHaveLength(19);
     expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(0);
     expect(PUZZLES.every(puzzle => puzzle.reviewStatus === 'ship')).toBe(true);
+    expect(PUZZLES.every(isPuzzleReadyToShip)).toBe(true);
     expect(QUARANTINED_PUZZLES.every(puzzle => puzzle.reviewStatus === 'quarantine')).toBe(true);
     expect(ALL_PUZZLES.every(puzzle => puzzle.motif.trim().length > 0)).toBe(true);
   });
@@ -37,7 +38,7 @@ describe('puzzleValidation', () => {
     const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
     expect(basePuzzle).toBeDefined();
 
-    const { reviewStatus: _reviewStatus, ...draft } = {
+    const { reviewStatus: _reviewStatus, reviewChecklist: _reviewChecklist, ...draft } = {
       ...basePuzzle!,
       id: 9999,
       source: 'Generated candidate import',
@@ -46,7 +47,38 @@ describe('puzzleValidation', () => {
     const candidate = createImportedPuzzleCandidate(draft);
 
     expect(candidate.reviewStatus).toBe('quarantine');
+    expect(candidate.reviewChecklist).toEqual({
+      themeClarity: 'unreviewed',
+      teachingValue: 'unreviewed',
+      duplicateRisk: 'unreviewed',
+      reviewNotes: '',
+    });
+    expect(isPuzzleReadyToShip(candidate)).toBe(false);
     expect(candidate.id).toBe(9999);
+  });
+
+  it('allows reviewed imported candidates to become ship-ready', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
+    expect(basePuzzle).toBeDefined();
+
+    const { reviewStatus: _reviewStatus, reviewChecklist: _reviewChecklist, ...draft } = {
+      ...basePuzzle!,
+      id: 10000,
+      source: 'Generated candidate import',
+    };
+
+    const candidate = {
+      ...createImportedPuzzleCandidate(draft),
+      reviewStatus: 'ship' as const,
+      reviewChecklist: {
+        themeClarity: 'pass' as const,
+        teachingValue: 'pass' as const,
+        duplicateRisk: 'clear' as const,
+        reviewNotes: 'Reviewed and approved for shipping.',
+      },
+    };
+
+    expect(isPuzzleReadyToShip(candidate)).toBe(true);
   });
 
   it('rejects puzzles with multiple winning first moves', () => {
@@ -66,6 +98,12 @@ describe('puzzleValidation', () => {
       motif: 'Ambiguous rook mate',
       difficulty: 'beginner',
       reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 2 }, to: { row: 7, col: 2 } }],
@@ -105,6 +143,12 @@ describe('puzzleValidation', () => {
       motif: 'Illegal king capture',
       difficulty: 'beginner',
       reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 4 }, to: { row: 7, col: 4 } }],
@@ -134,6 +178,12 @@ describe('puzzleValidation', () => {
       motif: 'Illegal start in check',
       difficulty: 'beginner',
       reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 2, col: 4 }, to: { row: 1, col: 3 } }],

@@ -44,6 +44,8 @@ Current status:
 - but "validator pass" still does not mean "worth shipping"
 - the catalog has now been split into shipped puzzles vs quarantined puzzles
 - see `docs/puzzle-audit-2026-03-28.md` for the keep/quarantine list
+- explicit review metadata and checklist now exist on puzzles
+- imported/generated puzzles now enter through a separate quarantine queue by default
 
 ## Next Recommended Task
 
@@ -51,22 +53,29 @@ Move into a puzzle quality recovery pass before adding more puzzle content.
 
 ### Immediate next task
 
-Finish the puzzle quarantine workflow:
+Populate the candidate queue with better puzzles and review the first batch:
 
-1. Keep auditing every new puzzle before it reaches the shipped set
-2. Add explicit review metadata instead of relying on a hard-coded shipped ID list
-3. Build an import path for generated puzzles that defaults to quarantine
-4. Add a simple reviewer checklist for:
+1. Add 5-10 imported puzzle candidates into `shared/puzzleImportQueue.ts`
+2. Bias the batch toward multi-ply puzzles:
+   - mate in 2
+   - mate in 3
+   - tactical sequences, not only one-move pickups
+3. Run candidate-only checks:
+   - `npm run validate:puzzle-candidates --workspace=server`
+   - `npm run audit:puzzle-candidates --workspace=server`
+4. Review the batch with the checklist:
    - theme clarity
    - teaching value
-   - duplicate motif detection
+   - duplicate risk
+5. Promote only the strongest candidates by setting:
+   - `reviewStatus: 'ship'`
+   - passing review checklist fields
 
 ### Why this is next
 
-- The puzzle system already has validation code, but bad content is still getting through
-- This is a product-trust problem, not just a code-quality problem
-- Adding more generators or engines before fixing acceptance criteria will just create more bad puzzles faster
-- The live set is smaller now, but the publishing workflow is still too manual
+- The pipeline exists now, but the candidate queue is still empty
+- The current shipped set is still too heavy on shallow one-move puzzles
+- The highest-value product improvement is better puzzle content, not more pipeline code
 
 ## ffish Assessment
 
@@ -107,9 +116,10 @@ Recently completed:
 Current problem:
 - puzzle dataset quality needs human curation, not just validator checks
 - only the curated subset should be shipped
+- the next gap is content depth: too many one-move puzzles, not enough richer sequences
 
 Next task:
-Finish the puzzle quarantine workflow.
+Populate the puzzle candidate queue and review the first batch.
 
-Start from docs/puzzle-audit-2026-03-28.md and turn the hard-coded shipped subset into explicit review metadata.
+Start from shared/puzzleImportQueue.ts and add stronger multi-ply candidates, then run validate/audit on candidates before promoting any of them.
 ```

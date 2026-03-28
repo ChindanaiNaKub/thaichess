@@ -1,6 +1,13 @@
 import type { Board, Piece, PieceColor, PieceType, Position } from './types';
 import { IMPORTED_PUZZLE_CANDIDATES } from './puzzleImportQueue';
 
+export interface PuzzleReviewChecklist {
+  themeClarity: 'pass' | 'fail' | 'unreviewed';
+  teachingValue: 'pass' | 'fail' | 'unreviewed';
+  duplicateRisk: 'clear' | 'duplicate' | 'unreviewed';
+  reviewNotes: string;
+}
+
 export interface Puzzle {
   id: number;
   title: string;
@@ -11,6 +18,7 @@ export interface Puzzle {
   motif: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   reviewStatus: 'ship' | 'quarantine';
+  reviewChecklist: PuzzleReviewChecklist;
   toMove: PieceColor;
   board: Board;
   solution: { from: Position; to: Position }[];
@@ -59,6 +67,38 @@ function line(...steps: string[]): { from: Position; to: Position }[] {
   });
 }
 
+function shippedReview(reviewNotes: string): PuzzleReviewChecklist {
+  return {
+    themeClarity: 'pass',
+    teachingValue: 'pass',
+    duplicateRisk: 'clear',
+    reviewNotes,
+  };
+}
+
+function quarantineReview(
+  reviewNotes: string,
+  overrides: Partial<Omit<PuzzleReviewChecklist, 'reviewNotes'>> = {},
+): PuzzleReviewChecklist {
+  return {
+    themeClarity: 'pass',
+    teachingValue: 'fail',
+    duplicateRisk: 'duplicate',
+    reviewNotes,
+    ...overrides,
+  };
+}
+
+export function hasPassingReviewChecklist(puzzle: Puzzle): boolean {
+  return puzzle.reviewChecklist.themeClarity === 'pass' &&
+    puzzle.reviewChecklist.teachingValue === 'pass' &&
+    puzzle.reviewChecklist.duplicateRisk === 'clear';
+}
+
+export function isPuzzleReadyToShip(puzzle: Puzzle): boolean {
+  return puzzle.reviewStatus === 'ship' && hasPassingReviewChecklist(puzzle);
+}
+
 const CATALOG_PUZZLES: Puzzle[] = [
   {
     id: 1,
@@ -70,6 +110,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook mate with khon support',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Clear beginner mate pattern with distinct Khon support.'),
     toMove: 'white',
     board: board(
       ['a1', 'S', 'white'],
@@ -89,6 +130,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Long-file rook mate',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Too close to other rook mate-in-1 patterns.'),
     toMove: 'white',
     board: board(
       ['g1', 'K', 'black'],
@@ -107,6 +149,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Side-rank rook mate',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Valid, but weaker than the kept rook mate-in-1 examples.'),
     toMove: 'white',
     board: board(
       ['g3', 'R', 'white'],
@@ -125,6 +168,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook lift mate',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Overlaps heavily with other rook-lift mate patterns.'),
     toMove: 'white',
     board: board(
       ['d5', 'S', 'white'],
@@ -144,6 +188,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Central rook lift mate',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Near-duplicate teaching value with other rook-lift mates.'),
     toMove: 'white',
     board: board(
       ['d4', 'S', 'white'],
@@ -163,6 +208,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook mate with met support',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Distinct mate because the Met support is the actual lesson.'),
     toMove: 'white',
     board: board(
       ['f3', 'M', 'white'],
@@ -182,6 +228,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Supported promotion',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Extra pieces add noise without improving the lesson.', { duplicateRisk: 'clear' }),
     toMove: 'white',
     board: board(
       ['g4', 'S', 'black'],
@@ -201,6 +248,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Quiet promotion',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Cleanest basic promotion example in the set.'),
     toMove: 'white',
     board: board(
       ['b2', 'K', 'white'],
@@ -219,6 +267,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Promotion with met escort',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Weaker first teaching puzzle than Quiet Promotion.', { duplicateRisk: 'clear' }),
     toMove: 'white',
     board: board(
       ['f2', 'K', 'black'],
@@ -238,6 +287,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook wins loose knight',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Simple first tactical capture with a clear target.'),
     toMove: 'white',
     board: board(
       ['b1', 'K', 'black'],
@@ -257,6 +307,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook wins hanging khon',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Valid tactic, but less clean and less memorable than the kept tactic set.'),
     toMove: 'white',
     board: board(
       ['d1', 'K', 'black'],
@@ -277,6 +328,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook wins rook on open rank',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Clear major-piece pickup and better representative than weaker one-move captures.'),
     toMove: 'white',
     board: board(
       ['a2', 'R', 'black'],
@@ -298,6 +350,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Met wins rook',
     difficulty: 'beginner',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Distinct because the Met, not the rook, wins the material.'),
     toMove: 'white',
     board: board(
       ['d1', 'R', 'black'],
@@ -317,6 +370,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook wins loose met',
     difficulty: 'beginner',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Lower-value and less instructive than the stronger tactic examples.'),
     toMove: 'white',
     board: board(
       ['f2', 'K', 'black'],
@@ -337,6 +391,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook pivot mate in 2',
     difficulty: 'intermediate',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Good first mate-in-2 example with a clear forcing story.'),
     toMove: 'white',
     board: board(
       ['e1', 'K', 'black'],
@@ -357,6 +412,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Back-rank rook switch mate in 2',
     difficulty: 'intermediate',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Too similar to stronger rook-reposition mate patterns.'),
     toMove: 'white',
     board: board(
       ['a2', 'R', 'white'],
@@ -377,6 +433,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Rook fence mate in 2',
     difficulty: 'intermediate',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Distinct mate-in-2 pattern with rook restriction and knight help.'),
     toMove: 'white',
     board: board(
       ['b1', 'K', 'black'],
@@ -396,6 +453,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Fifth-rank rook sweep mate in 2',
     difficulty: 'intermediate',
     reviewStatus: 'quarantine',
+    reviewChecklist: quarantineReview('Less intuitive and less memorable than the kept mate-in-2 puzzles.', { duplicateRisk: 'clear' }),
     toMove: 'white',
     board: board(
       ['c1', 'M', 'white'],
@@ -415,6 +473,7 @@ const CATALOG_PUZZLES: Puzzle[] = [
     motif: 'Double rook mate in 2',
     difficulty: 'intermediate',
     reviewStatus: 'ship',
+    reviewChecklist: shippedReview('Worth shipping because the two-rook coordination is memorable.'),
     toMove: 'white',
     board: board(
       ['f2', 'R', 'white'],
@@ -426,11 +485,11 @@ const CATALOG_PUZZLES: Puzzle[] = [
   },
 ];
 
-export const PUZZLES: Puzzle[] = CATALOG_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'ship');
-
 export const ALL_PUZZLES: Puzzle[] = [...CATALOG_PUZZLES, ...IMPORTED_PUZZLE_CANDIDATES];
 
-export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => puzzle.reviewStatus === 'quarantine');
+export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(isPuzzleReadyToShip);
+
+export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => !isPuzzleReadyToShip(puzzle));
 
 export function getPuzzleById(id: number): Puzzle | undefined {
   return PUZZLES.find(p => p.id === id);
