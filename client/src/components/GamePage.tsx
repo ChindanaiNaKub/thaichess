@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Position, PieceColor, PieceType, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
+import type { Position, PieceColor, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
@@ -8,6 +8,7 @@ import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { usePieceStyle } from '../lib/pieceStyle';
 import { liveGameRoute, routes, savedGameAnalysisRoute } from '../lib/routes';
+import { getCapturedSummary } from '../lib/capturedSummary';
 import { useGameInteraction } from '../hooks/useGameInteraction';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -18,43 +19,9 @@ import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import PieceGuide from './PieceGuide';
 import ConnectionStatus from './ConnectionStatus';
-import PieceSVG from './PieceSVG';
 import Header from './Header';
-
-const CAPTURE_DISPLAY_ORDER: PieceType[] = ['R', 'N', 'S', 'M', 'PM', 'P'];
-const CAPTURE_VALUES: Record<PieceType, number> = {
-  K: 0,
-  R: 5,
-  N: 3,
-  S: 2.5,
-  M: 2,
-  PM: 2,
-  P: 1,
-};
-
-function getMoveColor(index: number): PieceColor {
-  return index % 2 === 0 ? 'white' : 'black';
-}
-
-function getCapturedSummary(moves: Move[], captorColor: PieceColor) {
-  const capturedPieces = moves
-    .filter((move, index) => move.captured && getMoveColor(index) === captorColor)
-    .map((move) => move.captured!.type);
-  const capturedColor: PieceColor = captorColor === 'white' ? 'black' : 'white';
-  const pieces = CAPTURE_DISPLAY_ORDER
-    .map((type) => ({
-      type,
-      count: capturedPieces.filter((piece) => piece === type).length,
-      capturedColor,
-    }))
-    .filter((entry) => entry.count > 0);
-  const material = capturedPieces.reduce((sum, piece) => sum + CAPTURE_VALUES[piece], 0);
-
-  return {
-    pieces,
-    material: material > 0 ? material : null,
-  };
-}
+import GameHeaderBar from './GameHeaderBar';
+import GameScreenLayout from './GameScreenLayout';
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -575,14 +542,10 @@ export default function GamePage() {
     <div ref={containerRef} className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
       <ConnectionStatus />
 
-      {/* Compact Header for playing state */}
-      <header className="bg-surface-alt/95 border-b border-surface-hover shrink-0">
-        <div className="max-w-[1240px] mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
-          <button onClick={() => navigate(routes.home)} className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
-            <PieceSVG type="K" color="white" size={26} />
-            <h1 className="text-base font-bold text-text-bright tracking-tight">{t('app.name')}</h1>
-          </button>
-          <div className="flex items-center gap-1.5 text-xs text-text-dim flex-wrap justify-end">
+      <GameHeaderBar
+        onHome={() => navigate(routes.home)}
+        meta={
+          <>
             <label className="flex items-center gap-2">
               <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
               <select
@@ -608,9 +571,9 @@ export default function GamePage() {
             >
               {copied ? t('game.copied') : t('game.share')}
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Disconnect banner */}
       {opponentDisconnected && (
@@ -640,87 +603,74 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Main Game Area */}
-      <main id="main-content" className="flex-1 min-h-0 px-3 py-2 sm:px-4 sm:py-3">
-        <div className="mx-auto grid h-full w-full max-w-[1240px] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_288px]">
-          <div className="flex min-h-0 flex-col items-center gap-1.5 w-full">
-            <Clock
-              time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}
-              isActive={gameState.turn === opponentColor && gameState.status === 'playing'}
-              color={opponentColor}
-              playerName={opponentDisplayName}
-              rating={opponentRating}
-              status={opponentStatus}
-              subtitle={opponentSubtitle}
-              capturedPieces={opponentCaptureSummary.pieces}
-              materialDelta={opponentCaptureSummary.material}
+      <GameScreenLayout
+        topPanel={
+          <Clock
+            time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}
+            isActive={gameState.turn === opponentColor && gameState.status === 'playing'}
+            color={opponentColor}
+            playerName={opponentDisplayName}
+            rating={opponentRating}
+            status={opponentStatus}
+            subtitle={opponentSubtitle}
+            capturedPieces={opponentCaptureSummary.pieces}
+            materialDelta={opponentCaptureSummary.material}
+          />
+        }
+        board={
+          <BoardErrorBoundary onRetry={() => window.location.reload()}>
+            <Board
+              board={getDisplayBoard()}
+              playerColor={playerColor}
+              isMyTurn={isMyTurn}
+              legalMoves={isViewingHistory ? [] : legalMoves}
+              selectedSquare={isViewingHistory ? null : selectedSquare}
+              lastMove={getLastMove()}
+              isCheck={isViewingHistory ? false : gameState.isCheck}
+              checkSquare={getCheckSquare()}
+              onSquareClick={handleSquareClick}
+              onPieceDrop={handlePieceDrop}
+              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+              premove={premove}
+              arrows={arrows}
+              onArrowsChange={setArrows}
             />
-
-            <div className="w-full lg:w-[min(100%,calc(100dvh-15.4rem))] xl:w-[min(100%,calc(100dvh-14.8rem))]">
-              <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                <div className="text-sm font-semibold text-text-bright">
-                  {isViewingHistory ? t('game.reviewing_history') : statusText}
-                </div>
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                  {premove && (
-                    <>
-                      <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
-                        {t('game.premove_set')}
-                      </span>
-                      <button
-                        onClick={() => { cancelPremove(); clearSelection(); }}
-                        className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
-                      >
-                        {t('common.cancel')}
-                      </button>
-                    </>
-                  )}
-                  <span className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1">
-                    {t('moves.title')} {moveCount}
-                  </span>
-                  {gameState.isCheck && !isViewingHistory && (
-                    <span className="rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
-                      {t('game.check_status')}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-[1.75rem] border border-accent/25 bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.12),transparent_40%),linear-gradient(180deg,rgba(58,45,31,0.88),rgba(24,20,18,0.96))] p-1.5 shadow-[0_26px_70px_rgba(0,0,0,0.24)]">
-                <BoardErrorBoundary onRetry={() => window.location.reload()}>
-                  <Board
-                    board={getDisplayBoard()}
-                    playerColor={playerColor}
-                    isMyTurn={isMyTurn}
-                    legalMoves={isViewingHistory ? [] : legalMoves}
-                    selectedSquare={isViewingHistory ? null : selectedSquare}
-                    lastMove={getLastMove()}
-                    isCheck={isViewingHistory ? false : gameState.isCheck}
-                    checkSquare={getCheckSquare()}
-                    onSquareClick={handleSquareClick}
-                    onPieceDrop={handlePieceDrop}
-                    disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-                    premove={premove}
-                    arrows={arrows}
-                    onArrowsChange={setArrows}
-                  />
-                </BoardErrorBoundary>
-              </div>
-            </div>
-
-            <Clock
-              time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
-              isActive={gameState.turn === playerColor && gameState.status === 'playing'}
-              color={playerColor || 'white'}
-              playerName={myDisplayName}
-              rating={playerRating}
-              status={playerStatus}
-              subtitle={playerSubtitle}
-              capturedPieces={playerCaptureSummary.pieces}
-              materialDelta={playerCaptureSummary.material}
-            />
-          </div>
-
-          <aside className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1">
+          </BoardErrorBoundary>
+        }
+        bottomPanel={
+          <Clock
+            time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+            isActive={gameState.turn === playerColor && gameState.status === 'playing'}
+            color={playerColor || 'white'}
+            playerName={myDisplayName}
+            rating={playerRating}
+            status={playerStatus}
+            subtitle={playerSubtitle}
+            capturedPieces={playerCaptureSummary.pieces}
+            materialDelta={playerCaptureSummary.material}
+          />
+        }
+        statusText={statusText}
+        moveCount={moveCount}
+        isViewingHistory={isViewingHistory}
+        showCheckBadge={gameState.isCheck}
+        toolbar={
+          premove ? (
+            <>
+              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
+                {t('game.premove_set')}
+              </span>
+              <button
+                onClick={() => { cancelPremove(); clearSelection(); }}
+                className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
+              >
+                {t('common.cancel')}
+              </button>
+            </>
+          ) : null
+        }
+        sidePanel={
+          <>
             <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="font-semibold text-text-bright">{statusText}</div>
@@ -815,9 +765,9 @@ export default function GamePage() {
             >
               {t('game.piece_guide')}
             </button>
-          </aside>
-        </div>
-      </main>
+          </>
+        }
+      />
 
       {/* Game Over Modal (dismissible) */}
       {gameOverInfo && showGameOverModal && (

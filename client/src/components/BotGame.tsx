@@ -8,6 +8,8 @@ import {
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { usePieceStyle } from '../lib/pieceStyle';
+import { getCapturedSummary } from '../lib/capturedSummary';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -15,9 +17,9 @@ import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import Header from './Header';
+import GameHeaderBar from './GameHeaderBar';
 import PieceSVG from './PieceSVG';
 import Clock from './Clock';
-import CapturedPiecesPanel from './CapturedPiecesPanel';
 import GameScreenLayout from './GameScreenLayout';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
@@ -26,6 +28,7 @@ const LOCAL_CLOCK_TICK_MS = 500;
 export default function BotGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { pieceStyle, setPieceStyle } = usePieceStyle();
   const [gameStarted, setGameStarted] = useState(false);
   const [difficulty, setDifficulty] = useState<BotDifficulty>('medium');
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
@@ -499,6 +502,15 @@ export default function BotGame() {
     : null;
   const canStartBotCounting = Boolean(gameState.counting && !gameState.gameOver && !gameState.counting.active && isPlayerTurn && playerColor === gameState.counting.countingColor);
   const canStopBotCounting = Boolean(gameState.counting && !gameState.gameOver && gameState.counting.active && isPlayerTurn && playerColor === gameState.counting.countingColor);
+  const moveCount = gameState.moveHistory.length;
+  const visibleMoves = getVisibleMoves();
+  const playerCaptureSummary = getCapturedSummary(visibleMoves, playerColor);
+  const botCaptureSummary = getCapturedSummary(visibleMoves, botColor);
+  const statusText = gameState.gameOver
+    ? t('game.reviewing_position')
+    : isPlayerTurn
+      ? t('bot.your_turn')
+      : t('bot.bot_thinking');
 
   const handleStartCounting = () => {
     const newState = startCounting(gameState);
@@ -511,78 +523,110 @@ export default function BotGame() {
   };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
-      <Header
-        subtitle={`${t('bot.vs_bot')} (${t(difficultyConfig[difficulty].labelKey)})`}
-        right={<span>{difficultyConfig[difficulty].emoji}</span>}
+    <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
+      <GameHeaderBar
+        onHome={() => navigate('/')}
+        meta={
+          <>
+            <label className="flex items-center gap-2">
+              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
+              <select
+                value={pieceStyle}
+                onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
+                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
+                title={t('game.select_piece_style')}
+                aria-label={t('game.select_piece_style')}
+              >
+                <option value="classic">{t('game.piece_style_makruk')}</option>
+                <option value="western">{t('game.piece_style_western')}</option>
+              </select>
+            </label>
+            <span className="hidden md:inline">{t('bot.vs_bot')}</span>
+            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+              {t(difficultyConfig[difficulty].labelKey)}
+            </span>
+          </>
+        }
       />
 
-      {/* Premove indicator */}
-      {premove && (
-        <div className="border-b border-primary/15 bg-primary/8 text-center py-1.5 text-xs text-primary-light flex items-center justify-center gap-2">
-          <span>{t('game.premove_set')}</span>
-          <button
-            onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
-            className="px-2 py-0.5 bg-surface-hover rounded text-xs hover:bg-danger/20 hover:text-danger transition-colors"
-          >
-            {t('common.cancel')}
-          </button>
-        </div>
-      )}
-
       <GameScreenLayout
-        boardColumn={
-          <>
-            <Clock
-              time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
-              isActive={gameState.turn === botColor && !gameState.gameOver}
-              color={botColor}
-              playerName={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
+        topPanel={
+          <Clock
+            time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+            isActive={gameState.turn === botColor && !gameState.gameOver}
+            color={botColor}
+            playerName={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
+            subtitle={t(botColor === 'white' ? 'common.white' : 'common.black')}
+            capturedPieces={botCaptureSummary.pieces}
+            materialDelta={botCaptureSummary.material}
+          />
+        }
+        board={
+          <BoardErrorBoundary onRetry={() => window.location.reload()}>
+            <Board
+              board={getDisplayBoard()}
+              playerColor={playerColor}
+              isMyTurn={isPlayerTurn && !botThinking}
+              legalMoves={isViewingHistory ? [] : legalMoves}
+              selectedSquare={isViewingHistory ? null : selectedSquare}
+              lastMove={getLastMove()}
+              isCheck={isViewingHistory ? false : gameState.isCheck}
+              checkSquare={getCheckSquare()}
+              onSquareClick={handleSquareClick}
+              onPieceDrop={handlePieceDrop}
+              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+              premove={premove}
+              arrows={arrows}
+              onArrowsChange={setArrows}
             />
-
-            <BoardErrorBoundary onRetry={() => window.location.reload()}>
-              <Board
-                board={getDisplayBoard()}
-                playerColor={playerColor}
-                isMyTurn={isPlayerTurn && !botThinking}
-                legalMoves={isViewingHistory ? [] : legalMoves}
-                selectedSquare={isViewingHistory ? null : selectedSquare}
-                lastMove={getLastMove()}
-                isCheck={isViewingHistory ? false : gameState.isCheck}
-                checkSquare={getCheckSquare()}
-                onSquareClick={handleSquareClick}
-                onPieceDrop={handlePieceDrop}
-                disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-                premove={premove}
-                arrows={arrows}
-                onArrowsChange={setArrows}
-              />
-            </BoardErrorBoundary>
-
-            <Clock
-              time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
-              isActive={isPlayerTurn && !botThinking && !gameState.gameOver}
-              color={playerColor}
-              playerName={`${t('common.you')} (${t(playerColor === 'white' ? 'common.white' : 'common.black')})`}
-            />
-          </>
+          </BoardErrorBoundary>
+        }
+        bottomPanel={
+          <Clock
+            time={playerColor === 'white' ? gameState.whiteTime : gameState.blackTime}
+            isActive={isPlayerTurn && !botThinking && !gameState.gameOver}
+            color={playerColor}
+            playerName={`${t('common.you')} (${t(playerColor === 'white' ? 'common.white' : 'common.black')})`}
+            subtitle={t(playerColor === 'white' ? 'common.white' : 'common.black')}
+            capturedPieces={playerCaptureSummary.pieces}
+            materialDelta={playerCaptureSummary.material}
+          />
+        }
+        statusText={statusText}
+        moveCount={moveCount}
+        isViewingHistory={isViewingHistory}
+        showCheckBadge={gameState.isCheck}
+        toolbar={
+          premove ? (
+            <>
+              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
+                {t('game.premove_set')}
+              </span>
+              <button
+                onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
+                className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
+              >
+                {t('common.cancel')}
+              </button>
+            </>
+          ) : null
         }
         sidePanel={
           <>
-            {!gameState.gameOver && (
-              <div className={`
-                rounded-lg px-4 py-3 text-center font-semibold text-sm
-                ${isPlayerTurn
-                  ? 'bg-primary/20 text-primary-light border border-primary/30'
-                  : 'bg-surface-alt text-text-dim border border-surface-hover'
-                }
-              `}>
-                {isPlayerTurn ? t('bot.your_turn') : t('bot.bot_thinking')}
+            <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="font-semibold text-text-bright">{statusText}</div>
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                  <span>{t('bot.vs_bot')}</span>
+                  <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
+                    {t(difficultyConfig[difficulty].labelKey)}
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
 
             {!gameState.gameOver && countingLabel && (
-              <div className="rounded-lg px-4 py-3 bg-accent/10 text-accent border border-accent/30">
+              <div className="rounded-xl px-4 py-3 bg-accent/10 text-accent border border-accent/30">
                 <div className="text-xs uppercase tracking-wide font-semibold mb-1">
                   {t('game.counting_title')}
                 </div>
@@ -633,16 +677,8 @@ export default function BotGame() {
               onMoveClick={handleMoveClick}
             />
 
-            <CapturedPiecesPanel
-              moves={getVisibleMoves()}
-              topColor={botColor}
-              topLabel={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
-              bottomColor={playerColor}
-              bottomLabel={t('common.you')}
-            />
-
             {gameState.moveHistory.length > 0 && (
-              <div className="text-center text-xs text-text-dim">
+              <div className="text-center text-[11px] text-text-dim">
                 {t('game.nav_hint')}
               </div>
             )}
@@ -650,7 +686,7 @@ export default function BotGame() {
             {!gameState.gameOver && (
               <button
                 onClick={handleResign}
-                className="w-full py-2 px-4 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-lg border border-surface-hover transition-colors"
+                className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
               >
                 ⚐ {t('bot.resign')}
               </button>
@@ -658,7 +694,7 @@ export default function BotGame() {
 
             <button
               onClick={() => navigate('/')}
-              className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
+              className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-xl transition-colors"
             >
               {t('common.back_home')}
             </button>
