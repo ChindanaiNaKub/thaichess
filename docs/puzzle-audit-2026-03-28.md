@@ -35,12 +35,6 @@ Keep only puzzles that are both:
   Better major-piece capture example than the weaker one-move pickups.
 - `#13 Met Wins the Rua`
   Distinct tactic because the Met, not the rook, wins the material.
-- `#15 Rook Pivot Mate`
-  Good first mate-in-2 example with a clear forcing story.
-- `#17 File Fence`
-  Distinct mate-in-2 pattern with rook restriction and knight help.
-- `#19 Double Rua Finish`
-  Worth keeping because the two-rook coordination is more memorable than the other rook shuffles.
 
 ## Quarantine
 
@@ -60,10 +54,16 @@ Keep only puzzles that are both:
   Valid tactic, but less clean and less memorable than `#10`.
 - `#14 Sideways Pickup`
   Valid tactic, but lower-value and less instructive than `#12`.
+- `#15 Rook Pivot Mate`
+  Engine-valid, but user feedback says the mate-in-2 position does not feel sound in actual play.
 - `#16 Back Rank Switch`
-  Valid mate in 2, but too similar to the stronger rook-reposition mate patterns already kept.
+  Valid mate in 2, but too similar to the other quarantined rook-reposition candidates to prioritize for re-review.
+- `#17 File Fence`
+  Engine-valid, but user feedback says the mate-in-2 position does not feel sound in actual play.
 - `#18 Fifth-Rank Sweep`
-  Valid mate in 2, but less intuitive and less memorable than `#15`, `#17`, and `#19`.
+  Valid mate in 2, but lower-priority than the other quarantined mate-in-2 candidates for real-play review.
+- `#19 Double Rua Finish`
+  Engine-valid, but user feedback says the mate-in-2 position does not feel sound in actual play.
 
 ## What This Means
 
@@ -93,8 +93,5 @@ The shipped puzzle catalog should be reduced to:
 - `10`
 - `12`
 - `13`
-- `15`
-- `17`
-- `19`
 
-The remaining `10` puzzles should stay in repo only as quarantined data until they are rewritten or replaced.
+The remaining `13` puzzles should stay in repo only as quarantined data until they are rewritten or replaced.

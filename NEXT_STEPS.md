@@ -46,35 +46,35 @@ Current status:
 - see `docs/puzzle-audit-2026-03-28.md` for the keep/quarantine list
 - explicit review metadata and checklist now exist on puzzles
 - imported/generated puzzles now enter through a separate quarantine queue by default
+- the current mate-in-2 puzzles have been re-quarantined after user feedback that they do not feel sound in actual play
+- the import queue now has an initial multi-ply candidate batch ready for review
 
 ## Next Recommended Task
 
-Move into a puzzle quality recovery pass before adding more puzzle content.
+Move into a candidate review pass before promoting any new puzzle content.
 
 ### Immediate next task
 
-Populate the candidate queue with better puzzles and review the first batch:
+Review the seeded candidate queue and promote the strongest first batch:
 
-1. Add 5-10 imported puzzle candidates into `shared/puzzleImportQueue.ts`
-2. Bias the batch toward multi-ply puzzles:
-   - mate in 2
-   - mate in 3
-   - tactical sequences, not only one-move pickups
-3. Run candidate-only checks:
+1. Run candidate-only checks:
    - `npm run validate:puzzle-candidates --workspace=server`
    - `npm run audit:puzzle-candidates --workspace=server`
-4. Review the batch with the checklist:
+2. Review the batch with the checklist:
    - theme clarity
    - teaching value
    - duplicate risk
-5. Promote only the strongest candidates by setting:
+3. Cut or rewrite candidates that still feel synthetic, duplicate-heavy, or awkward in actual play
+4. Promote only the strongest candidates by setting:
    - `reviewStatus: 'ship'`
    - passing review checklist fields
+5. Do not ship any mate-in-2 candidate until it survives real play review, not only engine validation
 
 ### Why this is next
 
-- The pipeline exists now, but the candidate queue is still empty
-- The current shipped set is still too heavy on shallow one-move puzzles
+- The pipeline exists now and the first candidate batch is seeded
+- The current shipped set is intentionally limited to the simpler puzzles that still feel trustworthy
+- The biggest content gap is the lack of trustworthy multi-ply puzzles
 - The highest-value product improvement is better puzzle content, not more pipeline code
 
 ## ffish Assessment
@@ -116,10 +116,10 @@ Recently completed:
 Current problem:
 - puzzle dataset quality needs human curation, not just validator checks
 - only the curated subset should be shipped
-- the next gap is content depth: too many one-move puzzles, not enough richer sequences
+- the next gap is content depth: the current trustworthy shipped set has no multi-ply puzzles after quarantining the bad-feeling mate-in-2 group, even though the candidate queue now has a first batch to review
 
 Next task:
-Populate the puzzle candidate queue and review the first batch.
+Review the imported puzzle candidate batch and only promote candidates that still feel sound in actual play.
 
 Start from shared/puzzleImportQueue.ts and add stronger multi-ply candidates, then run validate/audit on candidates before promoting any of them.
 ```

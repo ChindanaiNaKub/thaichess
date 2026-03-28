@@ -3,6 +3,7 @@ import path from 'path';
 import { createClient, type Client, type InStatement, type Row } from '@libsql/client';
 import type { Move, Board, TimeControl, RatingChangeSummary } from '../../shared/types';
 import { logError, logInfo } from './logger';
+import './env';
 
 // Compiled to server/dist/server/src — repo data/ is four levels up
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../../../data');

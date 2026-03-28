@@ -1,5 +1,5 @@
 import { getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove, posToAlgebraic } from './engine';
-import type { Board, GameState, Move, PieceColor, Position } from './types';
+import type { Board, GameState, Move, Piece, PieceColor, Position } from './types';
 import type { Puzzle } from './puzzles';
 import {
   createGameStateFromPuzzle,
@@ -9,6 +9,12 @@ import {
   isThemeSatisfied,
   TACTICAL_WIN_SWING,
 } from './puzzleSolver';
+import {
+  getPuzzleThemeDefinition,
+  isFuturePuzzleTheme,
+  isMateTheme,
+  isPromotionTheme,
+} from './puzzleThemes';
 
 export interface PuzzleValidationResult {
   puzzleId: number;
@@ -65,11 +71,11 @@ function isLegalMove(board: Board, from: Position, to: Position): boolean {
 function validateThemeOutcome(puzzle: Puzzle, finalState: GameState, errors: string[]): void {
   const lastMove = finalState.moveHistory[finalState.moveHistory.length - 1];
 
-  if (puzzle.theme === 'Checkmate' && !finalState.isCheckmate) {
+  if (isMateTheme(puzzle.theme) && !finalState.isCheckmate) {
     errors.push('Final position does not end in checkmate for a Checkmate puzzle.');
   }
 
-  if (puzzle.theme === 'Promotion' && !lastMove?.promoted) {
+  if (isPromotionTheme(puzzle.theme) && !lastMove?.promoted) {
     errors.push('Final move does not promote a pawn for a Promotion puzzle.');
   }
 
@@ -93,7 +99,106 @@ function moveEquals(actual: Move, expected: { from: Position; to: Position }): b
     actual.to.col === expected.to.col;
 }
 
+function positionEquals(left: Position, right: Position): boolean {
+  return left.row === right.row && left.col === right.col;
+}
+
+function pieceMatchesTarget(piece: Piece | null, target: Piece): boolean {
+  if (!piece) {
+    return false;
+  }
+
+  return piece.type === target.type && piece.color === target.color;
+}
+
+interface TacticalTargetReference {
+  piece: Piece;
+  origin: Position;
+}
+
+function getTacticalTargetReference(puzzle: Puzzle, stateAfterFirstMove: GameState): TacticalTargetReference | null {
+  if (puzzle.solution.length !== 3) {
+    return null;
+  }
+
+  const defenseMove = puzzle.solution[1];
+  const finalMove = puzzle.solution[2];
+  const stateBeforeFinalMove = makeMove(stateAfterFirstMove, defenseMove.from, defenseMove.to);
+  if (!stateBeforeFinalMove) {
+    return null;
+  }
+
+  const capturedPiece = stateBeforeFinalMove.board[finalMove.to.row][finalMove.to.col];
+  if (!capturedPiece || capturedPiece.color === puzzle.toMove) {
+    return null;
+  }
+
+  const stationaryTarget = stateAfterFirstMove.board[finalMove.to.row][finalMove.to.col];
+  if (pieceMatchesTarget(stationaryTarget, capturedPiece)) {
+    return {
+      piece: capturedPiece,
+      origin: finalMove.to,
+    };
+  }
+
+  const movedTarget = stateAfterFirstMove.board[defenseMove.from.row][defenseMove.from.col];
+  if (positionEquals(defenseMove.to, finalMove.to) && pieceMatchesTarget(movedTarget, capturedPiece)) {
+    return {
+      piece: capturedPiece,
+      origin: defenseMove.from,
+    };
+  }
+
+  return null;
+}
+
+function validateTacticalTargetConsistency(puzzle: Puzzle, initialState: GameState, errors: string[]): void {
+  if (!isTacticalTheme(puzzle.theme) || puzzle.solution.length !== 3) {
+    return;
+  }
+
+  const firstMove = puzzle.solution[0];
+  const stateAfterFirstMove = makeMove(initialState, firstMove.from, firstMove.to);
+  if (!stateAfterFirstMove) {
+    return;
+  }
+
+  const target = getTacticalTargetReference(puzzle, stateAfterFirstMove);
+  if (!target) {
+    errors.push('Three-ply tactical puzzles must finish by capturing a consistent target piece.');
+    return;
+  }
+
+  const defenderMoves = getForcingMoves(stateAfterFirstMove, puzzle);
+
+  for (const defenderMove of defenderMoves) {
+    const nextState = makeMove(stateAfterFirstMove, defenderMove.from, defenderMove.to);
+    if (!nextState) {
+      continue;
+    }
+
+    const targetSquare = positionEquals(defenderMove.from, target.origin) ? defenderMove.to : target.origin;
+    const solverMoves = getForcingMoves(nextState, puzzle);
+    const preservesTarget = solverMoves.some(move =>
+      positionEquals(move.to, targetSquare) &&
+      pieceMatchesTarget(nextState.board[move.to.row][move.to.col], target.piece),
+    );
+
+    if (!preservesTarget) {
+      errors.push(
+        `Tactical puzzle target is not consistently forced after defender reply ${formatMove(defenderMove)}.`,
+      );
+      return;
+    }
+  }
+}
+
 function validateSolutionBranch(puzzle: Puzzle, initialState: GameState, errors: string[]): void {
+  validateTacticalTargetConsistency(puzzle, initialState, errors);
+  if (errors.length > 0) {
+    return;
+  }
+
   let state = initialState;
 
   for (let index = 0; index < puzzle.solution.length; index++) {
@@ -145,7 +250,7 @@ function validateMetadata(puzzle: Puzzle, errors: string[], warnings: string[]):
     warnings.push('Puzzle explanation is too short to teach the idea clearly.');
   }
 
-  if (puzzle.theme === 'Checkmate') {
+  if (isMateTheme(puzzle.theme)) {
     const mateCount = Math.floor((puzzle.solution.length + 1) / 2);
     const match = description.match(CHECKMATE_DESCRIPTION_REGEX);
 
@@ -162,7 +267,7 @@ function validateMetadata(puzzle: Puzzle, errors: string[], warnings: string[]):
     }
   }
 
-  if (puzzle.theme === 'Promotion') {
+  if (isPromotionTheme(puzzle.theme)) {
     if (!PROMOTION_REGEX.test(combinedCopy)) {
       errors.push('Promotion puzzle copy must mention promotion.');
     }
@@ -180,6 +285,13 @@ function validateMetadata(puzzle: Puzzle, errors: string[], warnings: string[]):
     if (!TACTICAL_TARGET_REGEX.test(combinedCopy)) {
       errors.push('Tactical puzzle copy must name the material target or mention material gain.');
     }
+  }
+
+  const themeDefinition = getPuzzleThemeDefinition(puzzle.theme);
+  if (!themeDefinition) {
+    warnings.push(`Puzzle theme "${puzzle.theme}" is not part of the Makruk theme catalog.`);
+  } else if (isFuturePuzzleTheme(puzzle.theme)) {
+    warnings.push(`Puzzle theme "${puzzle.theme}" is cataloged for future support but not fully validated yet.`);
   }
 }
 

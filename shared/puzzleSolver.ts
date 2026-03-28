@@ -1,8 +1,11 @@
 import { getLegalMoves, isInCheck, makeMove } from './engine';
 import type { Board, GameState, Move, PieceColor, PieceType } from './types';
 import type { Puzzle } from './puzzles';
-
-const TACTICAL_THEMES = new Set(['Tactic', 'Fork', 'Skewer', 'Discovery', 'Sacrifice', 'Endgame']);
+import {
+  isMateTheme,
+  isPromotionTheme,
+  isTacticalTheme as isMaterialTheme,
+} from './puzzleThemes';
 const PIECE_VALUES: Record<Exclude<PieceType, 'K'>, number> = {
   R: 500,
   N: 300,
@@ -35,7 +38,7 @@ export function getMaterialSwing(puzzle: Puzzle, state: GameState): number {
 }
 
 export function isTacticalTheme(theme: string): boolean {
-  return TACTICAL_THEMES.has(theme);
+  return isMaterialTheme(theme);
 }
 
 export function createGameStateFromPuzzle(puzzle: Puzzle): GameState {
@@ -61,15 +64,15 @@ export function createGameStateFromPuzzle(puzzle: Puzzle): GameState {
 export function isThemeSatisfied(puzzle: Puzzle, state: GameState): boolean {
   const lastMove = state.moveHistory[state.moveHistory.length - 1];
 
-  if (puzzle.theme === 'Checkmate') {
+  if (isMateTheme(puzzle.theme)) {
     return state.isCheckmate;
   }
 
-  if (puzzle.theme === 'Promotion') {
+  if (isPromotionTheme(puzzle.theme)) {
     return Boolean(lastMove?.promoted);
   }
 
-  if (isTacticalTheme(puzzle.theme)) {
+  if (isMaterialTheme(puzzle.theme)) {
     return getMaterialSwing(puzzle, state) >= TACTICAL_WIN_SWING;
   }
 

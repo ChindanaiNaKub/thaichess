@@ -3,6 +3,7 @@ import type { GameState, PieceType } from './types';
 import type { Puzzle } from './puzzles';
 import { hasPassingReviewChecklist, isPuzzleReadyToShip } from './puzzles';
 import { createGameStateFromPuzzle, getMaterialSwing, isTacticalTheme } from './puzzleSolver';
+import { isMateTheme, isPromotionTheme } from './puzzleThemes';
 
 export interface PuzzleAuditRow {
   puzzleId: number;
@@ -56,9 +57,9 @@ export function auditPuzzles(puzzles: Puzzle[]): PuzzleAuditRow[] {
     if (puzzle.solution.length >= 3) qualityScore += 2;
     else flags.push('single-move puzzle');
 
-    if (puzzle.theme === 'Promotion') qualityScore += 1;
+    if (isPromotionTheme(puzzle.theme)) qualityScore += 1;
     if (isTacticalTheme(puzzle.theme)) qualityScore += materialSwing >= 300 ? 2 : 1;
-    if (puzzle.theme === 'Checkmate' && puzzle.solution.length >= 3) qualityScore += 1;
+    if (isMateTheme(puzzle.theme) && puzzle.solution.length >= 3) qualityScore += 1;
 
     if (familyCount >= 3) {
       qualityScore -= 1;
