@@ -6,7 +6,6 @@ import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
-import { usePieceStyle } from '../lib/pieceStyle';
 import { liveGameRoute, routes, savedGameAnalysisRoute } from '../lib/routes';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { useGameInteraction } from '../hooks/useGameInteraction';
@@ -19,6 +18,7 @@ import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import PieceGuide from './PieceGuide';
 import ConnectionStatus from './ConnectionStatus';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 import Header from './Header';
 import InGameShell from './InGameShell';
 
@@ -27,7 +27,6 @@ export default function GamePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
@@ -545,19 +544,7 @@ export default function GamePage() {
         onHome={() => navigate(routes.home)}
         headerMeta={
           <>
-            <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
-              <select
-                value={pieceStyle}
-                onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-                title={t('game.select_piece_style')}
-                aria-label={t('game.select_piece_style')}
-              >
-                <option value="classic">{t('game.piece_style_makruk')}</option>
-                <option value="western">{t('game.piece_style_western')}</option>
-              </select>
-            </label>
+            <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
               gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'

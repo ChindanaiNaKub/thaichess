@@ -7,8 +7,8 @@ import {
 } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
-import { usePieceStyle } from '../lib/pieceStyle';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -24,7 +24,6 @@ const LOCAL_CLOCK_TICK_MS = 500;
 export default function LocalGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
@@ -263,19 +262,7 @@ export default function LocalGame() {
       onHome={() => navigate('/')}
       headerMeta={
         <>
-          <label className="flex items-center gap-2">
-            <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
-            <select
-              value={pieceStyle}
-              onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-              className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-              title={t('game.select_piece_style')}
-              aria-label={t('game.select_piece_style')}
-            >
-              <option value="classic">{t('game.piece_style_makruk')}</option>
-              <option value="western">{t('game.piece_style_western')}</option>
-            </select>
-          </label>
+          <AppearanceSettingsButton compact />
           <span className="hidden md:inline">{t('local.title')}</span>
           <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
             {t('local.title')}

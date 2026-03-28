@@ -1,6 +1,13 @@
 import { memo, useId } from 'react';
 import type { PieceType, PieceColor } from '@shared/types';
 import { usePieceStyle } from '../lib/pieceStyle';
+import type {
+  GlyphPiecePalette,
+  PieceStyle,
+  TraditionalPiecePalette,
+  WesternPiecePalette,
+} from '../themes/pieces';
+import { getPieceSetById } from '../themes/pieces';
 import biaBlackSvg from '../assets/pieces/traditional/Bia_black.svg?raw';
 import biangaiBlackSvg from '../assets/pieces/traditional/Biangai_black.svg?raw';
 import khonBlackSvg from '../assets/pieces/traditional/Khon_black.svg?raw';
@@ -14,55 +21,13 @@ interface PieceSVGProps {
   color: PieceColor;
   size?: number;
   className?: string;
+  pieceStyleId?: PieceStyle;
 }
 
 type TraditionalAsset = {
   viewBox: string;
   markup: string;
 };
-
-type TraditionalPalette = {
-  fillTop: string;
-  fillBase: string;
-  fillBottom: string;
-  stroke: string;
-  shadow: string;
-};
-
-function getClassicPalette(color: PieceColor) {
-  return {
-    fill: color === 'white' ? '#fff' : '#1a1a1a',
-    stroke: color === 'white' ? '#333' : '#666',
-    accent: color === 'white' ? '#e8c690' : '#555',
-    text: color === 'white' ? '#333' : '#ccc',
-    base: color === 'white' ? '#d4a76a' : '#2a2a2a',
-  };
-}
-
-function getWesternPalette(color: PieceColor) {
-  return {
-    fill: color === 'white' ? '#fbfbfa' : '#232427',
-    stroke: color === 'white' ? '#2c2d30' : '#d7d7d7',
-    accent: color === 'white' ? '#d8c3a1' : '#4b4f57',
-  };
-}
-
-const traditionalPalette = {
-  white: {
-    fillTop: '#faf2e4',
-    fillBase: '#f2eadb',
-    fillBottom: '#ddccb1',
-    stroke: '#5f5245',
-    shadow: 'rgba(79, 61, 41, 0.16)',
-  },
-  black: {
-    fillTop: '#393d45',
-    fillBase: '#22252a',
-    fillBottom: '#191b20',
-    stroke: '#111111',
-    shadow: 'rgba(0, 0, 0, 0.18)',
-  },
-} as const satisfies Record<PieceColor, TraditionalPalette>;
 
 function parseTraditionalAsset(source: string): TraditionalAsset {
   const cleaned = source
@@ -97,9 +62,7 @@ const parsedTraditionalAssets: Record<PieceType, TraditionalAsset> = {
   PM: parseTraditionalAsset(biangaiBlackSvg),
 };
 
-function colorizeTraditionalMarkup(markup: string, color: PieceColor, fillId: string) {
-  const palette = traditionalPalette[color];
-
+function colorizeTraditionalMarkup(markup: string, palette: TraditionalPiecePalette, fillId: string) {
   return markup
     .replace(/fill="(#000000|#14110F|black|#F5F1E8|#F7F2E8|#F2EADB)"/gi, `fill="url(#${fillId})"`)
     .replace(
@@ -109,14 +72,12 @@ function colorizeTraditionalMarkup(markup: string, color: PieceColor, fillId: st
     .replace(/stroke="(#000000|#14110F|black|#333333|#2B2B2B|#111111|#5F5245)"/gi, `stroke="${palette.stroke}"`);
 }
 
-function buildTraditionalPawnMarkup(type: 'P' | 'PM', color: PieceColor, fillId: string) {
-  const palette = traditionalPalette[color];
-
+function buildTraditionalPawnMarkup(type: 'P' | 'PM', palette: TraditionalPiecePalette, fillId: string) {
   if (type === 'PM') {
     return `
       <circle cx="180" cy="180" r="112" fill="url(#${fillId})" />
       <circle cx="180" cy="180" r="100" fill="none" stroke="${palette.stroke}" stroke-width="16" stroke-opacity="0.88" />
-      <circle cx="180" cy="180" r="60" fill="${palette.stroke}" />
+      <circle cx="180" cy="180" r="60" fill="${palette.promotedDot}" />
     `;
   }
 
@@ -128,26 +89,25 @@ function buildTraditionalPawnMarkup(type: 'P' | 'PM', color: PieceColor, fillId:
   `;
 }
 
-function getTraditionalAsset(type: PieceType, color: PieceColor, fillId: string): TraditionalAsset {
+function getTraditionalAsset(type: PieceType, palette: TraditionalPiecePalette, fillId: string): TraditionalAsset {
   if (type === 'P' || type === 'PM') {
     return {
       viewBox: parsedTraditionalAssets[type].viewBox,
-      markup: buildTraditionalPawnMarkup(type, color, fillId),
+      markup: buildTraditionalPawnMarkup(type, palette, fillId),
     };
   }
 
   const asset = parsedTraditionalAssets[type];
   return {
     viewBox: asset.viewBox,
-    markup: colorizeTraditionalMarkup(asset.markup, color, fillId),
+    markup: colorizeTraditionalMarkup(asset.markup, palette, fillId),
   };
 }
 
-function renderTraditional(type: PieceType, color: PieceColor, uid: string) {
-  const palette = traditionalPalette[color];
+function renderTraditional(type: PieceType, uid: string, palette: TraditionalPiecePalette) {
   const fillId = `traditional-fill-${uid}`;
   const filterId = `traditional-shadow-${uid}`;
-  const asset = getTraditionalAsset(type, color, fillId);
+  const asset = getTraditionalAsset(type, palette, fillId);
 
   return {
     viewBox: asset.viewBox,
@@ -168,8 +128,7 @@ function renderTraditional(type: PieceType, color: PieceColor, uid: string) {
   };
 }
 
-function renderClassic(type: PieceType, color: PieceColor) {
-  const palette = getClassicPalette(color);
+function renderGlyph(type: PieceType, palette: GlyphPiecePalette) {
 
   const baseCircle = (
     <>
@@ -224,7 +183,7 @@ function renderClassic(type: PieceType, color: PieceColor) {
           />
           <path d="M40 33 L46 40 L40 47 L34 40 Z" fill={palette.text} opacity="0.4" />
           <circle cx="40" cy="40" r="2.5" fill={palette.text} />
-          <circle cx="40" cy="25" r="2" fill={color === 'white' ? '#cc3333' : '#cc6666'} />
+          <circle cx="40" cy="25" r="2" fill={palette.accent} />
         </g>
       );
     case 'S':
@@ -284,8 +243,7 @@ function renderClassic(type: PieceType, color: PieceColor) {
   }
 }
 
-function renderWestern(type: PieceType, color: PieceColor) {
-  const palette = getWesternPalette(color);
+function renderWestern(type: PieceType, palette: WesternPiecePalette) {
   const base = (
     <>
       <ellipse cx="40" cy="63" rx="16" ry="5.5" fill={palette.accent} opacity="0.55" />
@@ -314,7 +272,7 @@ function renderWestern(type: PieceType, color: PieceColor) {
           <circle cx="36" cy="28" r="2.4" fill={palette.stroke} stroke="none" />
           <circle cx="44" cy="28" r="2.4" fill={palette.stroke} stroke="none" />
           <circle cx="52" cy="34" r="2.4" fill={palette.stroke} stroke="none" />
-          {type === 'PM' && <circle cx="40" cy="23" r="3" fill="#c04032" stroke="none" />}
+          {type === 'PM' && <circle cx="40" cy="23" r="3" fill={palette.accent} stroke="none" />}
         </g>
       );
     case 'S':
@@ -358,13 +316,23 @@ function renderWestern(type: PieceType, color: PieceColor) {
   }
 }
 
-const PieceSVG = memo(function PieceSVG({ type, color, size, className }: PieceSVGProps) {
+const PieceSVG = memo(function PieceSVG({ type, color, size, className, pieceStyleId }: PieceSVGProps) {
   const { pieceStyle } = usePieceStyle();
+  const activePieceStyle = pieceStyleId ?? pieceStyle;
+  const pieceSet = getPieceSetById(activePieceStyle);
   const traditionalId = useId().replace(/[:]/g, '');
-  const traditionalAsset = pieceStyle === 'classic' ? renderTraditional(type, color, traditionalId) : null;
-  const content = pieceStyle === 'western'
-    ? renderWestern(type, color)
-    : traditionalAsset?.content;
+  const traditionalAsset = pieceSet.renderer === 'traditional'
+    ? renderTraditional(type, traditionalId, pieceSet.colors[color])
+    : null;
+
+  let content;
+  if (pieceSet.renderer === 'western') {
+    content = renderWestern(type, pieceSet.colors[color]);
+  } else if (pieceSet.renderer === 'glyph') {
+    content = renderGlyph(type, pieceSet.colors[color]);
+  } else {
+    content = traditionalAsset?.content;
+  }
 
   return (
     <svg

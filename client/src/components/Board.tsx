@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, memo } from 'react';
 import type { Board as BoardType, Position, PieceColor, Move } from '@shared/types';
+import { useBoardAppearance } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
 
 export interface Arrow {
@@ -58,6 +59,7 @@ export default memo(function Board({
   squareHighlights,
   squareAnnotations,
 }: BoardProps) {
+  const { boardTheme } = useBoardAppearance();
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
@@ -320,6 +322,13 @@ export default memo(function Board({
   };
 
   const squareSize = '12.5%';
+  const boardSurfaceStyle = {
+    '--board-light-background': boardTheme.lightBackground,
+    '--board-dark-background': boardTheme.darkBackground,
+    '--board-coordinate-light': boardTheme.lightCoordinate,
+    '--board-coordinate-dark': boardTheme.darkCoordinate,
+    '--board-frame-background': boardTheme.frameBackground,
+  } as React.CSSProperties;
 
   const renderArrowSvg = () => {
     const allArrows = [...arrows];
@@ -429,13 +438,13 @@ export default memo(function Board({
           >
             {displayCol === 0 && (
               <span className="absolute top-0.5 left-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: isLightSquare(boardRow, boardCol) ? '#b58863' : '#e8c690' }}>
+                style={{ color: isLightSquare(boardRow, boardCol) ? 'var(--board-coordinate-light)' : 'var(--board-coordinate-dark)' }}>
                 {boardRow + 1}
               </span>
             )}
             {displayRow === 7 && (
               <span className="absolute bottom-0.5 right-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: isLightSquare(boardRow, boardCol) ? '#b58863' : '#e8c690' }}>
+                style={{ color: isLightSquare(boardRow, boardCol) ? 'var(--board-coordinate-light)' : 'var(--board-coordinate-dark)' }}>
                 {String.fromCharCode(97 + boardCol)}
               </span>
             )}
@@ -479,8 +488,9 @@ export default memo(function Board({
   return (
     <div
       ref={boardRef}
-      className="relative aspect-square w-full select-none rounded-lg shadow-xl overflow-hidden board-no-select"
+      className="relative aspect-square w-full select-none overflow-hidden rounded-[1.1rem] shadow-xl board-no-select transition-[box-shadow,transform] duration-200"
       data-testid="board"
+      style={boardSurfaceStyle}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={(e) => {
