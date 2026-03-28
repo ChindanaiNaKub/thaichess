@@ -104,7 +104,11 @@ function positionEquals(left: Position, right: Position): boolean {
 }
 
 function pieceMatchesTarget(piece: Piece | null, target: Piece): boolean {
-  return Boolean(piece) && piece.type === target.type && piece.color === target.color;
+  if (!piece) {
+    return false;
+  }
+
+  return piece.type === target.type && piece.color === target.color;
 }
 
 interface TacticalTargetReference {
