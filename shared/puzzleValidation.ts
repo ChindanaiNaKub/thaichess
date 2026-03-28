@@ -17,6 +17,21 @@ export interface PuzzleValidationResult {
   warnings: string[];
 }
 
+const CHECKMATE_DESCRIPTION_REGEX = /(?:mate|checkmate) in (\d+)/i;
+const CHECKMATE_COPY_REGEX = /\b(?:mate|checkmate|mating)\b/i;
+const CHECKMATE_EXPLANATION_REGEX = /\b(?:mate|checkmate|mating|boxed in|no safe square|no escape|mating net|close(?:s|d)?(?: the net| every reply)?|seal(?:s|ed)?|trap(?:s|ped)?|cut(?:s)? off|take(?:s)? away)\b/i;
+const PROMOTION_REGEX = /\bpromot(?:e|es|ed|ing|ion)\b/i;
+const PAWN_REGEX = /\b(?:pawn|bia)\b/i;
+const TACTICAL_ACTION_REGEX = /\b(?:win|wins|won|capture|captures|captured|capturing|grab|grabs|grabbing|collect|collects|collecting|pick(?:s)? up|harvest)\b/i;
+const TACTICAL_TARGET_REGEX = /\b(?:material|rook|rua|knight|ma|khon|met|pawn|bia)\b/i;
+
+function normalizeText(...parts: string[]): string {
+  return parts
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
 function countKings(board: Board, color: PieceColor): number {
   let count = 0;
   for (const row of board) {
@@ -110,6 +125,64 @@ function validateSolutionBranch(puzzle: Puzzle, initialState: GameState, errors:
   }
 }
 
+function validateMetadata(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  const title = puzzle.title.trim();
+  const description = puzzle.description.trim();
+  const explanation = puzzle.explanation.trim();
+  const source = puzzle.source.trim();
+  const combinedCopy = normalizeText(title, description, explanation);
+
+  if (!title) errors.push('Puzzle title is required.');
+  if (!description) errors.push('Puzzle description is required.');
+  if (!explanation) errors.push('Puzzle explanation is required.');
+  if (!source) warnings.push('Puzzle source should be recorded for future audits.');
+
+  if (description.length < 20) {
+    warnings.push('Puzzle description is too short to set up the idea clearly.');
+  }
+
+  if (explanation.length < 20) {
+    warnings.push('Puzzle explanation is too short to teach the idea clearly.');
+  }
+
+  if (puzzle.theme === 'Checkmate') {
+    const mateCount = Math.floor((puzzle.solution.length + 1) / 2);
+    const match = description.match(CHECKMATE_DESCRIPTION_REGEX);
+
+    if (!match || Number.parseInt(match[1], 10) !== mateCount) {
+      errors.push(`Checkmate puzzle description must say "Mate in ${mateCount}".`);
+    }
+
+    if (!CHECKMATE_COPY_REGEX.test(combinedCopy)) {
+      errors.push('Checkmate puzzle copy must mention mate or checkmate.');
+    }
+
+    if (!CHECKMATE_EXPLANATION_REGEX.test(explanation)) {
+      errors.push('Checkmate puzzle explanation must describe the mating idea.');
+    }
+  }
+
+  if (puzzle.theme === 'Promotion') {
+    if (!PROMOTION_REGEX.test(combinedCopy)) {
+      errors.push('Promotion puzzle copy must mention promotion.');
+    }
+
+    if (!PAWN_REGEX.test(combinedCopy)) {
+      errors.push('Promotion puzzle copy must mention the pawn or bia.');
+    }
+  }
+
+  if (isTacticalTheme(puzzle.theme)) {
+    if (!TACTICAL_ACTION_REGEX.test(combinedCopy)) {
+      errors.push('Tactical puzzle copy must say that the line wins or captures something.');
+    }
+
+    if (!TACTICAL_TARGET_REGEX.test(combinedCopy)) {
+      errors.push('Tactical puzzle copy must name the material target or mention material gain.');
+    }
+  }
+}
+
 export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -127,10 +200,6 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
     errors.push('Puzzle board contains an unpromoted pawn on or beyond its promotion rank.');
   }
 
-  if (puzzle.explanation.trim().length < 20) {
-    warnings.push('Puzzle explanation is too short to teach the idea clearly.');
-  }
-
   if (!puzzle.solution.length) {
     errors.push('Puzzle must contain at least one solution move.');
     return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
@@ -139,6 +208,8 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
   if (puzzle.solution.length % 2 === 0) {
     errors.push('Puzzle solution must end on the solving side, so solution length must be odd.');
   }
+
+  validateMetadata(puzzle, errors, warnings);
 
   let state = createGameStateFromPuzzle(puzzle);
   const defendingColor: PieceColor = puzzle.toMove === 'white' ? 'black' : 'white';

@@ -7,7 +7,7 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername } from './database';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, type RecentGamesFilter } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
@@ -261,11 +261,14 @@ app.get('/api/game/:id', async (req, res) => {
 app.get('/api/games/recent', async (_req, res) => {
   const page = parseInt(_req.query.page as string) || 0;
   const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
+  const filter = _req.query.filter === 'rated' || _req.query.filter === 'casual'
+    ? _req.query.filter as RecentGamesFilter
+    : 'all';
   const [games, total] = await Promise.all([
-    getRecentGames(limit, page * limit),
-    getGameCount(),
+    getRecentGames(limit, page * limit, filter),
+    getGameCount(filter),
   ]);
-  res.json({ games, total, page, limit });
+  res.json({ games, total, page, limit, filter });
 });
 
 app.get('/api/leaderboard', async (req, res) => {

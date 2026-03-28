@@ -82,10 +82,38 @@ describe('GamesPage', () => {
       expect(screen.getByText('casual-1')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Rated')).toBeInTheDocument();
-    expect(screen.getByText('Casual')).toBeInTheDocument();
+    expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
     expect(screen.getByText('Rated White (1500) vs Rated Black (1500)')).toBeInTheDocument();
     expect(screen.getByText('Guest One vs Guest Two')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
+  });
+
+  it('requests filtered recent games when the filter changes', async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        games: [],
+        total: 0,
+      }),
+    });
+
+    render(<GamesPage />, { wrapper });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rated' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=rated');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Casual' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=casual');
+    });
   });
 
   it('opens finished games in analysis instead of the live game route', async () => {

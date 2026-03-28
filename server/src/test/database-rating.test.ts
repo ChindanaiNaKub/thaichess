@@ -246,4 +246,65 @@ describe('database rated game persistence', () => {
       draws: 0,
     });
   });
+
+  it('filters recent games and counts by rated status', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    await database.upsertUserByEmail({
+      id: 'rated-white',
+      email: 'rated-white@example.com',
+      role: 'user',
+    });
+    await database.upsertUserByEmail({
+      id: 'rated-black',
+      email: 'rated-black@example.com',
+      role: 'user',
+    });
+
+    await database.saveCompletedGame({
+      id: 'rated-game-filter',
+      result: 'white',
+      resultReason: 'checkmate',
+      whiteUserId: 'rated-white',
+      blackUserId: 'rated-black',
+      rated: true,
+      gameMode: 'quick_play',
+      timeControl: { initial: 300, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 22,
+    });
+
+    await database.saveCompletedGame({
+      id: 'casual-game-filter',
+      result: 'draw',
+      resultReason: 'draw_agreement',
+      whiteUserId: null,
+      blackUserId: null,
+      rated: false,
+      gameMode: 'private',
+      timeControl: { initial: 300, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 18,
+    });
+
+    const allGames = await database.getRecentGames(10, 0, 'all');
+    const ratedGames = await database.getRecentGames(10, 0, 'rated');
+    const casualGames = await database.getRecentGames(10, 0, 'casual');
+    const allCount = await database.getGameCount('all');
+    const ratedCount = await database.getGameCount('rated');
+    const casualCount = await database.getGameCount('casual');
+
+    expect(allGames).toHaveLength(2);
+    expect(ratedGames).toHaveLength(1);
+    expect(casualGames).toHaveLength(1);
+    expect(ratedGames[0]?.id).toBe('rated-game-filter');
+    expect(casualGames[0]?.id).toBe('casual-game-filter');
+    expect(allCount).toBe(2);
+    expect(ratedCount).toBe(1);
+    expect(casualCount).toBe(1);
+  });
 });

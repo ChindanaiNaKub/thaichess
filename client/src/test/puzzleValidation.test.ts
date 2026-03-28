@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { PUZZLES, type Puzzle } from '@shared/puzzles';
+import { ALL_PUZZLES, PUZZLES, QUARANTINED_PUZZLES, isPuzzleReadyToShip, type Puzzle } from '@shared/puzzles';
+import { IMPORTED_PUZZLE_CANDIDATES, createImportedPuzzleCandidate } from '@shared/puzzleImportQueue';
 import { validatePuzzle, validatePuzzles } from '@shared/puzzleValidation';
 import { createGameStateFromPuzzle, getForcingMoves } from '@shared/puzzleSolver';
 import type { Board, Piece, PieceColor, PieceType } from '@shared/types';
@@ -17,7 +18,67 @@ describe('puzzleValidation', () => {
   it('accepts the built-in puzzle set', () => {
     const results = validatePuzzles(PUZZLES);
 
-    expect(results.every(result => result.errors.length === 0)).toBe(true);
+    expect(results.filter(result => result.errors.length > 0)).toEqual([]);
+  });
+
+  it('ships only the curated subset and keeps the rest quarantined', () => {
+    expect(PUZZLES.map(puzzle => puzzle.id)).toEqual([1, 6, 8, 10, 12, 13, 15, 17, 19]);
+    expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toEqual([2, 3, 4, 5, 7, 9, 11, 14, 16, 18]);
+    expect(PUZZLES).toHaveLength(9);
+    expect(QUARANTINED_PUZZLES).toHaveLength(10);
+    expect(ALL_PUZZLES).toHaveLength(19);
+    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(0);
+    expect(PUZZLES.every(puzzle => puzzle.reviewStatus === 'ship')).toBe(true);
+    expect(PUZZLES.every(isPuzzleReadyToShip)).toBe(true);
+    expect(QUARANTINED_PUZZLES.every(puzzle => puzzle.reviewStatus === 'quarantine')).toBe(true);
+    expect(ALL_PUZZLES.every(puzzle => puzzle.motif.trim().length > 0)).toBe(true);
+  });
+
+  it('defaults imported puzzle candidates to quarantine', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
+    expect(basePuzzle).toBeDefined();
+
+    const { reviewStatus: _reviewStatus, reviewChecklist: _reviewChecklist, ...draft } = {
+      ...basePuzzle!,
+      id: 9999,
+      source: 'Generated candidate import',
+    };
+
+    const candidate = createImportedPuzzleCandidate(draft);
+
+    expect(candidate.reviewStatus).toBe('quarantine');
+    expect(candidate.reviewChecklist).toEqual({
+      themeClarity: 'unreviewed',
+      teachingValue: 'unreviewed',
+      duplicateRisk: 'unreviewed',
+      reviewNotes: '',
+    });
+    expect(isPuzzleReadyToShip(candidate)).toBe(false);
+    expect(candidate.id).toBe(9999);
+  });
+
+  it('allows reviewed imported candidates to become ship-ready', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
+    expect(basePuzzle).toBeDefined();
+
+    const { reviewStatus: _reviewStatus, reviewChecklist: _reviewChecklist, ...draft } = {
+      ...basePuzzle!,
+      id: 10000,
+      source: 'Generated candidate import',
+    };
+
+    const candidate = {
+      ...createImportedPuzzleCandidate(draft),
+      reviewStatus: 'ship' as const,
+      reviewChecklist: {
+        themeClarity: 'pass' as const,
+        teachingValue: 'pass' as const,
+        duplicateRisk: 'clear' as const,
+        reviewNotes: 'Reviewed and approved for shipping.',
+      },
+    };
+
+    expect(isPuzzleReadyToShip(candidate)).toBe(true);
   });
 
   it('rejects puzzles with multiple winning first moves', () => {
@@ -34,7 +95,15 @@ describe('puzzleValidation', () => {
       explanation: 'Either rook can climb to the back rank, which makes the first move ambiguous.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Ambiguous rook mate',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 2 }, to: { row: 7, col: 2 } }],
@@ -49,7 +118,7 @@ describe('puzzleValidation', () => {
   });
 
   it('exposes the canonical puzzle start as a forcing move', () => {
-    const puzzle = PUZZLES.find(candidate => candidate.id === 3);
+    const puzzle = PUZZLES.find(candidate => candidate.id === 15);
     expect(puzzle).toBeDefined();
 
     const forcingMoves = getForcingMoves(createGameStateFromPuzzle(puzzle!), puzzle!);
@@ -71,7 +140,15 @@ describe('puzzleValidation', () => {
       explanation: 'A valid Makruk puzzle must finish with checkmate or another legal ending, never by capturing the king.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Illegal king capture',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 6, col: 4 }, to: { row: 7, col: 4 } }],
@@ -98,7 +175,15 @@ describe('puzzleValidation', () => {
       explanation: 'A legal puzzle cannot start with the non-moving side already in check.',
       source: 'test fixture',
       theme: 'Checkmate',
+      motif: 'Illegal start in check',
       difficulty: 'beginner',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
       toMove: 'white',
       board,
       solution: [{ from: { row: 2, col: 4 }, to: { row: 1, col: 3 } }],
@@ -119,5 +204,52 @@ describe('puzzleValidation', () => {
     expect(result.errors).toEqual([]);
     expect(forcingMoves).toHaveLength(1);
     expect(forcingMoves[0]).toMatchObject(puzzle!.solution[0]);
+  });
+
+  it('rejects checkmate puzzles whose description says the wrong mate length', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 15);
+    expect(basePuzzle).toBeDefined();
+
+    const puzzle: Puzzle = {
+      ...basePuzzle!,
+      description: 'Mate in 1. Pivot the rook first, then drop to the back rank.',
+    };
+
+    const result = validatePuzzle(puzzle);
+
+    expect(result.errors).toContain('Checkmate puzzle description must say "Mate in 2".');
+  });
+
+  it('rejects promotion puzzles whose copy never mentions promotion', () => {
+    const basePuzzle = ALL_PUZZLES.find(candidate => candidate.id === 7);
+    expect(basePuzzle).toBeDefined();
+
+    const puzzle: Puzzle = {
+      ...basePuzzle!,
+      title: 'Supported Advance',
+      description: 'Push the pawn safely with king support.',
+      explanation: 'A single quiet step is enough because the king controls the key squares.',
+    };
+
+    const result = validatePuzzle(puzzle);
+
+    expect(result.errors).toContain('Promotion puzzle copy must mention promotion.');
+  });
+
+  it('rejects tactical puzzles whose copy does not explain the material win', () => {
+    const basePuzzle = PUZZLES.find(candidate => candidate.id === 10);
+    expect(basePuzzle).toBeDefined();
+
+    const puzzle: Puzzle = {
+      ...basePuzzle!,
+      title: 'Open Lane',
+      description: 'Use the file efficiently.',
+      explanation: 'The line is clean and the move is the important idea here.',
+    };
+
+    const result = validatePuzzle(puzzle);
+
+    expect(result.errors).toContain('Tactical puzzle copy must say that the line wins or captures something.');
+    expect(result.errors).toContain('Tactical puzzle copy must name the material target or mention material gain.');
   });
 });

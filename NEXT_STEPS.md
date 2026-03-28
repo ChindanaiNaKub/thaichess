@@ -3,46 +3,102 @@
 ## Repo
 
 - Path: `/home/prab/Documents/markrukthai-1`
-- Current branch at time of note: `main`
+- Recommended branch start point: `main`
 
 ## Recently Implemented
 
-- Fixed stale private-game waiting-room state so leaving and creating again does not get blocked by an old room
-- Added private-game color selection: `Random`, `White`, `Black`
-- Added Elo groundwork:
-  - rating fields on users
-  - rated-game metadata on games
-  - socket auth binding from session cookie
-  - live rooms now track `whiteUserId`, `blackUserId`, `gameMode`, `rated`
-- Quick play is now:
-  - `rated` only when both players are signed in
-  - `casual` when one or both players are anonymous
-- Elo updates are applied exactly once for finished rated quick-play games
-- Quick Play now shows rated/casual availability messaging
-- Game pages now show `Rated` / `Casual` badges
-- Rated game-over UI now shows rating delta
-- Recent games list now shows `Rated` / `Casual` labels
-- Added leaderboard page with ranked rated players
-- Account page now shows:
-  - rating
-  - rated games
-  - wins / losses / draws
+- Rating UX improvements:
+  - player ratings shown in recent games
+  - player ratings shown in live game header and waiting room
+  - leaderboard links added from home and account
+- Recent games filters:
+  - `All`
+  - `Rated`
+  - `Casual`
+- Recent-games API now supports server-side filtering and filtered counts
 
-## Verified
+## Verified Recently
 
-- Server tests passed
-- Client tests for account, quick play, game page, game socket, games list, and leaderboard passed
+- Client tests for `GamesPage` passed
+- Client tests for `GamePage` passed
+- Client tests for `AccountPage` passed
+- Server tests for `gameManager` passed
+- Server tests for `database-rating` passed
 - Server build passed
 - Client build passed
 
+## Current Product Issue
+
+Puzzle quality is now the main problem.
+
+Observed issues:
+
+1. Some puzzles do not match their title or description
+2. Some puzzles have low teaching value
+3. Some puzzles are buggy or ambiguous
+4. Static puzzle content quality is worse than the current validation rules catch
+
+Current status:
+
+- the puzzle validator is stricter than before
+- but "validator pass" still does not mean "worth shipping"
+- the catalog has now been split into shipped puzzles vs quarantined puzzles
+- see `docs/puzzle-audit-2026-03-28.md` for the keep/quarantine list
+- explicit review metadata and checklist now exist on puzzles
+- imported/generated puzzles now enter through a separate quarantine queue by default
+
 ## Next Recommended Task
 
-Move from rating foundations into richer rating UX:
+Move into a puzzle quality recovery pass before adding more puzzle content.
 
-1. Show player ratings in recent games list
-2. Show player ratings on game page header / waiting room
-3. Add rating filters or rated-only filters in recent games
-4. Add a leaderboard link from more entry points, like the home page or account page
+### Immediate next task
+
+Populate the candidate queue with better puzzles and review the first batch:
+
+1. Add 5-10 imported puzzle candidates into `shared/puzzleImportQueue.ts`
+2. Bias the batch toward multi-ply puzzles:
+   - mate in 2
+   - mate in 3
+   - tactical sequences, not only one-move pickups
+3. Run candidate-only checks:
+   - `npm run validate:puzzle-candidates --workspace=server`
+   - `npm run audit:puzzle-candidates --workspace=server`
+4. Review the batch with the checklist:
+   - theme clarity
+   - teaching value
+   - duplicate risk
+5. Promote only the strongest candidates by setting:
+   - `reviewStatus: 'ship'`
+   - passing review checklist fields
+
+### Why this is next
+
+- The pipeline exists now, but the candidate queue is still empty
+- The current shipped set is still too heavy on shallow one-move puzzles
+- The highest-value product improvement is better puzzle content, not more pipeline code
+
+## ffish Assessment
+
+Reference package:
+
+- `ffish` on npm: https://www.npmjs.com/package/ffish
+
+Current recommendation:
+
+- Do **not** make `ffish` the next implementation task
+
+Reasoning:
+
+1. It can help with Makruk-capable engine verification because it is a WebAssembly wrapper around Fairy-Stockfish and Fairy-Stockfish supports Makruk
+2. It does **not** solve bad puzzle descriptions, weak teaching quality, or curation mistakes by itself
+3. It introduces more runtime and integration complexity in an area that already had previous Fairy-Stockfish revert history
+4. The package is GPL-3.0, while this repo is MIT, so bundling it into the product needs careful license review before adoption
+
+Safer use, if revisited later:
+
+- as an offline puzzle-audit tool
+- as a separate verification service boundary
+- not as the first fix for the current puzzle-quality problem
 
 ## Resume Prompt
 
@@ -52,24 +108,18 @@ Use this when starting a new session:
 Repo: /home/prab/Documents/markrukthai-1
 Branch: main
 
-Already implemented:
-- private game leave cleanup
-- private game color selection
-- ELO schema fields and socket auth binding
-- rated quick-play only for signed-in vs signed-in
-- Elo updates exactly once
-- quick-play rated/casual messaging
-- game-page rated/casual badges
-- post-game rating delta
-- recent games rated/casual labels
-- leaderboard page
-- account page rating stats
+Recently completed:
+- rating UX in live games and recent games
+- leaderboard links from more entry points
+- recent games filters: all / rated / casual
+
+Current problem:
+- puzzle dataset quality needs human curation, not just validator checks
+- only the curated subset should be shipped
+- the next gap is content depth: too many one-move puzzles, not enough richer sequences
 
 Next task:
-Show player ratings in game history and on the live game header.
+Populate the puzzle candidate queue and review the first batch.
+
+Start from shared/puzzleImportQueue.ts and add stronger multi-ply candidates, then run validate/audit on candidates before promoting any of them.
 ```
-
-## Note
-
-- There is still an unrelated local change in `.planning/config.json`
-- That file was intentionally left untouched

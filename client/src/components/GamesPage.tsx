@@ -22,6 +22,8 @@ interface GameEntry {
   finished_at: number;
 }
 
+type GamesFilter = 'all' | 'rated' | 'casual';
+
 function formatTimeControl(initial: number, increment: number): string {
   const mins = Math.floor(initial / 60);
   return increment > 0 ? `${mins}+${increment}` : `${mins}+0`;
@@ -44,6 +46,7 @@ export default function GamesPage() {
   const [games, setGames] = useState<GameEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
+  const [filter, setFilter] = useState<GamesFilter>('all');
   const [loading, setLoading] = useState(true);
 
   const limit = 20;
@@ -71,8 +74,12 @@ export default function GamesPage() {
   }
 
   useEffect(() => {
+    setPage(0);
+  }, [filter]);
+
+  useEffect(() => {
     setLoading(true);
-    fetch(`/api/games/recent?page=${page}&limit=${limit}`)
+    fetch(`/api/games/recent?page=${page}&limit=${limit}&filter=${filter}`)
       .then(r => r.json())
       .then(data => {
         setGames(data.games || []);
@@ -80,7 +87,7 @@ export default function GamesPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [page]);
+  }, [page, filter]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -90,17 +97,35 @@ export default function GamesPage() {
 
       <main id="main-content" className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
         <div className="rounded-2xl border border-surface-hover bg-surface-alt/80 px-4 py-4 sm:px-5 sm:py-5 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
-              <button
-                onClick={() => navigate(routes.leaderboard)}
-                className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
-              >
-                {t('games.view_leaderboard')}
-              </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
+                <button
+                  onClick={() => navigate(routes.leaderboard)}
+                  className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
+                >
+                  {t('games.view_leaderboard')}
+                </button>
+              </div>
+              <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
             </div>
-            <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'rated', 'casual'] as const).map((filterOption) => (
+                <button
+                  key={filterOption}
+                  type="button"
+                  onClick={() => setFilter(filterOption)}
+                  className={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+                    filter === filterOption
+                      ? 'bg-primary text-white'
+                      : 'border border-surface-hover bg-surface text-text-dim hover:bg-surface-hover'
+                  }`}
+                >
+                  {t(`games.filter_${filterOption}`)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

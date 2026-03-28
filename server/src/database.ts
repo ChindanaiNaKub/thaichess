@@ -525,12 +525,21 @@ export interface SavedGame {
   finished_at: number;
 }
 
-export async function getRecentGames(limit: number = 20, offset: number = 0): Promise<SavedGame[]> {
+export type RecentGamesFilter = 'all' | 'rated' | 'casual';
+
+function getRecentGamesWhereClause(filter: RecentGamesFilter): string {
+  if (filter === 'rated') return 'finished_at IS NOT NULL AND rated = 1';
+  if (filter === 'casual') return 'finished_at IS NOT NULL AND rated = 0';
+  return 'finished_at IS NOT NULL';
+}
+
+export async function getRecentGames(limit: number = 20, offset: number = 0, filter: RecentGamesFilter = 'all'): Promise<SavedGame[]> {
   try {
+    const whereClause = getRecentGamesWhereClause(filter);
     const result = await db.execute({
       sql: `
         SELECT * FROM games
-        WHERE finished_at IS NOT NULL
+        WHERE ${whereClause}
         ORDER BY finished_at DESC
         LIMIT ? OFFSET ?
       `,
@@ -538,7 +547,7 @@ export async function getRecentGames(limit: number = 20, offset: number = 0): Pr
     });
     return result.rows.map(rowToSavedGame);
   } catch (err) {
-    logError('database_get_recent_games_failed', err, { limit, offset });
+    logError('database_get_recent_games_failed', err, { limit, offset, filter });
     return [];
   }
 }
@@ -557,12 +566,13 @@ export async function getGame(id: string): Promise<SavedGame | null> {
   }
 }
 
-export async function getGameCount(): Promise<number> {
+export async function getGameCount(filter: RecentGamesFilter = 'all'): Promise<number> {
   try {
-    const result = await db.execute('SELECT COUNT(*) as count FROM games WHERE finished_at IS NOT NULL');
+    const whereClause = getRecentGamesWhereClause(filter);
+    const result = await db.execute(`SELECT COUNT(*) as count FROM games WHERE ${whereClause}`);
     return Number(result.rows[0]?.count ?? 0);
   } catch (err) {
-    logError('database_get_game_count_failed', err);
+    logError('database_get_game_count_failed', err, { filter });
     return 0;
   }
 }
