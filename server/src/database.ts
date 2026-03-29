@@ -120,6 +120,15 @@ async function runSchemaMigration() {
     'CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)',
     'CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)',
     `
+      CREATE TABLE IF NOT EXISTS puzzle_progress (
+        user_id TEXT NOT NULL,
+        puzzle_id INTEGER NOT NULL,
+        completed_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (user_id, puzzle_id)
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_puzzle_progress_user_id ON puzzle_progress(user_id, completed_at DESC)',
+    `
       CREATE TABLE IF NOT EXISTS login_codes (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL,
@@ -923,6 +932,76 @@ export async function updateUsername(userId: string, username: string): Promise<
   } catch (err) {
     logError('database_update_username_failed', err, { userId });
     return null;
+  }
+}
+
+function normalizePuzzleIds(puzzleIds: number[]): number[] {
+  return Array.from(
+    new Set(
+      puzzleIds
+        .map(puzzleId => Number(puzzleId))
+        .filter(puzzleId => Number.isInteger(puzzleId) && puzzleId > 0),
+    ),
+  ).sort((a, b) => a - b);
+}
+
+export async function getCompletedPuzzleIdsForUser(userId: string): Promise<number[]> {
+  try {
+    const result = await db.execute({
+      sql: `
+        SELECT puzzle_id
+        FROM puzzle_progress
+        WHERE user_id = ?
+        ORDER BY completed_at ASC, puzzle_id ASC
+      `,
+      args: [userId],
+    });
+
+    return normalizePuzzleIds(result.rows.map(row => Number(row.puzzle_id)));
+  } catch (err) {
+    logError('database_get_completed_puzzle_ids_failed', err, { userId });
+    return [];
+  }
+}
+
+export async function markPuzzleCompleted(userId: string, puzzleId: number): Promise<number[]> {
+  try {
+    await db.execute({
+      sql: `
+        INSERT OR IGNORE INTO puzzle_progress (user_id, puzzle_id, completed_at)
+        VALUES (?, ?, unixepoch())
+      `,
+      args: [userId, puzzleId],
+    });
+
+    return await getCompletedPuzzleIdsForUser(userId);
+  } catch (err) {
+    logError('database_mark_puzzle_completed_failed', err, { userId, puzzleId });
+    return await getCompletedPuzzleIdsForUser(userId);
+  }
+}
+
+export async function mergeCompletedPuzzles(userId: string, puzzleIds: number[]): Promise<number[]> {
+  const normalizedPuzzleIds = normalizePuzzleIds(puzzleIds);
+  if (!normalizedPuzzleIds.length) {
+    return await getCompletedPuzzleIdsForUser(userId);
+  }
+
+  try {
+    for (const puzzleId of normalizedPuzzleIds) {
+      await db.execute({
+        sql: `
+          INSERT OR IGNORE INTO puzzle_progress (user_id, puzzle_id, completed_at)
+          VALUES (?, ?, unixepoch())
+        `,
+        args: [userId, puzzleId],
+      });
+    }
+
+    return await getCompletedPuzzleIdsForUser(userId);
+  } catch (err) {
+    logError('database_merge_completed_puzzles_failed', err, { userId, puzzleCount: normalizedPuzzleIds.length });
+    return await getCompletedPuzzleIdsForUser(userId);
   }
 }
 

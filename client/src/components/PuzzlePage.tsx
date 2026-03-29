@@ -6,6 +6,7 @@ import { PUZZLES } from '@shared/puzzles';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { usePuzzleProgress } from '../lib/puzzleProgress';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
@@ -47,10 +48,7 @@ function PuzzleListPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<PuzzleListFilter>('all');
   const [themeFilter, setThemeFilter] = useState<string>('all');
-
-  const completedPuzzles = new Set(
-    JSON.parse(localStorage.getItem('completedPuzzles') || '[]') as number[]
-  );
+  const { completedPuzzleIds, completedPuzzleSet } = usePuzzleProgress();
 
   const puzzlesForFilter = (difficulty: PuzzleListFilter) => (
     difficulty === 'all'
@@ -81,8 +79,8 @@ function PuzzleListPage() {
   const filteredPuzzles = themeFilter === 'all'
     ? difficultyFilteredPuzzles
     : difficultyFilteredPuzzles.filter(puzzle => puzzle.theme === themeFilter);
-  const completedInFilter = filteredPuzzles.filter(puzzle => completedPuzzles.has(puzzle.id));
-  const unsolvedInFilter = filteredPuzzles.filter(puzzle => !completedPuzzles.has(puzzle.id));
+  const completedInFilter = filteredPuzzles.filter(puzzle => completedPuzzleSet.has(puzzle.id));
+  const unsolvedInFilter = filteredPuzzles.filter(puzzle => !completedPuzzleSet.has(puzzle.id));
   const sortedFilteredPuzzles = [...unsolvedInFilter, ...completedInFilter];
   const recommendedPuzzle = unsolvedInFilter[0] ?? filteredPuzzles[0] ?? null;
   const filterCompletionPercent = filteredPuzzles.length > 0
@@ -163,7 +161,7 @@ function PuzzleListPage() {
               <div className="rounded-xl border border-primary/25 bg-surface/80 px-4 py-3 min-w-[168px]">
                 <p className="text-xs uppercase tracking-[0.18em] text-text-dim mb-1">{t('puzzle.completed_summary')}</p>
                 <p className="text-xl font-semibold text-text-bright">
-                  {t('puzzle.completed', { done: completedPuzzles.size, total: PUZZLES.length })}
+                  {t('puzzle.completed', { done: completedPuzzleIds.length, total: PUZZLES.length })}
                 </p>
                 <p className="text-xs text-text-dim mt-1">{t('puzzle.progress_hint')}</p>
               </div>
@@ -226,7 +224,7 @@ function PuzzleListPage() {
                   </span>
                 </div>
                 <p className="text-xs text-text-dim mt-4">
-                  {completedPuzzles.has(recommendedPuzzle.id)
+                  {completedPuzzleSet.has(recommendedPuzzle.id)
                     ? t('puzzle.next_up_review')
                     : t('puzzle.next_up_fresh')}
                 </p>
@@ -234,7 +232,7 @@ function PuzzleListPage() {
                   onClick={() => navigate(`/puzzle/${recommendedPuzzle.id}`)}
                   className="mt-4 w-full rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-3 transition-colors"
                 >
-                  {completedPuzzles.has(recommendedPuzzle.id) ? t('common.retry') : t('puzzle.start_here')}
+                  {completedPuzzleSet.has(recommendedPuzzle.id) ? t('common.retry') : t('puzzle.start_here')}
                 </button>
               </>
             ) : (
@@ -329,7 +327,7 @@ function PuzzleListPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {sortedFilteredPuzzles.map((puzzle, index) => {
-              const isCompleted = completedPuzzles.has(puzzle.id);
+              const isCompleted = completedPuzzleSet.has(puzzle.id);
               const isRecommended = recommendedPuzzle?.id === puzzle.id && !isCompleted && index === 0;
 
               return (
@@ -405,6 +403,7 @@ function PuzzleListPage() {
 function PuzzlePlayer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { markPuzzleCompleted } = usePuzzleProgress();
   const { id } = useParams<{ id: string }>();
   const puzzleId = parseInt(id || '1');
   const puzzle = PUZZLES.find(p => p.id === puzzleId);
@@ -441,12 +440,8 @@ function PuzzlePlayer() {
   }, [puzzleId]);
 
   const markCompleted = useCallback(() => {
-    const completed = JSON.parse(localStorage.getItem('completedPuzzles') || '[]') as number[];
-    if (!completed.includes(puzzleId)) {
-      completed.push(puzzleId);
-      localStorage.setItem('completedPuzzles', JSON.stringify(completed));
-    }
-  }, [puzzleId]);
+    void markPuzzleCompleted(puzzleId);
+  }, [markPuzzleCompleted, puzzleId]);
 
   const finishPuzzle = useCallback(() => {
     setStatus('success');

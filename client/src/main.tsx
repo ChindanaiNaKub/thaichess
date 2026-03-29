@@ -7,6 +7,7 @@ import { AuthProvider } from './lib/auth';
 import { initializeGlobalErrorReporting } from './lib/errorReporting';
 import { I18nProvider } from './lib/i18n';
 import { PieceStyleProvider } from './lib/pieceStyle';
+import { PuzzleProgressProvider } from './lib/puzzleProgress';
 import './index.css';
 
 initializeGlobalErrorReporting();
@@ -17,11 +18,13 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <I18nProvider>
         <AuthProvider>
-          <PieceStyleProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
-          </PieceStyleProvider>
+          <PuzzleProgressProvider>
+            <PieceStyleProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </PieceStyleProvider>
+          </PuzzleProgressProvider>
         </AuthProvider>
       </I18nProvider>
     </ErrorBoundary>

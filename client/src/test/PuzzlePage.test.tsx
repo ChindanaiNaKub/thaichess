@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { Board as BoardType, Piece, PieceColor, PieceType } from '@shared/types';
 import { PuzzleListPage, PuzzlePlayer } from '../components/PuzzlePage';
 
-const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures } = vi.hoisted(() => {
+const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuzzleCompletedMock, progressState } = vi.hoisted(() => {
   const board: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
   board[0][0] = { type: 'K', color: 'white' };
   board[6][3] = { type: 'R', color: 'white' };
@@ -74,6 +74,11 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures } = vi.h
         ],
       },
     ],
+    markPuzzleCompletedMock: vi.fn(async () => {}),
+    progressState: {
+      completedPuzzleIds: [] as number[],
+      loading: false,
+    },
   };
 });
 
@@ -224,6 +229,15 @@ vi.mock('../lib/i18n', () => ({
   }),
 }));
 
+vi.mock('../lib/puzzleProgress', () => ({
+  usePuzzleProgress: () => ({
+    completedPuzzleIds: progressState.completedPuzzleIds,
+    completedPuzzleSet: new Set(progressState.completedPuzzleIds),
+    loading: progressState.loading,
+    markPuzzleCompleted: markPuzzleCompletedMock,
+  }),
+}));
+
 vi.mock('../components/Header', () => ({
   default: ({ right }: { right?: ReactNode }) => <div data-testid="header">{right}</div>,
 }));
@@ -269,7 +283,9 @@ describe('PuzzlePage turn state', () => {
     vi.useFakeTimers();
     boardPropsMock.mockReset();
     navigateMock.mockReset();
-    localStorage.clear();
+    markPuzzleCompletedMock.mockReset();
+    progressState.completedPuzzleIds = [];
+    progressState.loading = false;
   });
 
   afterEach(() => {
@@ -296,11 +312,13 @@ describe('PuzzlePage turn state', () => {
 describe('Puzzle list page', () => {
   beforeEach(() => {
     navigateMock.mockReset();
-    localStorage.clear();
+    markPuzzleCompletedMock.mockReset();
+    progressState.completedPuzzleIds = [];
+    progressState.loading = false;
   });
 
   it('recommends the first unsolved puzzle in the current track', () => {
-    localStorage.setItem('completedPuzzles', JSON.stringify([77]));
+    progressState.completedPuzzleIds = [77];
 
     renderPuzzleList();
     fireEvent.click(screen.getAllByText('Short tactical wins and basic mates.')[0]!.closest('button')!);

@@ -8,7 +8,7 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, type RecentGamesFilter } from './database';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, getCompletedPuzzleIdsForUser, markPuzzleCompleted, mergeCompletedPuzzles, type RecentGamesFilter } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
@@ -363,6 +363,42 @@ app.patch('/api/auth/profile', async (req, res) => {
   }
 
   res.json({ ok: true, user: updated });
+});
+
+app.get('/api/puzzle-progress', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const completedPuzzleIds = await getCompletedPuzzleIdsForUser(user.id);
+  res.json({ completedPuzzleIds });
+});
+
+app.post('/api/puzzle-progress/complete', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const puzzleId = Number(req.body?.puzzleId);
+  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
+    res.status(400).json({ error: 'Valid puzzleId is required.' });
+    return;
+  }
+
+  const completedPuzzleIds = await markPuzzleCompleted(user.id, puzzleId);
+  res.json({ ok: true, completedPuzzleIds });
+});
+
+app.post('/api/puzzle-progress/sync', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const rawPuzzleIds = Array.isArray(req.body?.completedPuzzleIds) ? req.body.completedPuzzleIds : null;
+  if (!rawPuzzleIds) {
+    res.status(400).json({ error: 'completedPuzzleIds array is required.' });
+    return;
+  }
+
+  const completedPuzzleIds = await mergeCompletedPuzzles(user.id, rawPuzzleIds.map((value: unknown) => Number(value)));
+  res.json({ ok: true, completedPuzzleIds });
 });
 
 app.post('/api/client-errors', (req, res) => {
