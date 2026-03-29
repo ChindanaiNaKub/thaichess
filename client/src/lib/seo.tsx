@@ -40,7 +40,7 @@ function upsertLink(rel: string, href: string) {
   tag.href = href;
 }
 
-function upsertStructuredData(json: string) {
+function upsertStructuredData(entries: Record<string, unknown>[]) {
   const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
   const existing = Array.from(document.head.querySelectorAll(selector));
 
@@ -48,11 +48,13 @@ function upsertStructuredData(json: string) {
     node.remove();
   }
 
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
-  script.setAttribute(META_KEY, 'true');
-  script.textContent = json;
-  document.head.appendChild(script);
+  for (const entry of entries) {
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute(META_KEY, 'true');
+    script.textContent = JSON.stringify(entry);
+    document.head.appendChild(script);
+  }
 }
 
 export function SeoHeadManager() {
@@ -77,12 +79,15 @@ export function SeoHeadManager() {
     upsertLink('canonical', canonicalUrl);
 
     if (seo.structuredData?.length) {
-      upsertStructuredData(JSON.stringify(seo.structuredData.length === 1 ? seo.structuredData[0] : seo.structuredData));
+      upsertStructuredData(seo.structuredData);
       return;
     }
 
-    const existing = document.head.querySelector(`script[type="application/ld+json"][${META_KEY}="true"]`);
-    existing?.remove();
+    const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
+    const existing = Array.from(document.head.querySelectorAll(selector));
+    for (const node of existing) {
+      node.remove();
+    }
   }, [location.pathname]);
 
   return null;
