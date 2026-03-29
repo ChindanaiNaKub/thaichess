@@ -13,7 +13,7 @@ import {
   uciToMove,
 } from '../../shared/engineAdapter';
 import { logWarn } from './logger';
-import { analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStockfishBinary';
+import { analyzeBotWithBinaryEngine, analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStockfishBinary';
 
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 
@@ -250,7 +250,7 @@ export async function getBotMoveWithEngine(
   };
 
   const remote = await callService('/bot-move', request);
-  const binary = remote ? null : await analyzeWithBinaryEngine(request);
+  const binary = remote ? null : await analyzeBotWithBinaryEngine(request);
   const result = remote ?? binary;
 
   if (result) {

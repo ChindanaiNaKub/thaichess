@@ -24,6 +24,7 @@ import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
+const BOT_REQUEST_TIMEOUT_MS = 2500;
 const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
   const level = index + 1;
 
@@ -62,6 +63,9 @@ export default function BotGame() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botRequestAbortRef = useRef<AbortController | null>(null);
+  const botRequestIdRef = useRef(0);
   const gameStateRef = useRef(gameState);
   const moveCountRef = useRef(gameState.moveHistory.length);
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -77,6 +81,22 @@ export default function BotGame() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  const clearPendingBotRequest = useCallback(() => {
+    if (botTimeoutRef.current) {
+      clearTimeout(botTimeoutRef.current);
+      botTimeoutRef.current = null;
+    }
+
+    if (botRequestTimeoutRef.current) {
+      clearTimeout(botRequestTimeoutRef.current);
+      botRequestTimeoutRef.current = null;
+    }
+
+    botRequestAbortRef.current?.abort();
+    botRequestAbortRef.current = null;
+    botRequestIdRef.current += 1;
+  }, []);
+
   useEffect(() => {
     if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
 
@@ -91,14 +111,47 @@ export default function BotGame() {
     setBotThinking(true);
 
     botTimeoutRef.current = setTimeout(async () => {
-      const currentState = gameStateRef.current;
+      const requestId = botRequestIdRef.current + 1;
+      botRequestIdRef.current = requestId;
+
+      const requestedState = gameStateRef.current;
+      const requestMoveCount = requestedState.moveHistory.length;
+      const requestTurn = requestedState.turn;
       let botMove = null;
+      const controller = new AbortController();
+
+      botRequestAbortRef.current = controller;
+      botRequestTimeoutRef.current = setTimeout(() => {
+        controller.abort();
+      }, BOT_REQUEST_TIMEOUT_MS);
 
       try {
-        const result = await requestBotMove(currentState, level);
+        const result = await requestBotMove(requestedState, level, {
+          signal: controller.signal,
+        });
         botMove = result.move;
       } catch {
-        botMove = getBotMove(currentState, getFallbackDifficulty(level));
+        botMove = getBotMove(requestedState, getFallbackDifficulty(level));
+      } finally {
+        if (botRequestTimeoutRef.current) {
+          clearTimeout(botRequestTimeoutRef.current);
+          botRequestTimeoutRef.current = null;
+        }
+        if (botRequestAbortRef.current === controller) {
+          botRequestAbortRef.current = null;
+        }
+      }
+
+      if (botRequestIdRef.current !== requestId) return;
+
+      const currentState = gameStateRef.current;
+      const stateStillMatches = !currentState.gameOver
+        && currentState.turn === requestTurn
+        && currentState.moveHistory.length === requestMoveCount;
+
+      if (!stateStillMatches) {
+        setBotThinking(false);
+        return;
       }
 
       if (botMove) {
@@ -119,13 +172,15 @@ export default function BotGame() {
           }
         }
       }
+
       setBotThinking(false);
     }, 0);
 
     return () => {
-      if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+      clearPendingBotRequest();
     };
   }, [
+    clearPendingBotRequest,
     botColor,
     gameStarted,
     gameState.board,
@@ -349,6 +404,7 @@ export default function BotGame() {
   }, [gameState, isPlayerTurn, botThinking, playerColor]);
 
   const handleStartGame = () => {
+    clearPendingBotRequest();
     const resolvedColor: PieceColor = sideChoice === 'random'
       ? (Math.random() < 0.5 ? 'white' : 'black')
       : sideChoice;
@@ -367,7 +423,7 @@ export default function BotGame() {
   };
 
   const handleReset = () => {
-    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+    clearPendingBotRequest();
     setGameStarted(false);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
@@ -382,6 +438,7 @@ export default function BotGame() {
 
   const handleResign = () => {
     if (window.confirm(t('bot.resign_confirm'))) {
+      clearPendingBotRequest();
       const newState = { ...gameState };
       newState.gameOver = true;
       newState.winner = botColor;

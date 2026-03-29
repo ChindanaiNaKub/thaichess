@@ -60,6 +60,7 @@ export async function requestPositionAnalysis(
 export async function requestBotMove(
   state: Pick<GameState, 'board' | 'turn' | 'counting'>,
   level: number,
+  options?: { signal?: AbortSignal },
 ): Promise<BotMoveResult> {
   const serialized = serializeAnalysisPosition({
     board: state.board,
@@ -70,6 +71,7 @@ export async function requestBotMove(
   const response = await fetch('/api/bot/move', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: options?.signal,
     body: JSON.stringify({
       position: serialized.position,
       counting: serialized.counting,

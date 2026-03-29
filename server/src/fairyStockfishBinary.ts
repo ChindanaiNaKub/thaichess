@@ -50,6 +50,8 @@ interface ParsedInfo {
   pvUci?: string[];
 }
 
+type EngineLane = 'analysis' | 'bot';
+
 function parseInteger(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
@@ -102,6 +104,8 @@ function parseInfoLine(line: string): ParsedInfo {
 }
 
 class FairyStockfishBinaryEngine {
+  constructor(private readonly lane: EngineLane) {}
+
   private process: ChildProcessWithoutNullStreams | null = null;
   private buffer = '';
   private ready: Promise<void> | null = null;
@@ -117,6 +121,7 @@ class FairyStockfishBinaryEngine {
         return await this.runSearch(request);
       } catch (error) {
         logWarn('engine_binary_failed', {
+          lane: this.lane,
           message: error instanceof Error ? error.message : String(error),
         });
         this.dispose();
@@ -150,15 +155,15 @@ class FairyStockfishBinaryEngine {
     this.process.stderr.on('data', (chunk: string) => {
       const message = chunk.trim();
       if (message) {
-        logWarn('engine_binary_stderr', { message });
+        logWarn('engine_binary_stderr', { lane: this.lane, message });
       }
     });
     this.process.on('error', (error) => {
-      logWarn('engine_binary_process_error', { message: error.message });
+      logWarn('engine_binary_process_error', { lane: this.lane, message: error.message });
       this.dispose();
     });
     this.process.on('exit', (code, signal) => {
-      logWarn('engine_binary_process_exit', { code, signal });
+      logWarn('engine_binary_process_exit', { lane: this.lane, code, signal });
       this.dispose();
     });
 
@@ -175,7 +180,7 @@ class FairyStockfishBinaryEngine {
     this.send('isready');
     await this.waitFor((line) => line === 'readyok', 5000);
 
-    logInfo('engine_binary_ready', { path: BINARY_PATH });
+    logInfo('engine_binary_ready', { path: BINARY_PATH, lane: this.lane });
   }
 
   private async runSearch(request: EngineServiceAnalyzeRequest): Promise<EngineServiceAnalyzeResponse> {
@@ -187,9 +192,7 @@ class FairyStockfishBinaryEngine {
     this.send(`position fen ${normalizeEngineFen(request.position)}`);
 
     let latestInfo: ParsedInfo = {};
-    const timeoutMs = request.search.depth || request.search.nodes
-      ? 15000
-      : Math.max(5000, (request.search.movetimeMs ?? 0) + 5000);
+    const timeoutMs = getEngineSearchTimeoutMs(request, this.lane);
     const bestMovePromise = this.waitFor((line) => line.startsWith('bestmove '), timeoutMs, (line) => {
       if (!line.startsWith('info ')) return;
       const parsed = parseInfoLine(line);
@@ -300,7 +303,24 @@ class FairyStockfishBinaryEngine {
   }
 }
 
-const binaryEngine = new FairyStockfishBinaryEngine();
+export function getEngineSearchTimeoutMs(
+  request: EngineServiceAnalyzeRequest,
+  lane: EngineLane,
+): number {
+  if (request.search.depth || request.search.nodes) {
+    return lane === 'bot' ? 4000 : 15000;
+  }
+
+  const movetimeMs = request.search.movetimeMs ?? 400;
+  if (lane === 'bot') {
+    return Math.max(2000, movetimeMs + 1500);
+  }
+
+  return Math.max(5000, movetimeMs + 5000);
+}
+
+const analysisBinaryEngine = new FairyStockfishBinaryEngine('analysis');
+const botBinaryEngine = new FairyStockfishBinaryEngine('bot');
 
 export function hasBinaryEngineConfigured(): boolean {
   return Boolean(BINARY_PATH);
@@ -313,7 +333,13 @@ export function getBinaryEnginePath(): string {
 export async function analyzeWithBinaryEngine(
   request: EngineServiceAnalyzeRequest,
 ): Promise<EngineServiceAnalyzeResponse | null> {
-  return binaryEngine.analyze(request);
+  return analysisBinaryEngine.analyze(request);
+}
+
+export async function analyzeBotWithBinaryEngine(
+  request: EngineServiceAnalyzeRequest,
+): Promise<EngineServiceAnalyzeResponse | null> {
+  return botBinaryEngine.analyze(request);
 }
 
 export { normalizeEngineFen };
