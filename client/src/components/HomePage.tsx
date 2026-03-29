@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { socket, connectSocket } from '../lib/socket';
-import { liveGameRoute, routes } from '../lib/routes';
+import { liveGameRoute, puzzleRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
+import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 
 import PieceSVG from './PieceSVG';
 
@@ -46,9 +47,17 @@ interface HomeStats {
   totalGames: number;
 }
 
+function getPublicPuzzleTitle(title: string): string {
+  return title
+    .replace(/\s*\([0-9a-f]{8}\s*@\s*ply\s*\d+\)$/i, '')
+    .replace(/^Real-Game\s+/i, '')
+    .trim();
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
+  const puzzleProgress = usePuzzleProgressSummary();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
   const [isCreating, setIsCreating] = useState(false);
@@ -261,6 +270,37 @@ export default function HomePage() {
             </div>
 
             <aside className="grid gap-2.5 content-start">
+              <button
+                type="button"
+                onClick={() => navigate(puzzleProgress.nextPuzzle ? puzzleRoute(String(puzzleProgress.nextPuzzle.id)) : routes.puzzles)}
+                className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
+              >
+                <div className="flex items-start gap-3">
+                  <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                      {puzzleProgress.completedCount > 0 ? t('home.training_continue') : t('home.training_start')}
+                    </div>
+                    <div className="mt-1 text-text-bright text-[1rem] font-semibold">
+                      {puzzleProgress.nextPuzzle
+                        ? getPublicPuzzleTitle(puzzleProgress.nextPuzzle.title)
+                        : t('home.puzzles')}
+                    </div>
+                    <div className="mt-1 text-text-dim text-xs sm:text-sm">
+                      {t('home.training_progress', {
+                        done: puzzleProgress.completedCount,
+                        total: puzzleProgress.totalCount,
+                      })}
+                    </div>
+                    {puzzleProgress.favoriteTheme && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+
               {!showCreate ? (
                 <button
                   type="button"

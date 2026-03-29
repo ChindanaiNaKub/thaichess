@@ -113,6 +113,10 @@ const EN: Record<string, string> = {
   'home.join_desc': 'Open a shared game instantly with a code from a friend.',
   'home.join_placeholder': 'Enter game code...',
   'home.join': 'Join',
+  'home.training_start': 'Start puzzle track',
+  'home.training_continue': 'Continue training',
+  'home.training_progress': '{done}/{total} puzzles completed',
+  'home.training_focus': 'Strongest theme so far: {theme}',
 
   // Time presets
   'time.bullet': 'Bullet',
@@ -531,6 +535,18 @@ const EN: Record<string, string> = {
   'account.update_failed': 'Failed to update profile.',
   'account.open_feedback': 'Open feedback moderation',
   'account.sign_out': 'Sign out',
+  'account.puzzle_eyebrow': 'Puzzle progress',
+  'account.puzzle_title': 'Training overview',
+  'account.puzzle_desc': 'Your puzzle history now follows your account across devices.',
+  'account.puzzle_completed_label': 'Solved',
+  'account.puzzle_remaining_label': 'Remaining',
+  'account.puzzle_focus_label': 'Top theme',
+  'account.puzzle_focus_empty': 'No theme yet',
+  'account.puzzle_next_label': 'Continue with',
+  'account.puzzle_continue': 'Continue training',
+  'account.puzzle_all_done': 'You cleared the current set',
+  'account.puzzle_all_done_desc': 'Browse the full list again and replay your toughest lessons.',
+  'account.puzzle_percent': '{percent}% of the current {total}-puzzle set complete',
 
   // Leaderboard
   'leaderboard.eyebrow': 'Rated Ladder',
@@ -649,6 +665,10 @@ const TH: Record<string, string> = {
   'home.join_desc': 'เปิดเกมที่เพื่อนแชร์มาได้ทันทีด้วยรหัสเกม',
   'home.join_placeholder': 'ใส่รหัสเกม...',
   'home.join': 'เข้าร่วม',
+  'home.training_start': 'เริ่มชุดปริศนา',
+  'home.training_continue': 'ฝึกต่อ',
+  'home.training_progress': 'สำเร็จแล้ว {done}/{total} ปริศนา',
+  'home.training_focus': 'ธีมที่เด่นสุดตอนนี้: {theme}',
 
   // Time presets
   'time.bullet': 'บุลเลต',
@@ -1067,6 +1087,18 @@ const TH: Record<string, string> = {
   'account.update_failed': 'อัปเดตโปรไฟล์ไม่สำเร็จ',
   'account.open_feedback': 'เปิดหน้าจัดการความคิดเห็น',
   'account.sign_out': 'ออกจากระบบ',
+  'account.puzzle_eyebrow': 'ความคืบหน้าปริศนา',
+  'account.puzzle_title': 'ภาพรวมการฝึก',
+  'account.puzzle_desc': 'ประวัติปริศนาของคุณจะติดไปกับบัญชีและกลับมาได้ทุกอุปกรณ์',
+  'account.puzzle_completed_label': 'แก้แล้ว',
+  'account.puzzle_remaining_label': 'เหลือ',
+  'account.puzzle_focus_label': 'ธีมเด่น',
+  'account.puzzle_focus_empty': 'ยังไม่มีธีม',
+  'account.puzzle_next_label': 'เล่นต่อที่',
+  'account.puzzle_continue': 'ฝึกต่อ',
+  'account.puzzle_all_done': 'คุณเคลียร์ชุดปัจจุบันแล้ว',
+  'account.puzzle_all_done_desc': 'เปิดดูรายการทั้งหมดอีกครั้งและทบทวนโจทย์ที่ยากที่สุด',
+  'account.puzzle_percent': 'สำเร็จแล้ว {percent}% ของชุดปัจจุบัน {total} ปริศนา',
 
   // Leaderboard
   'leaderboard.eyebrow': 'อันดับเกมจัดอันดับ',

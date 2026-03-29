@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { PUZZLES, type Puzzle } from '@shared/puzzles';
 import { useAuth } from './auth';
 
 const LEGACY_COMPLETED_PUZZLES_KEY = 'completedPuzzles';
@@ -9,6 +10,14 @@ interface PuzzleProgressContextValue {
   completedPuzzleSet: Set<number>;
   loading: boolean;
   markPuzzleCompleted: (puzzleId: number) => Promise<void>;
+}
+
+export interface PuzzleProgressSummary {
+  completedCount: number;
+  totalCount: number;
+  percentComplete: number;
+  nextPuzzle: Puzzle | null;
+  favoriteTheme: string | null;
 }
 
 const PuzzleProgressContext = createContext<PuzzleProgressContextValue | null>(null);
@@ -164,4 +173,39 @@ export function usePuzzleProgress() {
     throw new Error('usePuzzleProgress must be used within a PuzzleProgressProvider');
   }
   return context;
+}
+
+export function getPuzzleProgressSummary(completedPuzzleIds: number[]): PuzzleProgressSummary {
+  const normalizedIds = normalizePuzzleIds(completedPuzzleIds);
+  const completedSet = new Set(normalizedIds);
+  const completedCount = PUZZLES.filter(puzzle => completedSet.has(puzzle.id)).length;
+  const totalCount = PUZZLES.length;
+  const percentComplete = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const nextPuzzle = PUZZLES.find(puzzle => !completedSet.has(puzzle.id)) ?? PUZZLES[0] ?? null;
+
+  const completedThemes = PUZZLES
+    .filter(puzzle => completedSet.has(puzzle.id))
+    .reduce((themes, puzzle) => {
+      themes.set(puzzle.theme, (themes.get(puzzle.theme) ?? 0) + 1);
+      return themes;
+    }, new Map<string, number>());
+
+  const favoriteTheme = Array.from(completedThemes.entries())
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })[0]?.[0] ?? null;
+
+  return {
+    completedCount,
+    totalCount,
+    percentComplete,
+    nextPuzzle,
+    favoriteTheme,
+  };
+}
+
+export function usePuzzleProgressSummary(): PuzzleProgressSummary {
+  const { completedPuzzleIds } = usePuzzleProgress();
+  return useMemo(() => getPuzzleProgressSummary(completedPuzzleIds), [completedPuzzleIds]);
 }

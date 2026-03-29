@@ -10,6 +10,7 @@ const {
   navigateMock,
   connectSocketMock,
   socketMock,
+  puzzleProgressSummaryState,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
@@ -19,6 +20,19 @@ const {
     on: vi.fn(),
     off: vi.fn(),
     once: vi.fn(),
+  },
+  puzzleProgressSummaryState: {
+    completedCount: 2,
+    totalCount: 7,
+    percentComplete: 29,
+    favoriteTheme: 'HangingPiece',
+    nextPuzzle: {
+      id: 5001,
+      title: 'Trapped Knight',
+      description: 'Win material in 2. Start with the move that traps the knight, then collect it.',
+      theme: 'TrappedPiece',
+      difficulty: 'intermediate',
+    },
   },
 }));
 
@@ -34,6 +48,10 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../lib/socket', () => ({
   socket: socketMock,
   connectSocket: connectSocketMock,
+}));
+
+vi.mock('../lib/puzzleProgress', () => ({
+  usePuzzleProgressSummary: () => puzzleProgressSummaryState,
 }));
 
 vi.mock('../components/PieceSVG', () => ({
@@ -207,10 +225,21 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
     expect(navigateMock).toHaveBeenCalledWith('/bot');
 
-    fireEvent.click(screen.getByRole('button', { name: /puzzles/i }));
+    fireEvent.click(screen.getByText(/tactical training/i).closest('button')!);
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');
 
     fireEvent.click(screen.getByRole('button', { name: /play local/i }));
     expect(navigateMock).toHaveBeenCalledWith('/local');
+  });
+
+  it('shows continue training and routes to the next recommended puzzle', () => {
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText(/continue training/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\/7 puzzles completed/i)).toBeInTheDocument();
+    expect(screen.getByText(/strongest theme so far: hanging piece/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/2\/7 puzzles completed/i).closest('button')!);
+    expect(navigateMock).toHaveBeenCalledWith('/puzzle/5001');
   });
 });
