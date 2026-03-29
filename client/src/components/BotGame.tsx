@@ -89,7 +89,7 @@ export default function BotGame() {
     }
 
     setBotThinking(true);
-    const delay = 80 + level * 20;
+    const delay = 40 + level * 12;
 
     botTimeoutRef.current = setTimeout(async () => {
       const currentState = gameStateRef.current;

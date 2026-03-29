@@ -17,7 +17,7 @@ import { analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStock
 
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 
-const BOT_LEVEL_MOVETIMES_MS = [60, 90, 120, 160, 220, 300, 400, 450, 600, 800] as const;
+const BOT_LEVEL_MOVETIMES_MS = [40, 60, 80, 110, 150, 200, 250, 300, 350, 400] as const;
 
 function getServiceUrl(pathname: string): string | null {
   if (!SERVICE_URL) return null;
