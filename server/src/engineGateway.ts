@@ -13,6 +13,7 @@ import {
   uciToMove,
 } from '../../shared/engineAdapter';
 import { logWarn } from './logger';
+import { analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStockfishBinary';
 
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 
@@ -21,6 +22,10 @@ const BOT_LEVEL_MOVETIMES_MS = [80, 120, 180, 260, 400, 650, 950, 1400, 2000, 30
 function getServiceUrl(pathname: string): string | null {
   if (!SERVICE_URL) return null;
   return `${SERVICE_URL.replace(/\/+$/, '')}${pathname}`;
+}
+
+export function hasExternalEngineSupport(): boolean {
+  return Boolean(SERVICE_URL) || hasBinaryEngineConfigured();
 }
 
 function clampBotLevel(level: number): number {
@@ -119,26 +124,29 @@ export async function analyzePositionWithEngine(
   };
 
   const remote = await callService('/analyze', request);
-  if (!remote) {
+  const binary = remote ? null : await analyzeWithBinaryEngine(request);
+  const result = remote ?? binary;
+
+  if (!result) {
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
   return {
-    evaluation: remote.evalCp,
-    bestMove: remote.bestMoveUci ? uciToMove(remote.bestMoveUci) : null,
-    principalVariation: remote.pvUci ?? [],
+    evaluation: result.evalCp,
+    bestMove: result.bestMoveUci ? uciToMove(result.bestMoveUci) : null,
+    principalVariation: result.pvUci ?? [],
     stats: {
-      source: 'service',
-      depth: remote.depth,
-      selDepth: remote.selDepth ?? undefined,
-      nodes: remote.nodes ?? undefined,
-      nps: remote.nps ?? undefined,
+      source: remote ? 'service' : 'binary',
+      depth: result.depth,
+      selDepth: result.selDepth ?? undefined,
+      nodes: result.nodes ?? undefined,
+      nps: result.nps ?? undefined,
     },
   };
 }
 
 export async function analyzeGameWithEngine(moves: Move[], depth: number = 2): Promise<GameAnalysis> {
-  if (!SERVICE_URL) {
+  if (!hasExternalEngineSupport()) {
     return analyzeGame(moves, depth);
   }
 
@@ -219,8 +227,8 @@ export async function analyzeGameWithEngine(moves: Move[], depth: number = 2): P
       black: blackSummary,
     },
     engine: {
-      label: 'Fairy-Stockfish service',
-      source: 'service',
+      label: remoteEngineLabel(),
+      source: SERVICE_URL ? 'service' : 'binary',
     },
   };
 }
@@ -242,19 +250,22 @@ export async function getBotMoveWithEngine(
   };
 
   const remote = await callService('/bot-move', request);
-  if (remote) {
-    const move = remote.bestMoveUci ? uciToMove(remote.bestMoveUci) : null;
+  const binary = remote ? null : await analyzeWithBinaryEngine(request);
+  const result = remote ?? binary;
+
+  if (result) {
+    const move = result.bestMoveUci ? uciToMove(result.bestMoveUci) : null;
     return {
       move,
-      evaluation: remote.evalCp,
+      evaluation: result.evalCp,
       bestMove: move,
-      principalVariation: remote.pvUci ?? [],
+      principalVariation: result.pvUci ?? [],
       stats: {
-        source: 'service',
-        depth: remote.depth,
-        selDepth: remote.selDepth ?? undefined,
-        nodes: remote.nodes ?? undefined,
-        nps: remote.nps ?? undefined,
+        source: remote ? 'service' : 'binary',
+        depth: result.depth,
+        selDepth: result.selDepth ?? undefined,
+        nodes: result.nodes ?? undefined,
+        nps: result.nps ?? undefined,
       },
     };
   }
@@ -272,4 +283,10 @@ export async function getBotMoveWithEngine(
       depth: getFallbackDepth({ movetimeMs: getBotMovetime(normalizedLevel) }),
     },
   };
+}
+
+function remoteEngineLabel(): string {
+  if (SERVICE_URL) return 'Fairy-Stockfish service';
+  if (hasBinaryEngineConfigured()) return 'Fairy-Stockfish binary';
+  return 'Local analysis';
 }

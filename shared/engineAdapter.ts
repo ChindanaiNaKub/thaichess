@@ -18,7 +18,7 @@ export interface EngineStats {
   selDepth?: number;
   nodes?: number;
   nps?: number;
-  source: 'service' | 'local';
+  source: 'service' | 'binary' | 'local';
 }
 
 export interface PositionAnalysisResult {

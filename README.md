@@ -28,6 +28,44 @@ npm run dev
 
 This starts both the server (port 3000) and client (port 5173). Open http://localhost:5173 to play.
 
+## Fairy-Stockfish Integration
+
+The app can use a real Fairy-Stockfish engine for bot play and game review without bundling the engine binary into this repo.
+
+Supported engine modes:
+
+- `FAIRY_STOCKFISH_SERVICE_URL` — point to a separate HTTP engine service
+- `FAIRY_STOCKFISH_BINARY_PATH` — point directly to a locally installed Fairy-Stockfish executable
+
+Optional tuning:
+
+- `FAIRY_STOCKFISH_THREADS`
+- `FAIRY_STOCKFISH_HASH_MB`
+
+Example local setup:
+
+```bash
+export FAIRY_STOCKFISH_BINARY_PATH=/absolute/path/to/fairy-stockfish
+export FAIRY_STOCKFISH_THREADS=1
+export FAIRY_STOCKFISH_HASH_MB=64
+npm run dev
+```
+
+If neither engine mode is configured, the app falls back to the built-in local evaluator and bot.
+
+### Render deployment
+
+The checked-in `render.yaml` can also install the Makruk Fairy-Stockfish binary at build time for Render deployments.
+
+Important environment variables for Render:
+
+- `INSTALL_FAIRY_STOCKFISH=true`
+- `FAIRY_STOCKFISH_BINARY_PATH=./bin/fairy-stockfish-makruk`
+- `FAIRY_STOCKFISH_THREADS=1`
+- `FAIRY_STOCKFISH_HASH_MB=64`
+
+On Render free web services, this gives you real Fairy-Stockfish-backed bot and review analysis, but it will be slower than a local machine and the service still spins down after idle time.
+
 ## ThaiChess Rules
 
 ThaiChess (หมากรุก) is the traditional chess of Thailand, closely related to the ancient Indian game Chaturanga.
