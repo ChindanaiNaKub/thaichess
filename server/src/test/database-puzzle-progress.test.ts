@@ -43,9 +43,46 @@ describe('database puzzle progress persistence', () => {
 
     expect(await database.getCompletedPuzzleIdsForUser('player-1')).toEqual([]);
 
-    expect(await database.markPuzzleCompleted('player-1', 10)).toEqual([10]);
-    expect(await database.markPuzzleCompleted('player-1', 10)).toEqual([10]);
+    expect(await database.markPuzzleCompleted('player-1', 10)).toMatchObject([
+      { puzzleId: 10 },
+    ]);
+    expect(await database.markPuzzleCompleted('player-1', 10)).toMatchObject([
+      { puzzleId: 10 },
+    ]);
     expect(await database.mergeCompletedPuzzles('player-1', [8, 10, 12, 12])).toEqual([8, 10, 12]);
+  });
+
+  it('tracks last played and completed timestamps per puzzle', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+    await database.upsertUserByEmail({
+      id: 'player-progress',
+      email: 'progress@example.com',
+      role: 'user',
+    });
+
+    let progress = await database.markPuzzlePlayed('player-progress', 5001);
+    expect(progress).toHaveLength(1);
+    expect(progress[0]).toMatchObject({
+      puzzleId: 5001,
+      completedAt: null,
+    });
+    expect(progress[0].lastPlayedAt).toBeGreaterThan(0);
+
+    progress = await database.markPuzzleCompleted('player-progress', 5001);
+    expect(progress[0]?.puzzleId).toBe(5001);
+    expect(progress[0]?.completedAt).not.toBeNull();
+    expect(progress[0]?.lastPlayedAt).toBeGreaterThan(0);
+
+    const merged = await database.mergePuzzleProgress('player-progress', [
+      { puzzleId: 12, lastPlayedAt: 120, completedAt: null },
+      { puzzleId: 10, lastPlayedAt: 150, completedAt: 150 },
+      { puzzleId: 12, lastPlayedAt: 200, completedAt: null },
+    ]);
+
+    expect(merged.map((record) => record.puzzleId)).toEqual([5001, 12, 10]);
+    expect(await database.getCompletedPuzzleIdsForUser('player-progress')).toEqual([10, 5001]);
   });
 
   it('keeps progress isolated between users', async () => {

@@ -166,6 +166,13 @@ async function runSchemaMigration() {
   await ensureColumn('games', 'black_rating_before', 'INTEGER');
   await ensureColumn('games', 'white_rating_after', 'INTEGER');
   await ensureColumn('games', 'black_rating_after', 'INTEGER');
+  await ensureColumn('puzzle_progress', 'last_played_at', 'INTEGER');
+
+  await db.execute(`
+    UPDATE puzzle_progress
+    SET last_played_at = COALESCE(last_played_at, completed_at, unixepoch())
+    WHERE last_played_at IS NULL
+  `);
 }
 
 function rowToSavedGame(row: Row): SavedGame {
@@ -233,6 +240,12 @@ export interface LeaderboardEntry {
   wins: number;
   losses: number;
   draws: number;
+}
+
+export interface PuzzleProgressRecord {
+  puzzleId: number;
+  lastPlayedAt: number;
+  completedAt: number | null;
 }
 
 function rowToAuthUser(row: Row): AuthUser {
@@ -945,62 +958,181 @@ function normalizePuzzleIds(puzzleIds: number[]): number[] {
   ).sort((a, b) => a - b);
 }
 
-export async function getCompletedPuzzleIdsForUser(userId: string): Promise<number[]> {
+function rowToPuzzleProgressRecord(row: Row): PuzzleProgressRecord {
+  return {
+    puzzleId: Number(row.puzzle_id),
+    lastPlayedAt: Number(row.last_played_at ?? row.completed_at ?? 0),
+    completedAt: row.completed_at === null || row.completed_at === undefined ? null : Number(row.completed_at),
+  };
+}
+
+function normalizePuzzleProgressRecords(records: PuzzleProgressRecord[]): PuzzleProgressRecord[] {
+  const deduped = new Map<number, PuzzleProgressRecord>();
+
+  for (const record of records) {
+    const puzzleId = Number(record.puzzleId);
+    if (!Number.isInteger(puzzleId) || puzzleId <= 0) continue;
+
+    const lastPlayedAt = Number(record.lastPlayedAt);
+    const completedAt = record.completedAt === null || record.completedAt === undefined
+      ? null
+      : Number(record.completedAt);
+    const existing = deduped.get(puzzleId);
+
+    if (!existing) {
+      deduped.set(puzzleId, {
+        puzzleId,
+        lastPlayedAt: Number.isFinite(lastPlayedAt) && lastPlayedAt > 0 ? lastPlayedAt : 0,
+        completedAt: Number.isFinite(completedAt ?? NaN) && (completedAt ?? 0) > 0 ? completedAt : null,
+      });
+      continue;
+    }
+
+    deduped.set(puzzleId, {
+      puzzleId,
+      lastPlayedAt: Math.max(
+        existing.lastPlayedAt,
+        Number.isFinite(lastPlayedAt) && lastPlayedAt > 0 ? lastPlayedAt : 0,
+      ),
+      completedAt: existing.completedAt === null
+        ? (Number.isFinite(completedAt ?? NaN) && (completedAt ?? 0) > 0 ? completedAt : null)
+        : completedAt === null
+          ? existing.completedAt
+          : Math.max(existing.completedAt, completedAt),
+    });
+  }
+
+  return Array.from(deduped.values()).sort((a, b) => {
+    if (b.lastPlayedAt !== a.lastPlayedAt) return b.lastPlayedAt - a.lastPlayedAt;
+    return a.puzzleId - b.puzzleId;
+  });
+}
+
+export async function getPuzzleProgressForUser(userId: string): Promise<PuzzleProgressRecord[]> {
   try {
     const result = await db.execute({
       sql: `
-        SELECT puzzle_id
+        SELECT puzzle_id, last_played_at, completed_at
         FROM puzzle_progress
         WHERE user_id = ?
-        ORDER BY completed_at ASC, puzzle_id ASC
+        ORDER BY last_played_at DESC, puzzle_id ASC
       `,
       args: [userId],
     });
 
-    return normalizePuzzleIds(result.rows.map(row => Number(row.puzzle_id)));
+    return result.rows.map(rowToPuzzleProgressRecord);
+  } catch (err) {
+    logError('database_get_puzzle_progress_failed', err, { userId });
+    return [];
+  }
+}
+
+export async function getCompletedPuzzleIdsForUser(userId: string): Promise<number[]> {
+  try {
+    const progressRecords = await getPuzzleProgressForUser(userId);
+    return normalizePuzzleIds(
+      progressRecords
+        .filter(record => record.completedAt !== null)
+        .map(record => record.puzzleId),
+    );
   } catch (err) {
     logError('database_get_completed_puzzle_ids_failed', err, { userId });
     return [];
   }
 }
 
-export async function markPuzzleCompleted(userId: string, puzzleId: number): Promise<number[]> {
+export async function markPuzzlePlayed(userId: string, puzzleId: number): Promise<PuzzleProgressRecord[]> {
   try {
     await db.execute({
       sql: `
-        INSERT OR IGNORE INTO puzzle_progress (user_id, puzzle_id, completed_at)
-        VALUES (?, ?, unixepoch())
+        INSERT INTO puzzle_progress (user_id, puzzle_id, last_played_at, completed_at)
+        VALUES (?, ?, unixepoch(), NULL)
+        ON CONFLICT(user_id, puzzle_id) DO UPDATE SET
+          last_played_at = unixepoch()
       `,
       args: [userId, puzzleId],
     });
 
-    return await getCompletedPuzzleIdsForUser(userId);
+    return await getPuzzleProgressForUser(userId);
+  } catch (err) {
+    logError('database_mark_puzzle_played_failed', err, { userId, puzzleId });
+    return await getPuzzleProgressForUser(userId);
+  }
+}
+
+export async function markPuzzleCompleted(userId: string, puzzleId: number): Promise<PuzzleProgressRecord[]> {
+  try {
+    await db.execute({
+      sql: `
+        INSERT INTO puzzle_progress (user_id, puzzle_id, last_played_at, completed_at)
+        VALUES (?, ?, unixepoch(), unixepoch())
+        ON CONFLICT(user_id, puzzle_id) DO UPDATE SET
+          last_played_at = unixepoch(),
+          completed_at = unixepoch()
+      `,
+      args: [userId, puzzleId],
+    });
+
+    return await getPuzzleProgressForUser(userId);
   } catch (err) {
     logError('database_mark_puzzle_completed_failed', err, { userId, puzzleId });
-    return await getCompletedPuzzleIdsForUser(userId);
+    return await getPuzzleProgressForUser(userId);
+  }
+}
+
+export async function mergePuzzleProgress(userId: string, records: PuzzleProgressRecord[]): Promise<PuzzleProgressRecord[]> {
+  const normalizedRecords = normalizePuzzleProgressRecords(records);
+  if (!normalizedRecords.length) {
+    return await getPuzzleProgressForUser(userId);
+  }
+
+  try {
+    for (const record of normalizedRecords) {
+      await db.execute({
+        sql: `
+          INSERT INTO puzzle_progress (user_id, puzzle_id, last_played_at, completed_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id, puzzle_id) DO UPDATE SET
+            last_played_at = CASE
+              WHEN excluded.last_played_at > COALESCE(puzzle_progress.last_played_at, 0)
+                THEN excluded.last_played_at
+              ELSE puzzle_progress.last_played_at
+            END,
+            completed_at = CASE
+              WHEN excluded.completed_at IS NULL THEN puzzle_progress.completed_at
+              WHEN puzzle_progress.completed_at IS NULL THEN excluded.completed_at
+              WHEN excluded.completed_at > puzzle_progress.completed_at THEN excluded.completed_at
+              ELSE puzzle_progress.completed_at
+            END
+        `,
+        args: [userId, record.puzzleId, record.lastPlayedAt, record.completedAt],
+      });
+    }
+
+    return await getPuzzleProgressForUser(userId);
+  } catch (err) {
+    logError('database_merge_puzzle_progress_failed', err, { userId, puzzleCount: normalizedRecords.length });
+    return await getPuzzleProgressForUser(userId);
   }
 }
 
 export async function mergeCompletedPuzzles(userId: string, puzzleIds: number[]): Promise<number[]> {
-  const normalizedPuzzleIds = normalizePuzzleIds(puzzleIds);
-  if (!normalizedPuzzleIds.length) {
-    return await getCompletedPuzzleIdsForUser(userId);
-  }
+  const timestamp = Math.floor(Date.now() / 1000);
+  const records = normalizePuzzleIds(puzzleIds).map((puzzleId) => ({
+    puzzleId,
+    lastPlayedAt: timestamp,
+    completedAt: timestamp,
+  }));
 
   try {
-    for (const puzzleId of normalizedPuzzleIds) {
-      await db.execute({
-        sql: `
-          INSERT OR IGNORE INTO puzzle_progress (user_id, puzzle_id, completed_at)
-          VALUES (?, ?, unixepoch())
-        `,
-        args: [userId, puzzleId],
-      });
-    }
-
-    return await getCompletedPuzzleIdsForUser(userId);
+    const mergedRecords = await mergePuzzleProgress(userId, records);
+    return normalizePuzzleIds(
+      mergedRecords
+        .filter(record => record.completedAt !== null)
+        .map(record => record.puzzleId),
+    );
   } catch (err) {
-    logError('database_merge_completed_puzzles_failed', err, { userId, puzzleCount: normalizedPuzzleIds.length });
+    logError('database_merge_completed_puzzles_failed', err, { userId, puzzleCount: puzzleIds.length });
     return await getCompletedPuzzleIdsForUser(userId);
   }
 }

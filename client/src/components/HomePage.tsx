@@ -58,6 +58,10 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
   const puzzleProgress = usePuzzleProgressSummary();
+  const continuePuzzle = puzzleProgress.continuePuzzle;
+  const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
+  const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
+
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
   const [isCreating, setIsCreating] = useState(false);
@@ -272,18 +276,18 @@ export default function HomePage() {
             <aside className="grid gap-2.5 content-start">
               <button
                 type="button"
-                onClick={() => navigate(puzzleProgress.nextPuzzle ? puzzleRoute(String(puzzleProgress.nextPuzzle.id)) : routes.puzzles)}
+                onClick={() => navigate(continuePuzzle ? puzzleRoute(String(continuePuzzle.id)) : routes.puzzles)}
                 className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
               >
                 <div className="flex items-start gap-3">
                   <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {puzzleProgress.completedCount > 0 ? t('home.training_continue') : t('home.training_start')}
+                      {puzzleProgress.lastPlayed ? t('home.training_continue') : t('home.training_start')}
                     </div>
                     <div className="mt-1 text-text-bright text-[1rem] font-semibold">
-                      {puzzleProgress.nextPuzzle
-                        ? getPublicPuzzleTitle(puzzleProgress.nextPuzzle.title)
+                      {continuePuzzle
+                        ? getPublicPuzzleTitle(continuePuzzle.title)
                         : t('home.puzzles')}
                     </div>
                     <div className="mt-1 text-text-dim text-xs sm:text-sm">
@@ -295,6 +299,16 @@ export default function HomePage() {
                     {puzzleProgress.favoriteTheme && (
                       <div className="mt-2 text-text-dim text-xs sm:text-sm">
                         {t('home.training_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+                      </div>
+                    )}
+                    {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
+                      </div>
+                    )}
+                    {latestSolvedPuzzle && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
                       </div>
                     )}
                   </div>

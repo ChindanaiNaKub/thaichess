@@ -403,7 +403,7 @@ function PuzzleListPage() {
 function PuzzlePlayer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { markPuzzleCompleted } = usePuzzleProgress();
+  const { recordPuzzleVisited, markPuzzleCompleted } = usePuzzleProgress();
   const { id } = useParams<{ id: string }>();
   const puzzleId = parseInt(id || '1');
   const puzzle = PUZZLES.find(p => p.id === puzzleId);
@@ -438,6 +438,11 @@ function PuzzlePlayer() {
       }
     };
   }, [puzzleId]);
+
+  useEffect(() => {
+    if (!puzzle) return;
+    void recordPuzzleVisited(puzzleId);
+  }, [puzzle, puzzleId, recordPuzzleVisited]);
 
   const markCompleted = useCallback(() => {
     void markPuzzleCompleted(puzzleId);

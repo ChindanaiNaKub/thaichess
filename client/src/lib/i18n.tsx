@@ -117,6 +117,8 @@ const EN: Record<string, string> = {
   'home.training_continue': 'Continue training',
   'home.training_progress': '{done}/{total} puzzles completed',
   'home.training_focus': 'Strongest theme so far: {theme}',
+  'home.training_resume': 'Last played: {title}',
+  'home.training_recent': 'Latest solve: {title}',
 
   // Time presets
   'time.bullet': 'Bullet',
@@ -546,6 +548,14 @@ const EN: Record<string, string> = {
   'account.puzzle_continue': 'Continue training',
   'account.puzzle_all_done': 'You cleared the current set',
   'account.puzzle_all_done_desc': 'Browse the full list again and replay your toughest lessons.',
+  'account.puzzle_last_played_label': 'Last played',
+  'account.puzzle_last_played_empty': 'Start a puzzle and it will show up here.',
+  'account.puzzle_last_played_meta': '{status} · {date}',
+  'account.puzzle_recent_label': 'Recent solves',
+  'account.puzzle_recent_empty': 'No solved puzzles yet.',
+  'account.puzzle_recent_meta': 'Solved {date}',
+  'account.puzzle_status_in_progress': 'In progress',
+  'account.puzzle_status_solved': 'Solved',
   'account.puzzle_percent': '{percent}% of the current {total}-puzzle set complete',
 
   // Leaderboard
@@ -669,6 +679,8 @@ const TH: Record<string, string> = {
   'home.training_continue': 'ฝึกต่อ',
   'home.training_progress': 'สำเร็จแล้ว {done}/{total} ปริศนา',
   'home.training_focus': 'ธีมที่เด่นสุดตอนนี้: {theme}',
+  'home.training_resume': 'เล่นล่าสุด: {title}',
+  'home.training_recent': 'แก้ล่าสุด: {title}',
 
   // Time presets
   'time.bullet': 'บุลเลต',
@@ -1098,6 +1110,14 @@ const TH: Record<string, string> = {
   'account.puzzle_continue': 'ฝึกต่อ',
   'account.puzzle_all_done': 'คุณเคลียร์ชุดปัจจุบันแล้ว',
   'account.puzzle_all_done_desc': 'เปิดดูรายการทั้งหมดอีกครั้งและทบทวนโจทย์ที่ยากที่สุด',
+  'account.puzzle_last_played_label': 'เล่นล่าสุด',
+  'account.puzzle_last_played_empty': 'เริ่มเล่นปริศนาแล้วมันจะมาแสดงตรงนี้',
+  'account.puzzle_last_played_meta': '{status} · {date}',
+  'account.puzzle_recent_label': 'ปริศนาที่เพิ่งแก้',
+  'account.puzzle_recent_empty': 'ยังไม่มีปริศนาที่แก้สำเร็จ',
+  'account.puzzle_recent_meta': 'แก้เมื่อ {date}',
+  'account.puzzle_status_in_progress': 'กำลังเล่น',
+  'account.puzzle_status_solved': 'แก้แล้ว',
   'account.puzzle_percent': 'สำเร็จแล้ว {percent}% ของชุดปัจจุบัน {total} ปริศนา',
 
   // Leaderboard

@@ -26,6 +26,13 @@ const {
     totalCount: 7,
     percentComplete: 29,
     favoriteTheme: 'HangingPiece',
+    continuePuzzle: {
+      id: 5001,
+      title: 'Trapped Knight',
+      description: 'Win material in 2. Start with the move that traps the knight, then collect it.',
+      theme: 'TrappedPiece',
+      difficulty: 'intermediate',
+    },
     nextPuzzle: {
       id: 5001,
       title: 'Trapped Knight',
@@ -33,6 +40,30 @@ const {
       theme: 'TrappedPiece',
       difficulty: 'intermediate',
     },
+    lastPlayed: {
+      puzzle: {
+        id: 5001,
+        title: 'Trapped Knight',
+        description: 'Win material in 2. Start with the move that traps the knight, then collect it.',
+        theme: 'TrappedPiece',
+        difficulty: 'intermediate',
+      },
+      lastPlayedAt: 1711660000,
+      completedAt: null,
+    },
+    recentCompleted: [
+      {
+        puzzle: {
+          id: 10,
+          title: 'Rook Harvest',
+          description: 'Win material by grabbing the loose knight.',
+          theme: 'HangingPiece',
+          difficulty: 'beginner',
+        },
+        lastPlayedAt: 1711650000,
+        completedAt: 1711650000,
+      },
+    ],
   },
 }));
 
@@ -238,6 +269,8 @@ describe('HomePage', () => {
     expect(screen.getByText(/continue training/i)).toBeInTheDocument();
     expect(screen.getByText(/2\/7 puzzles completed/i)).toBeInTheDocument();
     expect(screen.getByText(/strongest theme so far: hanging piece/i)).toBeInTheDocument();
+    expect(screen.getByText(/last played: trapped knight/i)).toBeInTheDocument();
+    expect(screen.getByText(/latest solve: rook harvest/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(/2\/7 puzzles completed/i).closest('button')!);
     expect(navigateMock).toHaveBeenCalledWith('/puzzle/5001');
