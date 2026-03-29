@@ -16,7 +16,7 @@ test.describe('Homepage', () => {
     await expect(main.getByRole('button', { name: /find opponent/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /create a private game/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /play vs bot/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /puzzles/i })).toBeVisible();
+    await expect(main.getByRole('button', { name: /puzzles tactical training/i })).toBeVisible();
   });
 
   test('reveals the private game setup on demand', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Homepage', () => {
   });
 
   test('navigates to puzzles', async ({ page }) => {
-    await page.locator('#main-content').getByRole('button', { name: /puzzles/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /puzzles tactical training/i }).click();
     await expect(page).toHaveURL('/puzzles');
   });
 });

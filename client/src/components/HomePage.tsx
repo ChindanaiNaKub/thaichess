@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { socket, connectSocket } from '../lib/socket';
-import { liveGameRoute, routes } from '../lib/routes';
+import { liveGameRoute, puzzleRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
+import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 
 import PieceSVG from './PieceSVG';
 
@@ -48,9 +49,21 @@ interface HomeStats {
   totalGames: number;
 }
 
+function getPublicPuzzleTitle(title: string): string {
+  return title
+    .replace(/\s*\([0-9a-f]{8}\s*@\s*ply\s*\d+\)$/i, '')
+    .replace(/^Real-Game\s+/i, '')
+    .trim();
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
+  const puzzleProgress = usePuzzleProgressSummary();
+  const continuePuzzle = puzzleProgress.continuePuzzle;
+  const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
+  const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
+
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
   const [isCreating, setIsCreating] = useState(false);
@@ -264,6 +277,47 @@ export default function HomePage() {
             </div>
 
             <aside className="grid gap-2.5 content-start">
+              <button
+                type="button"
+                onClick={() => navigate(continuePuzzle ? puzzleRoute(String(continuePuzzle.id)) : routes.puzzles)}
+                className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
+              >
+                <div className="flex items-start gap-3">
+                  <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                      {puzzleProgress.lastPlayed ? t('home.training_continue') : t('home.training_start')}
+                    </div>
+                    <div className="mt-1 text-text-bright text-[1rem] font-semibold">
+                      {continuePuzzle
+                        ? getPublicPuzzleTitle(continuePuzzle.title)
+                        : t('home.puzzles')}
+                    </div>
+                    <div className="mt-1 text-text-dim text-xs sm:text-sm">
+                      {t('home.training_progress', {
+                        done: puzzleProgress.completedCount,
+                        total: puzzleProgress.totalCount,
+                      })}
+                    </div>
+                    {puzzleProgress.favoriteTheme && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+                      </div>
+                    )}
+                    {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
+                      </div>
+                    )}
+                    {latestSolvedPuzzle && (
+                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
+                        {t('home.training_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+
               {!showCreate ? (
                 <button
                   type="button"
@@ -400,15 +454,21 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate(routes.bot)}
-                className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                className="rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(92,160,26,0.10),rgba(39,30,24,0.92)_45%,rgba(39,30,24,0.98))] px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
-                <div className="flex items-center gap-3">
-                  <BotSVG size={24} className="text-text-bright flex-shrink-0" />
-                  <div>
-                    <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_bot')}</div>
-                    <div className="text-text-dim text-xs sm:text-sm">{t('home.play_bot_desc')}</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <BotSVG size={24} className="text-text-bright flex-shrink-0" />
+                    <div>
+                      <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_bot')}</div>
+                      <div className="text-text-dim text-xs sm:text-sm">{t('home.play_bot_desc')}</div>
+                    </div>
                   </div>
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                    1-10
+                  </span>
                 </div>
+                <div className="mt-3 text-[11px] leading-5 text-text-dim">{t('home.play_bot_long_desc')}</div>
               </button>
 
               <button

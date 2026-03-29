@@ -1,7 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
+import { createElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { getIndexablePaths, getPublicSeoRoute } from '@shared/seo';
 import { PUZZLES } from '@shared/puzzles';
 import { routes } from '../lib/routes';
+import { render } from '@testing-library/react';
+import { SeoHeadManager } from '../lib/seo';
+
+const managedStructuredDataSelector = 'script[type="application/ld+json"][data-seo-managed="true"]';
+
+afterEach(() => {
+  for (const node of document.head.querySelectorAll(managedStructuredDataSelector)) {
+    node.remove();
+  }
+});
 
 describe('shared SEO routes', () => {
   it('keeps every public static route in the indexable sitemap', () => {
@@ -56,5 +68,25 @@ describe('shared SEO routes', () => {
     expect(getPublicSeoRoute(routes.account, 'https://thaichess.dev').robots).toBe('noindex, nofollow');
     expect(getPublicSeoRoute('/game/abc123', 'https://thaichess.dev').robots).toBe('noindex, nofollow');
     expect(getPublicSeoRoute('/analysis/abc123', 'https://thaichess.dev').robots).toBe('noindex, nofollow');
+  });
+
+  it('emits FAQ structured data as a single FAQPage object per script tag', () => {
+    render(
+      createElement(
+        MemoryRouter,
+        { initialEntries: [routes.whatIsMakruk] },
+        createElement(SeoHeadManager)
+      )
+    );
+
+    const scripts = Array.from(document.head.querySelectorAll(managedStructuredDataSelector));
+    expect(scripts).toHaveLength(2);
+
+    const payloads = scripts.map((script) => JSON.parse(script.textContent ?? '{}'));
+    expect(payloads.every((payload) => !Array.isArray(payload))).toBe(true);
+
+    const faqPayloads = payloads.filter((payload) => payload['@type'] === 'FAQPage');
+    expect(faqPayloads).toHaveLength(1);
+    expect(faqPayloads[0].mainEntity).toHaveLength(2);
   });
 });

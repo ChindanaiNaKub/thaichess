@@ -7,6 +7,15 @@ import {
   getClassificationColor, getClassificationSymbol, getClassificationIcon, formatEval,
   AnalysisProgress,
 } from '@shared/analysis';
+import {
+  cloneBoard,
+  deserializeAnalysisPosition,
+  pieceLabel,
+  serializeAnalysisPosition,
+  type AnalysisPositionSnapshot,
+  type PositionAnalysisResult,
+} from '@shared/engineAdapter';
+import { buildEditorAnalysisRoute, requestPositionAnalysis } from '../lib/analysis';
 import { useTranslation } from '../lib/i18n';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -23,6 +32,11 @@ interface GameData {
   moveCount: number;
 }
 
+type AnalysisMode = 'game' | 'editor';
+type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
+
+const DEFAULT_EDITOR_TOOL: EditorTool = 'move';
+
 export default function AnalysisPage() {
   const workerRef = useRef<Worker | null>(null);
   const analysisRunKeyRef = useRef<string | null>(null);
@@ -32,6 +46,7 @@ export default function AnalysisPage() {
   const { t } = useTranslation();
 
   const [gameData, setGameData] = useState<GameData | null>(null);
+  const [mode, setMode] = useState<AnalysisMode>('game');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
@@ -41,6 +56,12 @@ export default function AnalysisPage() {
   const [showBestMove, setShowBestMove] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editorBoard, setEditorBoard] = useState<BoardType>(() => createInitialBoard());
+  const [editorTurn, setEditorTurn] = useState<PieceColor>('white');
+  const [editorTool, setEditorTool] = useState<EditorTool>(DEFAULT_EDITOR_TOOL);
+  const [editorSelectedSquare, setEditorSelectedSquare] = useState<Position | null>(null);
+  const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysisResult | null>(null);
+  const [positionAnalyzing, setPositionAnalyzing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLSpanElement>(null);
 
@@ -55,14 +76,34 @@ export default function AnalysisPage() {
     setViewMoveIndex(-1);
     setError(null);
     setLoading(true);
+    setGameData(null);
+    setPositionAnalysis(null);
+    setPositionAnalyzing(false);
+    setEditorSelectedSquare(null);
+    setEditorTool(DEFAULT_EDITOR_TOOL);
 
     const localMoves = searchParams.get('moves');
     const localResult = searchParams.get('result');
     const localReason = searchParams.get('reason');
+    const editorMode = searchParams.get('mode') === 'editor' || (!gameId && !localMoves);
+    const encodedPosition = searchParams.get('position');
+    const encodedCounting = searchParams.get('counting');
+
+    if (editorMode) {
+      setMode('editor');
+      const snapshot = encodedPosition
+        ? deserializeAnalysisPosition(encodedPosition, encodedCounting)
+        : null;
+      setEditorBoard(snapshot ? cloneBoard(snapshot.board) : createInitialBoard());
+      setEditorTurn(snapshot?.turn ?? 'white');
+      setLoading(false);
+      return;
+    }
 
     if (localMoves) {
       try {
         const moves = JSON.parse(decodeURIComponent(localMoves)) as Move[];
+        setMode('game');
         setGameData({
           id: gameId || 'local',
           moves,
@@ -79,6 +120,7 @@ export default function AnalysisPage() {
     }
 
     if (gameId) {
+      setMode('game');
       fetch(`/api/game/${gameId}`)
         .then(r => {
           if (!r.ok) throw new Error('Game not found');
@@ -103,7 +145,7 @@ export default function AnalysisPage() {
           setLoading(false);
         });
     } else {
-      setError('No game specified');
+      setMode('editor');
       setLoading(false);
     }
   }, [gameId, searchParams]);
@@ -117,7 +159,7 @@ export default function AnalysisPage() {
 
   // Run analysis when game data is loaded
   useEffect(() => {
-    if (!gameData || analysis) return;
+    if (mode !== 'game' || !gameData || analysis) return;
 
     const depth = gameData.moves.length <= 24 ? 3 : 2;
     const cacheKey = getAnalysisCacheKey(gameData, depth);
@@ -170,7 +212,7 @@ export default function AnalysisPage() {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [gameData, analysis]);
+  }, [analysis, gameData, mode]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -252,6 +294,88 @@ export default function AnalysisPage() {
     }
     return null;
   }, [gameData, viewMoveIndex, getDisplayBoard]);
+
+  const editorSnapshot = useMemo<AnalysisPositionSnapshot>(() => ({
+    board: editorBoard,
+    turn: editorTurn,
+    counting: null,
+  }), [editorBoard, editorTurn]);
+
+  const handleAnalyzeEditorPosition = useCallback(async () => {
+    setPositionAnalyzing(true);
+    setError(null);
+
+    try {
+      const result = await requestPositionAnalysis(editorSnapshot, {
+        movetimeMs: 700,
+        multipv: 1,
+      });
+      setPositionAnalysis(result);
+    } catch {
+      setError('Position analysis failed');
+    } finally {
+      setPositionAnalyzing(false);
+    }
+  }, [editorSnapshot]);
+
+  const handleEditorSquareClick = useCallback((pos: Position) => {
+    setEditorBoard(prev => {
+      const next = cloneBoard(prev);
+
+      if (editorTool === 'erase') {
+        next[pos.row][pos.col] = null;
+        setEditorSelectedSquare(null);
+        return next;
+      }
+
+      if (editorTool !== 'move') {
+        const [color, type] = editorTool.split(':') as ['white' | 'black', 'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'];
+        next[pos.row][pos.col] = { color, type };
+        setEditorSelectedSquare(null);
+        return next;
+      }
+
+      if (!editorSelectedSquare) {
+        setEditorSelectedSquare(next[pos.row][pos.col] ? pos : null);
+        return next;
+      }
+
+      const movingPiece = next[editorSelectedSquare.row][editorSelectedSquare.col];
+      if (!movingPiece) {
+        setEditorSelectedSquare(null);
+        return next;
+      }
+
+      next[editorSelectedSquare.row][editorSelectedSquare.col] = null;
+      next[pos.row][pos.col] = movingPiece;
+      setEditorSelectedSquare(null);
+      return next;
+    });
+  }, [editorSelectedSquare, editorTool]);
+
+  const handleEditorPieceDrop = useCallback((from: Position, to: Position) => {
+    setEditorBoard(prev => {
+      const next = cloneBoard(prev);
+      const movingPiece = next[from.row][from.col];
+      if (!movingPiece) return prev;
+
+      next[from.row][from.col] = null;
+      next[to.row][to.col] = movingPiece;
+      return next;
+    });
+    setEditorSelectedSquare(null);
+    setEditorTool(DEFAULT_EDITOR_TOOL);
+  }, []);
+
+  const handleCopyEditorPosition = useCallback(async () => {
+    const serialized = serializeAnalysisPosition(editorSnapshot);
+    await navigator.clipboard.writeText(serialized.position);
+  }, [editorSnapshot]);
+
+  const handleCopyEditorLink = useCallback(async () => {
+    const url = new URL(buildEditorAnalysisRoute(editorSnapshot), window.location.origin);
+    await navigator.clipboard.writeText(url.toString());
+  }, [editorSnapshot]);
 
   const analysisArrows = useMemo((): Arrow[] => {
     if (!analysis || viewMoveIndex < 0 || viewMoveIndex >= analysis.moves.length) return [];
@@ -354,6 +478,202 @@ export default function AnalysisPage() {
             <button onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold">
               {t('common.back_home')}
             </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (mode === 'editor') {
+    const editorArrow = positionAnalysis?.bestMove
+      ? [{
+          from: positionAnalysis.bestMove.from,
+          to: positionAnalysis.bestMove.to,
+          color: '#56b33080',
+        }]
+      : [];
+    const serialized = serializeAnalysisPosition(editorSnapshot);
+
+    return (
+      <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
+        <Header subtitle={t('analysis.title')} />
+
+        <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1200px]">
+            <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px] lg:sticky lg:top-4 lg:self-start">
+              <EvalBar eval={positionAnalysis?.evaluation ?? 0} />
+
+              <div className="flex flex-col items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 text-sm w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-dim">Editor</span>
+                    <button
+                      onClick={() => setEditorTurn('white')}
+                      className={`px-3 py-1 rounded text-xs ${editorTurn === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
+                    >
+                      {t('common.white')} to move
+                    </button>
+                    <button
+                      onClick={() => setEditorTurn('black')}
+                      className={`px-3 py-1 rounded text-xs ${editorTurn === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
+                    >
+                      {t('common.black')} to move
+                    </button>
+                  </div>
+                  <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0)}</div>
+                </div>
+
+                <BoardErrorBoundary onRetry={() => window.location.reload()}>
+                  <Board
+                    board={editorBoard}
+                    playerColor={viewAs}
+                    draggableColor={null}
+                    allowAnyPieceDrag={editorTool === 'move'}
+                    isMyTurn={true}
+                    legalMoves={[]}
+                    selectedSquare={editorSelectedSquare}
+                    lastMove={null}
+                    isCheck={false}
+                    checkSquare={null}
+                    onSquareClick={handleEditorSquareClick}
+                    onPieceDrop={handleEditorPieceDrop}
+                    disabled={false}
+                    arrows={[...editorArrow, ...arrows]}
+                    onArrowsChange={setArrows}
+                  />
+                </BoardErrorBoundary>
+
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={() => setEditorBoard(createInitialBoard())}
+                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    Reset board
+                  </button>
+                  <button
+                    onClick={() => setEditorBoard(Array.from({ length: 8 }, () => Array(8).fill(null)))}
+                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    Clear board
+                  </button>
+                  <button
+                    onClick={handleAnalyzeEditorPosition}
+                    disabled={positionAnalyzing}
+                    className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {positionAnalyzing ? 'Analyzing...' : 'Analyze position'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:self-start">
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">Editor Tools</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setEditorTool('move')}
+                    className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'move' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
+                  >
+                    Move pieces
+                  </button>
+                  <button
+                    onClick={() => setEditorTool('erase')}
+                    className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'erase' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
+                  >
+                    Erase square
+                  </button>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {(['white', 'black'] as const).flatMap(color => (
+                    (['K', 'M', 'S', 'R', 'N', 'P', 'PM'] as const).map(type => {
+                      const tool = `${color}:${type}` as EditorTool;
+
+                      return (
+                        <button
+                          key={tool}
+                          onClick={() => setEditorTool(tool)}
+                          className={`flex items-center gap-2 rounded-lg border px-2 py-2 text-left text-sm ${editorTool === tool ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
+                        >
+                          <PieceSVG type={type} color={color} size={22} />
+                          <span className="font-mono text-xs">{pieceLabel({ type, color })}</span>
+                        </button>
+                      );
+                    })
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">Position</h3>
+                <textarea
+                  readOnly
+                  value={serialized.position}
+                  className="min-h-24 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text"
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button onClick={handleCopyEditorPosition} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
+                    Copy position
+                  </button>
+                  <button onClick={handleCopyEditorLink} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
+                    Copy link
+                  </button>
+                </div>
+              </div>
+
+              {positionAnalysis && (
+                <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                  <h3 className="mb-2 text-sm font-semibold text-text-bright">Engine</h3>
+                  <div className="space-y-2 text-sm text-text">
+                    <div className="flex items-center justify-between">
+                      <span>Eval</span>
+                      <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Best move</span>
+                      <span className="font-mono text-text-bright">
+                        {positionAnalysis.bestMove
+                          ? `${posToAlgebraic(positionAnalysis.bestMove.from)}-${posToAlgebraic(positionAnalysis.bestMove.to)}`
+                          : 'none'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Source</span>
+                      <span className="text-text-bright">{positionAnalysis.stats.source}</span>
+                    </div>
+                    {positionAnalysis.stats.depth && (
+                      <div className="flex items-center justify-between">
+                        <span>Depth</span>
+                        <span className="font-mono text-text-bright">{positionAnalysis.stats.depth}</span>
+                      </div>
+                    )}
+                    {positionAnalysis.principalVariation.length > 0 && (
+                      <div>
+                        <div className="mb-1 text-xs uppercase tracking-[0.18em] text-text-dim">PV</div>
+                        <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text">
+                          {positionAnalysis.principalVariation.join(' ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
+                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                >
+                  Flip board
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+                >
+                  {t('common.back_home')}
+                </button>
+              </div>
+            </div>
           </div>
         </main>
       </div>

@@ -1,5 +1,6 @@
 import { analyzeGame, type AnalysisProgress, type GameAnalysis } from '@shared/analysis';
 import type { Move } from '@shared/types';
+import { requestGameAnalysis } from '../lib/analysis';
 
 interface AnalyzeMessage {
   type: 'analyze';
@@ -24,14 +25,23 @@ interface ErrorMessage {
 
 type WorkerResponse = ProgressMessage | ResultMessage | ErrorMessage;
 
-self.onmessage = (event: MessageEvent<AnalyzeMessage>) => {
+self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
   if (event.data.type !== 'analyze') return;
 
   try {
-    const analysis = analyzeGame(event.data.moves, event.data.depth, (progress) => {
-      const message: ProgressMessage = { type: 'progress', progress };
-      self.postMessage(message);
-    });
+    let analysis: GameAnalysis;
+
+    try {
+      analysis = await requestGameAnalysis({
+        moves: event.data.moves,
+        depth: event.data.depth,
+      });
+    } catch {
+      analysis = analyzeGame(event.data.moves, event.data.depth, (progress) => {
+        const message: ProgressMessage = { type: 'progress', progress };
+        self.postMessage(message);
+      });
+    }
 
     const message: ResultMessage = { type: 'result', analysis };
     self.postMessage(message);

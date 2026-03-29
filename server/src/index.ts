@@ -8,7 +8,7 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, type RecentGamesFilter } from './database';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, getCompletedPuzzleIdsForUser, getPuzzleProgressForUser, markPuzzlePlayed, markPuzzleCompleted, mergeCompletedPuzzles, mergePuzzleProgress, type PuzzleProgressRecord, type RecentGamesFilter } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
@@ -18,6 +18,9 @@ import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCooki
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
+import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine } from './engineGateway';
+import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
+import type { Move } from '../../shared/types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -259,6 +262,53 @@ app.get('/api/game/:id', async (req, res) => {
   res.status(404).json({ error: 'Game not found' });
 });
 
+app.post('/api/analysis/game', async (req, res) => {
+  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
+  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : 2;
+
+  if (!moves) {
+    res.status(400).json({ error: 'moves is required.' });
+    return;
+  }
+
+  const analysis = await analyzeGameWithEngine(moves, depth);
+  res.json({ analysis });
+});
+
+app.post('/api/analysis/position', async (req, res) => {
+  const position = typeof req.body?.position === 'string' ? req.body.position : '';
+  const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
+  const snapshot = deserializeAnalysisPosition(position, counting);
+
+  if (!snapshot) {
+    res.status(400).json({ error: 'Valid position is required.' });
+    return;
+  }
+
+  const analysis = await analyzePositionWithEngine(snapshot, {
+    depth: Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined,
+    movetimeMs: Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined,
+    nodes: Number.isFinite(req.body?.nodes) ? Number(req.body.nodes) : undefined,
+  }, Number.isFinite(req.body?.multipv) ? Number(req.body.multipv) : 1);
+
+  res.json(analysis);
+});
+
+app.post('/api/bot/move', async (req, res) => {
+  const position = typeof req.body?.position === 'string' ? req.body.position : '';
+  const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
+  const level = Number.isFinite(req.body?.level) ? Number(req.body.level) : 5;
+  const snapshot = deserializeAnalysisPosition(position, counting);
+
+  if (!snapshot) {
+    res.status(400).json({ error: 'Valid position is required.' });
+    return;
+  }
+
+  const result = await getBotMoveWithEngine(snapshot, level);
+  res.json(result);
+});
+
 app.get('/api/games/recent', async (_req, res) => {
   const page = parseInt(_req.query.page as string) || 0;
   const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
@@ -376,6 +426,83 @@ app.patch('/api/auth/profile', async (req, res) => {
   }
 
   res.json({ ok: true, user: updated });
+});
+
+app.get('/api/puzzle-progress', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const progressRecords = await getPuzzleProgressForUser(user.id);
+  const completedPuzzleIds = await getCompletedPuzzleIdsForUser(user.id);
+  res.json({ completedPuzzleIds, progressRecords });
+});
+
+app.post('/api/puzzle-progress/visit', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const puzzleId = Number(req.body?.puzzleId);
+  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
+    res.status(400).json({ error: 'Valid puzzleId is required.' });
+    return;
+  }
+
+  const progressRecords = await markPuzzlePlayed(user.id, puzzleId);
+  const completedPuzzleIds = progressRecords
+    .filter(record => record.completedAt !== null)
+    .map(record => record.puzzleId);
+  res.json({ ok: true, completedPuzzleIds, progressRecords });
+});
+
+app.post('/api/puzzle-progress/complete', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const puzzleId = Number(req.body?.puzzleId);
+  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
+    res.status(400).json({ error: 'Valid puzzleId is required.' });
+    return;
+  }
+
+  const progressRecords = await markPuzzleCompleted(user.id, puzzleId);
+  const completedPuzzleIds = progressRecords
+    .filter(record => record.completedAt !== null)
+    .map(record => record.puzzleId);
+  res.json({ ok: true, completedPuzzleIds, progressRecords });
+});
+
+app.post('/api/puzzle-progress/sync', async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const rawProgressRecords = Array.isArray(req.body?.progressRecords) ? req.body.progressRecords : null;
+  const rawPuzzleIds = Array.isArray(req.body?.completedPuzzleIds) ? req.body.completedPuzzleIds : null;
+  if (!rawProgressRecords && !rawPuzzleIds) {
+    res.status(400).json({ error: 'progressRecords or completedPuzzleIds is required.' });
+    return;
+  }
+
+  let progressRecords: PuzzleProgressRecord[];
+  if (rawProgressRecords) {
+    progressRecords = await mergePuzzleProgress(
+      user.id,
+      rawProgressRecords.map((value: any) => ({
+        puzzleId: Number(value?.puzzleId),
+        lastPlayedAt: Number(value?.lastPlayedAt),
+        completedAt: value?.completedAt === null || value?.completedAt === undefined
+          ? null
+          : Number(value.completedAt),
+      })),
+    );
+  } else {
+    await mergeCompletedPuzzles(user.id, rawPuzzleIds.map((value: unknown) => Number(value)));
+    progressRecords = await getPuzzleProgressForUser(user.id);
+  }
+
+  const completedPuzzleIds = progressRecords
+    .filter(record => record.completedAt !== null)
+    .map(record => record.puzzleId);
+  res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
 app.post('/api/client-errors', (req, res) => {

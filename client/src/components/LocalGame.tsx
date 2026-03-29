@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
@@ -7,6 +7,7 @@ import {
 } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { buildInlineAnalysisRoute } from '../lib/analysis';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -32,6 +33,7 @@ export default function LocalGame() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
+  const moveCountRef = useRef(gameState.moveHistory.length);
 
   useEffect(() => {
     if (gameState.moveHistory.length === 0) return;
@@ -45,13 +47,14 @@ export default function LocalGame() {
         setViewMoveIndex(Math.max(-1, current - 1));
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setViewMoveIndex(Math.min(moveCount - 1, current + 1));
+        const next = Math.min(moveCount - 1, current + 1);
+        setViewMoveIndex(next >= moveCount - 1 ? null : next);
       } else if (e.key === 'Home') {
         e.preventDefault();
         setViewMoveIndex(-1);
       } else if (e.key === 'End') {
         e.preventDefault();
-        setViewMoveIndex(moveCount - 1);
+        setViewMoveIndex(null);
       }
     };
 
@@ -62,6 +65,17 @@ export default function LocalGame() {
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
+
+  useEffect(() => {
+    const previousMoveCount = moveCountRef.current;
+    const currentMoveCount = gameState.moveHistory.length;
+
+    if (!gameState.gameOver && currentMoveCount !== previousMoveCount && viewMoveIndex !== null) {
+      setViewMoveIndex(null);
+    }
+
+    moveCountRef.current = currentMoveCount;
+  }, [gameState.gameOver, gameState.moveHistory.length, viewMoveIndex]);
 
   useEffect(() => {
     if (gameState.gameOver) return;
@@ -211,7 +225,11 @@ export default function LocalGame() {
   };
 
   const handleMoveClick = useCallback((index: number) => {
-    if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
+    const latestIndex = gameState.moveHistory.length - 1;
+    if (index === latestIndex) {
+      setViewMoveIndex(null);
+      return;
+    }
     setViewMoveIndex(index);
   }, [gameState.moveHistory.length, viewMoveIndex]);
 
@@ -315,6 +333,16 @@ export default function LocalGame() {
         moveCount={moveCount}
         isViewingHistory={isViewingHistory}
         showCheckBadge={gameState.isCheck}
+        toolbar={
+          isViewingHistory ? (
+            <button
+              onClick={() => setViewMoveIndex(null)}
+              className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
+            >
+              {t('game.return_to_live')}
+            </button>
+          ) : null
+        }
         sidePanel={
           <>
             <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
@@ -383,10 +411,12 @@ export default function LocalGame() {
                 onNewGame={() => navigate('/')}
                 onAnalyze={gameState.moveHistory.length > 0
                   ? () => {
-                      const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
-                      const result = gameState.winner || 'draw';
-                      const reason = gameOverInfo.reason;
-                      navigate(`/analysis/local?moves=${movesParam}&result=${result}&reason=${reason}`);
+                      navigate(buildInlineAnalysisRoute({
+                        source: 'local',
+                        moves: gameState.moveHistory,
+                        result: gameState.winner || 'draw',
+                        reason: gameOverInfo.reason,
+                      }));
                     }
                   : undefined
                 }
@@ -427,10 +457,12 @@ export default function LocalGame() {
           onNewGame={() => navigate('/')}
           onAnalyze={gameState.moveHistory.length > 0
             ? () => {
-                const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
-                const result = gameState.winner || 'draw';
-                const reason = gameOverInfo.reason;
-                navigate(`/analysis/local?moves=${movesParam}&result=${result}&reason=${reason}`);
+                navigate(buildInlineAnalysisRoute({
+                  source: 'local',
+                  moves: gameState.moveHistory,
+                  result: gameState.winner || 'draw',
+                  reason: gameOverInfo.reason,
+                }));
               }
             : undefined
           }

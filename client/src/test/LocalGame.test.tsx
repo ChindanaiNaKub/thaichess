@@ -113,7 +113,7 @@ describe('LocalGame', () => {
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getByText('local.view_as')).toBeInTheDocument();
-    expect(shellProps?.toolbar).toBeUndefined();
+    expect(shellProps?.toolbar).toBeNull();
     expect(boardPropsMock).toHaveBeenCalledWith(expect.objectContaining({
       draggableColor: 'white',
     }));

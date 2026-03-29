@@ -6,6 +6,7 @@ import {
   startCounting, stopCounting,
 } from '@shared/engine';
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
+import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { getCapturedSummary } from '../lib/capturedSummary';
@@ -23,13 +24,37 @@ import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
+const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
+  const level = index + 1;
+
+  return {
+    level,
+    title: `Level ${level}`,
+    description: level <= 3
+      ? 'Beginner'
+      : level <= 6
+        ? 'Intermediate'
+        : level <= 8
+          ? 'Advanced'
+          : 'Expert',
+  };
+});
+
+type SideChoice = PieceColor | 'random';
+
+function getFallbackDifficulty(level: number): BotDifficulty {
+  if (level <= 3) return 'easy';
+  if (level <= 7) return 'medium';
+  return 'hard';
+}
 
 export default function BotGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [gameStarted, setGameStarted] = useState(false);
-  const [difficulty, setDifficulty] = useState<BotDifficulty>('medium');
+  const [level, setLevel] = useState(5);
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
+  const [sideChoice, setSideChoice] = useState<SideChoice>('white');
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
@@ -38,6 +63,7 @@ export default function BotGame() {
   const [botThinking, setBotThinking] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameStateRef = useRef(gameState);
+  const moveCountRef = useRef(gameState.moveHistory.length);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
 
@@ -51,12 +77,6 @@ export default function BotGame() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  const difficultyConfig: Record<BotDifficulty, { labelKey: string; descKey: string; emoji: string }> = {
-    easy: { labelKey: 'bot.easy', descKey: 'bot.easy_desc', emoji: '🟢' },
-    medium: { labelKey: 'bot.medium', descKey: 'bot.medium_desc', emoji: '🟡' },
-    hard: { labelKey: 'bot.hard', descKey: 'bot.hard_desc', emoji: '🔴' },
-  };
-
   useEffect(() => {
     if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
 
@@ -69,13 +89,21 @@ export default function BotGame() {
     }
 
     setBotThinking(true);
-    const delay = difficulty === 'easy' ? 300 : difficulty === 'medium' ? 600 : 800;
+    const delay = 40 + level * 12;
 
-    botTimeoutRef.current = setTimeout(() => {
+    botTimeoutRef.current = setTimeout(async () => {
       const currentState = gameStateRef.current;
-      const botMoveResult = getBotMove(currentState, difficulty);
-      if (botMoveResult) {
-        const newState = makeMove(currentState, botMoveResult.from, botMoveResult.to);
+      let botMove = null;
+
+      try {
+        const result = await requestBotMove(currentState, level);
+        botMove = result.move;
+      } catch {
+        botMove = getBotMove(currentState, getFallbackDifficulty(level));
+      }
+
+      if (botMove) {
+        const newState = makeMove(currentState, botMove.from, botMove.to);
         if (newState) {
           setGameState(newState);
           setArrows([]);
@@ -100,7 +128,6 @@ export default function BotGame() {
     };
   }, [
     botColor,
-    difficulty,
     gameStarted,
     gameState.board,
     gameState.counting,
@@ -108,6 +135,7 @@ export default function BotGame() {
     gameState.moveHistory.length,
     gameState.turn,
     isPlayerTurn,
+    level,
   ]);
 
   useEffect(() => {
@@ -185,6 +213,17 @@ export default function BotGame() {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
 
+  useEffect(() => {
+    const previousMoveCount = moveCountRef.current;
+    const currentMoveCount = gameState.moveHistory.length;
+
+    if (!gameState.gameOver && currentMoveCount !== previousMoveCount && viewMoveIndex !== null) {
+      setViewMoveIndex(null);
+    }
+
+    moveCountRef.current = currentMoveCount;
+  }, [gameState.gameOver, gameState.moveHistory.length, viewMoveIndex]);
+
   // Keyboard navigation for move history
   useEffect(() => {
     if (gameState.moveHistory.length === 0) return;
@@ -198,13 +237,14 @@ export default function BotGame() {
         setViewMoveIndex(Math.max(-1, current - 1));
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setViewMoveIndex(Math.min(moveCount - 1, current + 1));
+        const next = Math.min(moveCount - 1, current + 1);
+        setViewMoveIndex(next >= moveCount - 1 ? null : next);
       } else if (e.key === 'Home') {
         e.preventDefault();
         setViewMoveIndex(-1);
       } else if (e.key === 'End') {
         e.preventDefault();
-        setViewMoveIndex(moveCount - 1);
+        setViewMoveIndex(null);
       }
     };
 
@@ -310,6 +350,11 @@ export default function BotGame() {
   }, [gameState, isPlayerTurn, botThinking, playerColor]);
 
   const handleStartGame = () => {
+    const resolvedColor: PieceColor = sideChoice === 'random'
+      ? (Math.random() < 0.5 ? 'white' : 'black')
+      : sideChoice;
+
+    setPlayerColor(resolvedColor);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
     setLegalMoves([]);
@@ -380,7 +425,11 @@ export default function BotGame() {
   };
 
   const handleMoveClick = useCallback((index: number) => {
-    if (index === gameState.moveHistory.length - 1 && viewMoveIndex === null) return;
+    const latestIndex = gameState.moveHistory.length - 1;
+    if (index === latestIndex) {
+      setViewMoveIndex(null);
+      return;
+    }
     setViewMoveIndex(index);
   }, [gameState.moveHistory.length, viewMoveIndex]);
 
@@ -393,6 +442,10 @@ export default function BotGame() {
   };
 
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+  const sideChoiceLabel = sideChoice === 'random'
+    ? t('bot.random')
+    : t(sideChoice === 'white' ? 'common.white' : 'common.black');
+  const levelMeta = BOT_LEVELS.find(entry => entry.level === level) ?? BOT_LEVELS[4];
 
   if (!gameStarted) {
     return (
@@ -400,81 +453,116 @@ export default function BotGame() {
         <Header subtitle={t('bot.title')} />
 
         <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
-            <h2 className="text-2xl font-bold text-text-bright mb-6 text-center">{t('bot.setup_title')}</h2>
+          <div className="w-full max-w-2xl animate-slideUp">
+            <div className="overflow-hidden rounded-[1.75rem] border border-accent/20 bg-[radial-gradient(circle_at_top,rgba(96,160,24,0.08),transparent_38%),linear-gradient(180deg,rgba(33,25,20,0.96),rgba(24,18,15,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
+              <div className="border-b border-surface-hover/70 px-5 py-5 sm:px-7">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent/85">
+                      {t('home.play_bot')}
+                    </p>
+                    <h2 className="mt-2 text-3xl font-bold tracking-tight text-text-bright">{t('bot.setup_title')}</h2>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-text-dim">
+                      {t('bot.setup_desc')}
+                    </p>
+                  </div>
+                  <div className="grid min-w-[14rem] grid-cols-2 gap-2 self-start rounded-2xl border border-surface-hover/80 bg-surface/55 p-2">
+                    <div className="rounded-xl bg-surface-alt px-3 py-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.difficulty')}</div>
+                      <div className="mt-1 text-sm font-semibold text-text-bright">{levelMeta.title}</div>
+                      <div className="text-xs text-text-dim">{levelMeta.description}</div>
+                    </div>
+                    <div className="rounded-xl bg-surface-alt px-3 py-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.play_as')}</div>
+                      <div className="mt-1 text-sm font-semibold text-text-bright">{sideChoiceLabel}</div>
+                      <div className="text-xs text-text-dim">
+                        {sideChoice === 'random' ? t('bot.random_assigned') : t('bot.side_locked')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            <div className="mb-6">
-              <label className="text-sm text-text-dim mb-2 block">{t('bot.difficulty')}</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(difficultyConfig) as BotDifficulty[]).map((key) => {
-                  const config = difficultyConfig[key];
-                  return (
+              <div className="grid gap-6 px-5 py-5 sm:px-7 sm:py-6">
+                <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.difficulty')}</label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {BOT_LEVELS.map((entry) => {
+                      return (
+                        <button
+                          key={entry.level}
+                          onClick={() => setLevel(entry.level)}
+                          className={`rounded-xl border px-3 py-3 text-sm font-medium transition-all ${
+                            level === entry.level
+                              ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                              : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                          }`}
+                        >
+                          <div className="font-bold">{entry.title}</div>
+                          <div className="mt-1 text-xs opacity-70">{entry.description}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.play_as')}</label>
+                  <div className="grid grid-cols-3 gap-2">
                     <button
-                      key={key}
-                      onClick={() => setDifficulty(key)}
-                      className={`py-3 px-3 rounded-lg text-sm font-medium transition-all ${
-                        difficulty === key
-                          ? 'bg-primary text-white shadow-md'
-                          : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
+                      onClick={() => setSideChoice('white')}
+                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                        sideChoice === 'white'
+                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
                       }`}
                     >
-                      <div className="text-lg mb-1">{config.emoji}</div>
-                      <div className="font-bold">{t(config.labelKey)}</div>
-                      <div className="text-xs opacity-70 mt-1">{t(config.descKey)}</div>
+                      <PieceSVG type="K" color="white" size={32} />
+                      <span className="text-sm">{t('common.white')}</span>
                     </button>
-                  );
-                })}
+                    <button
+                      onClick={() => setSideChoice('random')}
+                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                        sideChoice === 'random'
+                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                      }`}
+                    >
+                      <span className="text-2xl">🎲</span>
+                      <span className="text-sm">{t('bot.random')}</span>
+                      <span className="text-[11px] opacity-70">{t('bot.random_assigned')}</span>
+                    </button>
+                    <button
+                      onClick={() => setSideChoice('black')}
+                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                        sideChoice === 'black'
+                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                      }`}
+                    >
+                      <PieceSVG type="K" color="black" size={32} />
+                      <span className="text-sm">{t('common.black')}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-surface-hover/70 pt-1">
+                  <button
+                    onClick={handleStartGame}
+                    className="w-full rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light"
+                  >
+                    {t('bot.start')}
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/')}
+                    className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                  >
+                    {t('common.back_home')}
+                  </button>
+                </div>
               </div>
             </div>
-
-            <div className="mb-6">
-              <label className="text-sm text-text-dim mb-2 block">{t('bot.play_as')}</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setPlayerColor('white')}
-                  className={`py-3 px-3 rounded-lg font-medium transition-all flex flex-col items-center gap-1 ${
-                    playerColor === 'white'
-                      ? 'bg-primary text-white shadow-md'
-                      : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
-                  }`}
-                >
-                  <PieceSVG type="K" color="white" size={32} />
-                  <span className="text-sm">{t('common.white')}</span>
-                </button>
-                <button
-                  onClick={() => setPlayerColor(Math.random() < 0.5 ? 'white' : 'black')}
-                  className="py-3 px-3 rounded-lg font-medium transition-all flex flex-col items-center gap-1 bg-surface hover:bg-surface-hover text-text border border-surface-hover"
-                >
-                  <span className="text-2xl">🎲</span>
-                  <span className="text-sm">{t('bot.random')}</span>
-                </button>
-                <button
-                  onClick={() => setPlayerColor('black')}
-                  className={`py-3 px-3 rounded-lg font-medium transition-all flex flex-col items-center gap-1 ${
-                    playerColor === 'black'
-                      ? 'bg-primary text-white shadow-md'
-                      : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
-                  }`}
-                >
-                  <PieceSVG type="K" color="black" size={32} />
-                  <span className="text-sm">{t('common.black')}</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={handleStartGame}
-              className="w-full py-3 px-6 bg-primary hover:bg-primary-light text-white font-bold rounded-lg text-lg transition-colors shadow-md"
-            >
-              {t('bot.start')}
-            </button>
-
-            <button
-              onClick={() => navigate('/')}
-              className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
-            >
-              {t('common.back_home')}
-            </button>
           </div>
         </main>
       </div>
@@ -529,7 +617,7 @@ export default function BotGame() {
             <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('bot.vs_bot')}</span>
             <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
-              {t(difficultyConfig[difficulty].labelKey)}
+              Level {level}
             </span>
           </>
         }
@@ -538,7 +626,7 @@ export default function BotGame() {
             time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
             isActive={gameState.turn === botColor && !gameState.gameOver}
             color={botColor}
-            playerName={`Bot (${t(difficultyConfig[difficulty].labelKey)})`}
+            playerName={`Bot (Level ${level})`}
             subtitle={t(botColor === 'white' ? 'common.white' : 'common.black')}
             capturedPieces={botCaptureSummary.pieces}
             materialDelta={botCaptureSummary.material}
@@ -580,7 +668,16 @@ export default function BotGame() {
         isViewingHistory={isViewingHistory}
         showCheckBadge={gameState.isCheck}
         toolbar={
-          premove ? (
+          <>
+            {isViewingHistory && (
+              <button
+                onClick={() => setViewMoveIndex(null)}
+                className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
+              >
+                {t('game.return_to_live')}
+              </button>
+            )}
+            {premove ? (
             <>
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
                 {t('game.premove_set')}
@@ -592,7 +689,8 @@ export default function BotGame() {
                 {t('common.cancel')}
               </button>
             </>
-          ) : null
+            ) : null}
+          </>
         }
         sidePanel={
           <>
@@ -602,7 +700,7 @@ export default function BotGame() {
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                   <span>{t('bot.vs_bot')}</span>
                   <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
-                    {t(difficultyConfig[difficulty].labelKey)}
+                    Level {level}
                   </span>
                 </div>
               </div>
@@ -643,10 +741,12 @@ export default function BotGame() {
                 onNewGame={handleReset}
                 onAnalyze={gameState.moveHistory.length > 0
                   ? () => {
-                      const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
-                      const result = gameState.winner || 'draw';
-                      const reason = gameOverInfo.reason;
-                      navigate(`/analysis/bot?moves=${movesParam}&result=${result}&reason=${reason}`);
+                      navigate(buildInlineAnalysisRoute({
+                        source: 'bot',
+                        moves: gameState.moveHistory,
+                        result: gameState.winner || 'draw',
+                        reason: gameOverInfo.reason,
+                      }));
                     }
                   : undefined
                 }
@@ -694,10 +794,12 @@ export default function BotGame() {
           onNewGame={handleReset}
           onAnalyze={gameState.moveHistory.length > 0
             ? () => {
-                const movesParam = encodeURIComponent(JSON.stringify(gameState.moveHistory));
-                const result = gameState.winner || 'draw';
-                const reason = gameOverInfo.reason;
-                navigate(`/analysis/bot?moves=${movesParam}&result=${result}&reason=${reason}`);
+                navigate(buildInlineAnalysisRoute({
+                  source: 'bot',
+                  moves: gameState.moveHistory,
+                  result: gameState.winner || 'draw',
+                  reason: gameOverInfo.reason,
+                }));
               }
             : undefined
           }

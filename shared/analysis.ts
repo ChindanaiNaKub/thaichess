@@ -3,6 +3,7 @@ import {
   getLegalMoves, makeMove, getAllPieces, isInCheck,
   createInitialBoard, createInitialGameState, getBoardAtMove,
 } from './engine';
+import type { EngineStats } from './engineAdapter';
 
 export type MoveClassification = 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
@@ -16,6 +17,8 @@ export interface AnalyzedMove {
   bestEval: number;
   classification: MoveClassification;
   color: PieceColor;
+  principalVariation?: string[];
+  engine?: EngineStats;
 }
 
 export interface GameAnalysis {
@@ -26,6 +29,10 @@ export interface GameAnalysis {
   summary: {
     white: Record<MoveClassification, number>;
     black: Record<MoveClassification, number>;
+  };
+  engine?: {
+    label: string;
+    source: EngineStats['source'];
   };
 }
 
@@ -305,11 +312,11 @@ export function getClassificationIcon(classification: MoveClassification): strin
   }
 }
 
-function createEmptySummary(): Record<MoveClassification, number> {
+export function createEmptySummary(): Record<MoveClassification, number> {
   return { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
 }
 
-function computeAccuracy(classifications: MoveClassification[]): number {
+export function computeAccuracy(classifications: MoveClassification[]): number {
   if (classifications.length === 0) return 100;
   const weights: Record<MoveClassification, number> = {
     best: 1.0, excellent: 0.95, good: 0.85, inaccuracy: 0.6, mistake: 0.3, blunder: 0.0,
@@ -410,6 +417,10 @@ export function analyzeGame(
     whiteAccuracy: computeAccuracy(whiteClassifications),
     blackAccuracy: computeAccuracy(blackClassifications),
     summary: { white: whiteSummary, black: blackSummary },
+    engine: {
+      label: 'Local analysis',
+      source: 'local',
+    },
   };
 }
 

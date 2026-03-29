@@ -15,6 +15,16 @@ services:
         value: "22"
       - key: SITE_URL
         value: https://thaichess.dev
+      - key: INSTALL_FAIRY_STOCKFISH
+        value: "true"
+      - key: FAIRY_STOCKFISH_BINARY_PATH
+        value: ./bin/fairy-stockfish-makruk
+      - key: FAIRY_STOCKFISH_THREADS
+        value: "1"
+      - key: FAIRY_STOCKFISH_HASH_MB
+        value: "64"
+      - key: FAIRY_STOCKFISH_DOWNLOAD_URL
+        value: https://github.com/fairy-stockfish/Fairy-Stockfish-NNUE/releases/download/makruk-23def9767554/fairy-stockfish_x86-64-modern
     # SQLite: default DATA_DIR is ./data at repo root — ephemeral on free web (resets on redeploy).
     # For persistent DB, add a disk in the Render dashboard and set DATA_DIR to the mount path, e.g.:
     # disk:

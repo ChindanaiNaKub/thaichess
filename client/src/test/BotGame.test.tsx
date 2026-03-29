@@ -108,9 +108,9 @@ describe('BotGame', () => {
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
-    expect(screen.getByText('Bot (bot.medium)')).toBeInTheDocument();
+    expect(screen.getByText('Bot (Level 5)')).toBeInTheDocument();
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
-    expect(screen.getAllByText('Bot (bot.medium)')).toHaveLength(1);
+    expect(screen.getAllByText('Bot (Level 5)')).toHaveLength(1);
     expect(screen.getAllByText('common.you (common.white)')).toHaveLength(1);
   });
 });

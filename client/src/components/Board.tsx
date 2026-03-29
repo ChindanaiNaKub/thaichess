@@ -38,6 +38,7 @@ interface BoardProps {
   onArrowsChange?: (arrows: Arrow[]) => void;
   squareHighlights?: SquareHighlight[];
   squareAnnotations?: SquareAnnotation[];
+  allowAnyPieceDrag?: boolean;
 }
 
 export default memo(function Board({
@@ -58,6 +59,7 @@ export default memo(function Board({
   onArrowsChange,
   squareHighlights,
   squareAnnotations,
+  allowAnyPieceDrag = false,
 }: BoardProps) {
   const { boardTheme } = useBoardAppearance();
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
@@ -150,7 +152,7 @@ export default memo(function Board({
 
     if (disabled) return;
     const piece = board[row][col];
-    if (piece && piece.color === draggableColor) {
+    if (piece && (allowAnyPieceDrag || piece.color === draggableColor)) {
       setDragPiece({ row, col });
       setPieceAnimations(prev => new Map(prev).set(`${row}-${col}`, 'lift'));
       setTimeout(() => setPieceAnimations(prev => {
@@ -243,7 +245,7 @@ export default memo(function Board({
   const handleTouchStart = (e: React.TouchEvent, row: number, col: number) => {
     if (disabled) return;
     const piece = board[row][col];
-    if (piece && piece.color === draggableColor) {
+    if (piece && (allowAnyPieceDrag || piece.color === draggableColor)) {
       e.preventDefault();
       setDragPiece({ row, col });
       onSquareClick({ row, col });
