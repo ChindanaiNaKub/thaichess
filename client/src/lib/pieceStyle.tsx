@@ -116,3 +116,6 @@ export function useBoardAppearance() {
   }
   return context;
 }
+
+// Backward-compatible alias for older imports and test mocks.
+export const usePieceStyle = useBoardAppearance;

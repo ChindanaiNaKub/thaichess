@@ -7,9 +7,14 @@ const pieceStyleState = {
   pieceThemeId: 'classic-ivory-ink',
 };
 
-vi.mock('../lib/pieceStyle', () => ({
-  useBoardAppearance: () => pieceStyleState,
-}));
+vi.mock('../lib/pieceStyle', async () => {
+  const actual = await vi.importActual<typeof import('../lib/pieceStyle')>('../lib/pieceStyle');
+
+  return {
+    ...actual,
+    useBoardAppearance: () => pieceStyleState,
+  };
+});
 
 vi.mock('../assets/pieces/traditional/Bia_black.svg?raw', () => ({
   default: '<svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="100" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="60" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="20" fill="#14110F" /></svg>',

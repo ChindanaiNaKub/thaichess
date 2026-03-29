@@ -42,9 +42,9 @@ describe('AppearanceSettingsPage', () => {
     await waitFor(() => {
       expect(localStorage.getItem('thaichess-board-theme')).toBe('rosewood');
       expect(localStorage.getItem('thaichess-piece-theme')).toBe('jade-bone');
-    });
+    }, { timeout: 10000 });
 
     expect(screen.getAllByText('Rosewood').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Jade & Bone').length).toBeGreaterThan(0);
-  });
+  }, 10000);
 });

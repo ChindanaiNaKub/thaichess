@@ -10,17 +10,22 @@ vi.mock('../components/PieceSVG', () => ({
   },
 }));
 
-vi.mock('../lib/pieceStyle', () => ({
-  useBoardAppearance: () => ({
-    boardTheme: {
-      lightBackground: '#f0d8b6',
-      darkBackground: '#b8895c',
-      lightCoordinate: '#8a5d34',
-      darkCoordinate: '#f6e6c8',
-      frameBackground: 'linear-gradient(180deg, rgba(120,85,45,0.4), rgba(48,33,21,0.56))',
-    },
-  }),
-}));
+vi.mock('../lib/pieceStyle', async () => {
+  const actual = await vi.importActual<typeof import('../lib/pieceStyle')>('../lib/pieceStyle');
+
+  return {
+    ...actual,
+    useBoardAppearance: () => ({
+      boardTheme: {
+        lightBackground: '#f0d8b6',
+        darkBackground: '#b8895c',
+        lightCoordinate: '#8a5d34',
+        darkCoordinate: '#f6e6c8',
+        frameBackground: 'linear-gradient(180deg, rgba(120,85,45,0.4), rgba(48,33,21,0.56))',
+      },
+    }),
+  };
+});
 
 const createProps = (overrides: any = {}): any => ({
   board: createInitialBoard(),

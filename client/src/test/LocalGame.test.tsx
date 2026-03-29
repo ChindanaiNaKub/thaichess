@@ -29,12 +29,17 @@ vi.mock('../lib/i18n', () => ({
   }),
 }));
 
-vi.mock('../lib/pieceStyle', () => ({
-  usePieceStyle: () => ({
-    pieceStyle: 'classic',
-    setPieceStyle: vi.fn(),
-  }),
-}));
+vi.mock('../lib/pieceStyle', async () => {
+  const actual = await vi.importActual<typeof import('../lib/pieceStyle')>('../lib/pieceStyle');
+
+  return {
+    ...actual,
+    usePieceStyle: () => ({
+      pieceStyle: 'classic',
+      setPieceStyle: vi.fn(),
+    }),
+  };
+});
 
 vi.mock('../lib/sounds', () => ({
   playMoveSound: vi.fn(),
