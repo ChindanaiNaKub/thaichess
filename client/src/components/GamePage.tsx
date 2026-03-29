@@ -6,7 +6,6 @@ import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
-import { usePieceStyle } from '../lib/pieceStyle';
 import { liveGameRoute, routes, savedGameAnalysisRoute } from '../lib/routes';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { useGameInteraction } from '../hooks/useGameInteraction';
@@ -19,16 +18,15 @@ import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import PieceGuide from './PieceGuide';
 import ConnectionStatus from './ConnectionStatus';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 import Header from './Header';
-import GameHeaderBar from './GameHeaderBar';
-import GameScreenLayout from './GameScreenLayout';
+import InGameShell from './InGameShell';
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
@@ -539,26 +537,14 @@ export default function GamePage() {
       : null;
 
   return (
-    <div ref={containerRef} className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
+    <div ref={containerRef}>
       <ConnectionStatus />
 
-      <GameHeaderBar
+      <InGameShell
         onHome={() => navigate(routes.home)}
-        meta={
+        headerMeta={
           <>
-            <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
-              <select
-                value={pieceStyle}
-                onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-                title={t('game.select_piece_style')}
-                aria-label={t('game.select_piece_style')}
-              >
-                <option value="classic">{t('game.piece_style_makruk')}</option>
-                <option value="western">{t('game.piece_style_western')}</option>
-              </select>
-            </label>
+            <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
               gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
@@ -573,37 +559,34 @@ export default function GamePage() {
             </button>
           </>
         }
-      />
-
-      {/* Disconnect banner */}
-      {opponentDisconnected && (
-        <div className="bg-accent/20 border-b border-accent/30 text-center py-2 text-xs sm:text-sm text-accent">
-          {t('game.opponent_dc')}
-        </div>
-      )}
-
-      {/* Draw offer banner */}
-      {drawOffered && (
-        <div className="bg-primary/20 border-b border-primary/30 text-center py-3 text-xs sm:text-sm flex items-center justify-center gap-3 flex-wrap px-2">
-          <span className="text-text-bright">{t('game.draw_offer_received')}</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleRespondDraw(true)}
-              className="px-4 py-1 bg-primary text-white rounded font-semibold text-sm"
-            >
-              {t('game.accept')}
-            </button>
-            <button
-              onClick={() => handleRespondDraw(false)}
-              className="px-4 py-1 bg-surface-hover text-text-bright rounded font-semibold text-sm"
-            >
-              {t('game.decline')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <GameScreenLayout
+        banners={
+          <>
+            {opponentDisconnected && (
+              <div className="bg-accent/20 border-b border-accent/30 text-center py-2 text-xs sm:text-sm text-accent">
+                {t('game.opponent_dc')}
+              </div>
+            )}
+            {drawOffered && (
+              <div className="bg-primary/20 border-b border-primary/30 text-center py-3 text-xs sm:text-sm flex items-center justify-center gap-3 flex-wrap px-2">
+                <span className="text-text-bright">{t('game.draw_offer_received')}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRespondDraw(true)}
+                    className="px-4 py-1 bg-primary text-white rounded font-semibold text-sm"
+                  >
+                    {t('game.accept')}
+                  </button>
+                  <button
+                    onClick={() => handleRespondDraw(false)}
+                    className="px-4 py-1 bg-surface-hover text-text-bright rounded font-semibold text-sm"
+                  >
+                    {t('game.decline')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        }
         topPanel={
           <Clock
             time={playerColor === 'white' ? gameState.blackTime : gameState.whiteTime}

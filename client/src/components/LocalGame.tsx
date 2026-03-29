@@ -7,17 +7,16 @@ import {
 } from '@shared/engine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
-import { usePieceStyle } from '../lib/pieceStyle';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
-import GameHeaderBar from './GameHeaderBar';
 import Clock from './Clock';
-import GameScreenLayout from './GameScreenLayout';
+import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
@@ -25,7 +24,6 @@ const LOCAL_CLOCK_TICK_MS = 500;
 export default function LocalGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
@@ -259,33 +257,18 @@ export default function LocalGame() {
   };
 
   return (
-    <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
-      <GameHeaderBar
-        onHome={() => navigate('/')}
-        meta={
-          <>
-            <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
-              <select
-                value={pieceStyle}
-                onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-                title={t('game.select_piece_style')}
-                aria-label={t('game.select_piece_style')}
-              >
-                <option value="classic">{t('game.piece_style_makruk')}</option>
-                <option value="western">{t('game.piece_style_western')}</option>
-              </select>
-            </label>
-            <span className="hidden md:inline">{t('local.title')}</span>
-            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
-              {t('local.title')}
-            </span>
-          </>
-        }
-      />
-
-      <GameScreenLayout
+    <>
+      <InGameShell
+      onHome={() => navigate('/')}
+      headerMeta={
+        <>
+          <AppearanceSettingsButton compact />
+          <span className="hidden md:inline">{t('local.title')}</span>
+          <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+            {t('local.title')}
+          </span>
+        </>
+      }
         topPanel={
           <Clock
             time={topColor === 'white' ? gameState.whiteTime : gameState.blackTime}
@@ -332,23 +315,6 @@ export default function LocalGame() {
         moveCount={moveCount}
         isViewingHistory={isViewingHistory}
         showCheckBadge={gameState.isCheck}
-        toolbar={
-          <div className="flex items-center gap-1.5 normal-case tracking-normal">
-            <span className="text-text-dim">{t('local.view_as')}</span>
-            <button
-              onClick={() => setViewAs('white')}
-              className={`px-2.5 py-1 rounded-full border transition-colors ${viewAs === 'white' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
-            >
-              {t('common.white')}
-            </button>
-            <button
-              onClick={() => setViewAs('black')}
-              className={`px-2.5 py-1 rounded-full border transition-colors ${viewAs === 'black' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
-            >
-              {t('common.black')}
-            </button>
-          </div>
-        }
         sidePanel={
           <>
             <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
@@ -359,6 +325,25 @@ export default function LocalGame() {
                   <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
                     {viewAs === 'white' ? t('common.white') : t('common.black')}
                   </span>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-surface-hover/80 pt-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                  {t('local.view_as')}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setViewAs('white')}
+                    className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'white' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
+                  >
+                    {t('common.white')}
+                  </button>
+                  <button
+                    onClick={() => setViewAs('black')}
+                    className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'black' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
+                  >
+                    {t('common.black')}
+                  </button>
                 </div>
               </div>
             </div>
@@ -452,6 +437,6 @@ export default function LocalGame() {
           onClose={() => setShowGameOverModal(false)}
         />
       )}
-    </div>
+    </>
   );
 }

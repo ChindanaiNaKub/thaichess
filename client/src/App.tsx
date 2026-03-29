@@ -20,6 +20,7 @@ const AnalysisPage = lazy(() => import('./components/AnalysisPage'));
 const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 const AccountPage = lazy(() => import('./components/AccountPage'));
+const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 
 // Shared loading fallback component
 function RouteFallback() {
@@ -60,6 +61,7 @@ export default function App() {
           <Route path={routes.feedback} element={<FeedbackMessagesPage />} />
           <Route path={routes.login} element={<LoginPage />} />
           <Route path={routes.account} element={<AccountPage />} />
+          <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
         </Routes>
       </Suspense>
       <FeedbackWidget />

@@ -13,6 +13,7 @@ export const routes = {
   feedback: '/feedback',
   login: '/login',
   account: '/account',
+  appearanceSettings: '/settings/board-pieces',
   analysisRoot: '/analysis',
   liveGamePattern: '/game/:gameId',
   puzzlePattern: '/puzzle/:id',

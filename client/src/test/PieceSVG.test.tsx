@@ -4,12 +4,17 @@ import { render } from './utils';
 import PieceSVG from '../components/PieceSVG';
 
 const pieceStyleState = {
-  pieceStyle: 'classic',
+  pieceThemeId: 'classic-ivory-ink',
 };
 
-vi.mock('../lib/pieceStyle', () => ({
-  usePieceStyle: () => pieceStyleState,
-}));
+vi.mock('../lib/pieceStyle', async () => {
+  const actual = await vi.importActual<typeof import('../lib/pieceStyle')>('../lib/pieceStyle');
+
+  return {
+    ...actual,
+    useBoardAppearance: () => pieceStyleState,
+  };
+});
 
 vi.mock('../assets/pieces/traditional/Bia_black.svg?raw', () => ({
   default: '<svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="100" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="60" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="20" fill="#14110F" /></svg>',
@@ -35,7 +40,7 @@ vi.mock('../assets/pieces/traditional/Ruea_black.svg?raw', () => ({
 
 describe('PieceSVG', () => {
   it('renders traditional Makruk pieces from inline black SVG sources for both colors', () => {
-    pieceStyleState.pieceStyle = 'classic';
+    pieceStyleState.pieceThemeId = 'classic-ivory-ink';
 
     const cases: Array<{ type: PieceType; color: PieceColor; fill: string; stroke: string }> = [
       { type: 'K', color: 'white', fill: '#f2eadb', stroke: '#5f5245' },
@@ -69,7 +74,7 @@ describe('PieceSVG', () => {
   });
 
   it('keeps traditional white pawns solid by rendering an opaque base shape', () => {
-    pieceStyleState.pieceStyle = 'classic';
+    pieceStyleState.pieceThemeId = 'classic-ivory-ink';
 
     const { container } = render(<PieceSVG type="P" color="white" />);
 
@@ -79,14 +84,14 @@ describe('PieceSVG', () => {
     expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
   });
 
-  it('renders the western set when western style is selected', () => {
-    pieceStyleState.pieceStyle = 'western';
+  it('renders alternative readable color themes on the same Makruk silhouette', () => {
+    pieceStyleState.pieceThemeId = 'gold-ebony';
 
     const { container } = render(<PieceSVG type="K" color="white" />);
 
-    expect(container.querySelector('linearGradient')).not.toBeInTheDocument();
-    expect(container.querySelector('filter')).not.toBeInTheDocument();
-    expect(container.querySelector('rect')).toBeInTheDocument();
-    expect(container.innerHTML.toLowerCase()).toContain('#fbfbfa');
+    expect(container.querySelector('linearGradient')).toBeInTheDocument();
+    expect(container.querySelector('filter')).toBeInTheDocument();
+    expect(container.querySelector('path, circle')).toBeInTheDocument();
+    expect(container.innerHTML.toLowerCase()).toContain('#f1d9a5');
   });
 });
