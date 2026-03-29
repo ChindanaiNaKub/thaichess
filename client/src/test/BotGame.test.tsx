@@ -9,11 +9,13 @@ const {
   boardPropsMock,
   clockPropsMock,
   requestBotMoveMock,
+  requestLocalBotMoveMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
   clockPropsMock: vi.fn(),
   requestBotMoveMock: vi.fn(),
+  requestLocalBotMoveMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -53,6 +55,10 @@ vi.mock('../lib/sounds', () => ({
 vi.mock('../lib/analysis', () => ({
   buildInlineAnalysisRoute: vi.fn(() => '/analysis/bot'),
   requestBotMove: (...args: unknown[]) => requestBotMoveMock(...args),
+}));
+
+vi.mock('../lib/localBot', () => ({
+  requestLocalBotMove: (...args: unknown[]) => requestLocalBotMoveMock(...args),
 }));
 
 vi.mock('../components/BoardErrorBoundary', () => ({
@@ -107,6 +113,7 @@ describe('BotGame', () => {
     boardPropsMock.mockReset();
     clockPropsMock.mockReset();
     requestBotMoveMock.mockReset();
+    requestLocalBotMoveMock.mockReset();
     requestBotMoveMock.mockResolvedValue({
       move: null,
       evaluation: 0,
@@ -116,6 +123,10 @@ describe('BotGame', () => {
         source: 'service',
         depth: 1,
       },
+    });
+    requestLocalBotMoveMock.mockResolvedValue({
+      from: { row: 2, col: 0 },
+      to: { row: 3, col: 0 },
     });
   });
 
@@ -150,5 +161,6 @@ describe('BotGame', () => {
     }, { timeout: 2000 });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
   });
 });

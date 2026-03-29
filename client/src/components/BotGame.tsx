@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
   getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove,
-  startCounting, stopCounting,
+  startCounting, stopCounting, hasAnyLegalMoves, isInCheck,
 } from '@shared/engine';
-import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
+import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { getCapturedSummary } from '../lib/capturedSummary';
@@ -24,7 +24,7 @@ import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
-const BOT_REQUEST_TIMEOUT_MS = 2500;
+const BOT_REQUEST_TIMEOUT_MS = 10000;
 const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
   const level = index + 1;
 
@@ -43,10 +43,27 @@ const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
 
 type SideChoice = PieceColor | 'random';
 
-function getFallbackDifficulty(level: number): BotDifficulty {
-  if (level <= 3) return 'easy';
-  if (level <= 7) return 'medium';
-  return 'hard';
+function buildNoMoveGameOverState(state: GameState): GameState | null {
+  if (state.gameOver || hasAnyLegalMoves(state.board, state.turn)) {
+    return null;
+  }
+
+  const inCheck = isInCheck(state.board, state.turn);
+  const winner: PieceColor | null = inCheck
+    ? (state.turn === 'white' ? 'black' : 'white')
+    : null;
+
+  return {
+    ...state,
+    isCheck: inCheck,
+    isCheckmate: inCheck,
+    isStalemate: !inCheck,
+    isDraw: !inCheck,
+    gameOver: true,
+    winner,
+    resultReason: inCheck ? 'checkmate' : 'stalemate',
+    counting: null,
+  };
 }
 
 export default function BotGame() {
@@ -131,7 +148,7 @@ export default function BotGame() {
         });
         botMove = result.move;
       } catch {
-        botMove = getBotMove(requestedState, getFallbackDifficulty(level));
+        botMove = await requestLocalBotMove(requestedState, level);
       } finally {
         if (botRequestTimeoutRef.current) {
           clearTimeout(botRequestTimeoutRef.current);
@@ -157,7 +174,7 @@ export default function BotGame() {
       let newState = botMove ? makeMove(currentState, botMove.from, botMove.to) : null;
 
       if (!newState) {
-        const fallbackMove = getBotMove(currentState, getFallbackDifficulty(level));
+        const fallbackMove = await requestLocalBotMove(currentState, level);
         if (fallbackMove) {
           botMove = fallbackMove;
           newState = makeMove(currentState, fallbackMove.from, fallbackMove.to);
@@ -175,6 +192,17 @@ export default function BotGame() {
         if (newState.gameOver) {
           const reason = newState.resultReason ?? 'draw';
           setGameOverInfo({ reason, winner: newState.winner });
+          setPremove(null);
+          playGameOverSound();
+        }
+      } else {
+        const terminalState = buildNoMoveGameOverState(currentState);
+        if (terminalState) {
+          setGameState(terminalState);
+          setGameOverInfo({
+            reason: terminalState.resultReason ?? 'draw',
+            winner: terminalState.winner,
+          });
           setPremove(null);
           playGameOverSound();
         }
