@@ -1,17 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import BotGame from '../components/BotGame';
+import LocalGame from '../components/LocalGame';
 
 const {
   navigateMock,
   boardPropsMock,
-  clockPropsMock,
+  shellPropsMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
-  clockPropsMock: vi.fn(),
+  shellPropsMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -59,15 +59,8 @@ vi.mock('../components/Board', () => ({
   },
 }));
 
-vi.mock('../components/Header', () => ({
-  default: () => <div data-testid="header" />,
-}));
-
 vi.mock('../components/Clock', () => ({
-  default: (props: any) => {
-    clockPropsMock(props);
-    return <div data-testid="clock">{props.playerName}</div>;
-  },
+  default: (props: any) => <div data-testid="clock">{props.playerName}</div>,
 }));
 
 vi.mock('../components/MoveHistory', () => ({
@@ -82,35 +75,47 @@ vi.mock('../components/GameOverPanel', () => ({
   default: () => null,
 }));
 
-vi.mock('../components/PieceSVG', () => ({
-  default: () => <div data-testid="piece-svg" />,
+vi.mock('../components/InGameShell', () => ({
+  default: (props: any) => {
+    shellPropsMock(props);
+    return (
+      <div data-testid="in-game-shell">
+        {props.headerMeta}
+        {props.topPanel}
+        {props.board}
+        {props.bottomPanel}
+        {props.sidePanel}
+      </div>
+    );
+  },
 }));
 
-function renderBotGame() {
+function renderLocalGame() {
   return render(
     <MemoryRouter>
-      <BotGame />
+      <LocalGame />
     </MemoryRouter>
   );
 }
 
-describe('BotGame', () => {
+describe('LocalGame', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     boardPropsMock.mockReset();
-    clockPropsMock.mockReset();
+    shellPropsMock.mockReset();
   });
 
-  it('renders the started game with two clocks and without duplicate player badges', () => {
-    renderBotGame();
+  it('uses the shared in-game shell and keeps view controls in the side panel', () => {
+    renderLocalGame();
+    const shellProps = shellPropsMock.mock.calls[0]?.[0];
 
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
-
-    expect(screen.getByTestId('board')).toBeInTheDocument();
+    expect(screen.getByTestId('in-game-shell')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
-    expect(screen.getByText('Bot (bot.medium)')).toBeInTheDocument();
-    expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
-    expect(screen.getAllByText('Bot (bot.medium)')).toHaveLength(1);
-    expect(screen.getAllByText('common.you (common.white)')).toHaveLength(1);
+    expect(screen.getByTestId('board')).toBeInTheDocument();
+    expect(screen.getByText('local.view_as')).toBeInTheDocument();
+    expect(shellProps?.toolbar).toBeUndefined();
+    expect(boardPropsMock).toHaveBeenCalledWith(expect.objectContaining({
+      draggableColor: 'white',
+    }));
   });
 });

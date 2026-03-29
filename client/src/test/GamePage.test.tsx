@@ -122,9 +122,14 @@ vi.mock('../lib/auth', () => ({
   }),
 }));
 
-vi.mock('../lib/pieceStyle', () => ({
-  usePieceStyle: () => pieceStyleState,
-}));
+vi.mock('../lib/pieceStyle', async () => {
+  const actual = await vi.importActual<typeof import('../lib/pieceStyle')>('../lib/pieceStyle');
+
+  return {
+    ...actual,
+    usePieceStyle: () => pieceStyleState,
+  };
+});
 
 vi.mock('../hooks/useGameInteraction', () => ({
   useGameInteraction: () => interactionState,

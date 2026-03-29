@@ -61,6 +61,23 @@ const EN: Record<string, string> = {
   'footer.github': 'GitHub',
   'footer.star_github': 'Star on GitHub',
 
+  // Appearance
+  'appearance.title': 'Board & Pieces',
+  'appearance.board_and_pieces': 'Board & Pieces',
+  'appearance.subtitle': 'Choose a board theme and a readable piece color theme once, then use them everywhere: online, bot, local, and puzzles.',
+  'appearance.open': 'Board & Pieces',
+  'appearance.open_short': 'Theme',
+  'appearance.boards_tab': 'Boards',
+  'appearance.colors_tab': 'Piece Colors',
+  'appearance.live_preview': 'Live Preview',
+  'appearance.preview_title': 'Preview',
+  'appearance.preview_subtitle': 'Hover to preview, click to apply instantly. Your choice is saved automatically on this device.',
+  'appearance.preview_board': 'Board theme',
+  'appearance.preview_piece_theme': 'Piece color theme',
+  'appearance.core_shape_label': 'Core shape',
+  'appearance.core_shape_desc': 'is the single supported gameplay silhouette for fast recognition and consistent play.',
+  'appearance.saved_note': 'Saved automatically on this device',
+
   // Home Page
   'home.hero_title': 'Play Makruk Instantly',
   'home.hero_desc': 'No signup required. Start a ThaiChess game in seconds, play with friends, or practice against the bot.',
@@ -579,6 +596,23 @@ const TH: Record<string, string> = {
   'footer.community': 'ชุมชน',
   'footer.github': 'GitHub',
   'footer.star_github': 'ติดดาวบน GitHub',
+
+  // Appearance
+  'appearance.title': 'กระดานและตัวหมาก',
+  'appearance.board_and_pieces': 'กระดานและตัวหมาก',
+  'appearance.subtitle': 'เลือกธีมกระดานและธีมสีตัวหมากที่อ่านง่ายครั้งเดียว แล้วใช้ได้ทั่วทั้งเว็บ ทั้งออนไลน์ บอท เล่นในเครื่อง และปริศนา',
+  'appearance.open': 'กระดานและตัวหมาก',
+  'appearance.open_short': 'ธีม',
+  'appearance.boards_tab': 'กระดาน',
+  'appearance.colors_tab': 'สีตัวหมาก',
+  'appearance.live_preview': 'พรีวิวสด',
+  'appearance.preview_title': 'ตัวอย่าง',
+  'appearance.preview_subtitle': 'เลื่อนเมาส์เพื่อดูตัวอย่าง คลิกเพื่อใช้งานทันที ระบบจะบันทึกไว้ในอุปกรณ์นี้อัตโนมัติ',
+  'appearance.preview_board': 'ธีมกระดาน',
+  'appearance.preview_piece_theme': 'ธีมสีตัวหมาก',
+  'appearance.core_shape_label': 'รูปทรงหลัก',
+  'appearance.core_shape_desc': 'เป็นรูปทรงเดียวที่รองรับในการเล่นจริง เพื่อให้มองออกเร็วและสม่ำเสมอทุกเกม',
+  'appearance.saved_note': 'บันทึกอัตโนมัติในอุปกรณ์นี้',
 
   // Home Page
   'home.hero_title': 'เล่นหมากรุกได้ทันที',

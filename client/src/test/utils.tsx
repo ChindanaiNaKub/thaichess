@@ -1,6 +1,7 @@
 import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { PieceStyleProvider } from '../lib/pieceStyle';
 
 // Custom render with providers
 interface AllTheProvidersProps {
@@ -8,7 +9,11 @@ interface AllTheProvidersProps {
 }
 
 function AllTheProviders({ children }: AllTheProvidersProps) {
-  return <BrowserRouter>{children}</BrowserRouter>;
+  return (
+    <PieceStyleProvider>
+      <BrowserRouter>{children}</BrowserRouter>
+    </PieceStyleProvider>
+  );
 }
 
 export function renderWithProviders(

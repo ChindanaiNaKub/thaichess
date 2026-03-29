@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
 import { createInitialBoard } from '@shared/engine';
 import Board from '../components/Board';
 import type { PieceColor, Position } from '@shared/types';
+import { render } from './utils';
 
 vi.mock('../components/PieceSVG', () => ({
   default: ({ type, color }: { type: string; color: string }) => {

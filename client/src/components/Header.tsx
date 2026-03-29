@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
-import { usePieceStyle } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 
 interface HeaderProps {
   active?: 'play' | 'puzzles' | 'games' | 'about';
@@ -14,7 +14,6 @@ interface HeaderProps {
 export default function Header({ active, subtitle, right }: HeaderProps) {
   const navigate = useNavigate();
   const { t, lang, setLang } = useTranslation();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -120,19 +119,9 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             )
           )}
 
-          <label className="hidden sm:flex items-center gap-2 text-xs text-text-dim">
-            <span className="hidden uppercase tracking-[0.2em] sm:inline">{t('game.piece_style')}</span>
-            <select
-              value={pieceStyle}
-              onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-              className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-              title={t('game.select_piece_style')}
-              aria-label={t('game.select_piece_style')}
-            >
-              <option value="classic">{t('game.piece_style_makruk')}</option>
-              <option value="western">{t('game.piece_style_western')}</option>
-            </select>
-          </label>
+          <div className="hidden sm:block">
+            <AppearanceSettingsButton compact />
+          </div>
 
           <button
             onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
@@ -170,19 +159,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             )}
 
             <div className="grid gap-3">
-              <label className="flex flex-col gap-2 text-xs text-text-dim">
-                <span className="uppercase tracking-[0.2em]">{t('game.piece_style')}</span>
-                <select
-                  value={pieceStyle}
-                  onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-                  className="h-9 rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover"
-                  title={t('game.select_piece_style')}
-                  aria-label={t('game.select_piece_style')}
-                >
-                  <option value="classic">{t('game.piece_style_makruk')}</option>
-                  <option value="western">{t('game.piece_style_western')}</option>
-                </select>
-              </label>
+              <AppearanceSettingsButton className="w-full justify-center" />
 
               <button
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}

@@ -8,8 +8,8 @@ import {
 import { getBotMove, BotDifficulty } from '@shared/botEngine';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
-import { usePieceStyle } from '../lib/pieceStyle';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -17,10 +17,9 @@ import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import Header from './Header';
-import GameHeaderBar from './GameHeaderBar';
 import PieceSVG from './PieceSVG';
 import Clock from './Clock';
-import GameScreenLayout from './GameScreenLayout';
+import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
@@ -28,7 +27,6 @@ const LOCAL_CLOCK_TICK_MS = 500;
 export default function BotGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { pieceStyle, setPieceStyle } = usePieceStyle();
   const [gameStarted, setGameStarted] = useState(false);
   const [difficulty, setDifficulty] = useState<BotDifficulty>('medium');
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
@@ -523,33 +521,18 @@ export default function BotGame() {
   };
 
   return (
-    <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden" tabIndex={-1}>
-      <GameHeaderBar
+    <>
+      <InGameShell
         onHome={() => navigate('/')}
-        meta={
+        headerMeta={
           <>
-            <label className="flex items-center gap-2">
-              <span className="hidden uppercase tracking-[0.2em] text-[10px] text-text-dim lg:inline">{t('game.piece_style')}</span>
-              <select
-                value={pieceStyle}
-                onChange={(e) => setPieceStyle(e.target.value as 'classic' | 'western')}
-                className="h-7 min-w-0 rounded-md border border-surface-hover/60 bg-surface px-2 text-xs font-semibold text-text-bright outline-none transition-colors hover:bg-surface-hover max-w-[5.5rem] sm:max-w-none"
-                title={t('game.select_piece_style')}
-                aria-label={t('game.select_piece_style')}
-              >
-                <option value="classic">{t('game.piece_style_makruk')}</option>
-                <option value="western">{t('game.piece_style_western')}</option>
-              </select>
-            </label>
+            <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('bot.vs_bot')}</span>
             <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
               {t(difficultyConfig[difficulty].labelKey)}
             </span>
           </>
         }
-      />
-
-      <GameScreenLayout
         topPanel={
           <Clock
             time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
@@ -721,6 +704,6 @@ export default function BotGame() {
           onClose={() => setShowGameOverModal(false)}
         />
       )}
-    </div>
+    </>
   );
 }
