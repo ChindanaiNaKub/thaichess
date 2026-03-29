@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { Board as BoardType, Piece, PieceColor, PieceType } from '@shared/types';
 import { PuzzleListPage, PuzzlePlayer } from '../components/PuzzlePage';
 
-const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuzzleCompletedMock, progressState } = vi.hoisted(() => {
+const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuzzleCompletedMock, recordPuzzleVisitedMock, progressState } = vi.hoisted(() => {
   const board: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
   board[0][0] = { type: 'K', color: 'white' };
   board[6][3] = { type: 'R', color: 'white' };
@@ -75,7 +75,9 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
       },
     ],
     markPuzzleCompletedMock: vi.fn(async () => {}),
+    recordPuzzleVisitedMock: vi.fn(async () => {}),
     progressState: {
+      progressRecords: [] as Array<{ puzzleId: number; lastPlayedAt: number; completedAt: number | null }>,
       completedPuzzleIds: [] as number[],
       loading: false,
     },
@@ -231,9 +233,11 @@ vi.mock('../lib/i18n', () => ({
 
 vi.mock('../lib/puzzleProgress', () => ({
   usePuzzleProgress: () => ({
+    progressRecords: progressState.progressRecords,
     completedPuzzleIds: progressState.completedPuzzleIds,
     completedPuzzleSet: new Set(progressState.completedPuzzleIds),
     loading: progressState.loading,
+    recordPuzzleVisited: recordPuzzleVisitedMock,
     markPuzzleCompleted: markPuzzleCompletedMock,
   }),
 }));
@@ -284,6 +288,8 @@ describe('PuzzlePage turn state', () => {
     boardPropsMock.mockReset();
     navigateMock.mockReset();
     markPuzzleCompletedMock.mockReset();
+    recordPuzzleVisitedMock.mockReset();
+    progressState.progressRecords = [];
     progressState.completedPuzzleIds = [];
     progressState.loading = false;
   });
@@ -294,6 +300,8 @@ describe('PuzzlePage turn state', () => {
 
   it('shows the opponent turn after a checking solver move before the auto-reply runs', async () => {
     renderPuzzlePlayer();
+
+    expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
 
     fireEvent.click(screen.getByRole('button', { name: 'from' }));
     fireEvent.click(screen.getByRole('button', { name: 'to' }));

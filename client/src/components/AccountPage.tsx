@@ -14,11 +14,19 @@ function getPublicPuzzleTitle(title: string): string {
     .trim();
 }
 
+function formatPuzzleActivityDate(timestamp: number, lang: string): string {
+  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(timestamp * 1000));
+}
+
 export default function AccountPage() {
   const navigate = useNavigate();
   const { user, loading, logout, updateProfile } = useAuth();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const puzzleProgress = usePuzzleProgressSummary();
+  const continuePuzzle = puzzleProgress.continuePuzzle;
   const [username, setUsername] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -183,24 +191,24 @@ export default function AccountPage() {
 
             <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-primary-light mb-2">{t('account.puzzle_next_label')}</p>
-              {puzzleProgress.nextPuzzle ? (
+              {continuePuzzle ? (
                 <>
                   <div className="text-lg font-semibold text-text-bright">
-                    #{puzzleProgress.nextPuzzle.id} · {getPublicPuzzleTitle(puzzleProgress.nextPuzzle.title)}
+                    #{continuePuzzle.id} · {getPublicPuzzleTitle(continuePuzzle.title)}
                   </div>
-                  <p className="text-sm text-text-dim mt-2">{puzzleProgress.nextPuzzle.description}</p>
+                  <p className="text-sm text-text-dim mt-2">{continuePuzzle.description}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                      {t(`puzzle.${puzzleProgress.nextPuzzle.difficulty}`)}
+                      {t(`puzzle.${continuePuzzle.difficulty}`)}
                     </span>
                     <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                      {t(`theme.${puzzleProgress.nextPuzzle.theme}`)}
+                      {t(`theme.${continuePuzzle.theme}`)}
                     </span>
                   </div>
                   <button
                     onClick={() => {
-                      if (!puzzleProgress.nextPuzzle) return;
-                      navigate(puzzleRoute(String(puzzleProgress.nextPuzzle.id)));
+                      if (!continuePuzzle) return;
+                      navigate(puzzleRoute(String(continuePuzzle.id)));
                     }}
                     className="mt-4 w-full py-2.5 rounded-lg bg-primary text-white font-semibold"
                   >
@@ -219,6 +227,55 @@ export default function AccountPage() {
                   </button>
                 </>
               )}
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-text-dim mb-2">{t('account.puzzle_last_played_label')}</p>
+                {puzzleProgress.lastPlayed ? (
+                  <>
+                    <div className="font-semibold text-text-bright">
+                      #{puzzleProgress.lastPlayed.puzzle.id} · {getPublicPuzzleTitle(puzzleProgress.lastPlayed.puzzle.title)}
+                    </div>
+                    <p className="text-sm text-text-dim mt-1">
+                      {t('account.puzzle_last_played_meta', {
+                        date: formatPuzzleActivityDate(puzzleProgress.lastPlayed.lastPlayedAt, lang),
+                        status: puzzleProgress.lastPlayed.completedAt === null
+                          ? t('account.puzzle_status_in_progress')
+                          : t('account.puzzle_status_solved'),
+                      })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-text-dim">{t('account.puzzle_last_played_empty')}</p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-surface-hover bg-surface p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-text-dim mb-2">{t('account.puzzle_recent_label')}</p>
+                {puzzleProgress.recentCompleted.length > 0 ? (
+                  <div className="space-y-3">
+                    {puzzleProgress.recentCompleted.map((entry) => (
+                      <button
+                        key={entry.puzzle.id}
+                        type="button"
+                        onClick={() => navigate(puzzleRoute(String(entry.puzzle.id)))}
+                        className="w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-3 text-left transition-colors hover:bg-surface-hover/60"
+                      >
+                        <div className="font-medium text-text-bright">
+                          #{entry.puzzle.id} · {getPublicPuzzleTitle(entry.puzzle.title)}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-text-dim">
+                          <span>{t(`theme.${entry.puzzle.theme}`)}</span>
+                          <span>{t('account.puzzle_recent_meta', { date: formatPuzzleActivityDate(entry.completedAt ?? entry.lastPlayedAt, lang) })}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-dim">{t('account.puzzle_recent_empty')}</p>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 text-sm text-text-dim">

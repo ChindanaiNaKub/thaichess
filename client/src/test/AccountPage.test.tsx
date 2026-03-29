@@ -30,6 +30,13 @@ const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSu
     totalCount: 7,
     percentComplete: 43,
     favoriteTheme: 'HangingPiece',
+    continuePuzzle: {
+      id: 5001,
+      title: 'Trapped Knight',
+      description: 'Win material in 2. Start with the move that traps the knight, then collect it.',
+      difficulty: 'intermediate',
+      theme: 'TrappedPiece',
+    },
     nextPuzzle: {
       id: 5001,
       title: 'Trapped Knight',
@@ -37,6 +44,30 @@ const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSu
       difficulty: 'intermediate',
       theme: 'TrappedPiece',
     },
+    lastPlayed: {
+      puzzle: {
+        id: 5001,
+        title: 'Trapped Knight',
+        description: 'Win material in 2. Start with the move that traps the knight, then collect it.',
+        difficulty: 'intermediate',
+        theme: 'TrappedPiece',
+      },
+      lastPlayedAt: 1711660000,
+      completedAt: null,
+    },
+    recentCompleted: [
+      {
+        puzzle: {
+          id: 10,
+          title: 'Rook Harvest',
+          description: 'Win material by grabbing the loose knight.',
+          difficulty: 'beginner',
+          theme: 'HangingPiece',
+        },
+        lastPlayedAt: 1711650000,
+        completedAt: 1711650000,
+      },
+    ],
   },
 }));
 
@@ -64,6 +95,7 @@ vi.mock('../lib/puzzleProgress', () => ({
 
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
+    lang: 'en',
     t: (key: string, params?: Record<string, unknown>) => {
       switch (key) {
         case 'puzzle.completed':
@@ -72,6 +104,14 @@ vi.mock('../lib/i18n', () => ({
           return 'Hanging Piece';
         case 'theme.TrappedPiece':
           return 'Trapped Piece';
+        case 'account.puzzle_last_played_meta':
+          return `${params?.status} · ${params?.date}`;
+        case 'account.puzzle_recent_meta':
+          return `Solved ${params?.date}`;
+        case 'account.puzzle_status_in_progress':
+          return 'In progress';
+        case 'account.puzzle_status_solved':
+          return 'Solved';
         default:
           return key;
       }
@@ -106,8 +146,10 @@ describe('AccountPage', () => {
     expect(screen.getByDisplayValue('player_one')).toBeInTheDocument();
     expect(screen.getByText('account.puzzle_title')).toBeInTheDocument();
     expect(screen.getByText('3/7 completed')).toBeInTheDocument();
-    expect(screen.getByText('Hanging Piece')).toBeInTheDocument();
-    expect(screen.getByText('#5001 · Trapped Knight')).toBeInTheDocument();
+    expect(screen.getAllByText('Hanging Piece').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('#5001 · Trapped Knight').length).toBeGreaterThan(0);
+    expect(screen.getByText('account.puzzle_last_played_label')).toBeInTheDocument();
+    expect(screen.getByText('#10 · Rook Harvest')).toBeInTheDocument();
   });
 
   it('routes to the next recommended puzzle from the account page', () => {
