@@ -1,47 +1,36 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { Board as BoardType, Piece, PieceColor, PieceType } from '@shared/types';
-import { PuzzleListPage, PuzzlePlayer } from '../components/PuzzlePage';
+import type { Board as BoardType } from '@shared/types';
+import { PuzzleListPage, PuzzlePlayer, PuzzleStreakPage } from '../components/PuzzlePage';
 
-const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuzzleCompletedMock, recordPuzzleVisitedMock, recordPuzzleFailedMock, progressState, puzzleSummaryState } = vi.hoisted(() => {
+const {
+  boardPropsMock,
+  navigateMock,
+  puzzleListFixtures,
+  markPuzzleCompletedMock,
+  recordPuzzleVisitedMock,
+  recordPuzzleFailedMock,
+  progressState,
+  puzzleSummaryState,
+} = vi.hoisted(() => {
   const board: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
   board[0][0] = { type: 'K', color: 'white' };
   board[6][3] = { type: 'R', color: 'white' };
   board[7][4] = { type: 'K', color: 'black' };
 
+  const solution = [{ from: { row: 6, col: 3 }, to: { row: 7, col: 3 } }];
+
   return {
     boardPropsMock: vi.fn(),
     navigateMock: vi.fn(),
-    puzzleFixture: {
-      id: 77,
-      title: 'Checking Rua',
-      description: 'White gives check and Black must respond.',
-      explanation: 'After the checking move, the side to move must switch to Black so the defense can be played.',
-      source: 'test fixture',
-      origin: 'review-batch' as const,
-      sourceGameId: null,
-      sourcePly: null,
-      theme: 'Checkmate' as const,
-      motif: 'Test motif',
-      tags: ['mate'],
-      difficultyScore: 900,
-      difficulty: 'beginner' as const,
-      toMove: 'white' as const,
-      board,
-      solution: [
-        { from: { row: 6, col: 3 }, to: { row: 7, col: 3 } },
-        { from: { row: 7, col: 4 }, to: { row: 6, col: 5 } },
-        { from: { row: 7, col: 3 }, to: { row: 6, col: 3 } },
-      ],
-    },
     puzzleListFixtures: [
       {
         id: 77,
         title: 'Checking Rua',
         description: 'White gives check and Black must respond.',
-        explanation: 'After the checking move, the side to move must switch to Black so the defense can be played.',
+        explanation: 'Start with the forcing move.',
         source: 'Starter pack: test fixture',
         origin: 'starter-pack' as const,
         sourceGameId: null,
@@ -52,10 +41,15 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
         difficultyScore: 820,
         difficulty: 'beginner' as const,
         toMove: 'white' as const,
+        reviewStatus: 'ship' as const,
+        reviewChecklist: {
+          themeClarity: 'pass' as const,
+          teachingValue: 'pass' as const,
+          duplicateRisk: 'clear' as const,
+          reviewNotes: 'clear',
+        },
         board,
-        solution: [
-          { from: { row: 6, col: 3 }, to: { row: 7, col: 3 } },
-        ],
+        solution,
       },
       {
         id: 78,
@@ -71,11 +65,16 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
         tags: ['fork', 'tactic'],
         difficultyScore: 960,
         difficulty: 'beginner' as const,
-        toMove: 'black' as const,
+        toMove: 'white' as const,
+        reviewStatus: 'ship' as const,
+        reviewChecklist: {
+          themeClarity: 'pass' as const,
+          teachingValue: 'pass' as const,
+          duplicateRisk: 'clear' as const,
+          reviewNotes: 'clear',
+        },
         board,
-        solution: [
-          { from: { row: 6, col: 3 }, to: { row: 7, col: 3 } },
-        ],
+        solution,
       },
       {
         id: 79,
@@ -92,10 +91,15 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
         difficultyScore: 1180,
         difficulty: 'intermediate' as const,
         toMove: 'white' as const,
+        reviewStatus: 'ship' as const,
+        reviewChecklist: {
+          themeClarity: 'pass' as const,
+          teachingValue: 'pass' as const,
+          duplicateRisk: 'clear' as const,
+          reviewNotes: 'clear',
+        },
         board,
-        solution: [
-          { from: { row: 6, col: 3 }, to: { row: 7, col: 3 } },
-        ],
+        solution,
       },
       {
         id: 80,
@@ -109,13 +113,18 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
         theme: 'MateIn1' as const,
         motif: 'Mate motif',
         tags: ['mate'],
-        difficultyScore: 980,
-        difficulty: 'intermediate' as const,
+        difficultyScore: 1480,
+        difficulty: 'advanced' as const,
         toMove: 'white' as const,
+        reviewStatus: 'ship' as const,
+        reviewChecklist: {
+          themeClarity: 'pass' as const,
+          teachingValue: 'pass' as const,
+          duplicateRisk: 'clear' as const,
+          reviewNotes: 'clear',
+        },
         board,
-        solution: [
-          { from: { row: 6, col: 3 }, to: { row: 7, col: 3 } },
-        ],
+        solution,
       },
     ],
     markPuzzleCompletedMock: vi.fn(async () => {}),
@@ -133,11 +142,11 @@ const { boardPropsMock, navigateMock, puzzleFixture, puzzleListFixtures, markPuz
       attemptCount: 0,
       successRate: 0,
       recommendedDifficultyScore: 980,
-      nextPuzzle: null,
-      continuePuzzle: null,
-      favoriteTheme: null,
-      lastPlayed: null,
-      recentCompleted: [],
+      nextPuzzle: null as any,
+      continuePuzzle: null as any,
+      favoriteTheme: null as string | null,
+      lastPlayed: null as any,
+      recentCompleted: [] as any[],
     },
   };
 });
@@ -159,15 +168,17 @@ vi.mock('@shared/puzzleSolver', async () => {
 
   return {
     ...actual,
-    getForcingMoves: vi.fn((state: { turn: PieceColor; moveHistory: Array<unknown> }) => {
-      if (state.turn === 'white' && state.moveHistory.length === 0) {
-        return [puzzleFixture.solution[0]];
-      }
-      if (state.turn === 'black' && state.moveHistory.length === 1) {
-        return [puzzleFixture.solution[1]];
-      }
-      return [];
-    }),
+    getForcingMoves: vi.fn((state: { moveHistory: Array<unknown> }, puzzle: { solution: Array<unknown> }) => (
+      state.moveHistory.length < puzzle.solution.length
+        ? [puzzle.solution[state.moveHistory.length]]
+        : []
+    )),
+    getPliesRemaining: vi.fn((puzzle: { solution: Array<unknown> }, state: { moveHistory: Array<unknown> }) => (
+      Math.max(0, puzzle.solution.length - state.moveHistory.length)
+    )),
+    isThemeSatisfied: vi.fn((puzzle: { solution: Array<unknown> }, state: { moveHistory: Array<unknown> }) => (
+      state.moveHistory.length >= puzzle.solution.length
+    )),
   };
 });
 
@@ -180,12 +191,17 @@ vi.mock('../lib/sounds', () => ({
 
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
+    lang: 'en',
     t: (key: string, params?: Record<string, unknown>) => {
       switch (key) {
         case 'common.white':
           return 'White';
         case 'common.black':
           return 'Black';
+        case 'common.new_game':
+          return 'New Game';
+        case 'common.retry':
+          return 'Retry';
         case 'puzzle.to_move':
           return `${params?.color} to move`;
         case 'puzzle.find_best':
@@ -234,6 +250,8 @@ vi.mock('../lib/i18n', () => ({
           return `No other ${params?.theme} puzzles yet.`;
         case 'puzzle.all':
           return 'All';
+        case 'puzzle.all_lessons':
+          return 'All Lessons';
         case 'puzzle.beginner':
           return 'Beginner';
         case 'puzzle.intermediate':
@@ -286,16 +304,98 @@ vi.mock('../lib/i18n', () => ({
           return 'Use this to pick what idea you want to drill next.';
         case 'puzzle.focus_empty':
           return 'No themes yet';
-        case 'puzzle.title':
-          return 'ThaiChess Puzzles';
-        case 'puzzle.desc':
-          return 'Sharpen your ThaiChess skills with tactical puzzles. Find the best move!';
-        case 'nav.puzzles':
-          return 'Puzzles';
-        case 'common.back_home':
-          return 'Back to Home';
-        case 'common.retry':
-          return 'Retry';
+        case 'puzzle.lessons_nav':
+          return 'Lessons';
+        case 'puzzle.lessons_eyebrow':
+          return 'Lesson Mode';
+        case 'puzzle.lessons_title':
+          return 'Lessons';
+        case 'puzzle.lessons_desc':
+          return 'Use the existing puzzle catalog as structured study tracks.';
+        case 'puzzle.lessons_tracks_title':
+          return 'Learning tracks';
+        case 'puzzle.lessons_tracks_desc':
+          return 'Beginner, Intermediate, and Advanced stay here as deliberate study paths.';
+        case 'puzzle.play_streak':
+          return 'Play Streak';
+        case 'puzzle.streak_nav':
+          return 'Puzzle Streak';
+        case 'puzzle.streak_eyebrow':
+          return 'Primary Mode';
+        case 'puzzle.streak_title':
+          return 'Puzzle Streak';
+        case 'puzzle.streak_desc':
+          return 'Solve continuously, build your streak, and let the system quietly raise or lower the challenge.';
+        case 'puzzle.streak_prompt_title':
+          return 'Keep the streak alive';
+        case 'puzzle.streak_prompt_desc':
+          return 'Correct moves score immediately and the next puzzle loads right away.';
+        case 'puzzle.streak_score_label':
+          return 'Score';
+        case 'puzzle.streak_label':
+          return 'Streak';
+        case 'puzzle.streak_session_label':
+          return 'Solved';
+        case 'puzzle.streak_checkpoint_label':
+          return 'Checkpoint';
+        case 'puzzle.streak_checkpoint_progress':
+          return `${params?.current}/${params?.total} to the next pulse`;
+        case 'puzzle.streak_flow_label':
+          return 'Flow';
+        case 'puzzle.streak_flow_desc':
+          return 'Adaptive pacing';
+        case 'puzzle.streak_puzzle_label':
+          return `Puzzle ${params?.number}`;
+        case 'puzzle.streak_points':
+          return `+${params?.points} points`;
+        case 'puzzle.streak_focus_title':
+          return 'Current puzzle';
+        case 'puzzle.streak_focus_keep':
+          return 'Breathe, reset, and go again.';
+        case 'puzzle.streak_focus_desc':
+          return 'Difficulty stays hidden here so the rhythm feels fast and frictionless.';
+        case 'puzzle.streak_session_title':
+          return 'Session';
+        case 'puzzle.streak_best_label':
+          return 'Best streak';
+        case 'puzzle.streak_end_title':
+          return 'Streak ended';
+        case 'puzzle.streak_end_desc':
+          return 'One mistake breaks the run, but your lesson progress stays saved.';
+        case 'puzzle.streak_ended_at':
+          return `Streak ended at ${params?.streak}`;
+        case 'puzzle.streak_end_summary':
+          return `Final streak ${params?.streak} · session score ${params?.score}`;
+        case 'puzzle.retry_puzzle':
+          return 'Retry puzzle';
+        case 'puzzle.streak_try_again':
+          return 'Start a new streak';
+        case 'puzzle.streak_milestone_improving':
+          return 'You’re improving. Keep the flow going.';
+        case 'puzzle.streak_milestone_harder':
+          return 'Now facing harder puzzles. Stay sharp.';
+        case 'puzzle.correct':
+          return 'Correct!';
+        case 'puzzle.wrong':
+          return 'Not quite!';
+        case 'puzzle.wrong_desc':
+          return "That wasn't the best move. Try again!";
+        case 'puzzle.hint':
+          return 'Hint';
+        case 'puzzle.next':
+          return 'Next Puzzle';
+        case 'puzzle.previous':
+          return 'Previous';
+        case 'puzzle.back_to_lessons':
+          return 'Back to Lessons';
+        case 'puzzle.lesson':
+          return 'Lesson';
+        case 'puzzle.rating_short':
+          return `Rating ${params?.score}`;
+        case 'puzzle.success_rate':
+          return 'Success rate';
+        case 'puzzle.attempts_label':
+          return 'Attempts';
         case 'theme.MateIn1':
           return 'Mate in 1';
         case 'theme.Fork':
@@ -339,30 +439,39 @@ vi.mock('../components/Board', () => ({
         <div data-testid="board-disabled">{String(props.disabled)}</div>
         <button onClick={() => props.onSquareClick({ row: 6, col: 3 })}>from</button>
         <button onClick={() => props.onSquareClick({ row: 7, col: 3 })}>to</button>
+        <button onClick={() => props.onSquareClick({ row: 6, col: 4 })}>wrong-to</button>
       </div>
     );
   },
 }));
 
-function renderPuzzlePlayer() {
+function renderStreakPage() {
   return render(
-    <MemoryRouter initialEntries={['/puzzle/77']}>
-      <Routes>
-        <Route path="/puzzle/:id" element={<PuzzlePlayer />} />
-      </Routes>
+    <MemoryRouter initialEntries={['/puzzles']}>
+      <PuzzleStreakPage />
     </MemoryRouter>
   );
 }
 
-function renderPuzzleList() {
+function renderLessonsPage() {
   return render(
-    <MemoryRouter initialEntries={['/puzzles']}>
+    <MemoryRouter initialEntries={['/learn']}>
       <PuzzleListPage />
     </MemoryRouter>
   );
 }
 
-describe('PuzzlePage turn state', () => {
+function renderLessonPlayer() {
+  return render(
+    <MemoryRouter initialEntries={['/learn/77']}>
+      <Routes>
+        <Route path="/learn/:id" element={<PuzzlePlayer />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe('Puzzle surfaces', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     boardPropsMock.mockReset();
@@ -373,14 +482,70 @@ describe('PuzzlePage turn state', () => {
     progressState.progressRecords = [];
     progressState.completedPuzzleIds = [];
     progressState.loading = false;
-    puzzleSummaryState.nextPuzzle = null;
+    puzzleSummaryState.nextPuzzle = puzzleListFixtures[1] as any;
+    puzzleSummaryState.continuePuzzle = puzzleListFixtures[1] as any;
+    puzzleSummaryState.favoriteTheme = 'Fork';
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('shows the opponent turn after a checking solver move before the auto-reply runs', async () => {
+  it('uses streak mode as the default experience, hides difficulty labels, and auto-advances with score', async () => {
+    renderStreakPage();
+
+    expect(screen.getByText('Puzzle Streak')).toBeInTheDocument();
+    expect(screen.getByText('Score')).toBeInTheDocument();
+    expect(screen.getByText('Streak')).toBeInTheDocument();
+    expect(screen.queryByText('Open Lessons')).not.toBeInTheDocument();
+    expect(screen.queryByText('All Lessons')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lessons')).not.toBeInTheDocument();
+    expect(screen.queryByText('Beginner')).not.toBeInTheDocument();
+    expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
+
+    fireEvent.click(screen.getByRole('button', { name: 'from' }));
+    fireEvent.click(screen.getByRole('button', { name: 'to' }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(750);
+    });
+
+    expect(markPuzzleCompletedMock).toHaveBeenCalledWith(77);
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText('+10')).toBeInTheDocument();
+    expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(78);
+  });
+
+  it('ends the streak on a wrong move and offers retry or a fresh streak', () => {
+    renderStreakPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'from' }));
+    fireEvent.click(screen.getByRole('button', { name: 'wrong-to' }));
+
+    expect(recordPuzzleFailedMock).toHaveBeenCalledWith(77);
+    expect(screen.getAllByText('Streak ended').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Streak ended at 0').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Retry puzzle' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start a new streak' })).toBeInTheDocument();
+  });
+
+  it('keeps the categorized lesson tracks on a separate lessons page', () => {
+    progressState.completedPuzzleIds = [77];
+
+    renderLessonsPage();
+
+    expect(screen.getAllByText('Lessons').length).toBeGreaterThan(0);
+    expect(screen.getByText('Learning tracks')).toBeInTheDocument();
+    expect(screen.getAllByText('Beginner').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Intermediate').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Play Streak' }).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByText('Start here')[0]!);
+    expect(navigateMock).toHaveBeenCalledWith('/learn/78');
+  });
+
+  it('still exposes lesson player details separately from streak mode', () => {
     progressState.progressRecords = [{
       puzzleId: 77,
       lastPlayedAt: 1711600000,
@@ -389,67 +554,14 @@ describe('PuzzlePage turn state', () => {
       successes: 0,
       failures: 1,
     }];
-    renderPuzzlePlayer();
+
+    renderLessonPlayer();
 
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('Session activity')).toBeInTheDocument();
-    expect(screen.getByText('Status: In progress')).toBeInTheDocument();
+    expect(screen.getByText('#77 · Checking Rua')).toBeInTheDocument();
+    expect(screen.getByText('Beginner')).toBeInTheDocument();
     expect(screen.getByText('More in this theme')).toBeInTheDocument();
-    expect(screen.getByText('#80 · Quiet Mate Follow-up')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'from' }));
-    fireEvent.click(screen.getByRole('button', { name: 'to' }));
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.getAllByText('Black to move')).toHaveLength(2);
-    expect(screen.queryByText('Find the best move for White!')).not.toBeInTheDocument();
-    expect(screen.getByTestId('board-turn')).toHaveTextContent('false');
-    expect(screen.getByTestId('board-disabled')).toHaveTextContent('true');
-  });
-});
-
-describe('Puzzle list page', () => {
-  beforeEach(() => {
-    navigateMock.mockReset();
-    markPuzzleCompletedMock.mockReset();
-    progressState.completedPuzzleIds = [];
-    progressState.progressRecords = [];
-    progressState.loading = false;
-    puzzleSummaryState.nextPuzzle = puzzleListFixtures[1] as any;
-  });
-
-  it('recommends the first unsolved puzzle in the current track', () => {
-    progressState.completedPuzzleIds = [77];
-
-    renderPuzzleList();
-    fireEvent.click(screen.getAllByText('Short tactical wins and basic mates.')[0]!.closest('button')!);
-
-    expect(screen.getByText('Next lesson')).toBeInTheDocument();
-    expect(screen.getAllByText('#78 · Quiet Fork').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Start here').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('1/2 in this track').length).toBeGreaterThan(0);
-  });
-
-  it('shows a guide empty state when a track has no puzzles', () => {
-    renderPuzzleList();
-
-    fireEvent.click(screen.getByRole('button', { name: /advanced/i }));
-
-    expect(screen.getAllByText('No puzzles in this track yet').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Switch difficulty or come back after more lessons are reviewed.').length).toBeGreaterThan(0);
-  });
-
-  it('lets players drill a specific theme inside the current track', () => {
-    renderPuzzleList();
-
-    fireEvent.click(screen.getAllByText('Short tactical wins and basic mates.')[0]!.closest('button')!);
-    fireEvent.click(screen.getByRole('button', { name: /fork 1/i }));
-
-    expect(screen.getAllByText('#78 · Quiet Fork').length).toBeGreaterThan(0);
-    expect(screen.queryByText('#77 · Checking Rua')).not.toBeInTheDocument();
-    expect(screen.queryByText('No Fork drills here yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play Streak' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'All Lessons' }).length).toBeGreaterThan(0);
   });
 });

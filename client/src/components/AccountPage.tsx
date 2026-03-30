@@ -5,7 +5,7 @@ import Header from './Header';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
-import { puzzleRoute } from '../lib/routes';
+import { puzzleRoute, routes } from '../lib/routes';
 
 function getPublicPuzzleTitle(title: string): string {
   return title
@@ -220,10 +220,10 @@ export default function AccountPage() {
                   <div className="text-lg font-semibold text-text-bright">{t('account.puzzle_all_done')}</div>
                   <p className="text-sm text-text-dim mt-2">{t('account.puzzle_all_done_desc')}</p>
                   <button
-                    onClick={() => navigate('/puzzles')}
+                    onClick={() => navigate(routes.learn)}
                     className="mt-4 w-full py-2.5 rounded-lg border border-surface-hover text-text"
                   >
-                    {t('puzzle.all_puzzles')}
+                    {t('puzzle.all_lessons')}
                   </button>
                 </>
               )}

@@ -39,6 +39,7 @@ interface BoardProps {
   squareHighlights?: SquareHighlight[];
   squareAnnotations?: SquareAnnotation[];
   allowAnyPieceDrag?: boolean;
+  className?: string;
 }
 
 export default memo(function Board({
@@ -60,6 +61,7 @@ export default memo(function Board({
   squareHighlights,
   squareAnnotations,
   allowAnyPieceDrag = false,
+  className,
 }: BoardProps) {
   const { boardTheme } = useBoardAppearance();
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
@@ -495,7 +497,7 @@ export default memo(function Board({
   return (
     <div
       ref={boardRef}
-      className="relative aspect-square w-full select-none overflow-hidden rounded-[1.1rem] shadow-xl board-no-select transition-[box-shadow,transform] duration-200"
+      className={`relative aspect-square w-full select-none overflow-hidden rounded-[1.1rem] shadow-xl board-no-select transition-[box-shadow,transform] duration-200 ${className ?? ''}`}
       data-testid="board"
       style={boardSurfaceStyle}
       onMouseMove={handleMouseMove}

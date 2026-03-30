@@ -11,7 +11,8 @@ const SpectatorPage = lazy(() => import('./components/SpectatorPage'));
 const LiveGamesPage = lazy(() => import('./components/LiveGamesPage'));
 const LocalGame = lazy(() => import('./components/LocalGame'));
 const BotGame = lazy(() => import('./components/BotGame'));
-const PuzzleListPage = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzleListPage })));
+const PuzzleStreakPage = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzleStreakPage })));
+const PuzzleLessonsPage = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzleLessonsPage })));
 const PuzzlePlayer = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzlePlayer })));
 const QuickPlay = lazy(() => import('./components/QuickPlay'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
@@ -51,7 +52,9 @@ export default function App() {
           <Route path={routes.watch} element={<LiveGamesPage />} />
           <Route path={routes.local} element={<LocalGame />} />
           <Route path={routes.bot} element={<BotGame />} />
-          <Route path={routes.puzzles} element={<PuzzleListPage />} />
+          <Route path={routes.puzzles} element={<PuzzleStreakPage />} />
+          <Route path={routes.learn} element={<PuzzleLessonsPage />} />
+          <Route path={routes.lessonPattern} element={<PuzzlePlayer />} />
           <Route path={routes.puzzlePattern} element={<PuzzlePlayer />} />
           <Route path={routes.quickPlay} element={<QuickPlay />} />
           <Route path={routes.about} element={<AboutPage />} />

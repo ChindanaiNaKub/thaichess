@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { socket, connectSocket } from '../lib/socket';
-import { liveGameRoute, puzzleRoute, routes } from '../lib/routes';
+import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
@@ -60,7 +60,6 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
   const puzzleProgress = usePuzzleProgressSummary();
-  const continuePuzzle = puzzleProgress.continuePuzzle;
   const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
   const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
 
@@ -279,39 +278,37 @@ export default function HomePage() {
             <aside className="grid gap-2.5 content-start">
               <button
                 type="button"
-                onClick={() => navigate(continuePuzzle ? puzzleRoute(String(continuePuzzle.id)) : routes.puzzles)}
+                onClick={() => navigate(routes.puzzles)}
                 className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
               >
                 <div className="flex items-start gap-3">
                   <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {puzzleProgress.lastPlayed ? t('home.training_continue') : t('home.training_start')}
+                      {puzzleProgress.attemptCount > 0 ? t('home.streak_continue') : t('home.streak_start')}
                     </div>
                     <div className="mt-1 text-text-bright text-[1rem] font-semibold">
-                      {continuePuzzle
-                        ? getPublicPuzzleTitle(continuePuzzle.title)
-                        : t('home.puzzles')}
+                      {t('home.streak_title')}
                     </div>
                     <div className="mt-1 text-text-dim text-xs sm:text-sm">
-                      {t('home.training_progress', {
+                      {t('home.streak_progress', {
                         done: puzzleProgress.completedCount,
                         total: puzzleProgress.totalCount,
                       })}
                     </div>
                     {puzzleProgress.favoriteTheme && (
                       <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.training_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+                        {t('home.streak_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
                       </div>
                     )}
                     {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
                       <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.training_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
+                        {t('home.streak_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
                       </div>
                     )}
                     {latestSolvedPuzzle && (
                       <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.training_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
+                        {t('home.streak_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
                       </div>
                     )}
                   </div>
@@ -473,14 +470,14 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => navigate(routes.puzzles)}
+                onClick={() => navigate(routes.learn)}
                 className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="flex items-center gap-3">
                   <PuzzleSVG size={24} className="text-text-bright flex-shrink-0" />
                   <div>
-                    <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.puzzles')}</div>
-                    <div className="text-text-dim text-xs sm:text-sm">{t('home.puzzles_desc')}</div>
+                    <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.lessons')}</div>
+                    <div className="text-text-dim text-xs sm:text-sm">{t('home.lessons_desc')}</div>
                   </div>
                 </div>
               </button>

@@ -273,8 +273,11 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
     expect(navigateMock).toHaveBeenCalledWith('/bot');
 
-    fireEvent.click(screen.getByText(/tactical training/i).closest('button')!);
+    fireEvent.click(screen.getAllByText(/puzzle streak/i)[0]!.closest('button')!);
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');
+
+    fireEvent.click(screen.getAllByText(/^lessons$/i)[0]!.closest('button')!);
+    expect(navigateMock).toHaveBeenCalledWith('/learn');
 
     fireEvent.click(screen.getByRole('button', { name: /play local/i }));
     expect(navigateMock).toHaveBeenCalledWith('/local');
@@ -322,16 +325,17 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows continue training and routes to the next recommended puzzle', () => {
+  it('shows the streak card and routes to the new default puzzle flow', () => {
     render(<HomePage />, { wrapper });
 
-    expect(screen.getByText(/continue training/i)).toBeInTheDocument();
-    expect(screen.getByText(/2\/7 puzzles completed/i)).toBeInTheDocument();
-    expect(screen.getByText(/strongest theme so far: hanging piece/i)).toBeInTheDocument();
-    expect(screen.getByText(/last played: trapped knight/i)).toBeInTheDocument();
-    expect(screen.getByText(/latest solve: rook harvest/i)).toBeInTheDocument();
+    expect(screen.getByText(/jump back in/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/puzzle streak/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/2\/7 lessons solved/i)).toBeInTheDocument();
+    expect(screen.getByText(/best lesson theme so far: hanging piece/i)).toBeInTheDocument();
+    expect(screen.getByText(/last lesson played: trapped knight/i)).toBeInTheDocument();
+    expect(screen.getByText(/latest lesson solved: rook harvest/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(/2\/7 puzzles completed/i).closest('button')!);
-    expect(navigateMock).toHaveBeenCalledWith('/puzzle/5001');
+    fireEvent.click(screen.getByText(/2\/7 lessons solved/i).closest('button')!);
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles');
   });
 });
