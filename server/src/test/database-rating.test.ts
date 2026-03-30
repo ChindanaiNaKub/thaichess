@@ -261,7 +261,7 @@ describe('database rated game persistence', () => {
     });
   });
 
-  it('filters recent games and counts by rated status', async () => {
+  it('filters recent games and counts by rated status while including bot games in the shared history', async () => {
     const database = await import('../database');
 
     await database.initDatabase();
@@ -290,6 +290,7 @@ describe('database rated game persistence', () => {
       finalBoard: [],
       moveCount: 22,
     });
+    vi.advanceTimersByTime(1000);
 
     await database.saveCompletedGame({
       id: 'casual-game-filter',
@@ -304,23 +305,57 @@ describe('database rated game persistence', () => {
       finalBoard: [],
       moveCount: 18,
     });
+    vi.advanceTimersByTime(1000);
+
+    await database.saveCompletedGame({
+      id: 'bot-game-filter',
+      result: 'white',
+      resultReason: 'checkmate',
+      whiteName: 'Guest Player',
+      blackName: 'Makruk Bot Lv.3',
+      whiteUserId: null,
+      blackUserId: null,
+      rated: false,
+      gameMode: 'bot',
+      opponentName: 'Makruk Bot Lv.3',
+      botLevel: 3,
+      botColor: 'black',
+      timeControl: { initial: 600, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 28,
+    });
 
     const allGames = await database.getRecentGames(10, 0, 'all');
     const ratedGames = await database.getRecentGames(10, 0, 'rated');
     const casualGames = await database.getRecentGames(10, 0, 'casual');
+    const botGames = await database.getRecentGames(10, 0, 'bot');
     const allCount = await database.getGameCount('all');
     const ratedCount = await database.getGameCount('rated');
     const casualCount = await database.getGameCount('casual');
+    const botCount = await database.getGameCount('bot');
+    const botStats = await database.getBotPerformanceStats();
 
-    expect(allGames).toHaveLength(2);
+    expect(allGames).toHaveLength(3);
     expect(ratedGames).toHaveLength(1);
     expect(casualGames).toHaveLength(1);
-    expect(allGames[0]?.id).toBe('rated-game-filter');
-    expect(allGames[1]?.id).toBe('casual-game-filter');
+    expect(botGames).toHaveLength(1);
+    expect(allGames.map(game => game.id)).toContain('bot-game-filter');
+    expect(allGames.map(game => game.id)).toContain('rated-game-filter');
+    expect(allGames.map(game => game.id)).toContain('casual-game-filter');
     expect(ratedGames[0]?.id).toBe('rated-game-filter');
     expect(casualGames[0]?.id).toBe('casual-game-filter');
-    expect(allCount).toBe(2);
+    expect(botGames[0]?.id).toBe('bot-game-filter');
+    expect(botGames[0]?.game_type).toBe('bot');
+    expect(botGames[0]?.opponent_name).toBe('Makruk Bot Lv.3');
+    expect(allCount).toBe(3);
     expect(ratedCount).toBe(1);
     expect(casualCount).toBe(1);
+    expect(botCount).toBe(1);
+    expect(botStats).toEqual({
+      gamesCount: 1,
+      winRate: 100,
+      highestBotLevelDefeated: 3,
+    });
   });
 });

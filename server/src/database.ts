@@ -1,16 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient, type Client, type InStatement, type Row } from '@libsql/client';
-import type { Move, Board, TimeControl, RatingChangeSummary } from '../../shared/types';
-import { logError, logInfo } from './logger';
+import type { Move, Board, TimeControl, RatingChangeSummary, PieceColor } from '../../shared/types';
+import { logError, logInfo, logWarn } from './logger';
 import './env';
 
-// Compiled to server/dist/server/src — repo data/ is four levels up
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../../../data');
-const LEGACY_DB_PATH = path.join(DATA_DIR, 'makruk.db');
-const DB_PATH = fs.existsSync(LEGACY_DB_PATH)
-  ? LEGACY_DB_PATH
-  : path.join(DATA_DIR, 'thaichess.db');
 const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL?.trim() || undefined;
 const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN?.trim() || undefined;
 
@@ -26,6 +20,82 @@ async function ensureColumn(table: string, column: string, definition: string) {
   }
 }
 
+function findWorkspaceRoot(startDir: string): string {
+  let currentDir = path.resolve(startDir);
+
+  while (true) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { workspaces?: unknown };
+        if (Array.isArray(parsed.workspaces) && parsed.workspaces.includes('server')) {
+          return currentDir;
+        }
+      } catch {
+        // Ignore malformed package.json candidates and keep walking upward.
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return startDir;
+    }
+    currentDir = parentDir;
+  }
+}
+
+const WORKSPACE_ROOT = findWorkspaceRoot(__dirname);
+const DEFAULT_DATA_DIR = path.join(WORKSPACE_ROOT, 'data');
+const LEGACY_DEV_DATA_DIR = path.resolve(__dirname, '../../../../data');
+
+function copyFileIfMissing(sourcePath: string, targetPath: string) {
+  if (!fs.existsSync(sourcePath) || fs.existsSync(targetPath)) return false;
+
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+  return true;
+}
+
+function resolveLocalDatabasePath() {
+  const configuredDataDir = process.env.DATA_DIR?.trim();
+  const dataDir = configuredDataDir || DEFAULT_DATA_DIR;
+  const legacyDbPath = path.join(dataDir, 'makruk.db');
+  const dbPath = path.join(dataDir, 'thaichess.db');
+
+  if (!configuredDataDir && LEGACY_DEV_DATA_DIR !== dataDir) {
+    const migratedLegacyDb = copyFileIfMissing(
+      path.join(LEGACY_DEV_DATA_DIR, 'makruk.db'),
+      legacyDbPath,
+    );
+    const migratedCurrentDb = copyFileIfMissing(
+      path.join(LEGACY_DEV_DATA_DIR, 'thaichess.db'),
+      dbPath,
+    );
+
+    if (migratedLegacyDb || migratedCurrentDb) {
+      logWarn('database_legacy_path_migrated', {
+        source: LEGACY_DEV_DATA_DIR,
+        target: dataDir,
+        migratedFiles: [
+          migratedLegacyDb ? 'makruk.db' : null,
+          migratedCurrentDb ? 'thaichess.db' : null,
+        ].filter(Boolean),
+      });
+    }
+  }
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  return {
+    dataDir,
+    legacyDbPath,
+    dbPath,
+    activePath: fs.existsSync(legacyDbPath) ? legacyDbPath : dbPath,
+  };
+}
+
 function getDatabaseConfig() {
   if (TURSO_DATABASE_URL) {
     return {
@@ -38,16 +108,14 @@ function getDatabaseConfig() {
     };
   }
 
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  const localDatabase = resolveLocalDatabasePath();
 
   return {
     client: createClient({
-      url: `file:${DB_PATH}`,
+      url: `file:${localDatabase.activePath}`,
     }),
     mode: 'local' as const,
-    location: DB_PATH,
+    location: localDatabase.activePath,
   };
 }
 
@@ -162,6 +230,11 @@ async function runSchemaMigration() {
   await ensureColumn('games', 'black_user_id', 'TEXT');
   await ensureColumn('games', 'rated', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('games', 'game_mode', "TEXT NOT NULL DEFAULT 'private'");
+  await ensureColumn('games', 'game_type', "TEXT NOT NULL DEFAULT 'human'");
+  await ensureColumn('games', 'opponent_type', 'TEXT');
+  await ensureColumn('games', 'opponent_name', 'TEXT');
+  await ensureColumn('games', 'bot_level', 'INTEGER');
+  await ensureColumn('games', 'bot_color', 'TEXT');
   await ensureColumn('games', 'white_rating_before', 'INTEGER');
   await ensureColumn('games', 'black_rating_before', 'INTEGER');
   await ensureColumn('games', 'white_rating_after', 'INTEGER');
@@ -185,6 +258,14 @@ async function runSchemaMigration() {
 }
 
 function rowToSavedGame(row: Row): SavedGame {
+  const rawGameMode = String(row.game_mode ?? 'private');
+  const rawOpponentType = row.opponent_type === null || row.opponent_type === undefined ? null : String(row.opponent_type);
+  const normalizedGameType = String(row.game_type ?? 'human') === 'bot'
+    || rawOpponentType === 'bot'
+    || rawGameMode === 'bot'
+    ? 'bot'
+    : 'human';
+
   return {
     id: String(row.id),
     white_name: String(row.white_name ?? 'Anonymous'),
@@ -194,7 +275,12 @@ function rowToSavedGame(row: Row): SavedGame {
     result: String(row.result ?? ''),
     result_reason: String(row.result_reason ?? ''),
     rated: Number(row.rated ?? 0),
-    game_mode: String(row.game_mode ?? 'private'),
+    game_mode: rawGameMode,
+    game_type: normalizedGameType,
+    opponent_type: rawOpponentType,
+    opponent_name: row.opponent_name === null || row.opponent_name === undefined ? null : String(row.opponent_name),
+    bot_level: row.bot_level === null || row.bot_level === undefined ? null : Number(row.bot_level),
+    bot_color: row.bot_color === 'black' ? 'black' : row.bot_color === 'white' ? 'white' : null,
     white_rating_before: row.white_rating_before === null || row.white_rating_before === undefined ? null : Number(row.white_rating_before),
     black_rating_before: row.black_rating_before === null || row.black_rating_before === undefined ? null : Number(row.black_rating_before),
     white_rating_after: row.white_rating_after === null || row.white_rating_after === undefined ? null : Number(row.white_rating_after),
@@ -334,10 +420,17 @@ export async function saveCompletedGame(data: {
   moves: Move[];
   finalBoard: Board;
   moveCount: number;
+  whiteName?: string | null;
+  blackName?: string | null;
   whiteUserId?: string | null;
   blackUserId?: string | null;
   rated?: boolean;
   gameMode?: string;
+  gameType?: 'human' | 'bot';
+  opponentType?: 'human' | 'bot' | null;
+  opponentName?: string | null;
+  botLevel?: number | null;
+  botColor?: PieceColor | null;
   whiteRatingBefore?: number | null;
   blackRatingBefore?: number | null;
   whiteRatingAfter?: number | null;
@@ -435,19 +528,27 @@ export async function saveCompletedGame(data: {
       await transaction.execute({
         sql: `
           INSERT OR REPLACE INTO games (
-            id, white_user_id, black_user_id, result, result_reason, rated, game_mode, white_rating_before, black_rating_before,
+            id, white_name, black_name, white_user_id, black_user_id, result, result_reason, rated, game_mode, game_type,
+            opponent_type, opponent_name, bot_level, bot_color, white_rating_before, black_rating_before,
             white_rating_after, black_rating_after, time_control_initial, time_control_increment, moves, final_board, move_count, finished_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
         `,
         args: [
           data.id,
+          data.whiteName?.trim() || 'Anonymous',
+          data.blackName?.trim() || 'Anonymous',
           data.whiteUserId ?? null,
           data.blackUserId ?? null,
           data.result,
           data.resultReason,
           appliedRatedGame ? 1 : 0,
           data.gameMode ?? 'private',
+          data.gameType ?? 'human',
+          data.opponentType ?? null,
+          data.opponentName?.trim() || null,
+          data.botLevel ?? null,
+          data.botColor ?? null,
           whiteRatingBefore,
           blackRatingBefore,
           whiteRatingAfter,
@@ -547,6 +648,11 @@ export interface SavedGame {
   result_reason: string;
   rated: number;
   game_mode: string;
+  game_type: 'human' | 'bot';
+  opponent_type: string | null;
+  opponent_name: string | null;
+  bot_level: number | null;
+  bot_color: PieceColor | null;
   white_rating_before: number | null;
   black_rating_before: number | null;
   white_rating_after: number | null;
@@ -560,11 +666,22 @@ export interface SavedGame {
   finished_at: number;
 }
 
-export type RecentGamesFilter = 'all' | 'rated' | 'casual';
+export type RecentGamesFilter = 'all' | 'rated' | 'casual' | 'bot';
+
+function getNormalizedGameTypeSql(): string {
+  return `
+    CASE
+      WHEN COALESCE(game_type, '') = 'bot' OR COALESCE(opponent_type, '') = 'bot' OR COALESCE(game_mode, '') = 'bot' THEN 'bot'
+      ELSE 'human'
+    END
+  `;
+}
 
 function getRecentGamesWhereClause(filter: RecentGamesFilter): string {
-  if (filter === 'rated') return 'finished_at IS NOT NULL AND rated = 1';
-  if (filter === 'casual') return 'finished_at IS NOT NULL AND rated = 0';
+  const normalizedGameTypeSql = getNormalizedGameTypeSql();
+  if (filter === 'rated') return `finished_at IS NOT NULL AND (${normalizedGameTypeSql}) = 'human' AND rated = 1`;
+  if (filter === 'casual') return `finished_at IS NOT NULL AND (${normalizedGameTypeSql}) = 'human' AND rated = 0`;
+  if (filter === 'bot') return `finished_at IS NOT NULL AND (${normalizedGameTypeSql}) = 'bot'`;
   return 'finished_at IS NOT NULL';
 }
 
@@ -622,6 +739,65 @@ export async function getGameCount(filter: RecentGamesFilter = 'all'): Promise<n
   } catch (err) {
     logError('database_get_game_count_failed', err, { filter });
     return 0;
+  }
+}
+
+export interface BotPerformanceStats {
+  gamesCount: number;
+  winRate: number;
+  highestBotLevelDefeated: number | null;
+}
+
+function isHumanWinAgainstBot(result: string, botColor: PieceColor | null) {
+  if (botColor === 'white') return result === 'black';
+  if (botColor === 'black') return result === 'white';
+  return false;
+}
+
+function parseBotLevel(opponentName: string | null | undefined) {
+  if (!opponentName) return null;
+  const match = opponentName.match(/(?:lv\.?|level)\s*(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+export async function getBotPerformanceStats(): Promise<BotPerformanceStats> {
+  try {
+    const normalizedGameTypeSql = getNormalizedGameTypeSql();
+    const result = await db.execute({
+      sql: `
+        SELECT result, opponent_name, bot_level, bot_color
+        FROM games
+        WHERE finished_at IS NOT NULL AND (${normalizedGameTypeSql}) = 'bot'
+      `,
+    });
+
+    const rows = result.rows.map(row => ({
+      result: String(row.result ?? ''),
+      opponentName: row.opponent_name === null || row.opponent_name === undefined ? null : String(row.opponent_name),
+      botLevel: row.bot_level === null || row.bot_level === undefined ? null : Number(row.bot_level),
+      botColor: row.bot_color === 'black' ? 'black' as const : row.bot_color === 'white' ? 'white' as const : null,
+    }));
+
+    const wins = rows.filter(row => isHumanWinAgainstBot(row.result, row.botColor)).length;
+    const highestBotLevelDefeated = rows.reduce<number | null>((highest, row) => {
+      if (!isHumanWinAgainstBot(row.result, row.botColor)) return highest;
+      const level = row.botLevel ?? parseBotLevel(row.opponentName);
+      if (level === null) return highest;
+      return highest === null ? level : Math.max(highest, level);
+    }, null);
+
+    return {
+      gamesCount: rows.length,
+      winRate: rows.length > 0 ? Number(((wins / rows.length) * 100).toFixed(1)) : 0,
+      highestBotLevelDefeated,
+    };
+  } catch (err) {
+    logError('database_get_bot_performance_stats_failed', err);
+    return {
+      gamesCount: 0,
+      winRate: 0,
+      highestBotLevelDefeated: null,
+    };
   }
 }
 

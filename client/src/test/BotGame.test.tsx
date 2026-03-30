@@ -10,12 +10,14 @@ const {
   clockPropsMock,
   requestBotMoveMock,
   requestLocalBotMoveMock,
+  fetchMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
   clockPropsMock: vi.fn(),
   requestBotMoveMock: vi.fn(),
   requestLocalBotMoveMock: vi.fn(),
+  fetchMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -30,6 +32,25 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+  }),
+}));
+
+vi.mock('../lib/auth', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'Player One',
+      role: 'user',
+      rating: 1500,
+      rated_games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      created_at: 0,
+      updated_at: 0,
+      last_login_at: null,
+    },
   }),
 }));
 
@@ -115,6 +136,12 @@ describe('BotGame', () => {
     clockPropsMock.mockReset();
     requestBotMoveMock.mockReset();
     requestLocalBotMoveMock.mockReset();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
     requestBotMoveMock.mockResolvedValue({
       move: null,
       evaluation: 0,
@@ -143,9 +170,9 @@ describe('BotGame', () => {
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
-    expect(screen.getByText('Bot (Level 5)')).toBeInTheDocument();
+    expect(screen.getByText('Makruk Bot Lv.5')).toBeInTheDocument();
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
-    expect(screen.getAllByText('Bot (Level 5)')).toHaveLength(1);
+    expect(screen.getAllByText('Makruk Bot Lv.5')).toHaveLength(1);
     expect(screen.getAllByText('common.you (common.white)')).toHaveLength(1);
   });
 
@@ -186,5 +213,37 @@ describe('BotGame', () => {
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
     expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves finished bot games into the shared recent-games system', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderBotGame();
+
+    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+    fireEvent.click(screen.getByRole('button', { name: /bot.resign/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/bot', expect.objectContaining({
+        method: 'POST',
+      }));
+    });
+
+    const [, request] = fetchMock.mock.calls.find(([url]) => url === '/api/games/bot') ?? [];
+    const body = JSON.parse(String(request?.body ?? '{}'));
+
+    expect(body).toMatchObject({
+      playerColor: 'white',
+      playerName: 'Player One',
+      level: 5,
+      result: 'black',
+      resultReason: 'resignation',
+      timeControl: {
+        initial: 600,
+        increment: 0,
+      },
+      moveCount: 0,
+    });
+    expect(typeof body.id).toBe('string');
   });
 });
