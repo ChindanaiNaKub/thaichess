@@ -4,6 +4,7 @@ export interface QueueEntry {
   socketId: string;
   playerId: string;
   userId: string | null;
+  ratedEligible: boolean;
   displayName: string;
   rating: number | null;
   timeControl: TimeControl;
@@ -14,13 +15,18 @@ export class MatchmakingQueue {
   private queue: QueueEntry[] = [];
   private playerInQueue: Map<string, number> = new Map();
 
-  addToQueue(socketId: string, timeControl: TimeControl, options: { playerId: string; userId?: string | null; displayName: string; rating?: number | null }): void {
+  addToQueue(
+    socketId: string,
+    timeControl: TimeControl,
+    options: { playerId: string; userId?: string | null; ratedEligible?: boolean; displayName: string; rating?: number | null },
+  ): void {
     this.removeFromQueue(socketId);
 
     this.queue.push({
       socketId,
       playerId: options.playerId,
       userId: options.userId ?? null,
+      ratedEligible: Boolean(options.ratedEligible),
       displayName: options.displayName,
       rating: options.rating ?? null,
       timeControl,

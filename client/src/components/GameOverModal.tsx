@@ -10,6 +10,10 @@ interface GameOverModalProps {
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
+  onReport?: () => void;
+  reportLabel?: string;
+  reportDisabled?: boolean;
+  reportStatusMessage?: string | null;
   onClose?: () => void;
   rematchLabel?: string;
   rematchDisabled?: boolean;
@@ -25,6 +29,10 @@ export default function GameOverModal({
   onRematch,
   onNewGame,
   onAnalyze,
+  onReport,
+  reportLabel,
+  reportDisabled = false,
+  reportStatusMessage = null,
   onClose,
   rematchLabel,
   rematchDisabled = false,
@@ -117,6 +125,20 @@ export default function GameOverModal({
               >
                 🔍 {t('analysis.analyze')}
               </button>
+            )}
+            {onReport && (
+              <button
+                onClick={onReport}
+                disabled={reportDisabled}
+                className="w-full py-3 px-6 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 disabled:cursor-not-allowed text-amber-200 font-semibold rounded-lg transition-colors border border-amber-500/30"
+              >
+                {reportLabel ?? t('fair_play.report_action')}
+              </button>
+            )}
+            {reportStatusMessage && (
+              <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-sm text-text-dim">
+                {reportStatusMessage}
+              </div>
             )}
             <button
               onClick={onRematch}
