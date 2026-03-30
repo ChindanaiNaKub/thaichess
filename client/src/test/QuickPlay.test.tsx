@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import QuickPlay from '../components/QuickPlay';
 import { I18nProvider } from '../lib/i18n';
+import type { AuthUser } from '../lib/auth';
 
 const {
   navigateMock,
@@ -26,6 +27,9 @@ const {
       email: 'player@example.com',
       username: 'player_one',
       role: 'user' as const,
+      fair_play_status: 'clear' as const,
+      rated_restricted_at: null,
+      rated_restriction_note: null,
       rating: 1500,
       rated_games: 0,
       wins: 0,
@@ -34,22 +38,29 @@ const {
       created_at: 0,
       updated_at: 0,
       last_login_at: null,
-    } as {
-      id: string;
-      email: string;
-      username: string;
-      role: 'user';
-      rating: number;
-      rated_games: number;
-      wins: number;
-      losses: number;
-      draws: number;
-      created_at: number;
-      updated_at: number;
-      last_login_at: null;
-    } | null,
+    } as AuthUser | null,
   },
 }));
+
+function createUser(fairPlayStatus: AuthUser['fair_play_status'] = 'clear'): AuthUser {
+  return {
+    id: 'user-1',
+    email: 'player@example.com',
+    username: 'player_one',
+    role: 'user',
+    fair_play_status: fairPlayStatus,
+    rated_restricted_at: fairPlayStatus === 'restricted' ? 1 : null,
+    rated_restriction_note: fairPlayStatus === 'restricted' ? 'Restricted from rated play' : null,
+    rating: 1500,
+    rated_games: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    created_at: 0,
+    updated_at: 0,
+    last_login_at: null,
+  };
+}
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -91,20 +102,7 @@ describe('QuickPlay', () => {
     socketMock.on.mockReset();
     socketMock.off.mockReset();
     socketMock.once.mockReset();
-    authState.user = {
-      id: 'user-1',
-      email: 'player@example.com',
-      username: 'player_one',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    };
+    authState.user = createUser();
   });
 
   afterEach(() => {
@@ -171,6 +169,15 @@ describe('QuickPlay', () => {
     expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
       timeControl: { initial: 300, increment: 0 },
     });
+  });
+
+  it('shows rated disabled copy for restricted accounts', () => {
+    authState.user = createUser('restricted');
+
+    render(<QuickPlay />, { wrapper });
+
+    expect(screen.getByText('Rated Disabled')).toBeInTheDocument();
+    expect(screen.getByText('This account can still quick-play casually, but rated pairings are disabled.')).toBeInTheDocument();
   });
 
   it('shows queue and timer while searching, then navigates when a match is found', async () => {

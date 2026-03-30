@@ -10,6 +10,10 @@ interface GameOverPanelProps {
   onRematch: () => void;
   onNewGame: () => void;
   onAnalyze?: () => void;
+  onReport?: () => void;
+  reportLabel?: string;
+  reportDisabled?: boolean;
+  reportStatusMessage?: string | null;
   rematchLabel?: string;
   rematchDisabled?: boolean;
   rematchNotice?: string | null;
@@ -24,6 +28,10 @@ export default function GameOverPanel({
   onRematch,
   onNewGame,
   onAnalyze,
+  onReport,
+  reportLabel,
+  reportDisabled = false,
+  reportStatusMessage = null,
   rematchLabel,
   rematchDisabled = false,
   rematchNotice = null,
@@ -107,6 +115,20 @@ export default function GameOverPanel({
             >
               {t('analysis.analyze')}
             </button>
+          )}
+          {onReport && (
+            <button
+              onClick={onReport}
+              disabled={reportDisabled}
+              className="w-full py-2 px-3 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 disabled:cursor-not-allowed text-amber-200 font-semibold text-xs rounded-lg border border-amber-500/30 transition-colors"
+            >
+              {reportLabel ?? t('fair_play.report_action')}
+            </button>
+          )}
+          {reportStatusMessage && (
+            <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-[11px] text-text-dim">
+              {reportStatusMessage}
+            </div>
           )}
           <div className="grid grid-cols-2 gap-2">
             <button
