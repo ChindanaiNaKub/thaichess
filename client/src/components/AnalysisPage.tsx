@@ -1228,7 +1228,7 @@ function getClassificationTheme(classification: MoveClassification): {
   }
 }
 
-const ANALYSIS_CACHE_VERSION = 4;
+const ANALYSIS_CACHE_VERSION = 5;
 
 function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
   return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${movetimeMs}:${gameData.moves.length}`;
