@@ -36,6 +36,7 @@ type AnalysisMode = 'game' | 'editor';
 type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
 
 const DEFAULT_EDITOR_TOOL: EditorTool = 'move';
+const REVIEW_MOVETIME_MS = 250;
 
 export default function AnalysisPage() {
   const workerRef = useRef<Worker | null>(null);
@@ -161,8 +162,7 @@ export default function AnalysisPage() {
   useEffect(() => {
     if (mode !== 'game' || !gameData || analysis) return;
 
-    const depth = gameData.moves.length <= 24 ? 3 : 2;
-    const cacheKey = getAnalysisCacheKey(gameData, depth);
+    const cacheKey = getAnalysisCacheKey(gameData, REVIEW_MOVETIME_MS);
 
     if (analysisRunKeyRef.current === cacheKey) return;
     analysisRunKeyRef.current = cacheKey;
@@ -206,7 +206,7 @@ export default function AnalysisPage() {
       if (workerRef.current === worker) workerRef.current = null;
     };
 
-    worker.postMessage({ type: 'analyze', moves: gameData.moves, depth });
+    worker.postMessage({ type: 'analyze', moves: gameData.moves, movetimeMs: REVIEW_MOVETIME_MS, depth: 2 });
 
     return () => {
       worker.terminate();
@@ -772,21 +772,33 @@ export default function AnalysisPage() {
           {/* Side Panel */}
           <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:self-start">
             {/* Analysis Status / Progress */}
-            {analyzing && progress && (
+            {analyzing && (
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   <span className="text-sm text-text-bright">{t('analysis.analyzing')}</span>
                 </div>
-                <div className="w-full bg-surface rounded-full h-2">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                  />
-                </div>
-                <div className="text-xs text-text mt-1">
-                  {t('analysis.progress', { current: progress.current, total: progress.total })}
-                </div>
+                <p className="text-xs leading-relaxed text-text mb-3">
+                  {t('analysis.analyzing_note')}
+                </p>
+                {progress ? (
+                  <>
+                    <div className="w-full bg-surface rounded-full h-2">
+                      <div
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-text mt-1">
+                      {t('analysis.progress', { current: progress.current, total: progress.total })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2" aria-hidden="true">
+                    <div className="h-2 rounded-full bg-surface-hover animate-pulse" />
+                    <div className="h-2 w-2/3 rounded-full bg-surface-hover animate-pulse" />
+                  </div>
+                )}
               </div>
             )}
 
@@ -1216,10 +1228,10 @@ function getClassificationTheme(classification: MoveClassification): {
   }
 }
 
-const ANALYSIS_CACHE_VERSION = 3;
+const ANALYSIS_CACHE_VERSION = 4;
 
-function getAnalysisCacheKey(gameData: GameData, depth: number): string {
-  return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${depth}:${gameData.moves.length}`;
+function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
+  return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${movetimeMs}:${gameData.moves.length}`;
 }
 
 function readCachedAnalysis(cacheKey: string): GameAnalysis | null {

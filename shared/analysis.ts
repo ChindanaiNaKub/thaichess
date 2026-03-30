@@ -311,11 +311,11 @@ export function getMoveWinPercents(
 }
 
 export function classifyMove(moveAccuracy: number, isExactBestMove: boolean): MoveClassification {
-  if (isExactBestMove || moveAccuracy >= 98) return 'best';
-  if (moveAccuracy >= 90) return 'excellent';
-  if (moveAccuracy >= 75) return 'good';
-  if (moveAccuracy >= 50) return 'inaccuracy';
-  if (moveAccuracy >= 20) return 'mistake';
+  if (isExactBestMove) return 'best';
+  if (moveAccuracy >= 98) return 'excellent';
+  if (moveAccuracy >= 90) return 'good';
+  if (moveAccuracy >= 75) return 'inaccuracy';
+  if (moveAccuracy >= 50) return 'mistake';
   return 'blunder';
 }
 

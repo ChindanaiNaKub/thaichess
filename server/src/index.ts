@@ -264,15 +264,58 @@ app.get('/api/game/:id', async (req, res) => {
 
 app.post('/api/analysis/game', async (req, res) => {
   const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
-  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : 2;
+  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
+  const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
 
   if (!moves) {
     res.status(400).json({ error: 'moves is required.' });
     return;
   }
 
-  const analysis = await analyzeGameWithEngine(moves, depth);
+  const analysis = await analyzeGameWithEngine(moves, { depth, movetimeMs });
   res.json({ analysis });
+});
+
+app.post('/api/analysis/game/stream', async (req, res) => {
+  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
+  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
+  const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
+
+  if (!moves) {
+    res.status(400).json({ error: 'moves is required.' });
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  let closed = false;
+  req.on('close', () => {
+    closed = true;
+  });
+
+  const writeEvent = (event: 'progress' | 'result' | 'error', payload: unknown) => {
+    if (closed) return;
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  try {
+    const analysis = await analyzeGameWithEngine(
+      moves,
+      { depth, movetimeMs },
+      progress => writeEvent('progress', { progress }),
+    );
+    writeEvent('result', { analysis });
+    res.end();
+  } catch (error) {
+    writeEvent('error', {
+      message: error instanceof Error ? error.message : 'Analysis failed',
+    });
+    res.end();
+  }
 });
 
 app.post('/api/analysis/position', async (req, res) => {

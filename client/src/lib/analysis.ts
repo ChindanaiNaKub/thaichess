@@ -11,6 +11,7 @@ import {
 interface AnalyzeGameRequest {
   moves: Move[];
   depth?: number;
+  movetimeMs?: number;
 }
 
 export interface InlineAnalysisPayload {
@@ -20,11 +21,11 @@ export interface InlineAnalysisPayload {
   reason?: string;
 }
 
-export async function requestGameAnalysis({ moves, depth }: AnalyzeGameRequest): Promise<GameAnalysis> {
+export async function requestGameAnalysis({ moves, depth, movetimeMs }: AnalyzeGameRequest): Promise<GameAnalysis> {
   const response = await fetch('/api/analysis/game', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ moves, depth }),
+    body: JSON.stringify({ moves, depth, movetimeMs }),
   });
 
   if (!response.ok) {

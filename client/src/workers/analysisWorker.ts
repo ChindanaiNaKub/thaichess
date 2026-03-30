@@ -5,7 +5,8 @@ import { requestGameAnalysis } from '../lib/analysis';
 interface AnalyzeMessage {
   type: 'analyze';
   moves: Move[];
-  depth: number;
+  depth?: number;
+  movetimeMs?: number;
 }
 
 interface ProgressMessage {
@@ -25,6 +26,79 @@ interface ErrorMessage {
 
 type WorkerResponse = ProgressMessage | ResultMessage | ErrorMessage;
 
+async function requestGameAnalysisStream(payload: AnalyzeMessage): Promise<GameAnalysis> {
+  const response = await fetch('/api/analysis/game/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      moves: payload.moves,
+      depth: payload.depth,
+      movetimeMs: payload.movetimeMs,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error('Streamed analysis request failed');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalAnalysis: GameAnalysis | null = null;
+
+  const handleEvent = (eventName: string, data: string) => {
+    if (eventName === 'progress') {
+      const parsed = JSON.parse(data) as { progress: AnalysisProgress };
+      const message: ProgressMessage = { type: 'progress', progress: parsed.progress };
+      self.postMessage(message);
+      return;
+    }
+
+    if (eventName === 'result') {
+      const parsed = JSON.parse(data) as { analysis: GameAnalysis };
+      finalAnalysis = parsed.analysis;
+      return;
+    }
+
+    if (eventName === 'error') {
+      const parsed = JSON.parse(data) as { message?: string };
+      throw new Error(parsed.message || 'Analysis failed');
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+
+    let separatorIndex = buffer.indexOf('\n\n');
+    while (separatorIndex !== -1) {
+      const rawEvent = buffer.slice(0, separatorIndex);
+      buffer = buffer.slice(separatorIndex + 2);
+
+      const lines = rawEvent.split('\n');
+      const eventName = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || 'message';
+      const data = lines
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trim())
+        .join('\n');
+
+      if (data) {
+        handleEvent(eventName, data);
+      }
+
+      separatorIndex = buffer.indexOf('\n\n');
+    }
+
+    if (done) break;
+  }
+
+  if (!finalAnalysis) {
+    throw new Error('Analysis stream ended without a result');
+  }
+
+  return finalAnalysis;
+}
+
 self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
   if (event.data.type !== 'analyze') return;
 
@@ -32,15 +106,20 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
     let analysis: GameAnalysis;
 
     try {
-      analysis = await requestGameAnalysis({
-        moves: event.data.moves,
-        depth: event.data.depth,
-      });
+      analysis = await requestGameAnalysisStream(event.data);
     } catch {
-      analysis = analyzeGame(event.data.moves, event.data.depth, (progress) => {
-        const message: ProgressMessage = { type: 'progress', progress };
-        self.postMessage(message);
-      });
+      try {
+        analysis = await requestGameAnalysis({
+          moves: event.data.moves,
+          depth: event.data.depth,
+          movetimeMs: event.data.movetimeMs,
+        });
+      } catch {
+        analysis = analyzeGame(event.data.moves, event.data.depth ?? 2, (progress) => {
+          const message: ProgressMessage = { type: 'progress', progress };
+          self.postMessage(message);
+        });
+      }
     }
 
     const message: ResultMessage = { type: 'result', analysis };

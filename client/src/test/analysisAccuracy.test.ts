@@ -33,7 +33,7 @@ function createAnalyzedMove(
     moveAccuracy,
     bestMove: null,
     bestEval: 0,
-    classification: classifyMove(moveAccuracy, moveAccuracy >= 99.5),
+    classification: classifyMove(moveAccuracy, moveAccuracy === 100),
     color,
   };
 }
@@ -52,11 +52,11 @@ describe('analysis accuracy model', () => {
   });
 
   it('classifies moves from accuracy bands', () => {
-    expect(classifyMove(100, false)).toBe('best');
-    expect(classifyMove(95, false)).toBe('excellent');
-    expect(classifyMove(80, false)).toBe('good');
-    expect(classifyMove(60, false)).toBe('inaccuracy');
-    expect(classifyMove(30, false)).toBe('mistake');
+    expect(classifyMove(100, true)).toBe('best');
+    expect(classifyMove(100, false)).toBe('excellent');
+    expect(classifyMove(95, false)).toBe('good');
+    expect(classifyMove(80, false)).toBe('inaccuracy');
+    expect(classifyMove(60, false)).toBe('mistake');
     expect(classifyMove(10, false)).toBe('blunder');
   });
 

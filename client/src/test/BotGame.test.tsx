@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import BotGame from '../components/BotGame';
@@ -8,10 +8,14 @@ const {
   navigateMock,
   boardPropsMock,
   clockPropsMock,
+  requestBotMoveMock,
+  requestLocalBotMoveMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
   clockPropsMock: vi.fn(),
+  requestBotMoveMock: vi.fn(),
+  requestLocalBotMoveMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -46,6 +50,15 @@ vi.mock('../lib/sounds', () => ({
   playCaptureSound: vi.fn(),
   playCheckSound: vi.fn(),
   playGameOverSound: vi.fn(),
+}));
+
+vi.mock('../lib/analysis', () => ({
+  buildInlineAnalysisRoute: vi.fn(() => '/analysis/bot'),
+  requestBotMove: (...args: unknown[]) => requestBotMoveMock(...args),
+}));
+
+vi.mock('../lib/localBot', () => ({
+  requestLocalBotMove: (...args: unknown[]) => requestLocalBotMoveMock(...args),
 }));
 
 vi.mock('../components/BoardErrorBoundary', () => ({
@@ -99,6 +112,26 @@ describe('BotGame', () => {
     navigateMock.mockReset();
     boardPropsMock.mockReset();
     clockPropsMock.mockReset();
+    requestBotMoveMock.mockReset();
+    requestLocalBotMoveMock.mockReset();
+    requestBotMoveMock.mockResolvedValue({
+      move: null,
+      evaluation: 0,
+      bestMove: null,
+      principalVariation: [],
+      stats: {
+        source: 'service',
+        depth: 1,
+      },
+    });
+    requestLocalBotMoveMock.mockResolvedValue({
+      from: { row: 2, col: 0 },
+      to: { row: 3, col: 0 },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('renders the started game with two clocks and without duplicate player badges', () => {
@@ -112,5 +145,22 @@ describe('BotGame', () => {
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
     expect(screen.getAllByText('Bot (Level 5)')).toHaveLength(1);
     expect(screen.getAllByText('common.you (common.white)')).toHaveLength(1);
+  });
+
+  it('falls back to a local move when the server returns no bot move', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    renderBotGame();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.black' }));
+    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+
+    await waitFor(() => {
+      const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
+      expect(lastBoardProps?.isMyTurn).toBe(true);
+    }, { timeout: 2000 });
+
+    expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
   });
 });
