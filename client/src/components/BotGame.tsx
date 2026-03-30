@@ -8,6 +8,7 @@ import {
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
 import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
+import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
@@ -25,6 +26,10 @@ import InGameShell from './InGameShell';
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
 const BOT_REQUEST_TIMEOUT_MS = 2500;
+const BOT_GAME_TIME_CONTROL = {
+  initial: DEFAULT_PLAY_TIME_MS / 1000,
+  increment: 0,
+};
 const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
   const level = index + 1;
 
@@ -42,6 +47,15 @@ const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
 });
 
 type SideChoice = PieceColor | 'random';
+
+function buildBotName(level: number) {
+  return `Makruk Bot Lv.${level}`;
+}
+
+function createBotGameId() {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `bot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function buildNoMoveGameOverState(state: GameState): GameState | null {
   if (state.gameOver || hasAnyLegalMoves(state.board, state.turn)) {
@@ -69,9 +83,11 @@ function buildNoMoveGameOverState(state: GameState): GameState | null {
 export default function BotGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [gameStarted, setGameStarted] = useState(false);
   const [level, setLevel] = useState(5);
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
+  const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const [sideChoice, setSideChoice] = useState<SideChoice>('white');
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
@@ -85,6 +101,7 @@ export default function BotGame() {
   const botRequestIdRef = useRef(0);
   const gameStateRef = useRef(gameState);
   const moveCountRef = useRef(gameState.moveHistory.length);
+  const persistedGameIdRef = useRef<string | null>(null);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
 
@@ -93,6 +110,10 @@ export default function BotGame() {
 
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isPlayerTurn = gameState.turn === playerColor;
+  const playerDisplayName = user?.username?.trim()
+    || user?.email.split('@')[0]?.trim()
+    || 'Anonymous';
+  const botName = buildBotName(level);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -303,6 +324,41 @@ export default function BotGame() {
   }, [gameOverInfo]);
 
   useEffect(() => {
+    if (!gameStarted || !gameOverInfo || !currentGameId) return;
+    if (persistedGameIdRef.current === currentGameId) return;
+
+    persistedGameIdRef.current = currentGameId;
+
+    void fetch('/api/games/bot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: currentGameId,
+        playerColor,
+        playerName: playerDisplayName,
+        level,
+        result: gameState.winner || 'draw',
+        resultReason: gameOverInfo.reason,
+        timeControl: BOT_GAME_TIME_CONTROL,
+        moves: gameState.moveHistory,
+        finalBoard: gameState.board,
+        moveCount: gameState.moveCount,
+      }),
+    }).catch(() => undefined);
+  }, [
+    currentGameId,
+    gameOverInfo,
+    gameStarted,
+    gameState.board,
+    gameState.moveCount,
+    gameState.moveHistory,
+    gameState.winner,
+    level,
+    playerColor,
+    playerDisplayName,
+  ]);
+
+  useEffect(() => {
     const previousMoveCount = moveCountRef.current;
     const currentMoveCount = gameState.moveHistory.length;
 
@@ -452,6 +508,8 @@ export default function BotGame() {
     setShowGameOverModal(false);
     setBotThinking(false);
     setGameStarted(true);
+    setCurrentGameId(createBotGameId());
+    persistedGameIdRef.current = null;
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
@@ -466,6 +524,8 @@ export default function BotGame() {
     setGameOverInfo(null);
     setShowGameOverModal(false);
     setBotThinking(false);
+    setCurrentGameId(null);
+    persistedGameIdRef.current = null;
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
@@ -717,7 +777,7 @@ export default function BotGame() {
             time={botColor === 'white' ? gameState.whiteTime : gameState.blackTime}
             isActive={gameState.turn === botColor && !gameState.gameOver}
             color={botColor}
-            playerName={`Bot (Level ${level})`}
+            playerName={botName}
             subtitle={t(botColor === 'white' ? 'common.white' : 'common.black')}
             capturedPieces={botCaptureSummary.pieces}
             materialDelta={botCaptureSummary.material}

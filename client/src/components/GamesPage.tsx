@@ -12,6 +12,10 @@ interface GameEntry {
   result_reason: string;
   rated?: number;
   game_mode?: string;
+  game_type?: 'human' | 'bot';
+  opponent_type?: string | null;
+  opponent_name?: string | null;
+  bot_level?: number | null;
   white_rating_before?: number | null;
   black_rating_before?: number | null;
   white_rating_after?: number | null;
@@ -22,7 +26,13 @@ interface GameEntry {
   finished_at: number;
 }
 
-type GamesFilter = 'all' | 'rated' | 'casual';
+interface BotPerformanceStats {
+  gamesCount: number;
+  winRate: number;
+  highestBotLevelDefeated: number | null;
+}
+
+type GamesFilter = 'all' | 'rated' | 'casual' | 'bot';
 
 function formatTimeControl(initial: number, increment: number): string {
   const mins = Math.floor(initial / 60);
@@ -38,6 +48,27 @@ function formatResult(result: string, reason: string): { text: string; color: st
 function formatPlayerLabel(name: string, rating: number | null | undefined): string {
   const displayName = name.trim() || 'Anonymous';
   return typeof rating === 'number' ? `${displayName} (${rating})` : displayName;
+}
+
+function isBotGame(game: GameEntry): boolean {
+  return game.game_type === 'bot' || game.game_mode === 'bot' || game.opponent_type === 'bot';
+}
+
+function getParticipantLabel(game: GameEntry, color: 'white' | 'black'): string {
+  const isBot = isBotGame(game) && game.opponent_name && (
+    (color === 'white' ? game.white_name : game.black_name).trim() === game.opponent_name.trim()
+  );
+  const rating = isBotGame(game)
+    ? null
+    : color === 'white'
+      ? game.white_rating_before ?? game.white_rating_after ?? null
+      : game.black_rating_before ?? game.black_rating_after ?? null;
+  const label = formatPlayerLabel(
+    color === 'white' ? game.white_name : game.black_name,
+    rating,
+  );
+
+  return isBot ? `🤖 ${label}` : label;
 }
 
 function formatReasonLabel(reason: string, t: ReturnType<typeof useTranslation>['t']): string {
@@ -78,8 +109,7 @@ function renderGameRow(
   subdued: boolean = false,
 ) {
   const result = formatResult(game.result, game.result_reason);
-  const whiteRating = game.white_rating_before ?? game.white_rating_after ?? null;
-  const blackRating = game.black_rating_before ?? game.black_rating_after ?? null;
+  const botGame = isBotGame(game);
 
   return (
     <tr
@@ -95,16 +125,22 @@ function renderGameRow(
         <div className="flex flex-col gap-1">
           <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
           <span className="text-text-bright text-xs sm:text-sm truncate block max-w-[220px] sm:max-w-[340px]">
-            {formatPlayerLabel(game.white_name, whiteRating)} vs {formatPlayerLabel(game.black_name, blackRating)}
+            {getParticipantLabel(game, 'white')} vs {getParticipantLabel(game, 'black')}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-              game.rated
-                ? 'bg-primary/15 text-primary-light'
-                : 'bg-surface text-text-dim border border-surface-hover'
-            }`}>
-              {game.rated ? t('game.rated') : t('game.casual')}
-            </span>
+            {botGame ? (
+              <span className="inline-flex w-fit rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+                {t('games.bot_badge')}
+              </span>
+            ) : (
+              <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                game.rated
+                  ? 'bg-primary/15 text-primary-light'
+                  : 'bg-surface text-text-dim border border-surface-hover'
+              }`}>
+                {game.rated ? t('game.rated') : t('game.casual')}
+              </span>
+            )}
             {subdued && (
               <span className="inline-flex w-fit rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                 {t('games.low_signal_badge')}
@@ -143,6 +179,11 @@ export default function GamesPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [games, setGames] = useState<GameEntry[]>([]);
+  const [botStats, setBotStats] = useState<BotPerformanceStats>({
+    gamesCount: 0,
+    winRate: 0,
+    highestBotLevelDefeated: null,
+  });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<GamesFilter>('all');
@@ -161,6 +202,11 @@ export default function GamesPage() {
       .then(data => {
         setGames(data.games || []);
         setTotal(data.total || 0);
+        setBotStats(data.botStats || {
+          gamesCount: 0,
+          winRate: 0,
+          highestBotLevelDefeated: null,
+        });
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -190,7 +236,7 @@ export default function GamesPage() {
               <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(['all', 'rated', 'casual'] as const).map((filterOption) => (
+              {(['all', 'rated', 'casual', 'bot'] as const).map((filterOption) => (
                 <button
                   key={filterOption}
                   type="button"
@@ -204,6 +250,22 @@ export default function GamesPage() {
                   {t(`games.filter_${filterOption}`)}
                 </button>
               ))}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_games')}</div>
+                <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.gamesCount}</div>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_win_rate')}</div>
+                <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.winRate}%</div>
+              </div>
+              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_highest_level')}</div>
+                <div className="mt-1 text-lg font-semibold text-text-bright">
+                  {botStats.highestBotLevelDefeated ? `Lv.${botStats.highestBotLevelDefeated}` : '-'}
+                </div>
+              </div>
             </div>
           </div>
         </div>

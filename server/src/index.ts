@@ -8,8 +8,8 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, getCompletedPuzzleIdsForUser, getPuzzleProgressForUser, markPuzzlePlayed, markPuzzleCompleted, markPuzzleAttempt, mergeCompletedPuzzles, mergePuzzleProgress, type PuzzleProgressRecord, type RecentGamesFilter } from './database';
-import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
+import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, getCompletedPuzzleIdsForUser, getPuzzleProgressForUser, markPuzzlePlayed, markPuzzleCompleted, markPuzzleAttempt, mergeCompletedPuzzles, mergePuzzleProgress, getBotPerformanceStats, type PuzzleProgressRecord, type RecentGamesFilter } from './database';
+import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
@@ -167,15 +167,40 @@ async function saveGameToDb(room: GameRoom, reason: string) {
     id: room.id,
     result: winner || 'draw',
     resultReason: reason,
+    whiteName: room.whitePlayerName,
+    blackName: room.blackPlayerName,
     whiteUserId: room.whiteUserId,
     blackUserId: room.blackUserId,
     rated: room.rated,
     gameMode: room.gameMode,
+    gameType: room.gameMode === 'bot' ? 'bot' : 'human',
     timeControl: room.timeControl,
     moves: room.gameState.moveHistory,
     finalBoard: room.gameState.board,
     moveCount: room.gameState.moveCount,
   });
+}
+
+function getSignedInDisplayName(user: Awaited<ReturnType<typeof getAuthenticatedUser>>) {
+  if (!user) return null;
+  const username = user.username?.trim();
+  if (username) return username;
+  const emailPrefix = user.email.split('@')[0]?.trim();
+  return emailPrefix || null;
+}
+
+function normalizeBotGamePlayerName(
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>,
+  rawPlayerName: unknown,
+) {
+  const signedInDisplayName = getSignedInDisplayName(user);
+  if (signedInDisplayName) return signedInDisplayName;
+  if (typeof rawPlayerName === 'string' && rawPlayerName.trim()) return rawPlayerName.trim();
+  return 'Anonymous';
+}
+
+function buildBotName(level: number) {
+  return `Makruk Bot Lv.${level}`;
 }
 
 io.use(async (socket, next) => {
@@ -352,17 +377,78 @@ app.post('/api/bot/move', async (req, res) => {
   res.json(result);
 });
 
+app.post('/api/games/bot', async (req, res) => {
+  const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
+  const result = req.body?.result === 'white' || req.body?.result === 'black' || req.body?.result === 'draw'
+    ? req.body.result
+    : null;
+  const resultReason = typeof req.body?.resultReason === 'string' ? req.body.resultReason.trim() : '';
+  const playerColor: PieceColor | null = req.body?.playerColor === 'white' || req.body?.playerColor === 'black'
+    ? req.body.playerColor
+    : null;
+  const level = Number.isFinite(req.body?.level)
+    ? Math.min(Math.max(Number(req.body.level), 1), 10)
+    : 5;
+  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
+  const finalBoard = Array.isArray(req.body?.finalBoard) ? req.body.finalBoard : null;
+  const moveCount = Number.isFinite(req.body?.moveCount) ? Number(req.body.moveCount) : Array.isArray(moves) ? moves.length : 0;
+  const timeControlInitial = Number.isFinite(req.body?.timeControl?.initial) ? Number(req.body.timeControl.initial) : 600;
+  const timeControlIncrement = Number.isFinite(req.body?.timeControl?.increment) ? Number(req.body.timeControl.increment) : 0;
+
+  if (!id || !result || !resultReason || !playerColor || !moves || !finalBoard) {
+    res.status(400).json({ error: 'Valid bot game payload is required.' });
+    return;
+  }
+
+  const user = await getAuthenticatedUser(req);
+  const playerName = normalizeBotGamePlayerName(user, req.body?.playerName);
+  const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
+  const botName = buildBotName(level);
+
+  await saveCompletedGame({
+    id,
+    result,
+    resultReason,
+    whiteName: playerColor === 'white' ? playerName : botName,
+    blackName: playerColor === 'black' ? playerName : botName,
+    whiteUserId: playerColor === 'white' ? user?.id ?? null : null,
+    blackUserId: playerColor === 'black' ? user?.id ?? null : null,
+    rated: false,
+    gameMode: 'bot',
+    gameType: 'bot',
+    opponentType: 'bot',
+    opponentName: botName,
+    botLevel: level,
+    botColor,
+    timeControl: {
+      initial: timeControlInitial,
+      increment: timeControlIncrement,
+    },
+    moves,
+    finalBoard,
+    moveCount,
+  });
+
+  res.json({
+    ok: true,
+    id,
+    opponentName: botName,
+    gameType: 'bot',
+  });
+});
+
 app.get('/api/games/recent', async (_req, res) => {
   const page = parseInt(_req.query.page as string) || 0;
   const limit = Math.min(parseInt(_req.query.limit as string) || 20, 50);
-  const filter = _req.query.filter === 'rated' || _req.query.filter === 'casual'
+  const filter = _req.query.filter === 'rated' || _req.query.filter === 'casual' || _req.query.filter === 'bot'
     ? _req.query.filter as RecentGamesFilter
     : 'all';
-  const [games, total] = await Promise.all([
+  const [games, total, botStats] = await Promise.all([
     getRecentGames(limit, page * limit, filter),
     getGameCount(filter),
+    getBotPerformanceStats(),
   ]);
-  res.json({ games, total, page, limit, filter });
+  res.json({ games, total, page, limit, filter, botStats });
 });
 
 app.get('/api/leaderboard', async (req, res) => {

@@ -58,6 +58,22 @@ describe('GamesPage', () => {
             finished_at: Math.floor(Date.now() / 1000),
           },
           {
+            id: 'bot-1',
+            white_name: 'Guest One',
+            black_name: 'Makruk Bot Lv.3',
+            result: 'white',
+            result_reason: 'checkmate',
+            rated: 0,
+            game_mode: 'bot',
+            game_type: 'bot',
+            opponent_type: 'bot',
+            opponent_name: 'Makruk Bot Lv.3',
+            time_control_initial: 600,
+            time_control_increment: 0,
+            move_count: 44,
+            finished_at: Math.floor(Date.now() / 1000),
+          },
+          {
             id: 'casual-1',
             white_name: 'Guest One',
             black_name: 'Guest Two',
@@ -71,7 +87,12 @@ describe('GamesPage', () => {
             finished_at: Math.floor(Date.now() / 1000),
           },
         ],
-        total: 2,
+        total: 3,
+        botStats: {
+          gamesCount: 4,
+          winRate: 75,
+          highestBotLevelDefeated: 6,
+        },
       }),
     });
 
@@ -79,13 +100,19 @@ describe('GamesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('rated-1')).toBeInTheDocument();
+      expect(screen.getByText('bot-1')).toBeInTheDocument();
       expect(screen.getByText('casual-1')).toBeInTheDocument();
     });
 
     expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bot').length).toBeGreaterThan(0);
     expect(screen.getByText('Rated White (1500) vs Rated Black (1500)')).toBeInTheDocument();
+    expect(screen.getByText('Guest One vs 🤖 Makruk Bot Lv.3')).toBeInTheDocument();
     expect(screen.getByText('Guest One vs Guest Two')).toBeInTheDocument();
+    expect(screen.getByText('Games vs bot')).toBeInTheDocument();
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('Lv.6')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
   });
 
@@ -94,6 +121,11 @@ describe('GamesPage', () => {
       json: async () => ({
         games: [],
         total: 0,
+        botStats: {
+          gamesCount: 0,
+          winRate: 0,
+          highestBotLevelDefeated: null,
+        },
       }),
     });
 
@@ -113,6 +145,12 @@ describe('GamesPage', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=casual');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bot' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=bot');
     });
   });
 
@@ -135,6 +173,11 @@ describe('GamesPage', () => {
           },
         ],
         total: 1,
+        botStats: {
+          gamesCount: 0,
+          winRate: 0,
+          highestBotLevelDefeated: null,
+        },
       }),
     });
 
