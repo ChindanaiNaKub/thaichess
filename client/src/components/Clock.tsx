@@ -11,7 +11,8 @@ interface ClockProps {
   rating?: number | null;
   avatarUrl?: string | null;
   flag?: string | null;
-  status?: 'online' | 'offline' | 'active';
+  status?: 'online' | 'offline' | 'active' | 'idle' | 'away' | 'disconnected' | 'reconnecting';
+  latencyMs?: number | null;
   subtitle?: string | null;
   capturedPieces?: Array<{ type: PieceType; count: number; capturedColor: PieceColor }>;
   materialDelta?: number | null;
@@ -55,6 +56,7 @@ export default function Clock({
   avatarUrl = null,
   flag = null,
   status,
+  latencyMs = null,
   subtitle = null,
   capturedPieces = [],
   materialDelta = null,
@@ -82,16 +84,40 @@ export default function Clock({
   const colorLabel = subtitle ?? t(color === 'white' ? 'common.white' : 'common.black');
   const showColorChip = Boolean(subtitle)
     || !displayName.toLocaleLowerCase().includes(colorLabel.toLocaleLowerCase());
-  const statusLabel = effectiveStatus === 'offline'
+  const statusLabel = effectiveStatus === 'offline' || effectiveStatus === 'disconnected'
     ? t('game.offline')
-    : effectiveStatus === 'active'
-      ? t('game.active_now')
-      : t('game.online');
-  const statusDotClass = effectiveStatus === 'offline'
+    : effectiveStatus === 'reconnecting'
+      ? t('conn.reconnecting')
+      : effectiveStatus === 'away'
+        ? t('game.away')
+        : effectiveStatus === 'idle'
+          ? t('game.idle')
+          : effectiveStatus === 'active'
+            ? t('game.active_now')
+            : t('game.online');
+  const statusDotClass = effectiveStatus === 'offline' || effectiveStatus === 'disconnected'
     ? 'bg-danger shadow-[0_0_0_4px_rgb(148_54_54_/_0.16)]'
-    : effectiveStatus === 'active'
-      ? 'bg-primary shadow-[0_0_0_4px_rgb(88_168_95_/_0.18)]'
-      : 'bg-success shadow-[0_0_0_4px_rgb(72_156_84_/_0.14)]';
+    : effectiveStatus === 'reconnecting'
+      ? 'bg-accent shadow-[0_0_0_4px_rgb(181_123_55_/_0.18)]'
+      : effectiveStatus === 'away' || effectiveStatus === 'idle'
+        ? 'bg-slate-400 shadow-[0_0_0_4px_rgb(148_163_184_/_0.12)]'
+        : effectiveStatus === 'active'
+          ? 'bg-primary shadow-[0_0_0_4px_rgb(88_168_95_/_0.18)]'
+          : 'bg-success shadow-[0_0_0_4px_rgb(72_156_84_/_0.14)]';
+  const pingLabel = latencyMs === null
+    ? null
+    : `${latencyMs}ms`;
+  const pingToneClass = latencyMs === null
+    ? 'border-surface-hover/70 bg-surface/45 text-text-dim'
+    : latencyMs <= 120
+      ? 'border-success/30 bg-success/10 text-success'
+      : latencyMs <= 250
+        ? 'border-accent/30 bg-accent/10 text-accent'
+        : 'border-danger/30 bg-danger/10 text-danger';
+
+  const pingTitle = latencyMs === null
+    ? t('game.ping_unknown')
+    : t('game.ping_value', { ms: latencyMs });
 
   return (
     <div className={`
@@ -151,6 +177,16 @@ export default function Clock({
                   {t('leaderboard.col_rating')} {rating}
                 </span>
               )}
+              <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass.split(' ')[0]}`} />
+                {statusLabel}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold normal-case tracking-normal lg:px-1.25 lg:py-0.5 ${pingToneClass}`}
+                title={pingTitle}
+              >
+                {pingLabel ?? t('game.ping_short')}
+              </span>
             </div>
             {(capturedPieces.length > 0 || materialDelta) && (
               <div className="mt-1 flex flex-wrap items-center gap-1.5 lg:mt-0.5 lg:gap-1">

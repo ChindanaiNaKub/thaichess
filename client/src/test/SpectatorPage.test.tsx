@@ -151,6 +151,16 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     blackPlayerName: 'Black Player',
     whiteRating: 1620,
     blackRating: 1580,
+    whitePresence: {
+      status: 'active',
+      latencyMs: 42,
+      lastSeenAt: 1_000,
+    },
+    blackPresence: {
+      status: 'active',
+      latencyMs: 58,
+      lastSeenAt: 1_000,
+    },
     moveHistory: [],
     gameOver: false,
     winner: null,

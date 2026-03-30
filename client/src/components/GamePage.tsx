@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Position, PieceColor, ClientGameState, Move, RatingChangeSummary } from '@shared/types';
+import type { Position, PieceColor, ClientGameState, Move, PlayerPresence, RatingChangeSummary } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
@@ -22,6 +22,44 @@ import AppearanceSettingsButton from './AppearanceSettingsButton';
 import Header from './Header';
 import InGameShell from './InGameShell';
 
+const HEARTBEAT_INTERVAL_MS = 4_000;
+const IDLE_THRESHOLD_MS = 12_000;
+const HEARTBEAT_BURST_GUARD_MS = 1_000;
+const DEFAULT_PRESENCE: PlayerPresence = {
+  status: 'disconnected',
+  latencyMs: null,
+  lastSeenAt: null,
+};
+
+type LocalConnectionState = 'connected' | 'reconnecting' | 'disconnected';
+
+function updateOpponentPresenceStatus(
+  gameState: ClientGameState | null,
+  status: PlayerPresence['status'],
+): ClientGameState | null {
+  if (!gameState || !gameState.playerColor) return gameState;
+
+  if (gameState.playerColor === 'white') {
+    return {
+      ...gameState,
+      blackPresence: {
+        ...gameState.blackPresence,
+        status,
+        lastSeenAt: Date.now(),
+      },
+    };
+  }
+
+  return {
+    ...gameState,
+    whitePresence: {
+      ...gameState.whitePresence,
+      status,
+      lastSeenAt: Date.now(),
+    },
+  };
+}
+
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -32,14 +70,18 @@ export default function GamePage() {
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null>(null);
   const [drawOffered, setDrawOffered] = useState(false);
-  const [opponentDisconnected, setOpponentDisconnected] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
+  const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'disconnected');
+  const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
+  const lastInteractionAtRef = useRef(Date.now());
+  const lastHeartbeatAtRef = useRef(0);
+  const lastMeasuredLatencyRef = useRef<number | null>(null);
 
   // Arrow state
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -76,6 +118,7 @@ export default function GamePage() {
     connectSocket();
 
     const handleConnect = () => {
+      setConnectionState('connected');
       if (!joinedRef.current) {
         socket.emit('join_game', { gameId });
         joinedRef.current = true;
@@ -84,16 +127,19 @@ export default function GamePage() {
 
     const handleDisconnect = () => {
       joinedRef.current = false;
+      setConnectionState('reconnecting');
     };
 
     const handleJoined = ({ color, gameState: gs }: { color: PieceColor | null; gameState: ClientGameState }) => {
       setPlayerColor(color);
       setGameState(gs);
+      setConnectionState('connected');
       setError(null);
       if (gs.status === 'playing') playGameStartSound();
     };
 
     const handleGameState = (gs: ClientGameState) => {
+      setConnectionState('connected');
       setGameState(prev => {
         if (prev?.status === 'waiting' && gs.status === 'playing') {
           playGameStartSound();
@@ -103,6 +149,7 @@ export default function GamePage() {
     };
 
     const handleMoveMade = ({ move, gameState: gs }: { move: Move; gameState: ClientGameState }) => {
+      setConnectionState('connected');
       setGameState(gs);
       clearSelection();
       setArrows([]);
@@ -142,11 +189,36 @@ export default function GamePage() {
     };
 
     const handleOpponentDisconnected = () => {
-      setOpponentDisconnected(true);
+      setGameState((prev) => updateOpponentPresenceStatus(prev, 'disconnected'));
     };
 
     const handleOpponentReconnected = () => {
-      setOpponentDisconnected(false);
+      setGameState((prev) => updateOpponentPresenceStatus(prev, 'active'));
+    };
+
+    const handlePresenceUpdate = ({
+      gameId: presenceGameId,
+      whitePresence,
+      blackPresence,
+    }: {
+      gameId: string;
+      whitePresence: PlayerPresence;
+      blackPresence: PlayerPresence;
+    }) => {
+      if (presenceGameId !== gameId) return;
+      setGameState(prev => prev
+        ? {
+          ...prev,
+          whitePresence,
+          blackPresence,
+        }
+        : prev);
+    };
+
+    const handleHeartbeatAck = ({ sentAt }: { sentAt: number }) => {
+      const latency = Math.max(0, Math.round(Date.now() - sentAt));
+      lastMeasuredLatencyRef.current = latency;
+      setLocalLatencyMs(latency);
     };
 
     const handleRematchOffered = () => {
@@ -189,6 +261,8 @@ export default function GamePage() {
     socket.on('rematch_offered', handleRematchOffered);
     socket.on('opponent_disconnected', handleOpponentDisconnected);
     socket.on('opponent_reconnected', handleOpponentReconnected);
+    socket.on('presence_update', handlePresenceUpdate);
+    socket.on('heartbeat_ack', handleHeartbeatAck);
     socket.on('game_created', handleGameCreated);
     socket.on('error', handleError);
 
@@ -209,6 +283,8 @@ export default function GamePage() {
       socket.off('rematch_offered', handleRematchOffered);
       socket.off('opponent_disconnected', handleOpponentDisconnected);
       socket.off('opponent_reconnected', handleOpponentReconnected);
+      socket.off('presence_update', handlePresenceUpdate);
+      socket.off('heartbeat_ack', handleHeartbeatAck);
       socket.off('game_created', handleGameCreated);
       socket.off('error', handleError);
     };
@@ -222,6 +298,72 @@ export default function GamePage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!gameId || !playerColor) return;
+
+    const emitHeartbeat = (force = false) => {
+      if (!socket.connected) return;
+
+      const now = Date.now();
+      const isVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
+      const clientStatus = !isVisible
+        ? 'away'
+        : now - lastInteractionAtRef.current >= IDLE_THRESHOLD_MS
+          ? 'idle'
+          : 'active';
+
+      if (!force && now - lastHeartbeatAtRef.current < HEARTBEAT_BURST_GUARD_MS) {
+        return;
+      }
+
+      lastHeartbeatAtRef.current = now;
+      socket.emit('presence_heartbeat', {
+        gameId,
+        sentAt: now,
+        clientStatus,
+        latencyMs: lastMeasuredLatencyRef.current,
+      });
+    };
+
+    const handleInteraction = () => {
+      lastInteractionAtRef.current = Date.now();
+      emitHeartbeat(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        lastInteractionAtRef.current = Date.now();
+      }
+      emitHeartbeat(true);
+    };
+
+    const handleWindowFocus = () => {
+      lastInteractionAtRef.current = Date.now();
+      emitHeartbeat(true);
+    };
+
+    emitHeartbeat(true);
+
+    const heartbeatId = window.setInterval(() => {
+      emitHeartbeat();
+    }, HEARTBEAT_INTERVAL_MS);
+
+    window.addEventListener('pointerdown', handleInteraction, { passive: true });
+    window.addEventListener('keydown', handleInteraction);
+    window.addEventListener('touchstart', handleInteraction, { passive: true });
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(heartbeatId);
+      window.removeEventListener('pointerdown', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [gameId, playerColor]);
 
   // Auto-execute premove when it becomes our turn
   useEffect(() => {
@@ -493,12 +635,17 @@ export default function GamePage() {
   const opponentRating = opponentColor === 'white' ? whiteRating : blackRating;
   const playerSubtitle = t(playerColor === 'white' ? 'common.white' : 'common.black');
   const opponentSubtitle = t(opponentColor === 'white' ? 'common.white' : 'common.black');
-  const playerStatus = gameState.status === 'playing' && gameState.turn === playerColor ? 'active' : 'online';
-  const opponentStatus = opponentDisconnected
-    ? 'offline'
-    : gameState.status === 'playing' && gameState.turn === opponentColor
-      ? 'active'
-      : 'online';
+  const playerPresence = (playerColor === 'white' ? gameState.whitePresence : gameState.blackPresence) ?? DEFAULT_PRESENCE;
+  const opponentPresence = (opponentColor === 'white' ? gameState.whitePresence : gameState.blackPresence) ?? DEFAULT_PRESENCE;
+  const playerStatus = connectionState === 'reconnecting'
+    ? 'reconnecting'
+    : connectionState === 'disconnected'
+      ? 'disconnected'
+      : playerPresence.status;
+  const opponentStatus = opponentPresence.status;
+  const playerLatency = localLatencyMs ?? playerPresence.latencyMs;
+  const opponentLatency = opponentPresence.latencyMs;
+  const opponentDisconnected = opponentPresence.status === 'disconnected';
   const countingLabel = gameState.counting
     ? !gameState.counting.active
       ? t('game.counting_available', {
@@ -617,6 +764,7 @@ export default function GamePage() {
             playerName={opponentDisplayName}
             rating={opponentRating}
             status={opponentStatus}
+            latencyMs={opponentLatency}
             subtitle={opponentSubtitle}
             capturedPieces={opponentCaptureSummary.pieces}
             materialDelta={opponentCaptureSummary.material}
@@ -650,6 +798,7 @@ export default function GamePage() {
             playerName={myDisplayName}
             rating={playerRating}
             status={playerStatus}
+            latencyMs={playerLatency}
             subtitle={playerSubtitle}
             capturedPieces={playerCaptureSummary.pieces}
             materialDelta={playerCaptureSummary.material}

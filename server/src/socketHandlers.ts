@@ -49,6 +49,13 @@ function emitMoveToParticipants(io: IoLike, gameManager: GameManager, room: Game
   });
 }
 
+function emitPresenceToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom) {
+  const presence = gameManager.getPresenceSnapshot(room);
+  getParticipantSocketIds(room).forEach((participantSocketId) => {
+    io.to(participantSocketId).emit('presence_update', presence);
+  });
+}
+
 function emitGameOverToParticipants(
   io: IoLike,
   gameManager: GameManager,
@@ -74,6 +81,7 @@ export const SOCKET_RATE_LIMITS = {
   find_game_ip: { windowMs: 60 * 1000, max: 30 },
   make_move: { windowMs: 10 * 1000, max: 40 },
   control_action: { windowMs: 30 * 1000, max: 15 },
+  presence_heartbeat: { windowMs: 60 * 1000, max: 90 },
 } as const;
 
 interface SocketHandlerDeps {
@@ -322,6 +330,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
       socket.emit('game_joined', { color, gameState: deps.gameManager.getClientGameState(room, socket.id) });
       emitGameStateToParticipants(deps.io, deps.gameManager, room, socket.id);
+      emitPresenceToParticipants(deps.io, deps.gameManager, room);
 
       if (reconnected && room.status === 'playing') {
         const opponentId = color === 'white' ? room.black : room.white;
@@ -369,6 +378,37 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
       socket.join(payload.gameId);
       socket.emit('game_joined', { color: null, gameState: deps.gameManager.getClientGameState(room, socket.id) });
+    });
+
+    socket.on('presence_heartbeat', (payload) => {
+      if (!enforceSocketRateLimit(socket, 'presence_heartbeat', deps)) return;
+      if (!payload || !isValidGameId(payload.gameId) || typeof payload.sentAt !== 'number') {
+        deps.monitoring.increment('socket.invalidPayload');
+        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', 'Invalid heartbeat payload.');
+        return;
+      }
+
+      if (payload.clientStatus !== 'active' && payload.clientStatus !== 'idle' && payload.clientStatus !== 'away') {
+        deps.monitoring.increment('socket.invalidPayload');
+        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', 'Invalid heartbeat payload.');
+        return;
+      }
+
+      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
+      if (!gameId || gameId !== payload.gameId) {
+        return;
+      }
+
+      const room = deps.gameManager.updatePlayerPresence(gameId, socket.id, {
+        status: payload.clientStatus,
+        latencyMs: typeof payload.latencyMs === 'number' ? Math.max(0, Math.round(payload.latencyMs)) : null,
+        lastSeenAt: Date.now(),
+      });
+      socket.emit('heartbeat_ack', { sentAt: payload.sentAt });
+
+      if (room) {
+        emitPresenceToParticipants(deps.io, deps.gameManager, room);
+      }
     });
 
     socket.on('make_move', (payload) => {
@@ -564,6 +604,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         if (room) {
           const opponentId = result.color === 'white' ? room.black : room.white;
           if (opponentId) deps.io.to(opponentId).emit('opponent_disconnected');
+          emitPresenceToParticipants(deps.io, deps.gameManager, room);
         }
       }
     });
