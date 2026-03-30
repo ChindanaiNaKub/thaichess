@@ -7,12 +7,13 @@ import {
   createEmptySummary,
   evaluatePosition,
   findBestMove,
+  getMoveQualityWinPercents,
   getMoveWinPercents,
   moveAccuracyFromWinPercent,
   type AnalyzedMove,
   type GameAnalysis,
 } from '../../shared/analysis';
-import { getBotMove, type BotDifficulty } from '../../shared/botEngine';
+import { getBotLevelConfig, getBotMoveForLevel } from '../../shared/botEngine';
 import {
   moveToUci,
   serializeAnalysisPosition,
@@ -23,15 +24,21 @@ import {
   type PositionAnalysisResult,
   uciToMove,
 } from '../../shared/engineAdapter';
-import { logWarn } from './logger';
+import { logInfo, logWarn } from './logger';
 import { analyzeBotWithBinaryEngine, analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStockfishBinary';
 
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 
-const BOT_LEVEL_MOVETIMES_MS = [40, 60, 80, 110, 150, 200, 250, 300, 350, 400] as const;
+const BOT_LEVEL_MOVETIMES_MS = [50, 60, 70, 80, 95, 110, 130, 150, 170, 190] as const;
+const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 1450, 1550, 1650] as const;
 const REVIEW_MOVETIME_MS = 250;
-const REVIEW_MIN_MOVETIME_MS = 80;
-const REVIEW_TOTAL_TARGET_MS = 8000;
+const REVIEW_MIN_MOVETIME_MS = 60;
+const REVIEW_TOTAL_TARGET_MS = 12000;
+const REVIEW_TOTAL_BUDGET_MIN_MS = 18000;
+const REVIEW_TOTAL_BUDGET_MAX_MS = 40000;
+const REVIEW_ANALYSIS_MIN_TIMEOUT_MS = 1400;
+const REVIEW_ANALYSIS_TIMEOUT_BUFFER_MS = 900;
+const REVIEW_LOCAL_FALLBACK_DEADLINE_BUFFER_MS = 1800;
 
 function getServiceUrl(pathname: string): string | null {
   if (!SERVICE_URL) return null;
@@ -51,16 +58,44 @@ function getBotMovetime(level: number): number {
   return BOT_LEVEL_MOVETIMES_MS[clampBotLevel(level) - 1];
 }
 
+export function getBotRequestTimeoutMs(level: number): number {
+  return BOT_LEVEL_REQUEST_TIMEOUT_MS[clampBotLevel(level) - 1];
+}
+
 export function getReviewMovetime(moveCount: number, requestedMovetimeMs: number = REVIEW_MOVETIME_MS): number {
   const safeRequested = Math.max(REVIEW_MIN_MOVETIME_MS, Math.round(requestedMovetimeMs));
   const adaptive = Math.floor(REVIEW_TOTAL_TARGET_MS / Math.max(1, moveCount + 1));
   return Math.max(REVIEW_MIN_MOVETIME_MS, Math.min(safeRequested, adaptive));
 }
 
-function getFallbackDifficulty(level: number): BotDifficulty {
-  if (level <= 3) return 'easy';
-  if (level <= 7) return 'medium';
-  return 'hard';
+export function getReviewTotalBudgetMs(moveCount: number): number {
+  const adaptive = 6000 + Math.max(0, moveCount) * 180;
+  return Math.max(REVIEW_TOTAL_BUDGET_MIN_MS, Math.min(REVIEW_TOTAL_BUDGET_MAX_MS, adaptive));
+}
+
+function getReviewAnalysisTimeoutMs(search: EngineServiceAnalyzeRequest['search']): number {
+  if (search.depth || search.nodes) {
+    return 6000;
+  }
+
+  const movetime = Math.max(REVIEW_MIN_MOVETIME_MS, search.movetimeMs ?? REVIEW_MOVETIME_MS);
+  return Math.max(REVIEW_ANALYSIS_MIN_TIMEOUT_MS, movetime + REVIEW_ANALYSIS_TIMEOUT_BUFFER_MS);
+}
+
+function createReviewSearch(
+  requestedMovetimeMs: number,
+  remainingPositions: number,
+  remainingBudgetMs: number,
+): EngineServiceAnalyzeRequest['search'] {
+  const perPositionBudget = Math.floor(remainingBudgetMs / Math.max(1, remainingPositions));
+  const adaptiveMovetime = Math.floor(perPositionBudget * 0.5);
+
+  return {
+    movetimeMs: Math.max(
+      REVIEW_MIN_MOVETIME_MS,
+      Math.min(Math.max(REVIEW_MIN_MOVETIME_MS, requestedMovetimeMs), adaptiveMovetime),
+    ),
+  };
 }
 
 function getFallbackDepth(search: EngineServiceAnalyzeRequest['search']): number {
@@ -81,13 +116,22 @@ function createStateFromSnapshot(snapshot: AnalysisPositionSnapshot) {
   };
 }
 
+export function normalizeEngineEvaluation(evalCp: number, turn: AnalysisPositionSnapshot['turn']): number {
+  return turn === 'white' ? evalCp : -evalCp;
+}
+
 function buildLocalBotMoveResult(
   snapshot: AnalysisPositionSnapshot,
   level: number,
 ): BotMoveResult {
   const normalizedLevel = clampBotLevel(level);
+  const config = getBotLevelConfig(normalizedLevel);
   const state = createStateFromSnapshot(snapshot);
-  const move = getBotMove(state, getFallbackDifficulty(normalizedLevel));
+  const move = getBotMoveForLevel(state, normalizedLevel, {
+    maxDepth: config.maxDepth,
+    maxNodes: config.maxNodes,
+    maxMs: config.maxMs,
+  });
 
   return {
     move,
@@ -96,7 +140,7 @@ function buildLocalBotMoveResult(
     principalVariation: move ? [moveToUci(move)] : [],
     stats: {
       source: 'local',
-      depth: getFallbackDepth({ movetimeMs: getBotMovetime(normalizedLevel) }),
+      depth: config.maxDepth,
     },
   };
 }
@@ -125,14 +169,21 @@ export function resolveBotMoveCandidate(
 async function callService(
   pathname: string,
   request: EngineServiceAnalyzeRequest,
+  options?: { timeoutMs?: number },
 ): Promise<EngineServiceAnalyzeResponse | null> {
   const url = getServiceUrl(pathname);
   if (!url) return null;
+
+  const controller = options?.timeoutMs ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), Math.max(1, options?.timeoutMs ?? 0))
+    : null;
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller?.signal,
       body: JSON.stringify(request),
     });
 
@@ -143,11 +194,14 @@ async function callService(
 
     return await response.json() as EngineServiceAnalyzeResponse;
   } catch (error) {
-    logWarn('engine_service_unavailable', {
-      pathname,
-      message: error instanceof Error ? error.message : 'unknown error',
-    });
+    const message = error instanceof Error ? error.message : 'unknown error';
+    const event = controller?.signal.aborted ? 'engine_service_timeout' : 'engine_service_unavailable';
+    logWarn(event, { pathname, message, timeoutMs: options?.timeoutMs });
     return null;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -170,6 +224,75 @@ function buildLocalPositionAnalysis(
   };
 }
 
+function resolveValidatedAnalysisMove(
+  snapshot: AnalysisPositionSnapshot,
+  candidate: { from: { row: number; col: number }; to: { row: number; col: number } } | null,
+): { move: { from: { row: number; col: number }; to: { row: number; col: number } } | null; source: 'engine' | 'local' } {
+  if (candidate) {
+    const state = createStateFromSnapshot(snapshot);
+    if (makeMove(state, candidate.from, candidate.to)) {
+      return {
+        move: candidate,
+        source: 'engine',
+      };
+    }
+  }
+
+  return {
+    move: null,
+    source: 'local',
+  };
+}
+
+export function resolvePositionAnalysisResult(
+  snapshot: AnalysisPositionSnapshot,
+  search: EngineServiceAnalyzeRequest['search'],
+  result: EngineServiceAnalyzeResponse,
+  source: 'service' | 'binary',
+): PositionAnalysisResult {
+  const parsedMove = result.bestMoveUci ? uciToMove(result.bestMoveUci) : null;
+  const resolved = resolveValidatedAnalysisMove(snapshot, parsedMove);
+
+  if (resolved.source === 'local' && result.bestMoveUci) {
+    logWarn('engine_analysis_move_unusable', {
+      engineSource: source,
+      bestMoveUci: result.bestMoveUci,
+      reason: parsedMove ? 'illegal_move' : 'missing_or_unparseable_move',
+    });
+    return buildLocalPositionAnalysis(snapshot, search);
+  }
+
+  return {
+    evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
+    bestMove: resolved.move,
+    principalVariation: result.pvUci ?? [],
+    stats: {
+      source,
+      depth: result.depth,
+      selDepth: result.selDepth ?? undefined,
+      nodes: result.nodes ?? undefined,
+      nps: result.nps ?? undefined,
+    },
+  };
+}
+
+function getBestEvalForPosition(
+  state: ReturnType<typeof createStateFromSnapshot>,
+  bestMove: { from: { row: number; col: number }; to: { row: number; col: number } } | null,
+  fallbackEval: number,
+): number {
+  if (!bestMove) {
+    return fallbackEval;
+  }
+
+  const bestState = makeMove(state, bestMove.from, bestMove.to);
+  if (!bestState) {
+    return fallbackEval;
+  }
+
+  return evaluatePosition(bestState.board, 'white');
+}
+
 export async function analyzePositionWithEngine(
   snapshot: AnalysisPositionSnapshot,
   search: EngineServiceAnalyzeRequest['search'],
@@ -184,7 +307,7 @@ export async function analyzePositionWithEngine(
     multipv,
   };
 
-  const remote = await callService('/analyze', request);
+  const remote = await callService('/analyze', request, { timeoutMs: getReviewAnalysisTimeoutMs(search) });
   const binary = remote ? null : await analyzeWithBinaryEngine(request);
   const result = remote ?? binary;
 
@@ -192,18 +315,7 @@ export async function analyzePositionWithEngine(
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
-  return {
-    evaluation: result.evalCp,
-    bestMove: result.bestMoveUci ? uciToMove(result.bestMoveUci) : null,
-    principalVariation: result.pvUci ?? [],
-    stats: {
-      source: remote ? 'service' : 'binary',
-      depth: result.depth,
-      selDepth: result.selDepth ?? undefined,
-      nodes: result.nodes ?? undefined,
-      nps: result.nps ?? undefined,
-    },
-  };
+  return resolvePositionAnalysisResult(snapshot, search, result, remote ? 'service' : 'binary');
 }
 
 export async function analyzeGameWithEngine(
@@ -212,24 +324,50 @@ export async function analyzeGameWithEngine(
   onProgress?: (progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = getReviewMovetime(moves.length, options?.movetimeMs);
-  const fallbackDepth = options?.depth ?? getFallbackDepth({ movetimeMs });
 
   if (!hasExternalEngineSupport()) {
-    return analyzeGame(moves, fallbackDepth, onProgress);
+    return analyzeGame(moves, options?.depth ?? getFallbackDepth({ movetimeMs }), onProgress);
   }
 
   const evaluatedMoves: AnalyzedMove[] = [];
   const evaluations: number[] = [];
   const whiteSummary = createEmptySummary();
   const blackSummary = createEmptySummary();
+  const reviewStartedAt = Date.now();
+  const reviewDeadlineMs = reviewStartedAt + getReviewTotalBudgetMs(moves.length);
 
   let state = createInitialGameState(0, 0);
-  let currentAnalysis = await analyzePositionWithEngine({
+  let loggedBudgetFallback = false;
+  const analyzeReviewPosition = async (
+    snapshot: AnalysisPositionSnapshot,
+    remainingPositions: number,
+  ): Promise<PositionAnalysisResult> => {
+    const remainingBudgetMs = reviewDeadlineMs - Date.now();
+    if (remainingBudgetMs <= REVIEW_LOCAL_FALLBACK_DEADLINE_BUFFER_MS) {
+      if (!loggedBudgetFallback) {
+        loggedBudgetFallback = true;
+        logInfo('review_analysis_budget_exhausted', {
+          moveCount: moves.length,
+          elapsedMs: Date.now() - reviewStartedAt,
+          totalBudgetMs: getReviewTotalBudgetMs(moves.length),
+        });
+      }
+      return buildLocalPositionAnalysis(snapshot, { movetimeMs: REVIEW_MIN_MOVETIME_MS });
+    }
+
+    return analyzePositionWithEngine(
+      snapshot,
+      createReviewSearch(movetimeMs, remainingPositions, remainingBudgetMs),
+    );
+  };
+
+  let currentAnalysis = await analyzeReviewPosition({
     board: state.board,
     turn: state.turn,
     counting: state.counting,
-  }, { movetimeMs, nodes: 0 });
+  }, moves.length + 1);
   evaluations.push(currentAnalysis.evaluation);
+  let usedLocalFallback = currentAnalysis.stats.source === 'local';
 
   for (let moveIndex = 0; moveIndex < moves.length; moveIndex += 1) {
     const move = moves[moveIndex];
@@ -239,18 +377,21 @@ export async function analyzeGameWithEngine(
     const nextState = makeMove(state, move.from, move.to);
     if (!nextState) break;
 
-    currentAnalysis = await analyzePositionWithEngine({
+    currentAnalysis = await analyzeReviewPosition({
       board: nextState.board,
       turn: nextState.turn,
       counting: nextState.counting,
-    }, { movetimeMs, nodes: 0 });
+    }, moves.length - moveIndex);
     const after = currentAnalysis;
+    usedLocalFallback = usedLocalFallback || before.stats.source === 'local' || after.stats.source === 'local';
+
+    const bestEval = getBestEvalForPosition(state, before.bestMove, after.evaluation);
 
     evaluations.push(after.evaluation);
 
     const evalDelta = color === 'white'
-      ? before.evaluation - after.evaluation
-      : after.evaluation - before.evaluation;
+      ? bestEval - after.evaluation
+      : after.evaluation - bestEval;
 
     const isExactBestMove = !!before.bestMove
       && before.bestMove.from.row === move.from.row
@@ -259,7 +400,8 @@ export async function analyzeGameWithEngine(
       && before.bestMove.to.col === move.to.col;
 
     const { before: winPercentBefore, after: winPercentAfter } = getMoveWinPercents(before.evaluation, after.evaluation, color);
-    const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(winPercentBefore, winPercentAfter);
+    const { best: bestWinPercent, played: playedWinPercent } = getMoveQualityWinPercents(bestEval, after.evaluation, color);
+    const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(bestWinPercent, playedWinPercent);
     const classification = classifyMove(moveAccuracy, isExactBestMove);
 
     evaluatedMoves.push({
@@ -272,7 +414,7 @@ export async function analyzeGameWithEngine(
       winPercentAfter,
       moveAccuracy,
       bestMove: before.bestMove,
-      bestEval: before.evaluation,
+      bestEval,
       classification,
       color,
       principalVariation: before.principalVariation,
@@ -299,8 +441,10 @@ export async function analyzeGameWithEngine(
       black: blackSummary,
     },
     engine: {
-      label: remoteEngineLabel(),
+      label: usedLocalFallback ? `${remoteEngineLabel()} + local fallback` : remoteEngineLabel(),
       source: SERVICE_URL ? 'service' : 'binary',
+      confidence: usedLocalFallback ? 'provisional' : 'authoritative',
+      reason: usedLocalFallback ? 'local_fallback_used' : undefined,
     },
   };
 }
@@ -310,6 +454,7 @@ export async function getBotMoveWithEngine(
   level: number,
 ): Promise<BotMoveResult> {
   const normalizedLevel = clampBotLevel(level);
+  const startedAt = Date.now();
   const serialized = serializeAnalysisPosition(snapshot);
   const request: EngineServiceAnalyzeRequest = {
     variant: 'makruk',
@@ -321,8 +466,10 @@ export async function getBotMoveWithEngine(
     multipv: normalizedLevel <= 4 ? 2 : 1,
   };
 
-  const remote = await callService('/bot-move', request);
-  const binary = remote ? null : await analyzeBotWithBinaryEngine(request);
+  const remote = SERVICE_URL
+    ? await callService('/bot-move', request, { timeoutMs: getBotRequestTimeoutMs(normalizedLevel) })
+    : null;
+  const binary = remote || SERVICE_URL ? null : await analyzeBotWithBinaryEngine(request);
   const result = remote ?? binary;
 
   if (result) {
@@ -332,7 +479,7 @@ export async function getBotMoveWithEngine(
     if (resolved.source === 'engine') {
       return {
         move: resolved.move,
-        evaluation: result.evalCp,
+        evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
         bestMove: resolved.move,
         principalVariation: result.pvUci ?? [],
         stats: {
@@ -353,7 +500,13 @@ export async function getBotMoveWithEngine(
     });
   }
 
-  return buildLocalBotMoveResult(snapshot, normalizedLevel);
+  const fallback = buildLocalBotMoveResult(snapshot, normalizedLevel);
+  logInfo('bot_move_fallback_local', {
+    level: normalizedLevel,
+    elapsedMs: Date.now() - startedAt,
+    engineSourceTried: SERVICE_URL ? 'service' : hasBinaryEngineConfigured() ? 'binary' : 'none',
+  });
+  return fallback;
 }
 
 function remoteEngineLabel(): string {

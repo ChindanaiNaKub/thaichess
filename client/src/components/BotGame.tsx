@@ -24,7 +24,7 @@ import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
-const BOT_REQUEST_TIMEOUT_MS = 10000;
+const BOT_REQUEST_TIMEOUT_MS = 2500;
 const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
   const level = index + 1;
 

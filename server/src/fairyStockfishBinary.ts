@@ -308,15 +308,15 @@ export function getEngineSearchTimeoutMs(
   lane: EngineLane,
 ): number {
   if (request.search.depth || request.search.nodes) {
-    return lane === 'bot' ? 4000 : 15000;
+    return lane === 'bot' ? 1800 : 9000;
   }
 
   const movetimeMs = request.search.movetimeMs ?? 400;
   if (lane === 'bot') {
-    return Math.max(2000, movetimeMs + 1500);
+    return Math.max(900, movetimeMs + 450);
   }
 
-  return Math.max(5000, movetimeMs + 5000);
+  return Math.max(1800, movetimeMs + 1200);
 }
 
 const analysisBinaryEngine = new FairyStockfishBinaryEngine('analysis');

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialGameState } from '../../../shared/engine';
+import { moveToUci } from '../../../shared/engineAdapter';
 import { getEngineSearchTimeoutMs, normalizeEngineFen } from '../fairyStockfishBinary';
-import { getReviewMovetime, resolveBotMoveCandidate } from '../engineGateway';
+import {
+  getBotRequestTimeoutMs,
+  getReviewMovetime,
+  getReviewTotalBudgetMs,
+  normalizeEngineEvaluation,
+  resolveBotMoveCandidate,
+  resolvePositionAnalysisResult,
+} from '../engineGateway';
 
 describe('normalizeEngineFen', () => {
   it('expands compact board-and-turn positions into full engine fen', () => {
@@ -19,19 +27,32 @@ describe('normalizeEngineFen', () => {
       variant: 'makruk',
       position: '8/8/8/8/8/8/8/8 w',
       search: { movetimeMs: 400 },
-    }, 'bot')).toBe(2000);
+    }, 'bot')).toBe(900);
 
     expect(getEngineSearchTimeoutMs({
       variant: 'makruk',
       position: '8/8/8/8/8/8/8/8 w',
       search: { movetimeMs: 1200 },
-    }, 'analysis')).toBe(6200);
+    }, 'analysis')).toBe(2400);
+  });
+
+  it('keeps bot service request timeouts capped tightly by level', () => {
+    expect(getBotRequestTimeoutMs(1)).toBe(900);
+    expect(getBotRequestTimeoutMs(5)).toBe(1150);
+    expect(getBotRequestTimeoutMs(10)).toBe(1650);
   });
 
   it('scales review movetime down for long games while preserving short-game quality', () => {
     expect(getReviewMovetime(10, 250)).toBe(250);
-    expect(getReviewMovetime(77, 250)).toBe(102);
-    expect(getReviewMovetime(200, 250)).toBe(80);
+    expect(getReviewMovetime(77, 250)).toBe(153);
+    expect(getReviewMovetime(200, 250)).toBe(60);
+  });
+
+  it('caps the full-game review budget for long games', () => {
+    expect(getReviewTotalBudgetMs(10)).toBe(18000);
+    expect(getReviewTotalBudgetMs(45)).toBe(18000);
+    expect(getReviewTotalBudgetMs(82)).toBe(20760);
+    expect(getReviewTotalBudgetMs(200)).toBe(40000);
   });
 
   it('falls back to the local bot when an engine move is missing or illegal', () => {
@@ -54,5 +75,74 @@ describe('normalizeEngineFen', () => {
     const legal = resolveBotMoveCandidate(snapshot, 9, localMove);
     expect(legal.source).toBe('engine');
     expect(legal.move).toEqual(localMove);
+  });
+
+  it('falls back to local position analysis when an engine review move is illegal', () => {
+    const state = createInitialGameState(0, 0);
+    const snapshot = {
+      board: state.board,
+      turn: state.turn,
+      counting: state.counting,
+    };
+
+    const result = resolvePositionAnalysisResult(snapshot, { movetimeMs: 250 }, {
+      bestMoveUci: 'a1h8',
+      pvUci: ['a1h8'],
+      evalCp: 1780,
+      depth: 18,
+    }, 'binary');
+
+    expect(result.stats.source).toBe('local');
+    expect(result.bestMove).not.toBeNull();
+    expect(result.bestMove).not.toEqual({
+      from: { row: 0, col: 0 },
+      to: { row: 7, col: 7 },
+    });
+  });
+
+  it('keeps legal engine review moves intact', () => {
+    const state = createInitialGameState(0, 0);
+    const snapshot = {
+      board: state.board,
+      turn: state.turn,
+      counting: state.counting,
+    };
+    const legalMove = { from: { row: 0, col: 1 }, to: { row: 1, col: 3 } };
+
+    const result = resolvePositionAnalysisResult(snapshot, { movetimeMs: 250 }, {
+      bestMoveUci: moveToUci(legalMove),
+      pvUci: [moveToUci(legalMove)],
+      evalCp: 34,
+      depth: 16,
+    }, 'service');
+
+    expect(result.stats.source).toBe('service');
+    expect(result.bestMove).toEqual(legalMove);
+  });
+
+  it('normalizes engine evaluations to white perspective', () => {
+    expect(normalizeEngineEvaluation(120, 'white')).toBe(120);
+    expect(normalizeEngineEvaluation(120, 'black')).toBe(-120);
+    expect(normalizeEngineEvaluation(-340, 'black')).toBe(340);
+  });
+
+  it('flips engine review scores when black is to move', () => {
+    const state = createInitialGameState(0, 0);
+    const snapshot = {
+      board: state.board,
+      turn: 'black' as const,
+      counting: state.counting,
+    };
+    const legalMove = { from: { row: 5, col: 0 }, to: { row: 4, col: 0 } };
+
+    const result = resolvePositionAnalysisResult(snapshot, { movetimeMs: 250 }, {
+      bestMoveUci: moveToUci(legalMove),
+      pvUci: [moveToUci(legalMove)],
+      evalCp: 280,
+      depth: 14,
+    }, 'binary');
+
+    expect(result.evaluation).toBe(-280);
+    expect(result.bestMove).toEqual(legalMove);
   });
 });

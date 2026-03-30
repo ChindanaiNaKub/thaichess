@@ -5,6 +5,7 @@ import {
   centipawnToWinPercent,
   classifyMove,
   computeAccuracy,
+  getMoveQualityWinPercents,
   moveAccuracyFromWinPercent,
   type AnalyzedMove,
 } from '@shared/analysis';
@@ -51,6 +52,14 @@ describe('analysis accuracy model', () => {
     expect(moveAccuracyFromWinPercent(90, 20)).toBeLessThan(5);
   });
 
+  it('scores move quality against the best continuation, not the current position', () => {
+    const { best, played } = getMoveQualityWinPercents(320, -280, 'white');
+    const moveAccuracy = moveAccuracyFromWinPercent(best, played);
+
+    expect(best).toBeGreaterThan(played);
+    expect(moveAccuracy).toBeLessThan(20);
+  });
+
   it('classifies moves from accuracy bands', () => {
     expect(classifyMove(100, true)).toBe('best');
     expect(classifyMove(100, false)).toBe('excellent');
@@ -88,5 +97,6 @@ describe('analysis accuracy model', () => {
     expect(analysis.moves[0].winPercentBefore).toBeGreaterThanOrEqual(0);
     expect(analysis.moves[0].winPercentAfter).toBeLessThanOrEqual(100);
     expect(analysis.whiteAccuracy).not.toBe(97);
+    expect(analysis.engine?.confidence).toBe('provisional');
   });
 });

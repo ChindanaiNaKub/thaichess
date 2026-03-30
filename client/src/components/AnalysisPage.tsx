@@ -51,6 +51,8 @@ export default function AnalysisPage() {
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
+  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
+  const [analysisElapsedMs, setAnalysisElapsedMs] = useState(0);
   const [viewMoveIndex, setViewMoveIndex] = useState<number>(-1);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -74,6 +76,8 @@ export default function AnalysisPage() {
     setAnalysis(null);
     setAnalyzing(false);
     setProgress(null);
+    setAnalysisStartedAt(null);
+    setAnalysisElapsedMs(0);
     setViewMoveIndex(-1);
     setError(null);
     setLoading(true);
@@ -169,10 +173,13 @@ export default function AnalysisPage() {
 
     setAnalyzing(true);
     setProgress(null);
+    setAnalysisStartedAt(Date.now());
+    setAnalysisElapsedMs(0);
     const cached = readCachedAnalysis(cacheKey);
     if (cached) {
       setAnalysis(cached);
       setAnalyzing(false);
+      setAnalysisStartedAt(null);
       setViewMoveIndex(0);
       return;
     }
@@ -193,6 +200,7 @@ export default function AnalysisPage() {
         setAnalysis(message.analysis);
         setAnalyzing(false);
         setProgress(null);
+        setAnalysisStartedAt(null);
         setViewMoveIndex(0);
         worker.terminate();
         if (workerRef.current === worker) workerRef.current = null;
@@ -202,6 +210,7 @@ export default function AnalysisPage() {
       setError(message.message || 'Analysis failed');
       setAnalyzing(false);
       setProgress(null);
+      setAnalysisStartedAt(null);
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
@@ -213,6 +222,22 @@ export default function AnalysisPage() {
       if (workerRef.current === worker) workerRef.current = null;
     };
   }, [analysis, gameData, mode]);
+
+  useEffect(() => {
+    if (!analyzing || analysisStartedAt === null) {
+      setAnalysisElapsedMs(0);
+      return;
+    }
+
+    setAnalysisElapsedMs(Date.now() - analysisStartedAt);
+    const timer = window.setInterval(() => {
+      setAnalysisElapsedMs(Date.now() - analysisStartedAt);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [analysisStartedAt, analyzing]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -447,6 +472,10 @@ export default function AnalysisPage() {
     if (evalIdx < 0 || evalIdx >= analysis.evaluations.length) return 0;
     return analysis.evaluations[evalIdx];
   }, [analysis, viewMoveIndex]);
+
+  const analysisElapsedSeconds = Math.max(1, Math.floor(analysisElapsedMs / 1000));
+  const showSlowAnalysisHint = analyzing && analysisElapsedSeconds >= 15;
+  const reviewIsProvisional = analysis?.engine?.confidence === 'provisional';
 
   const handleMoveClick = useCallback((index: number) => {
     setViewMoveIndex(index);
@@ -792,12 +821,30 @@ export default function AnalysisPage() {
                     <div className="text-xs text-text mt-1">
                       {t('analysis.progress', { current: progress.current, total: progress.total })}
                     </div>
+                    <div className="text-xs text-text-dim mt-1">
+                      {t('analysis.elapsed', { seconds: analysisElapsedSeconds })}
+                    </div>
+                    {showSlowAnalysisHint && (
+                      <div className="text-xs text-text-dim mt-2">
+                        {t('analysis.slow_hint')}
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <div className="space-y-2" aria-hidden="true">
-                    <div className="h-2 rounded-full bg-surface-hover animate-pulse" />
-                    <div className="h-2 w-2/3 rounded-full bg-surface-hover animate-pulse" />
-                  </div>
+                  <>
+                    <div className="space-y-2" aria-hidden="true">
+                      <div className="h-2 rounded-full bg-surface-hover animate-pulse" />
+                      <div className="h-2 w-2/3 rounded-full bg-surface-hover animate-pulse" />
+                    </div>
+                    <div className="text-xs text-text-dim mt-2">
+                      {t('analysis.elapsed', { seconds: analysisElapsedSeconds })}
+                    </div>
+                    {showSlowAnalysisHint && (
+                      <div className="text-xs text-text-dim mt-2">
+                        {t('analysis.slow_hint')}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -806,6 +853,22 @@ export default function AnalysisPage() {
             {analysis && (
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <h3 className="text-sm font-semibold text-text-bright mb-3">{t('analysis.accuracy')}</h3>
+                {analysis.engine && (
+                  <div className={`mb-3 rounded-lg border px-3 py-2 text-xs leading-relaxed ${
+                    reviewIsProvisional
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+                      : 'border-white/10 bg-surface-alt text-text'
+                  }`}>
+                    <div className="font-medium text-text-bright">
+                      {reviewIsProvisional ? t('analysis.provisional_title') : t('analysis.engine_title')}
+                    </div>
+                    <div className="mt-1">
+                      {reviewIsProvisional
+                        ? t('analysis.provisional_note', { engine: analysis.engine.label })
+                        : t('analysis.engine_note', { engine: analysis.engine.label })}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <AccuracyCard color="white" accuracy={analysis.whiteAccuracy} summary={analysis.summary.white} t={t} />
                   <AccuracyCard color="black" accuracy={analysis.blackAccuracy} summary={analysis.summary.black} t={t} />
@@ -1228,7 +1291,7 @@ function getClassificationTheme(classification: MoveClassification): {
   }
 }
 
-const ANALYSIS_CACHE_VERSION = 4;
+const ANALYSIS_CACHE_VERSION = 7;
 
 function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
   return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${movetimeMs}:${gameData.moves.length}`;

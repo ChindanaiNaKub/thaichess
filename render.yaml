@@ -12,7 +12,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "22"
+        value: "22.22.0"
       - key: SITE_URL
         value: https://thaichess.dev
       - key: INSTALL_FAIRY_STOCKFISH

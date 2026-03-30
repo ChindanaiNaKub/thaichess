@@ -1,6 +1,6 @@
 import type { GameState } from '@shared/types';
 import { createInitialGameState } from '@shared/engine';
-import { getBotMove, type BotDifficulty } from '@shared/botEngine';
+import { getBotMoveForLevel } from '@shared/botEngine';
 
 interface BotMoveMessage {
   type: 'bot-move';
@@ -20,12 +20,6 @@ interface BotMoveErrorMessage {
 
 type WorkerResponse = BotMoveResultMessage | BotMoveErrorMessage;
 
-function getDifficulty(level: number): BotDifficulty {
-  if (level <= 3) return 'easy';
-  if (level <= 7) return 'medium';
-  return 'hard';
-}
-
 self.onmessage = (event: MessageEvent<BotMoveMessage>) => {
   if (event.data.type !== 'bot-move') return;
 
@@ -38,7 +32,7 @@ self.onmessage = (event: MessageEvent<BotMoveMessage>) => {
       counting: event.data.state.counting ? { ...event.data.state.counting } : null,
     };
 
-    const move = getBotMove(state, getDifficulty(event.data.level));
+    const move = getBotMoveForLevel(state, event.data.level);
     const response: BotMoveResultMessage = { type: 'result', move };
     self.postMessage(response);
   } catch (error) {

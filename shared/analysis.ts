@@ -36,6 +36,8 @@ export interface GameAnalysis {
   engine?: {
     label: string;
     source: EngineStats['source'];
+    confidence: 'authoritative' | 'provisional';
+    reason?: 'local_only' | 'local_fallback_used';
   };
 }
 
@@ -310,6 +312,18 @@ export function getMoveWinPercents(
   };
 }
 
+export function getMoveQualityWinPercents(
+  bestEval: number,
+  playedEval: number,
+  color: PieceColor,
+): { best: number; played: number } {
+  const perspective = color === 'white' ? 1 : -1;
+  return {
+    best: centipawnToWinPercent(bestEval * perspective),
+    played: centipawnToWinPercent(playedEval * perspective),
+  };
+}
+
 export function classifyMove(moveAccuracy: number, isExactBestMove: boolean): MoveClassification {
   if (isExactBestMove) return 'best';
   if (moveAccuracy >= 98) return 'excellent';
@@ -489,7 +503,8 @@ export function analyzeGame(
       && best.move.to.col === move.to.col;
 
     const { before: winPercentBefore, after: winPercentAfter } = getMoveWinPercents(evalBefore, evalAfter, color);
-    const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(winPercentBefore, winPercentAfter);
+    const { best: bestWinPercent, played: playedWinPercent } = getMoveQualityWinPercents(bestEvalNormalized, evalAfter, color);
+    const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(bestWinPercent, playedWinPercent);
     const classification = classifyMove(moveAccuracy, isExactBestMove);
 
     analyzedMoves.push({
@@ -527,6 +542,8 @@ export function analyzeGame(
     engine: {
       label: 'Local analysis',
       source: 'local',
+      confidence: 'provisional',
+      reason: 'local_only',
     },
   };
 }

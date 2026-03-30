@@ -53,6 +53,8 @@ npm run dev
 
 If neither engine mode is configured, the app falls back to the built-in local evaluator and bot.
 
+Live bot games now prioritize consistent response time over maximum search time. All bot levels are tuned to answer quickly, and if the external engine does not respond within the live-play budget the server falls back to the built-in local bot instead of letting the move stall.
+
 ### Render deployment
 
 The checked-in `render.yaml` can also install the Makruk Fairy-Stockfish binary at build time for Render deployments.

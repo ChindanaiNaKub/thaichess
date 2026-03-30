@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -109,6 +109,7 @@ function renderBotGame() {
 
 describe('BotGame', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     navigateMock.mockReset();
     boardPropsMock.mockReset();
     clockPropsMock.mockReset();
@@ -131,6 +132,7 @@ describe('BotGame', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -159,6 +161,28 @@ describe('BotGame', () => {
       const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
       expect(lastBoardProps?.isMyTurn).toBe(true);
     }, { timeout: 2000 });
+
+    expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts a stalled bot request and falls back locally without waiting for a long server timeout', async () => {
+    vi.useFakeTimers();
+
+    requestBotMoveMock.mockImplementation((_state: unknown, _level: unknown, options?: { signal?: AbortSignal }) => (
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      })
+    ));
+
+    renderBotGame();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.black' }));
+    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
     expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
