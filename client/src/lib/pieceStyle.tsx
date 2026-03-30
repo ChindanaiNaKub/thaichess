@@ -65,9 +65,35 @@ function getInitialPieceTheme(): PieceThemeId {
   return normalizeLegacyPieceTheme(window.localStorage.getItem(LEGACY_PIECE_STORAGE_KEY));
 }
 
+function normalizeLegacyBoardTheme(saved: string | null): BoardThemeId {
+  switch (saved) {
+    case 'classic-wood':
+      return 'classic-wood';
+    case 'rosewood':
+      return 'dark-wood';
+    case 'jade-grove':
+      return 'jade';
+    case 'riverstone':
+    case 'midnight-blue':
+    case 'monsoon':
+      return 'slate';
+    case 'silk-orchid':
+      return 'ivory';
+    case 'sandstone':
+      return 'classic-wood';
+    case 'dark-wood':
+    case 'jade':
+    case 'ivory':
+    case 'slate':
+      return saved;
+    default:
+      return DEFAULT_BOARD_THEME_ID;
+  }
+}
+
 function getInitialBoardTheme(): BoardThemeId {
   if (typeof window === 'undefined') return DEFAULT_BOARD_THEME_ID;
-  return getBoardThemeById(window.localStorage.getItem(BOARD_STORAGE_KEY)).id;
+  return getBoardThemeById(normalizeLegacyBoardTheme(window.localStorage.getItem(BOARD_STORAGE_KEY))).id;
 }
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {

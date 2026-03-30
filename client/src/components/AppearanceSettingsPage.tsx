@@ -3,10 +3,11 @@ import Header from './Header';
 import PieceSVG from './PieceSVG';
 import { useBoardAppearance } from '../lib/pieceStyle';
 import { useTranslation } from '../lib/i18n';
-import type { BoardThemeConfig } from '../themes/boards';
+import type { BoardThemeCategory, BoardThemeConfig } from '../themes/boards';
 import type { PieceThemeId } from '../themes/pieces';
 
 type SettingsTab = 'boards' | 'colors';
+type PreviewVariant = 'makruk' | 'legacy';
 
 const PREVIEW_PIECES = [
   { row: 0, col: 0, type: 'S', color: 'black' },
@@ -17,46 +18,143 @@ const PREVIEW_PIECES = [
   { row: 2, col: 3, type: 'R', color: 'white' },
 ] as const;
 
+const CATEGORY_ORDER: BoardThemeCategory[] = ['classic', 'soft', 'dark', 'elegant'];
+const PREVIEW_SELECTED = { row: 1, col: 2 };
+const PREVIEW_LAST_MOVE = [
+  { row: 0, col: 2 },
+  { row: 1, col: 1 },
+];
+const PREVIEW_HOVER = { row: 1, col: 0 };
+const PREVIEW_LEGAL_DOTS = [
+  { row: 3, col: 0 },
+  { row: 3, col: 1 },
+];
+const PREVIEW_CAPTURE = { row: 3, col: 2 };
+
+function isSameSquare(a: { row: number; col: number }, b: { row: number; col: number }) {
+  return a.row === b.row && a.col === b.col;
+}
+
 function PreviewBoard({
   boardTheme,
   pieceThemeId,
   size = 'large',
+  variant = 'makruk',
 }: {
   boardTheme: BoardThemeConfig;
   pieceThemeId: PieceThemeId;
   size?: 'small' | 'large';
+  variant?: PreviewVariant;
 }) {
   const squareClass = size === 'small' ? 'h-6 w-6 sm:h-7 sm:w-7' : 'h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]';
   const pieceClass = size === 'small' ? 'h-5 w-5 sm:h-6 sm:w-6' : 'h-12 w-12 sm:h-14 sm:w-14';
+  const frameClass = size === 'small' ? 'rounded-xl p-1' : 'rounded-2xl p-2';
+  const innerClass = size === 'small' ? 'rounded-[0.9rem]' : 'rounded-[1.15rem]';
 
   return (
     <div
-      className={`grid grid-cols-4 overflow-hidden rounded-2xl border border-surface-hover/70 bg-surface/30 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition-all duration-200 ${size === 'small' ? 'w-fit rounded-xl' : 'w-fit'}`}
+      className={`w-fit border border-surface-hover/70 bg-surface/20 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition-all duration-200 ${frameClass}`}
       style={{ background: boardTheme.frameBackground }}
     >
-      {Array.from({ length: 16 }, (_, index) => {
-        const row = Math.floor(index / 4);
-        const col = index % 4;
-        const isLight = (row + col) % 2 === 0;
-        const piece = PREVIEW_PIECES.find((entry) => entry.row === row && entry.col === col);
+      <div className={`grid grid-cols-4 overflow-hidden ${innerClass}`} style={{ background: boardTheme.surfaceBackground }}>
+        {Array.from({ length: 16 }, (_, index) => {
+          const row = Math.floor(index / 4);
+          const col = index % 4;
+          const square = { row, col };
+          const isLight = (row + col) % 2 === 0;
+          const piece = PREVIEW_PIECES.find((entry) => entry.row === row && entry.col === col);
+          const isSelected = isSameSquare(PREVIEW_SELECTED, square);
+          const isHovered = isSameSquare(PREVIEW_HOVER, square);
+          const isLastMove = PREVIEW_LAST_MOVE.some((entry) => isSameSquare(entry, square));
+          const hasLegalDot = PREVIEW_LEGAL_DOTS.some((entry) => isSameSquare(entry, square));
+          const hasLegalCapture = isSameSquare(PREVIEW_CAPTURE, square);
 
-        return (
-          <div
-            key={index}
-            className={`relative flex items-center justify-center ${squareClass} transition-all duration-200`}
-            style={{ background: isLight ? boardTheme.lightBackground : boardTheme.darkBackground }}
-          >
-            {piece && (
-              <PieceSVG
-                type={piece.type}
-                color={piece.color}
-                pieceThemeId={pieceThemeId}
-                className={pieceClass}
-              />
-            )}
-          </div>
-        );
-      })}
+          let background = variant === 'legacy'
+            ? (isLight ? boardTheme.legacyPreviewLight : boardTheme.legacyPreviewDark)
+            : 'transparent';
+          let boxShadow = `inset 0 0 0 1px ${boardTheme.gridColor}`;
+
+          if (variant === 'makruk') {
+            if (isSelected) {
+              background = boardTheme.selectedBackground;
+              boxShadow = `inset 0 0 0 1px ${boardTheme.gridColor}, inset 0 0 0 2px ${boardTheme.selectedRing}`;
+            } else if (isLastMove) {
+              background = boardTheme.lastMoveBackground;
+            } else if (isHovered) {
+              background = boardTheme.hoverBackground;
+            }
+          }
+
+          return (
+            <div
+              key={index}
+              className={`relative flex items-center justify-center ${squareClass} transition-all duration-200`}
+              style={{ background, boxShadow }}
+            >
+              {variant === 'makruk' && hasLegalDot && (
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    width: '28%',
+                    height: '28%',
+                    backgroundColor: boardTheme.legalDot,
+                  }}
+                />
+              )}
+              {variant === 'makruk' && hasLegalCapture && (
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    inset: '14%',
+                    border: `3px solid ${boardTheme.legalCapture}`,
+                  }}
+                />
+              )}
+              {piece && (
+                <PieceSVG
+                  type={piece.type}
+                  color={piece.color}
+                  pieceThemeId={pieceThemeId}
+                  className={pieceClass}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ThemeComparisonPreview({
+  boardTheme,
+  pieceThemeId,
+  beforeLabel,
+  afterLabel,
+}: {
+  boardTheme: BoardThemeConfig;
+  pieceThemeId: PieceThemeId;
+  beforeLabel: string;
+  afterLabel: string;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="rounded-2xl border border-surface-hover bg-surface px-3 py-3">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+          {beforeLabel}
+        </div>
+        <div className="flex justify-center">
+          <PreviewBoard boardTheme={boardTheme} pieceThemeId={pieceThemeId} size="small" variant="legacy" />
+        </div>
+      </div>
+      <div className="rounded-2xl border border-surface-hover bg-surface px-3 py-3">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+          {afterLabel}
+        </div>
+        <div className="flex justify-center">
+          <PreviewBoard boardTheme={boardTheme} pieceThemeId={pieceThemeId} size="small" variant="makruk" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -84,6 +182,12 @@ export default function AppearanceSettingsPage() {
 
   const previewPieceThemeId = hoveredPieceThemeId ?? pieceThemeId;
   const previewPieceTheme = pieceThemes.find((theme) => theme.id === previewPieceThemeId) ?? pieceTheme;
+  const groupedBoardThemes = useMemo(() => {
+    return CATEGORY_ORDER.map((category) => ({
+      category,
+      themes: boardThemes.filter((theme) => theme.category === category),
+    })).filter((group) => group.themes.length > 0);
+  }, [boardThemes]);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -119,38 +223,57 @@ export default function AppearanceSettingsPage() {
             </div>
 
             {activeTab === 'boards' ? (
-              <div
-                className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-                onMouseLeave={() => setHoveredBoardThemeId(null)}
-              >
-                {boardThemes.map((theme) => {
-                  const isActive = theme.id === boardThemeId;
+              <div className="mt-5 space-y-5" onMouseLeave={() => setHoveredBoardThemeId(null)}>
+                {groupedBoardThemes.map((group) => (
+                  <section key={group.category}>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-dim">
+                        {t(`appearance.category_${group.category}`)}
+                      </h3>
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-text-dim">
+                        {t('appearance.readability_checked')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {group.themes.map((theme) => {
+                        const isActive = theme.id === boardThemeId;
 
-                  return (
-                    <button
-                      key={theme.id}
-                      onClick={() => setBoardThemeId(theme.id)}
-                      onMouseEnter={() => setHoveredBoardThemeId(theme.id)}
-                      className={`group rounded-2xl border p-3 text-left transition-all duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
-                    >
-                      <div className="mb-3 grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 shadow-inner">
-                        <div className="aspect-square" style={{ background: theme.lightBackground }} />
-                        <div className="aspect-square" style={{ background: theme.darkBackground }} />
-                        <div className="aspect-square" style={{ background: theme.darkBackground }} />
-                        <div className="aspect-square" style={{ background: theme.lightBackground }} />
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-text-bright">{theme.label}</div>
-                          <div className="mt-1 text-xs text-text-dim">{theme.description}</div>
-                        </div>
-                        <span className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold ${isActive ? 'border-primary bg-primary text-white' : 'border-surface-hover bg-surface text-text-dim group-hover:border-primary/40'}`}>
-                          {isActive ? '✓' : ''}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
+                        return (
+                          <button
+                            key={theme.id}
+                            onClick={() => setBoardThemeId(theme.id)}
+                            onMouseEnter={() => setHoveredBoardThemeId(theme.id)}
+                            className={`group rounded-2xl border p-3 text-left transition-all duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
+                          >
+                            <div className="mb-3 flex justify-center">
+                              <PreviewBoard boardTheme={theme} pieceThemeId={previewPieceThemeId} size="small" />
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold text-text-bright">{theme.label}</div>
+                                <div className="mt-1 text-xs text-text-dim">{theme.description}</div>
+                                <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-text-dim">
+                                  <span className="rounded-full border border-surface-hover bg-surface-alt/80 px-2 py-1">
+                                    {t(`appearance.category_${theme.category}`)}
+                                  </span>
+                                  <span className="rounded-full border border-surface-hover bg-surface-alt/80 px-2 py-1">
+                                    {t('appearance.single_surface_label')}
+                                  </span>
+                                  <span className="rounded-full border border-surface-hover bg-surface-alt/80 px-2 py-1">
+                                    {t('appearance.grid_contrast')}: {theme.validation.gridContrast.toFixed(2)}:1
+                                  </span>
+                                </div>
+                              </div>
+                              <span className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold ${isActive ? 'border-primary bg-primary text-white' : 'border-surface-hover bg-surface text-text-dim group-hover:border-primary/40'}`}>
+                                {isActive ? '✓' : ''}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
               </div>
             ) : (
               <div
@@ -214,6 +337,31 @@ export default function AppearanceSettingsPage() {
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-text-dim">{t('appearance.preview_board')}</div>
                 <div className="mt-1 text-sm font-semibold text-text-bright">{previewBoardTheme.label}</div>
                 <div className="mt-1 text-xs text-text-dim">{previewBoardTheme.description}</div>
+                <div className="mt-3 grid gap-2 text-xs text-text-dim sm:grid-cols-2">
+                  <div className="rounded-xl border border-surface-hover bg-surface-alt/80 px-3 py-2">
+                    <span className="font-semibold text-text-bright">{t('appearance.grid_contrast')}</span>: {previewBoardTheme.validation.gridContrast.toFixed(2)}:1
+                  </div>
+                  <div className="rounded-xl border border-surface-hover bg-surface-alt/80 px-3 py-2">
+                    <span className="font-semibold text-text-bright">{t('appearance.piece_contrast')}</span>: {previewBoardTheme.validation.weakestPieceContrast.toFixed(2)}:1
+                  </div>
+                </div>
+                <div className="mt-2 rounded-xl border border-surface-hover bg-surface-alt/80 px-3 py-2 text-xs text-text-dim">
+                  <span className="font-semibold text-text-bright">{t('appearance.single_surface_label')}</span>
+                  {' '}
+                  {t('appearance.single_surface_desc')}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-surface-hover bg-surface px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-text-dim">{t('appearance.comparison_title')}</div>
+                <p className="mt-1 text-xs text-text-dim">{t('appearance.comparison_desc')}</p>
+                <div className="mt-3">
+                  <ThemeComparisonPreview
+                    boardTheme={previewBoardTheme}
+                    pieceThemeId={previewPieceThemeId}
+                    beforeLabel={t('appearance.comparison_before')}
+                    afterLabel={t('appearance.comparison_after')}
+                  />
+                </div>
               </div>
               <div className="rounded-2xl border border-surface-hover bg-surface px-4 py-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-text-dim">{t('appearance.preview_piece_theme')}</div>
