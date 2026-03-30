@@ -184,6 +184,75 @@ function buildLocalPositionAnalysis(
   };
 }
 
+function resolveValidatedAnalysisMove(
+  snapshot: AnalysisPositionSnapshot,
+  candidate: { from: { row: number; col: number }; to: { row: number; col: number } } | null,
+): { move: { from: { row: number; col: number }; to: { row: number; col: number } } | null; source: 'engine' | 'local' } {
+  if (candidate) {
+    const state = createStateFromSnapshot(snapshot);
+    if (makeMove(state, candidate.from, candidate.to)) {
+      return {
+        move: candidate,
+        source: 'engine',
+      };
+    }
+  }
+
+  return {
+    move: null,
+    source: 'local',
+  };
+}
+
+export function resolvePositionAnalysisResult(
+  snapshot: AnalysisPositionSnapshot,
+  search: EngineServiceAnalyzeRequest['search'],
+  result: EngineServiceAnalyzeResponse,
+  source: 'service' | 'binary',
+): PositionAnalysisResult {
+  const parsedMove = result.bestMoveUci ? uciToMove(result.bestMoveUci) : null;
+  const resolved = resolveValidatedAnalysisMove(snapshot, parsedMove);
+
+  if (resolved.source === 'local' && result.bestMoveUci) {
+    logWarn('engine_analysis_move_unusable', {
+      engineSource: source,
+      bestMoveUci: result.bestMoveUci,
+      reason: parsedMove ? 'illegal_move' : 'missing_or_unparseable_move',
+    });
+    return buildLocalPositionAnalysis(snapshot, search);
+  }
+
+  return {
+    evaluation: result.evalCp,
+    bestMove: resolved.move,
+    principalVariation: result.pvUci ?? [],
+    stats: {
+      source,
+      depth: result.depth,
+      selDepth: result.selDepth ?? undefined,
+      nodes: result.nodes ?? undefined,
+      nps: result.nps ?? undefined,
+    },
+  };
+}
+
+function getBestEvalForPosition(
+  state: ReturnType<typeof createStateFromSnapshot>,
+  bestMove: { from: { row: number; col: number }; to: { row: number; col: number } } | null,
+  fallbackEval: number,
+): number {
+  if (!bestMove) {
+    return fallbackEval;
+  }
+
+  const bestState = makeMove(state, bestMove.from, bestMove.to);
+  if (!bestState) {
+    return fallbackEval;
+  }
+
+  return evaluatePosition(bestState.board, 'white');
+}
+
 export async function analyzePositionWithEngine(
   snapshot: AnalysisPositionSnapshot,
   search: EngineServiceAnalyzeRequest['search'],
@@ -206,18 +275,7 @@ export async function analyzePositionWithEngine(
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
-  return {
-    evaluation: result.evalCp,
-    bestMove: result.bestMoveUci ? uciToMove(result.bestMoveUci) : null,
-    principalVariation: result.pvUci ?? [],
-    stats: {
-      source: remote ? 'service' : 'binary',
-      depth: result.depth,
-      selDepth: result.selDepth ?? undefined,
-      nodes: result.nodes ?? undefined,
-      nps: result.nps ?? undefined,
-    },
-  };
+  return resolvePositionAnalysisResult(snapshot, search, result, remote ? 'service' : 'binary');
 }
 
 export async function analyzeGameWithEngine(
@@ -243,6 +301,11 @@ export async function analyzeGameWithEngine(
     turn: state.turn,
     counting: state.counting,
   }, { movetimeMs, nodes: 0 });
+
+  if (currentAnalysis.stats.source === 'local') {
+    return analyzeGame(moves, fallbackDepth, onProgress);
+  }
+
   evaluations.push(currentAnalysis.evaluation);
 
   for (let moveIndex = 0; moveIndex < moves.length; moveIndex += 1) {
@@ -260,11 +323,17 @@ export async function analyzeGameWithEngine(
     }, { movetimeMs, nodes: 0 });
     const after = currentAnalysis;
 
+    if (before.stats.source === 'local' || after.stats.source === 'local') {
+      return analyzeGame(moves, fallbackDepth, onProgress);
+    }
+
+    const bestEval = getBestEvalForPosition(state, before.bestMove, after.evaluation);
+
     evaluations.push(after.evaluation);
 
     const evalDelta = color === 'white'
-      ? before.evaluation - after.evaluation
-      : after.evaluation - before.evaluation;
+      ? bestEval - after.evaluation
+      : after.evaluation - bestEval;
 
     const isExactBestMove = !!before.bestMove
       && before.bestMove.from.row === move.from.row
@@ -286,7 +355,7 @@ export async function analyzeGameWithEngine(
       winPercentAfter,
       moveAccuracy,
       bestMove: before.bestMove,
-      bestEval: before.evaluation,
+      bestEval,
       classification,
       color,
       principalVariation: before.principalVariation,
