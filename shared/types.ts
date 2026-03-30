@@ -1,6 +1,7 @@
 export type PieceColor = 'white' | 'black';
 export type PrivateGameColorPreference = PieceColor | 'random';
 export type GameMode = 'quick_play' | 'private' | 'bot' | 'local';
+export type PlayerPresenceStatus = 'active' | 'idle' | 'away' | 'disconnected';
 export type ResultReason =
   | 'checkmate'
   | 'stalemate'
@@ -70,6 +71,12 @@ export type TimeControl = {
   increment: number; // seconds per move
 };
 
+export interface PlayerPresence {
+  status: PlayerPresenceStatus;
+  latencyMs: number | null;
+  lastSeenAt: number | null;
+}
+
 export interface GameRoom {
   id: string;
   white: string | null;  // socket id
@@ -91,6 +98,8 @@ export interface GameRoom {
   ownerColorPreference: PrivateGameColorPreference;
   gameMode: GameMode;
   rated: boolean;
+  whitePresence: PlayerPresence;
+  blackPresence: PlayerPresence;
 }
 
 export interface ClientGameState {
@@ -118,6 +127,8 @@ export interface ClientGameState {
   gameId: string;
   gameMode: GameMode;
   rated: boolean;
+  whitePresence: PlayerPresence;
+  blackPresence: PlayerPresence;
 }
 
 export interface RatingChangeSummary {
@@ -148,6 +159,8 @@ export interface ServerToClientEvents {
   game_created: (data: { gameId: string }) => void;
   game_joined: (data: { color: PieceColor | null; gameState: ClientGameState }) => void;
   game_state: (data: ClientGameState) => void;
+  presence_update: (data: { gameId: string; whitePresence: PlayerPresence; blackPresence: PlayerPresence }) => void;
+  heartbeat_ack: (data: { sentAt: number }) => void;
   move_made: (data: { move: Move; gameState: ClientGameState }) => void;
   game_over: (data: { reason: string; winner: PieceColor | null; gameState: ClientGameState; ratingChange: RatingChangeSummary | null }) => void;
   clock_update: (data: { whiteTime: number; blackTime: number }) => void;
@@ -168,6 +181,12 @@ export interface ClientToServerEvents {
   create_game: (data: { timeControl: TimeControl; colorPreference: PrivateGameColorPreference }) => void;
   join_game: (data: { gameId: string }) => void;
   spectate_game: (data: { gameId: string }) => void;
+  presence_heartbeat: (data: {
+    gameId: string;
+    sentAt: number;
+    clientStatus: Exclude<PlayerPresenceStatus, 'disconnected'>;
+    latencyMs?: number | null;
+  }) => void;
   leave_game: (data: { gameId?: string }) => void;
   make_move: (data: { from: Position; to: Position }) => void;
   resign: () => void;

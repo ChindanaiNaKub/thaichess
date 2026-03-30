@@ -74,6 +74,33 @@ function wrapper({ children }: { children: ReactNode }) {
   return <MemoryRouter>{children}</MemoryRouter>;
 }
 
+function makeClientGameState(overrides: Record<string, unknown> = {}) {
+  return {
+    ...createInitialGameState(300_000, 300_000),
+    gameMode: 'private' as const,
+    rated: false,
+    status: 'playing' as const,
+    playerColor: 'white' as const,
+    drawOffer: null,
+    gameId: 'room-default',
+    whitePlayerName: 'White',
+    blackPlayerName: 'Black',
+    whiteRating: null,
+    blackRating: null,
+    whitePresence: {
+      status: 'active' as const,
+      latencyMs: 42,
+      lastSeenAt: 1_000,
+    },
+    blackPresence: {
+      status: 'active' as const,
+      latencyMs: 58,
+      lastSeenAt: 1_000,
+    },
+    ...overrides,
+  };
+}
+
 describe('useGameSocket', () => {
   beforeEach(() => {
     listeners.clear();
@@ -161,15 +188,10 @@ describe('useGameSocket', () => {
     act(() => {
       emitSocketEvent('game_joined', {
         color: 'white',
-        gameState: {
+        gameState: makeClientGameState({
           ...initialState,
-          gameMode: 'private',
-          rated: false,
-          status: 'playing',
-          playerColor: 'white',
-          drawOffer: null,
           gameId: 'room-5678',
-        },
+        }),
       });
     });
 
@@ -209,18 +231,12 @@ describe('useGameSocket', () => {
     act(() => {
       emitSocketEvent('game_joined', {
         color: 'white',
-        gameState: {
+        gameState: makeClientGameState({
           ...createInitialGameState(300_000, 300_000),
-          gameMode: 'private',
-          rated: false,
           status: 'finished',
           gameOver: true,
-          playerColor: 'white',
-          drawOffer: null,
           gameId: 'room-finished',
-          whitePlayerName: 'White',
-          blackPlayerName: 'Black',
-        },
+        }),
       });
     });
 
@@ -233,15 +249,11 @@ describe('useGameSocket', () => {
 
   it('handles transition, sound, timing, draw, game-over, and replacement events', async () => {
     const initialState = createInitialGameState(300_000, 300_000);
-    const waitingState = {
+    const waitingState = makeClientGameState({
       ...initialState,
-      gameMode: 'private' as const,
-      rated: false,
       status: 'waiting' as const,
-      playerColor: 'white' as const,
-      drawOffer: null,
       gameId: 'room-events',
-    };
+    });
 
     const { result } = renderHook(() => useGameSocket({ gameId: 'room-events' }), { wrapper });
 

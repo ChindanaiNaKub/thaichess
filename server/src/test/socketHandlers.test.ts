@@ -308,6 +308,57 @@ describe('socket entry handlers', () => {
     expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('opponent_disconnected');
   });
 
+  it('broadcasts presence heartbeat updates and marks players disconnected when the socket drops', () => {
+    const room = gameManager.createGame(timeControl, {
+      ownerSocketId: 'white-socket',
+      ownerPlayerId: 'player-white',
+      ownerColorPreference: 'white',
+    });
+    gameManager.joinGame(room.id, 'black-socket', { playerId: 'player-black' });
+
+    const whiteSocket = connectSocket('white-socket', null, 'player-white');
+    const blackSocket = connectSocket('black-socket', null, 'player-black');
+
+    whiteSocket.trigger('join_game', { gameId: room.id });
+    blackSocket.trigger('join_game', { gameId: room.id });
+
+    whiteSocket.emit.mockClear();
+    ioMock.to('black-socket').emitMock.mockClear();
+
+    whiteSocket.trigger('presence_heartbeat', {
+      gameId: room.id,
+      sentAt: 1234,
+      clientStatus: 'idle',
+      latencyMs: 187,
+    });
+
+    expect(whiteSocket.emit).toHaveBeenCalledWith('heartbeat_ack', { sentAt: 1234 });
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith(
+      'presence_update',
+      expect.objectContaining({
+        gameId: room.id,
+        whitePresence: expect.objectContaining({
+          status: 'idle',
+          latencyMs: 187,
+        }),
+      }),
+    );
+
+    ioMock.to('black-socket').emitMock.mockClear();
+    whiteSocket.trigger('disconnect');
+
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('opponent_disconnected');
+    expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith(
+      'presence_update',
+      expect.objectContaining({
+        gameId: room.id,
+        whitePresence: expect.objectContaining({
+          status: 'disconnected',
+        }),
+      }),
+    );
+  });
+
   it('restores a disconnected player seat when the same player reconnects with a new socket id', () => {
     const room = gameManager.createGame(timeControl, {
       ownerSocketId: 'white-old',

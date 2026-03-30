@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   GameRoom, TimeControl, PieceColor, PrivateGameColorPreference, GameMode,
-  Position, ClientGameState, Move, PublicLiveGameSummary,
+  Position, ClientGameState, Move, PublicLiveGameSummary, PlayerPresence, PlayerPresenceStatus,
 } from '../../shared/types';
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
 
@@ -17,6 +17,7 @@ export class GameManager {
   private static readonly FINISHED_GAME_TTL_MS = 60 * 60 * 1000;
   private static readonly WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
   private static readonly DISCONNECTED_GAME_TTL_MS = 10 * 60 * 1000;
+  private static readonly PRESENCE_STALE_MS = 15 * 1000;
 
   createGame(
     timeControl: TimeControl,
@@ -61,11 +62,17 @@ export class GameManager {
       ownerColorPreference,
       gameMode: options.gameMode ?? 'private',
       rated: options.rated ?? false,
+      whitePresence: this.createDisconnectedPresence(),
+      blackPresence: this.createDisconnectedPresence(),
     };
 
     this.games.set(id, room);
     if (options.ownerSocketId) {
       this.socketGames.set(options.ownerSocketId, id);
+      this.setPresence(room, resolvedOwnerColor, {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
     }
     if (ownerPlayerId) {
       this.playerGames.set(ownerPlayerId, id);
@@ -87,6 +94,10 @@ export class GameManager {
     if (room.white === socketId || room.black === socketId) {
       const color = room.white === socketId ? 'white' : 'black';
       this.socketGames.set(socketId, gameId);
+      this.setPresence(room, color, {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
       return { room, color, reconnected: false };
     }
 
@@ -102,6 +113,10 @@ export class GameManager {
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
+      this.setPresence(room, 'white', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
       this.touchGame(gameId);
       return { room, color: 'white', reconnected: true };
     }
@@ -117,6 +132,10 @@ export class GameManager {
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'black');
+      this.setPresence(room, 'black', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
       this.touchGame(gameId);
       return { room, color: 'black', reconnected: true };
     }
@@ -130,6 +149,10 @@ export class GameManager {
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'white');
+      this.setPresence(room, 'white', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
       if (room.status === 'waiting' && room.black) {
         room.status = 'playing';
         room.gameState.lastMoveTime = Date.now();
@@ -147,6 +170,10 @@ export class GameManager {
       this.socketGames.set(socketId, gameId);
       this.playerGames.set(playerId, gameId);
       this.clearDisconnectedPlayer(gameId, 'black');
+      this.setPresence(room, 'black', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
       if (room.status === 'waiting') {
         room.status = 'playing';
         room.gameState.lastMoveTime = Date.now();
@@ -203,6 +230,7 @@ export class GameManager {
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor) return { success: false, error: 'You are not a player in this game' };
     if (playerColor !== room.gameState.turn) return { success: false, error: 'Not your turn' };
+    this.markPlayerInteraction(room, playerColor);
 
     // Update clock before move
     this.updateClock(room);
@@ -252,6 +280,7 @@ export class GameManager {
 
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor) return null;
+    this.markPlayerInteraction(room, playerColor);
 
     room.gameState.gameOver = true;
     room.gameState.winner = playerColor === 'white' ? 'black' : 'white';
@@ -270,6 +299,7 @@ export class GameManager {
 
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor) return null;
+    this.markPlayerInteraction(room, playerColor);
 
     room.drawOffer = playerColor;
     this.touchGame(gameId);
@@ -282,6 +312,7 @@ export class GameManager {
 
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor || playerColor === room.drawOffer) return null;
+    this.markPlayerInteraction(room, playerColor);
 
     if (accept) {
       room.gameState.gameOver = true;
@@ -305,6 +336,7 @@ export class GameManager {
 
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor || playerColor !== room.gameState.turn) return null;
+    this.markPlayerInteraction(room, playerColor);
 
     const newState = startCounting(room.gameState);
     if (!newState) return null;
@@ -320,6 +352,7 @@ export class GameManager {
 
     const playerColor = this.getPlayerColor(room, socketId);
     if (!playerColor || playerColor !== room.gameState.turn) return null;
+    this.markPlayerInteraction(room, playerColor);
 
     const newState = stopCounting(room.gameState);
     if (!newState) return null;
@@ -358,6 +391,18 @@ export class GameManager {
     if (newRoom.white && newRoom.black) {
       newRoom.status = 'playing';
       newRoom.gameState.lastMoveTime = Date.now();
+    }
+    if (newRoom.white) {
+      this.setPresence(newRoom, 'white', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
+    }
+    if (newRoom.black) {
+      this.setPresence(newRoom, 'black', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
     }
 
     this.touchGame(newRoom.id);
@@ -416,6 +461,10 @@ export class GameManager {
 
     if (color) {
       this.disconnectedPlayers.set(this.getDisconnectedKey(gameId, color), Date.now());
+      this.setPresence(room, color, {
+        status: 'disconnected',
+        lastSeenAt: Date.now(),
+      });
     }
 
     this.touchGame(gameId);
@@ -433,6 +482,10 @@ export class GameManager {
       }
       room.white = newSocketId;
       this.clearDisconnectedPlayer(gameId, 'white');
+      this.setPresence(room, 'white', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
     }
     if (room.blackPlayerId === playerId) {
       if (room.black) {
@@ -440,6 +493,10 @@ export class GameManager {
       }
       room.black = newSocketId;
       this.clearDisconnectedPlayer(gameId, 'black');
+      this.setPresence(room, 'black', {
+        status: 'active',
+        lastSeenAt: Date.now(),
+      });
     }
 
     this.socketGames.set(newSocketId, gameId);
@@ -547,6 +604,38 @@ export class GameManager {
     this.touchGame(gameId);
   }
 
+  updatePlayerPresence(
+    gameId: string,
+    socketId: string,
+    presence: {
+      status: Exclude<PlayerPresenceStatus, 'disconnected'>;
+      latencyMs?: number | null;
+      lastSeenAt?: number;
+    },
+  ): GameRoom | null {
+    const room = this.games.get(gameId);
+    if (!room) return null;
+
+    const color = this.getPlayerColor(room, socketId);
+    if (!color) return null;
+
+    this.setPresence(room, color, {
+      status: presence.status,
+      latencyMs: presence.latencyMs ?? undefined,
+      lastSeenAt: presence.lastSeenAt ?? Date.now(),
+    });
+    this.touchGame(gameId);
+    return room;
+  }
+
+  getPresenceSnapshot(room: GameRoom) {
+    return {
+      gameId: room.id,
+      whitePresence: this.getEffectivePresence(room, 'white'),
+      blackPresence: this.getEffectivePresence(room, 'black'),
+    };
+  }
+
   leaveGame(socketId: string, requestedGameId?: string): { gameId: string; deleted: boolean } | null {
     const gameId = this.socketGames.get(socketId);
     if (!gameId || (requestedGameId && requestedGameId !== gameId)) return null;
@@ -574,9 +663,11 @@ export class GameManager {
 
     if (leavingWhite) {
       room.white = null;
+      room.whitePresence = this.createDisconnectedPresence();
     }
     if (leavingBlack) {
       room.black = null;
+      room.blackPresence = this.createDisconnectedPresence();
     }
 
     if (room.status === 'waiting' && leavingWhite) {
@@ -631,6 +722,8 @@ export class GameManager {
       gameId: room.id,
       gameMode: room.gameMode,
       rated: room.rated,
+      whitePresence: this.getEffectivePresence(room, 'white'),
+      blackPresence: this.getEffectivePresence(room, 'black'),
     };
   }
 
@@ -638,6 +731,63 @@ export class GameManager {
     if (room.white === socketId) return 'white';
     if (room.black === socketId) return 'black';
     return null;
+  }
+
+  private createDisconnectedPresence(): PlayerPresence {
+    return {
+      status: 'disconnected',
+      latencyMs: null,
+      lastSeenAt: null,
+    };
+  }
+
+  private setPresence(
+    room: GameRoom,
+    color: PieceColor,
+    updates: {
+      status?: PlayerPresenceStatus;
+      latencyMs?: number | null;
+      lastSeenAt?: number | null;
+    },
+  ) {
+    const current = color === 'white' ? room.whitePresence : room.blackPresence;
+    const next: PlayerPresence = {
+      status: updates.status ?? current.status,
+      latencyMs: updates.latencyMs ?? current.latencyMs,
+      lastSeenAt: updates.lastSeenAt ?? current.lastSeenAt,
+    };
+
+    if (color === 'white') {
+      room.whitePresence = next;
+    } else {
+      room.blackPresence = next;
+    }
+  }
+
+  private getEffectivePresence(room: GameRoom, color: PieceColor): PlayerPresence {
+    const base = color === 'white' ? room.whitePresence : room.blackPresence;
+    const socketId = color === 'white' ? room.white : room.black;
+
+    if (!socketId) {
+      return this.createDisconnectedPresence();
+    }
+
+    if (base.status === 'disconnected' || base.lastSeenAt === null) {
+      return { ...base, status: 'disconnected' };
+    }
+
+    if (Date.now() - base.lastSeenAt > GameManager.PRESENCE_STALE_MS) {
+      return { ...base, status: 'disconnected' };
+    }
+
+    return { ...base };
+  }
+
+  private markPlayerInteraction(room: GameRoom, color: PieceColor) {
+    this.setPresence(room, color, {
+      status: 'active',
+      lastSeenAt: Date.now(),
+    });
   }
 
   private updateClock(room: GameRoom): void {

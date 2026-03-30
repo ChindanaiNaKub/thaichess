@@ -17,6 +17,7 @@ const {
   getLegalMovesMock,
   interactionState,
   boardPropsMock,
+  clockPropsMock,
   moveHistoryPropsMock,
   gameOverModalPropsMock,
   gameOverPanelPropsMock,
@@ -42,6 +43,7 @@ const {
     clearSelection: vi.fn(),
   },
   boardPropsMock: vi.fn(),
+  clockPropsMock: vi.fn(),
   moveHistoryPropsMock: vi.fn(),
   gameOverModalPropsMock: vi.fn(),
   gameOverPanelPropsMock: vi.fn(),
@@ -155,12 +157,15 @@ vi.mock('../components/Board', () => ({
 }));
 
 vi.mock('../components/Clock', () => ({
-  default: (props: any) => (
-    <div data-testid="clock">
-      {props.playerName}
-      {typeof props.rating === 'number' ? ` (${props.rating})` : ''}
-    </div>
-  ),
+  default: (props: any) => {
+    clockPropsMock(props);
+    return (
+      <div data-testid="clock">
+        {props.playerName}
+        {typeof props.rating === 'number' ? ` (${props.rating})` : ''}
+      </div>
+    );
+  },
 }));
 
 vi.mock('../components/MoveHistory', () => ({
@@ -247,6 +252,16 @@ function makeGameState(overrides: Partial<ClientGameState> = {}): ClientGameStat
     blackPlayerName: 'Black Player',
     whiteRating: null,
     blackRating: null,
+    whitePresence: {
+      status: 'active',
+      latencyMs: 42,
+      lastSeenAt: 1_000,
+    },
+    blackPresence: {
+      status: 'active',
+      latencyMs: 58,
+      lastSeenAt: 1_000,
+    },
     moveHistory: [],
     gameOver: false,
     winner: null,
@@ -264,6 +279,13 @@ function joinPayload(overrides: Partial<ClientGameState> = {}, color: PieceColor
   };
 }
 
+function getLatestClockProps(playerName: string) {
+  return [...clockPropsMock.mock.calls]
+    .map(([props]) => props)
+    .reverse()
+    .find((props) => props.playerName === playerName);
+}
+
 describe('GamePage', () => {
   beforeEach(() => {
     listeners.clear();
@@ -276,6 +298,7 @@ describe('GamePage', () => {
     playGameStartSoundMock.mockReset();
     getLegalMovesMock.mockReset();
     boardPropsMock.mockReset();
+    clockPropsMock.mockReset();
     moveHistoryPropsMock.mockReset();
     gameOverModalPropsMock.mockReset();
     gameOverPanelPropsMock.mockReset();
@@ -741,5 +764,104 @@ describe('GamePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/');
 
     vi.useRealTimers();
+  });
+
+  it('sends heartbeat updates, reflects idle and away states, and shows reconnecting locally', async () => {
+    vi.useFakeTimers();
+    socketMock.connected = true;
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+
+    try {
+      renderGamePage('/game/presence-room');
+
+      await act(async () => {
+        emitSocketEvent('game_joined', joinPayload({
+          gameId: 'presence-room',
+          whitePlayerName: 'Hero',
+          blackPlayerName: 'Rival',
+          whitePresence: {
+            status: 'active',
+            latencyMs: 33,
+            lastSeenAt: 1_000,
+          },
+          blackPresence: {
+            status: 'active',
+            latencyMs: 91,
+            lastSeenAt: 1_000,
+          },
+        }));
+      });
+
+      const initialHeartbeat = socketMock.emit.mock.calls.find((call: any[]) => call[0] === 'presence_heartbeat');
+      expect(initialHeartbeat?.[1]).toMatchObject({
+        gameId: 'presence-room',
+        clientStatus: 'active',
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(12_000);
+      });
+
+      const heartbeatCalls = socketMock.emit.mock.calls.filter((call: any[]) => call[0] === 'presence_heartbeat');
+      expect(heartbeatCalls.at(-1)?.[1]).toMatchObject({
+        gameId: 'presence-room',
+        clientStatus: 'idle',
+      });
+
+      await act(async () => {
+        emitSocketEvent('presence_update', {
+          gameId: 'presence-room',
+          whitePresence: {
+            status: 'active',
+            latencyMs: 44,
+            lastSeenAt: 2_000,
+          },
+          blackPresence: {
+            status: 'idle',
+            latencyMs: 210,
+            lastSeenAt: 2_000,
+          },
+        });
+      });
+
+      expect(getLatestClockProps('Rival')).toMatchObject({
+        status: 'idle',
+        latencyMs: 210,
+      });
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      });
+
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(socketMock.emit.mock.calls.at(-1)).toEqual([
+        'presence_heartbeat',
+        expect.objectContaining({
+          gameId: 'presence-room',
+          clientStatus: 'away',
+        }),
+      ]);
+
+      await act(async () => {
+        emitSocketEvent('disconnect');
+      });
+
+      expect(getLatestClockProps('Hero')).toMatchObject({
+        status: 'reconnecting',
+      });
+    } finally {
+      vi.useRealTimers();
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+    }
   });
 });
