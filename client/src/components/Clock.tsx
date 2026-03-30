@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import type { BotAvatarDefinition } from '@shared/botPersonas';
 import type { PieceColor, PieceType } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
+import BotAvatar from './BotAvatar';
 import PieceSVG from './PieceSVG';
 
 interface ClockProps {
@@ -10,6 +12,7 @@ interface ClockProps {
   playerName: string;
   rating?: number | null;
   avatarUrl?: string | null;
+  botAvatar?: BotAvatarDefinition | null;
   flag?: string | null;
   status?: 'online' | 'offline' | 'active' | 'idle' | 'away' | 'disconnected' | 'reconnecting';
   latencyMs?: number | null;
@@ -54,6 +57,7 @@ export default function Clock({
   playerName,
   rating = null,
   avatarUrl = null,
+  botAvatar = null,
   flag = null,
   status,
   latencyMs = null,
@@ -63,10 +67,15 @@ export default function Clock({
 }: ClockProps) {
   const { t } = useTranslation();
   const [displayTime, setDisplayTime] = useState(time);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   useEffect(() => {
     setDisplayTime(time);
   }, [time]);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -132,26 +141,37 @@ export default function Clock({
     `}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 lg:gap-2">
-          <div className={`
-            relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border lg:h-8 lg:w-8
-            ${isActive ? 'border-primary/35 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
-          `}>
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className={`
-                flex h-full w-full items-center justify-center text-sm font-semibold lg:text-[11px]
-                ${color === 'white' ? 'bg-[#f2eadb] text-[#5f5245]' : 'bg-[#24282d] text-[#d7d0c3]'}
-              `}>
-                {initials}
-              </div>
-            )}
-            <span
-              className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border border-surface-alt ${statusDotClass}`}
-              aria-label={statusLabel}
-              title={statusLabel}
-            />
-          </div>
+          {botAvatar ? (
+            <div className="relative shrink-0 lg:origin-left lg:scale-[0.92]">
+              <BotAvatar avatar={botAvatar} size={40} />
+              <span
+                className={`absolute bottom-1 left-1 z-30 h-2.5 w-2.5 rounded-full border border-surface-alt ${statusDotClass}`}
+                aria-label={statusLabel}
+                title={statusLabel}
+              />
+            </div>
+          ) : (
+            <div className={`
+              relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border lg:h-8 lg:w-8
+              ${isActive ? 'border-primary/35 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
+            `}>
+              {avatarUrl && !avatarFailed ? (
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+              ) : (
+                <div className={`
+                  flex h-full w-full items-center justify-center text-sm font-semibold lg:text-[11px]
+                  ${color === 'white' ? 'bg-[#f2eadb] text-[#5f5245]' : 'bg-[#24282d] text-[#d7d0c3]'}
+                `}>
+                  {initials}
+                </div>
+              )}
+              <span
+                className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border border-surface-alt ${statusDotClass}`}
+                aria-label={statusLabel}
+                title={statusLabel}
+              />
+            </div>
+          )}
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 lg:gap-1.5">

@@ -61,7 +61,7 @@ export async function requestPositionAnalysis(
 export async function requestBotMove(
   state: Pick<GameState, 'board' | 'turn' | 'counting'>,
   level: number,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; botId?: string },
 ): Promise<BotMoveResult> {
   const serialized = serializeAnalysisPosition({
     board: state.board,
@@ -77,6 +77,7 @@ export async function requestBotMove(
       position: serialized.position,
       counting: serialized.counting,
       level,
+      botId: options?.botId,
     }),
   });
 

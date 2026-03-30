@@ -32,6 +32,8 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    lang: 'en' as const,
+    setLang: vi.fn(),
   }),
 }));
 
@@ -163,17 +165,26 @@ describe('BotGame', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the started game with two clocks and without duplicate player badges', () => {
+  it('renders the started game with the selected bot persona and player clocks', () => {
     renderBotGame();
 
     fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
-    expect(screen.getByText('Makruk Bot Lv.5')).toBeInTheDocument();
+    expect(screen.getAllByText('Panya Suman').length).toBeGreaterThan(0);
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
-    expect(screen.getAllByText('Makruk Bot Lv.5')).toHaveLength(1);
-    expect(screen.getAllByText('common.you (common.white)')).toHaveLength(1);
+    expect(screen.getByText('Scholar of Lantern Cloister')).toBeInTheDocument();
+  });
+
+  it('starts a game with a roster-selected persona instead of the default bot', () => {
+    renderBotGame();
+
+    fireEvent.click(screen.getByRole('button', { name: /Mekhala Saeng/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+
+    expect(screen.getAllByText('Mekhala Saeng').length).toBeGreaterThan(0);
+    expect(screen.getByText('Matron of Riverlight Sala')).toBeInTheDocument();
   });
 
   it('falls back to a local move when the server returns no bot move', async () => {
@@ -235,7 +246,8 @@ describe('BotGame', () => {
     expect(body).toMatchObject({
       playerColor: 'white',
       playerName: 'Player One',
-      level: 5,
+      level: 4,
+      botId: 'phra-suman',
       result: 'black',
       resultReason: 'resignation',
       timeControl: {

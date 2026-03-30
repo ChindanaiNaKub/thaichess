@@ -4,6 +4,7 @@ import type { WorkerResponse } from '../workers/botWorker';
 export async function requestLocalBotMove(
   state: Pick<GameState, 'board' | 'turn' | 'counting'>,
   level: number,
+  botId?: string,
 ): Promise<{ from: { row: number; col: number }; to: { row: number; col: number } } | null> {
   return await new Promise((resolve, reject) => {
     const worker = new Worker(new URL('../workers/botWorker.ts', import.meta.url), { type: 'module' });
@@ -34,6 +35,7 @@ export async function requestLocalBotMove(
       type: 'bot-move',
       state,
       level,
+      botId,
     });
   });
 }

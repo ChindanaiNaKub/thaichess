@@ -1,5 +1,6 @@
 import { Board, PieceColor, PieceType, Position, GameState } from './types';
 import { getLegalMoves, makeMove, getAllPieces, isInCheck } from './engine';
+import { getBotPersonaById } from './botPersonas';
 
 export type BotDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -29,6 +30,7 @@ export interface BotSearchOptions {
   maxDepth?: number;
   maxNodes?: number;
   maxMs?: number | null;
+  botId?: string;
 }
 
 interface SearchContext {
@@ -154,6 +156,140 @@ function getAllMovesForColor(board: Board, color: PieceColor): ScoredMove[] {
   return moves;
 }
 
+function isMinorPiece(type: PieceType): boolean {
+  return type === 'N' || type === 'S' || type === 'M' || type === 'PM';
+}
+
+function isEndgameBoard(board: Board): boolean {
+  let remainingNonPawnMaterial = 0;
+
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      const piece = board[row][col];
+      if (!piece || piece.type === 'K' || piece.type === 'P') continue;
+      remainingNonPawnMaterial += PIECE_VALUES[piece.type];
+    }
+  }
+
+  return remainingNonPawnMaterial <= 1700;
+}
+
+function getSquareAttackers(board: Board, color: PieceColor, target: Position): number {
+  const pieces = getAllPieces(board, color);
+  let attackers = 0;
+
+  for (const { pos } of pieces) {
+    const legalMoves = getLegalMoves(board, pos);
+    if (legalMoves.some((move) => move.row === target.row && move.col === target.col)) {
+      attackers += 1;
+    }
+  }
+
+  return attackers;
+}
+
+function getThreatValue(board: Board, origin: Position, color: PieceColor): number {
+  const legalMoves = getLegalMoves(board, origin);
+  let threatValue = 0;
+
+  for (const target of legalMoves) {
+    const targetPiece = board[target.row][target.col];
+    if (!targetPiece || targetPiece.color === color) continue;
+    threatValue = Math.max(threatValue, PIECE_VALUES[targetPiece.type]);
+  }
+
+  return threatValue;
+}
+
+function getDevelopmentScore(board: Board, move: ScoredMove): number {
+  const piece = board[move.from.row][move.from.col];
+  if (!piece || piece.type === 'K') return 0;
+
+  const homeRow = piece.color === 'white' ? 0 : 7;
+  const leavesHomeRow = move.from.row === homeRow && move.to.row !== homeRow;
+  const centerGain = Math.max(0, CENTER_BONUS[move.to.row][move.to.col] - CENTER_BONUS[move.from.row][move.from.col]) / 10;
+
+  if (isMinorPiece(piece.type)) {
+    return (leavesHomeRow ? 1.2 : 0.35) + centerGain;
+  }
+
+  if (piece.type === 'R') {
+    return (leavesHomeRow ? 0.8 : 0.2) + centerGain * 0.6;
+  }
+
+  if (piece.type === 'P') {
+    return Math.max(0, piece.color === 'white' ? move.to.row - move.from.row : move.from.row - move.to.row) * 0.45;
+  }
+
+  return centerGain;
+}
+
+function getPersonaMoveBonus(
+  state: GameState,
+  newState: GameState,
+  move: ScoredMove,
+  botId?: string,
+): number {
+  if (!botId) return 0;
+
+  const persona = getBotPersonaById(botId);
+  const piece = state.board[move.from.row][move.from.col];
+  if (!piece) return 0;
+
+  const opponent = piece.color === 'white' ? 'black' : 'white';
+  const captured = state.board[move.to.row][move.to.col];
+  const endgame = isEndgameBoard(newState.board) ? 1 : 0;
+  const opening = isEndgameBoard(state.board) ? 0 : 1;
+  const centerGain = (CENTER_BONUS[move.to.row][move.to.col] - CENTER_BONUS[move.from.row][move.from.col]) / 10;
+  const development = getDevelopmentScore(state.board, move);
+  const pawnAdvance = piece.type === 'P'
+    ? Math.max(0, piece.color === 'white' ? move.to.row - move.from.row : move.from.row - move.to.row)
+    : 0;
+  const originMobility = getLegalMoves(state.board, move.from).length;
+  const destinationMobility = getLegalMoves(newState.board, move.to).length;
+  const mobilityGain = Math.max(0, destinationMobility - originMobility);
+  const threatValue = getThreatValue(newState.board, move.to, piece.color) / 100;
+  const attackers = getSquareAttackers(newState.board, opponent, move.to);
+  const defenders = getSquareAttackers(newState.board, piece.color, move.to);
+  const isHanging = attackers > 0 && defenders === 0;
+  const isLoose = attackers > defenders;
+  const kingActivity = piece.type === 'K' ? CENTER_BONUS[move.to.row][move.to.col] / 25 : 0;
+  const riskTolerance = persona.engine.aggression - persona.engine.caution;
+  const moveDistance = Math.abs(move.to.row - move.from.row) + Math.abs(move.to.col - move.from.col);
+
+  let bonus = 0;
+
+  if (captured) {
+    bonus += (PIECE_VALUES[captured.type] / 100) * (7 + persona.engine.aggression * 3);
+  }
+  if (newState.isCheck) {
+    bonus += 12 + persona.engine.aggression * 8 + persona.engine.trickiness * 4;
+  }
+
+  bonus += centerGain * (4 + persona.engine.development * 3);
+  bonus += development * (4 + persona.engine.development * 4);
+  bonus += pawnAdvance * (2 + persona.engine.aggression * 1.5);
+  bonus += threatValue * (3 + persona.engine.trickiness * 5 + persona.engine.aggression * 2);
+  bonus += mobilityGain * (0.6 + persona.engine.development * 0.3);
+  bonus += endgame * kingActivity * persona.engine.endgame * 8;
+  bonus += Math.max(0, riskTolerance) * moveDistance * 0.8;
+
+  if (piece.type === 'K' && opening) {
+    bonus -= 8 + persona.engine.caution * 7;
+  }
+  if (isHanging) {
+    bonus -= 8 + persona.engine.caution * 9;
+    bonus += riskTolerance * 7;
+  } else if (isLoose) {
+    bonus -= 3 + persona.engine.caution * 4;
+    bonus += riskTolerance * 3;
+  } else if (defenders > 0) {
+    bonus += persona.engine.caution * 1.5;
+  }
+
+  return bonus;
+}
+
 function getMoveOrderingScore(board: Board, move: ScoredMove): number {
   const captured = board[move.to.row][move.to.col];
   const movingPiece = board[move.from.row][move.from.col];
@@ -179,6 +315,20 @@ function getMoveOrderingScore(board: Board, move: ScoredMove): number {
 
 function orderMoves(moves: ScoredMove[], board: Board): ScoredMove[] {
   return moves.sort((a, b) => getMoveOrderingScore(board, b) - getMoveOrderingScore(board, a));
+}
+
+function orderRootMoves(moves: ScoredMove[], state: GameState, botId?: string): ScoredMove[] {
+  if (!botId) {
+    return orderMoves(moves, state.board);
+  }
+
+  return [...moves].sort((a, b) => {
+    const aState = makeMove(state, a.from, a.to);
+    const bState = makeMove(state, b.from, b.to);
+    const aScore = getMoveOrderingScore(state.board, a) + (aState ? getPersonaMoveBonus(state, aState, a, botId) : -999999);
+    const bScore = getMoveOrderingScore(state.board, b) + (bState ? getPersonaMoveBonus(state, bState, b, botId) : -999999);
+    return bScore - aScore;
+  });
 }
 
 function isBudgetExceeded(context: SearchContext): boolean {
@@ -321,10 +471,19 @@ function chooseMove(scoredMoves: ScoredMove[], profile: BotLevelConfig): ScoredM
   return ranked[0];
 }
 
-function getHeuristicFallbackMove(state: GameState, profile: BotLevelConfig): ScoredMove | null {
-  const moves = orderMoves(getAllMovesForColor(state.board, state.turn), state.board)
+function getHeuristicFallbackMove(state: GameState, profile: BotLevelConfig, botId?: string): ScoredMove | null {
+  const moves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, botId)
     .slice(0, Math.max(1, profile.choiceWindow));
-  return chooseMove(moves, profile);
+
+  const scoredMoves = moves.map((move) => {
+    const newState = makeMove(state, move.from, move.to);
+    return {
+      ...move,
+      score: getMoveOrderingScore(state.board, move) + (newState ? getPersonaMoveBonus(state, newState, move, botId) : 0),
+    };
+  });
+
+  return chooseMove(scoredMoves, profile);
 }
 
 function searchBestMove(
@@ -332,7 +491,7 @@ function searchBestMove(
   profile: BotLevelConfig,
   options?: BotSearchOptions,
 ): ScoredMove | null {
-  let rootMoves = orderMoves(getAllMovesForColor(state.board, state.turn), state.board);
+  let rootMoves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, options?.botId);
   if (rootMoves.length === 0) return null;
 
   const context: SearchContext = {
@@ -343,7 +502,7 @@ function searchBestMove(
   };
 
   const maxDepth = Math.max(1, Math.round(options?.maxDepth ?? profile.maxDepth));
-  let bestMove = getHeuristicFallbackMove(state, profile);
+  let bestMove = getHeuristicFallbackMove(state, profile, options?.botId);
   let bestRootMoves = [...rootMoves];
 
   for (let depth = 1; depth <= maxDepth; depth += 1) {
@@ -367,7 +526,7 @@ function searchBestMove(
       iterationMoves.push({
         from: move.from,
         to: move.to,
-        score: result.score,
+        score: result.score + getPersonaMoveBonus(state, newState, move, options?.botId),
       });
 
       if (!result.completed) {

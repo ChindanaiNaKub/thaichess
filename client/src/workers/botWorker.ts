@@ -6,6 +6,7 @@ interface BotMoveMessage {
   type: 'bot-move';
   state: Pick<GameState, 'board' | 'turn' | 'counting'>;
   level: number;
+  botId?: string;
 }
 
 interface BotMoveResultMessage {
@@ -32,7 +33,7 @@ self.onmessage = (event: MessageEvent<BotMoveMessage>) => {
       counting: event.data.state.counting ? { ...event.data.state.counting } : null,
     };
 
-    const move = getBotMoveForLevel(state, event.data.level);
+    const move = getBotMoveForLevel(state, event.data.level, { botId: event.data.botId });
     const response: BotMoveResultMessage = { type: 'result', move };
     self.postMessage(response);
   } catch (error) {
