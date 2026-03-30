@@ -126,65 +126,46 @@
 
 @layer components {
   /* Board squares */
-  .board-square-light {
-    background: var(--board-light-background, var(--color-board-base));
-    box-shadow: inset 0 0 0 1px var(--color-board-grid);
+  .board-square {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--board-grid-line, var(--color-board-grid));
     box-sizing: border-box;
     transition: background 180ms ease, box-shadow 180ms ease;
   }
 
-  .board-square-dark {
-    background: var(--board-dark-background, var(--color-board-base));
-    box-shadow: inset 0 0 0 1px var(--color-board-grid);
-    box-sizing: border-box;
-    transition: background 180ms ease, box-shadow 180ms ease;
+  .board-square-neutral:hover {
+    background: var(--board-hover-background, rgb(255 255 255 / 0.08));
   }
 
   .board-square-selected {
-    background:
-      radial-gradient(circle at 50% 42%, oklch(0.78 0.11 110 / 0.42), transparent 62%),
-      linear-gradient(180deg, oklch(0.69 0.11 118), oklch(0.58 0.09 122)) !important;
+    background: var(--board-selected-background, rgb(255 255 255 / 0.12)) !important;
     box-shadow:
-      inset 0 0 0 1px var(--color-board-grid),
-      inset 0 0 0 1px oklch(0.86 0.09 105 / 0.42),
+      inset 0 0 0 1px var(--board-grid-line, var(--color-board-grid)),
+      inset 0 0 0 2px var(--board-selected-ring, oklch(0.86 0.09 105 / 0.42)),
       inset 0 10px 16px oklch(1 0 0 / 0.08);
   }
 
-  .board-square-lastmove-light {
-    background-color: oklch(0.80 0.12 100) !important;
-    box-shadow: inset 0 0 0 1px var(--color-board-grid);
-  }
-
-  .board-square-lastmove-dark {
-    background-color: oklch(0.65 0.12 100) !important;
-    box-shadow: inset 0 0 0 1px var(--color-board-grid);
+  .board-square-lastmove {
+    background: var(--board-lastmove-background, rgb(255 255 255 / 0.1)) !important;
+    box-shadow:
+      inset 0 0 0 1px var(--board-grid-line, var(--color-board-grid)),
+      inset 0 0 0 1px rgb(255 255 255 / 0.08);
   }
 
   .board-square-check {
-    background: radial-gradient(
+    background-image: var(--board-check-overlay, radial-gradient(
       ellipse at center,
       oklch(0.50 0.28 25 / 0.7) 0%,
       oklch(0.45 0.18 25 / 0.35) 50%,
       transparent 80%
-    ) !important;
+    )) !important;
   }
 
-  .board-square-premove-light {
-    background:
-      radial-gradient(circle at 50% 50%, oklch(0.72 0.08 104 / 0.32), transparent 62%),
-      var(--color-board-base) !important;
+  .board-square-premove {
+    background: var(--board-premove-background, rgb(255 255 255 / 0.08)) !important;
     box-shadow:
-      inset 0 0 0 1px var(--color-board-grid),
-      inset 0 0 0 2px oklch(0.62 0.10 108 / 0.45);
-  }
-
-  .board-square-premove-dark {
-    background:
-      radial-gradient(circle at 50% 50%, oklch(0.60 0.08 102 / 0.26), transparent 62%),
-      var(--color-board-base) !important;
-    box-shadow:
-      inset 0 0 0 1px var(--color-board-grid),
-      inset 0 0 0 2px oklch(0.54 0.08 108 / 0.42);
+      inset 0 0 0 1px var(--board-grid-line, var(--color-board-grid)),
+      inset 0 0 0 2px var(--board-premove-ring, oklch(0.62 0.10 108 / 0.45));
   }
 
   /* Board touch handling */
@@ -193,7 +174,10 @@
     -webkit-user-select: none;
     user-select: none;
     touch-action: none;
-    background: var(--board-frame-background, linear-gradient(180deg, rgba(120,85,45,0.4), rgba(48,33,21,0.56)));
+    background: var(--board-surface-background, var(--color-board-base));
+    box-shadow:
+      inset 0 0 0 1px var(--board-grid-line, oklch(0.58 0.05 72 / 0.42)),
+      0 20px 36px oklch(0.10 0.02 65 / 0.28);
   }
 
   /* Legal move indicators */
@@ -205,15 +189,16 @@
     width: 30%;
     height: 30%;
     border-radius: 50%;
-    background-color: oklch(0.20 0 0 / 0.18);
+    background-color: var(--board-legal-dot, oklch(0.20 0 0 / 0.18));
     pointer-events: none;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
   }
 
   .legal-capture {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 5px solid oklch(0.20 0 0 / 0.18);
+    border: 5px solid var(--board-legal-capture, oklch(0.20 0 0 / 0.18));
     pointer-events: none;
     box-sizing: border-box;
   }

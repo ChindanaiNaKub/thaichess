@@ -87,8 +87,6 @@ export default memo(function Board({
   const getDisplayRow = (row: number) => isFlipped ? row : 7 - row;
   const getDisplayCol = (col: number) => isFlipped ? 7 - col : col;
 
-  const isLightSquare = (row: number, col: number) => (row + col) % 2 === 0;
-
   const isLegalMove = useCallback((row: number, col: number) => {
     return legalMoves.some(m => m.row === row && m.col === col);
   }, [legalMoves]);
@@ -303,33 +301,40 @@ export default memo(function Board({
   };
 
   const getSquareClass = (boardRow: number, boardCol: number) => {
-    const light = isLightSquare(boardRow, boardCol);
-    let cls = light ? 'board-square-light' : 'board-square-dark';
+    const classes = ['board-square', 'board-square-neutral'];
 
     if (getSquareHighlight(boardRow, boardCol)) {
-      cls = '';
+      return 'board-square';
     } else if (isPremoveSquare(boardRow, boardCol)) {
-      cls = light ? 'board-square-premove-light' : 'board-square-premove-dark';
+      classes.push('board-square-premove');
     } else if (isSelected(boardRow, boardCol)) {
-      cls = 'board-square-selected';
+      classes.push('board-square-selected');
     } else if (isLastMove(boardRow, boardCol)) {
-      cls = light ? 'board-square-lastmove-light' : 'board-square-lastmove-dark';
+      classes.push('board-square-lastmove');
     }
 
     if (isCheckSquare(boardRow, boardCol)) {
-      cls += ' board-square-check';
+      classes.push('board-square-check');
     }
 
-    return cls;
+    return classes.join(' ');
   };
 
   const squareSize = '12.5%';
   const boardSurfaceStyle = {
-    '--board-light-background': boardTheme.lightBackground,
-    '--board-dark-background': boardTheme.darkBackground,
-    '--board-coordinate-light': boardTheme.lightCoordinate,
-    '--board-coordinate-dark': boardTheme.darkCoordinate,
+    '--board-surface-background': boardTheme.surfaceBackground,
+    '--board-grid-line': boardTheme.gridColor,
+    '--board-coordinate': boardTheme.coordinateColor,
     '--board-frame-background': boardTheme.frameBackground,
+    '--board-hover-background': boardTheme.hoverBackground,
+    '--board-selected-background': boardTheme.selectedBackground,
+    '--board-selected-ring': boardTheme.selectedRing,
+    '--board-lastmove-background': boardTheme.lastMoveBackground,
+    '--board-premove-background': boardTheme.premoveBackground,
+    '--board-premove-ring': boardTheme.premoveRing,
+    '--board-legal-dot': boardTheme.legalDot,
+    '--board-legal-capture': boardTheme.legalCapture,
+    '--board-check-overlay': boardTheme.checkOverlay,
   } as React.CSSProperties;
 
   const renderArrowSvg = () => {
@@ -440,13 +445,13 @@ export default memo(function Board({
           >
             {displayCol === 0 && (
               <span className="absolute top-0.5 left-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: isLightSquare(boardRow, boardCol) ? 'var(--board-coordinate-light)' : 'var(--board-coordinate-dark)' }}>
+                style={{ color: 'var(--board-coordinate)' }}>
                 {boardRow + 1}
               </span>
             )}
             {displayRow === 7 && (
               <span className="absolute bottom-0.5 right-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: isLightSquare(boardRow, boardCol) ? 'var(--board-coordinate-light)' : 'var(--board-coordinate-dark)' }}>
+                style={{ color: 'var(--board-coordinate)' }}>
                 {String.fromCharCode(97 + boardCol)}
               </span>
             )}

@@ -32,19 +32,32 @@ describe('AppearanceSettingsPage', () => {
     localStorage.clear();
   });
 
+  it('groups board themes into Makruk-friendly categories with real piece previews', () => {
+    renderPage();
+
+    expect(screen.getByRole('heading', { name: 'Classic' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Soft' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dark Mode' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Elegant' })).toBeInTheDocument();
+    expect(screen.getAllByTestId(/piece-svg-/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/contrast checked/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/old vs makruk/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/single-surface makruk/i).length).toBeGreaterThan(0);
+  });
+
   it('persists board and piece color theme selections immediately', async () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: /rosewood/i }));
+    fireEvent.click(screen.getByRole('button', { name: /dark wood/i }));
     fireEvent.click(screen.getByRole('button', { name: /piece colors/i }));
     fireEvent.click(screen.getByRole('button', { name: /jade & bone/i }));
 
     await waitFor(() => {
-      expect(localStorage.getItem('thaichess-board-theme')).toBe('rosewood');
+      expect(localStorage.getItem('thaichess-board-theme')).toBe('dark-wood');
       expect(localStorage.getItem('thaichess-piece-theme')).toBe('jade-bone');
     }, { timeout: 10000 });
 
-    expect(screen.getAllByText('Rosewood').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Dark Wood').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Jade & Bone').length).toBeGreaterThan(0);
   }, 10000);
 });
