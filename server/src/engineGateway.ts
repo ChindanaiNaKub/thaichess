@@ -115,6 +115,10 @@ function createStateFromSnapshot(snapshot: AnalysisPositionSnapshot) {
   };
 }
 
+export function normalizeEngineEvaluation(evalCp: number, turn: AnalysisPositionSnapshot['turn']): number {
+  return turn === 'white' ? evalCp : -evalCp;
+}
+
 function buildLocalBotMoveResult(
   snapshot: AnalysisPositionSnapshot,
   level: number,
@@ -258,7 +262,7 @@ export function resolvePositionAnalysisResult(
   }
 
   return {
-    evaluation: result.evalCp,
+    evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
     bestMove: resolved.move,
     principalVariation: result.pvUci ?? [],
     stats: {
@@ -471,7 +475,7 @@ export async function getBotMoveWithEngine(
     if (resolved.source === 'engine') {
       return {
         move: resolved.move,
-        evaluation: result.evalCp,
+        evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
         bestMove: resolved.move,
         principalVariation: result.pvUci ?? [],
         stats: {

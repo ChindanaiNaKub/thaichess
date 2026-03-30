@@ -6,6 +6,7 @@ import {
   getBotRequestTimeoutMs,
   getReviewMovetime,
   getReviewTotalBudgetMs,
+  normalizeEngineEvaluation,
   resolveBotMoveCandidate,
   resolvePositionAnalysisResult,
 } from '../engineGateway';
@@ -116,6 +117,32 @@ describe('normalizeEngineFen', () => {
     }, 'service');
 
     expect(result.stats.source).toBe('service');
+    expect(result.bestMove).toEqual(legalMove);
+  });
+
+  it('normalizes engine evaluations to white perspective', () => {
+    expect(normalizeEngineEvaluation(120, 'white')).toBe(120);
+    expect(normalizeEngineEvaluation(120, 'black')).toBe(-120);
+    expect(normalizeEngineEvaluation(-340, 'black')).toBe(340);
+  });
+
+  it('flips engine review scores when black is to move', () => {
+    const state = createInitialGameState(0, 0);
+    const snapshot = {
+      board: state.board,
+      turn: 'black' as const,
+      counting: state.counting,
+    };
+    const legalMove = { from: { row: 5, col: 0 }, to: { row: 4, col: 0 } };
+
+    const result = resolvePositionAnalysisResult(snapshot, { movetimeMs: 250 }, {
+      bestMoveUci: moveToUci(legalMove),
+      pvUci: [moveToUci(legalMove)],
+      evalCp: 280,
+      depth: 14,
+    }, 'binary');
+
+    expect(result.evaluation).toBe(-280);
     expect(result.bestMove).toEqual(legalMove);
   });
 });
