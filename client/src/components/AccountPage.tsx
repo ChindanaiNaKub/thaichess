@@ -220,7 +220,7 @@ export default function AccountPage() {
                   <div className="text-lg font-semibold text-text-bright">{t('account.puzzle_all_done')}</div>
                   <p className="text-sm text-text-dim mt-2">{t('account.puzzle_all_done_desc')}</p>
                   <button
-                    onClick={() => navigate(routes.learn)}
+                    onClick={() => navigate(routes.lessons)}
                     className="mt-4 w-full py-2.5 rounded-lg border border-surface-hover text-text"
                   >
                     {t('puzzle.all_lessons')}

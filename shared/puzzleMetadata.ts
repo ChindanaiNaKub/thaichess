@@ -79,6 +79,11 @@ export function isMiddlegameRichBoard(board: Board): boolean {
     countBoardActivePieces(board) >= 6;
 }
 
+export function isSparseEndgameBoard(board: Board): boolean {
+  return countBoardPieces(board) <= 8 ||
+    (countBoardPawns(board) <= 3 && countBoardActivePieces(board) <= 3);
+}
+
 function addTag(tags: string[], tag: string | null | undefined): void {
   if (!tag) return;
   const normalized = normalizeTag(tag);
@@ -115,6 +120,7 @@ export function derivePuzzleSourceReference(source: string): PuzzleSourceReferen
 export function derivePuzzleTags(input: PuzzleMetadataInput): string[] {
   const tags: string[] = [];
   const origin = derivePuzzleOrigin(input.source);
+  const sourceReference = derivePuzzleSourceReference(input.source);
   const hintText = `${input.theme} ${input.motif} ${input.source}`.toLowerCase();
 
   for (const tag of input.tags ?? []) {
@@ -162,9 +168,21 @@ export function derivePuzzleTags(input: PuzzleMetadataInput): string[] {
   if (origin === 'seed-game') addTag(tags, 'seed-game');
   if (origin === 'starter-pack') addTag(tags, 'starter-pack');
   if (isMiddlegameRichBoard(input.board)) addTag(tags, 'middlegame');
+  if (isSparseEndgameBoard(input.board)) addTag(tags, 'endgame');
 
   if (input.solution.length >= 3) {
     addTag(tags, 'forcing-sequence');
+  }
+
+  if (
+    hintText.includes('open file') ||
+    hintText.includes('opening') ||
+    ((origin === 'real-game' || origin === 'seed-game') &&
+      input.solution.length <= 3 &&
+      sourceReference.sourcePly !== null &&
+      sourceReference.sourcePly <= 18)
+  ) {
+    addTag(tags, 'opening');
   }
 
   return tags;

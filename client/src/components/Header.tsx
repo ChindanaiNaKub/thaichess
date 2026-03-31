@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import { routes } from '../lib/routes';
 import PieceSVG from './PieceSVG';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 
 interface HeaderProps {
-  active?: 'play' | 'watch' | 'puzzles' | 'games' | 'about';
+  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about';
   subtitle?: string;
   right?: React.ReactNode;
 }
@@ -22,7 +23,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     navigate(path);
   };
 
-  const navItem = (key: 'play' | 'watch' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
+  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
     <button
       key={key}
       onClick={() => handleNavigate(path)}
@@ -41,7 +42,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     </button>
   );
 
-  const mobileNavItem = (key: 'play' | 'watch' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
+  const mobileNavItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
     <button
       key={key}
       onClick={() => handleNavigate(path)}
@@ -80,11 +81,12 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
         <div className="flex items-center gap-2 sm:gap-5">
           {active !== undefined && (
             <nav className="hidden sm:flex items-center gap-5">
-              {navItem('play', '/', t('nav.play'))}
-              {navItem('watch', '/watch', t('nav.watch'))}
-              {navItem('puzzles', '/puzzles', t('nav.puzzles'))}
-              {navItem('games', '/games', t('nav.games'))}
-              {navItem('about', '/about', t('nav.about'))}
+              {navItem('play', routes.home, t('nav.play'))}
+              {navItem('watch', routes.watch, t('nav.watch'))}
+              {navItem('lessons', routes.lessons, t('nav.lessons'))}
+              {navItem('puzzles', routes.puzzles, t('nav.puzzles'))}
+              {navItem('games', routes.games, t('nav.games'))}
+              {navItem('about', routes.about, t('nav.about'))}
             </nav>
           )}
 
@@ -152,11 +154,12 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
             {active !== undefined && (
               <nav className="grid grid-cols-2 gap-2">
-                {mobileNavItem('play', '/', t('nav.play'))}
-                {mobileNavItem('watch', '/watch', t('nav.watch'))}
-                {mobileNavItem('puzzles', '/puzzles', t('nav.puzzles'))}
-                {mobileNavItem('games', '/games', t('nav.games'))}
-                {mobileNavItem('about', '/about', t('nav.about'))}
+                {mobileNavItem('play', routes.home, t('nav.play'))}
+                {mobileNavItem('watch', routes.watch, t('nav.watch'))}
+                {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
+                {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles'))}
+                {mobileNavItem('games', routes.games, t('nav.games'))}
+                {mobileNavItem('about', routes.about, t('nav.about'))}
               </nav>
             )}
 

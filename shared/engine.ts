@@ -153,7 +153,7 @@ function getPieceHonorLimit(board: Board, strongerColor: PieceColor): number {
   }
 
   if (rooks >= 2) return 8;
-  if (rooks === 1) return 16;
+  if (rooks === 1) return 26;
   if (bishops >= 2) return 22;
   if (knights >= 2) return 32;
   if (bishops === 1) return 44;

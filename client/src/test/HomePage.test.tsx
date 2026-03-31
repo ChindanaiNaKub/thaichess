@@ -277,7 +277,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');
 
     fireEvent.click(screen.getAllByText(/^lessons$/i)[0]!.closest('button')!);
-    expect(navigateMock).toHaveBeenCalledWith('/learn');
+    expect(navigateMock).toHaveBeenCalledWith('/lessons');
 
     fireEvent.click(screen.getByRole('button', { name: /play local/i }));
     expect(navigateMock).toHaveBeenCalledWith('/local');
