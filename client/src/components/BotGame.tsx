@@ -1,17 +1,30 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BOT_PERSONAS, DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById, type BotDifficultyTier } from '@shared/botPersonas';
+import { getBotDialoguePack } from '@shared/botDialogueCatalog';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
   getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove,
   startCounting, stopCounting, hasAnyLegalMoves, isInCheck,
 } from '@shared/engine';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
+import {
+  createBotIntroDecision,
+  createBotOutcomeDecision,
+  getThinkingTriggerDelayMs,
+  maybeCreateMoveDialogue,
+  maybeCreateThinkingDecision,
+  type BotChatDecision,
+  type BotChatMessage,
+  type BotChatHistory,
+} from '../lib/botDialogue';
 import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
+import BotAvatar from './BotAvatar';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -30,26 +43,11 @@ const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
 };
-const BOT_LEVELS = Array.from({ length: 10 }, (_, index) => {
-  const level = index + 1;
-
-  return {
-    level,
-    title: `Level ${level}`,
-    description: level <= 3
-      ? 'Beginner'
-      : level <= 6
-        ? 'Intermediate'
-        : level <= 8
-          ? 'Advanced'
-          : 'Expert',
-  };
-});
 
 type SideChoice = PieceColor | 'random';
 
-function buildBotName(level: number) {
-  return `Makruk Bot Lv.${level}`;
+function formatDifficultyLabel(tier: BotDifficultyTier): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
 function createBotGameId() {
@@ -82,10 +80,10 @@ function buildNoMoveGameOverState(state: GameState): GameState | null {
 
 export default function BotGame() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { user } = useAuth();
   const [gameStarted, setGameStarted] = useState(false);
-  const [level, setLevel] = useState(5);
+  const [selectedBotId, setSelectedBotId] = useState(DEFAULT_BOT_PERSONA_ID);
   const [playerColor, setPlayerColor] = useState<PieceColor>('white');
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const [sideChoice, setSideChoice] = useState<SideChoice>('white');
@@ -95,12 +93,24 @@ export default function BotGame() {
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
+  const [botChat, setBotChat] = useState<BotChatMessage | null>(null);
+  const [botChatFading, setBotChatFading] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestAbortRef = useRef<AbortController | null>(null);
+  const pendingBotChatRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botChatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botChatFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botThinkingLineTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestIdRef = useRef(0);
   const gameStateRef = useRef(gameState);
+  const previousGameStateRef = useRef(gameState);
   const moveCountRef = useRef(gameState.moveHistory.length);
+  const lastBotChatMoveCountRef = useRef(-99);
+  const lastBotChatAtRef = useRef(-100000);
+  const botChatVisibleUntilRef = useRef(-100000);
+  const recentBotLineKeysRef = useRef<string[]>([]);
+  const activeBotChatRef = useRef<BotChatMessage | null>(null);
   const persistedGameIdRef = useRef<string | null>(null);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
@@ -108,16 +118,107 @@ export default function BotGame() {
   // Pre-move state for bot games
   const [premove, setPremove] = useState<{ from: Position; to: Position } | null>(null);
 
+  const selectedBot = getBotPersonaById(selectedBotId);
+  const botLevel = selectedBot.engine.level;
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const isPlayerTurn = gameState.turn === playerColor;
   const playerDisplayName = user?.username?.trim()
     || user?.email.split('@')[0]?.trim()
     || 'Anonymous';
-  const botName = buildBotName(level);
+  const botName = selectedBot.name;
+  const setupIntroPreview = getBotDialoguePack(selectedBot, lang).intro[0] ?? selectedBot.flavorIntroLine;
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    activeBotChatRef.current = botChat;
+  }, [botChat]);
+
+  const clearPendingBotChat = useCallback(() => {
+    if (pendingBotChatRef.current) {
+      clearTimeout(pendingBotChatRef.current);
+      pendingBotChatRef.current = null;
+    }
+  }, []);
+
+  const buildBotChatHistory = useCallback((): BotChatHistory => ({
+    lastChatMoveCount: lastBotChatMoveCountRef.current,
+    lastChatAt: lastBotChatAtRef.current,
+    recentLineKeys: recentBotLineKeysRef.current,
+    hasActiveMessage: activeBotChatRef.current !== null,
+    hasPendingMessage: pendingBotChatRef.current !== null,
+  }), []);
+
+  const showBotChat = useCallback((message: BotChatMessage, moveCount: number, displayMs: number) => {
+    if (botChatTimeoutRef.current) {
+      clearTimeout(botChatTimeoutRef.current);
+      botChatTimeoutRef.current = null;
+    }
+    if (botChatFadeTimeoutRef.current) {
+      clearTimeout(botChatFadeTimeoutRef.current);
+      botChatFadeTimeoutRef.current = null;
+    }
+
+    setBotChatFading(false);
+    setBotChat(message);
+    lastBotChatMoveCountRef.current = moveCount;
+    lastBotChatAtRef.current = Date.now();
+    botChatVisibleUntilRef.current = Date.now() + displayMs;
+    recentBotLineKeysRef.current = [
+      ...recentBotLineKeysRef.current,
+      message.lineKey,
+    ].slice(-getBotDialogueRules(selectedBot).recentLineWindow);
+    botChatTimeoutRef.current = setTimeout(() => {
+      setBotChatFading(true);
+      botChatFadeTimeoutRef.current = setTimeout(() => {
+        setBotChat((current) => (current?.id === message.id ? null : current));
+        setBotChatFading(false);
+        botChatFadeTimeoutRef.current = null;
+      }, 320);
+      botChatTimeoutRef.current = null;
+    }, displayMs);
+  }, [selectedBot]);
+
+  const queueBotChat = useCallback((decision: BotChatDecision | null) => {
+    if (!decision) {
+      return;
+    }
+
+    const now = Date.now();
+    const remainingVisibleMs = Math.max(0, botChatVisibleUntilRef.current - now);
+
+    if (!decision.force && pendingBotChatRef.current) {
+      return;
+    }
+
+    if (decision.force) {
+      clearPendingBotChat();
+    }
+
+    if (!decision.force && activeBotChatRef.current && remainingVisibleMs > 0) {
+      return;
+    }
+
+    const scheduledDelayMs = decision.force
+      ? decision.delayMs + remainingVisibleMs
+      : Math.max(decision.delayMs, remainingVisibleMs);
+
+    pendingBotChatRef.current = setTimeout(() => {
+      pendingBotChatRef.current = null;
+
+      if (!gameStarted) {
+        return;
+      }
+
+      if (!decision.force && gameStateRef.current.moveHistory.length !== decision.expectedMoveCount) {
+        return;
+      }
+
+      showBotChat(decision.message, decision.expectedMoveCount, decision.displayMs);
+    }, scheduledDelayMs);
+  }, [clearPendingBotChat, gameStarted, showBotChat]);
 
   const clearPendingBotRequest = useCallback(() => {
     if (botTimeoutRef.current) {
@@ -134,6 +235,15 @@ export default function BotGame() {
     botRequestAbortRef.current = null;
     botRequestIdRef.current += 1;
   }, []);
+
+  useEffect(() => {
+    return () => {
+      clearPendingBotChat();
+      if (botChatTimeoutRef.current) clearTimeout(botChatTimeoutRef.current);
+      if (botChatFadeTimeoutRef.current) clearTimeout(botChatFadeTimeoutRef.current);
+      if (botThinkingLineTimeoutRef.current) clearTimeout(botThinkingLineTimeoutRef.current);
+    };
+  }, [clearPendingBotChat]);
 
   useEffect(() => {
     if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
@@ -164,12 +274,13 @@ export default function BotGame() {
       }, BOT_REQUEST_TIMEOUT_MS);
 
       try {
-        const result = await requestBotMove(requestedState, level, {
+        const result = await requestBotMove(requestedState, botLevel, {
           signal: controller.signal,
+          botId: selectedBot.id,
         });
         botMove = result.move;
       } catch {
-        botMove = await requestLocalBotMove(requestedState, level);
+        botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id);
       } finally {
         if (botRequestTimeoutRef.current) {
           clearTimeout(botRequestTimeoutRef.current);
@@ -195,7 +306,7 @@ export default function BotGame() {
       let newState = botMove ? makeMove(currentState, botMove.from, botMove.to) : null;
 
       if (!newState) {
-        const fallbackMove = await requestLocalBotMove(currentState, level);
+        const fallbackMove = await requestLocalBotMove(currentState, botLevel, selectedBot.id);
         if (fallbackMove) {
           botMove = fallbackMove;
           newState = makeMove(currentState, fallbackMove.from, fallbackMove.to);
@@ -238,6 +349,7 @@ export default function BotGame() {
   }, [
     clearPendingBotRequest,
     botColor,
+    botLevel,
     gameStarted,
     gameState.board,
     gameState.counting,
@@ -245,7 +357,7 @@ export default function BotGame() {
     gameState.moveHistory.length,
     gameState.turn,
     isPlayerTurn,
-    level,
+    selectedBot.id,
   ]);
 
   useEffect(() => {
@@ -336,7 +448,8 @@ export default function BotGame() {
         id: currentGameId,
         playerColor,
         playerName: playerDisplayName,
-        level,
+        level: botLevel,
+        botId: selectedBot.id,
         result: gameState.winner || 'draw',
         resultReason: gameOverInfo.reason,
         timeControl: BOT_GAME_TIME_CONTROL,
@@ -353,9 +466,10 @@ export default function BotGame() {
     gameState.moveCount,
     gameState.moveHistory,
     gameState.winner,
-    level,
+    botLevel,
     playerColor,
     playerDisplayName,
+    selectedBot.id,
   ]);
 
   useEffect(() => {
@@ -396,6 +510,71 @@ export default function BotGame() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState, viewMoveIndex]);
+
+  useEffect(() => {
+    if (!gameStarted) {
+      previousGameStateRef.current = gameState;
+      return;
+    }
+
+    const previousState = previousGameStateRef.current;
+
+    if (gameState.gameOver && !previousState.gameOver) {
+      queueBotChat(createBotOutcomeDecision(selectedBot, lang, gameState, botColor, buildBotChatHistory()));
+      previousGameStateRef.current = gameState;
+      return;
+    }
+
+    if (gameState.moveHistory.length > previousState.moveHistory.length) {
+      const actorColor: PieceColor = gameState.turn === 'white' ? 'black' : 'white';
+      const dialogue = maybeCreateMoveDialogue({
+        persona: selectedBot,
+        locale: lang,
+        previousState,
+        nextState: gameState,
+        botColor,
+        history: buildBotChatHistory(),
+        trigger: actorColor === botColor ? 'after_bot_move' : 'after_player_move',
+      });
+
+      if (dialogue) {
+        queueBotChat(dialogue);
+      }
+    }
+
+    previousGameStateRef.current = gameState;
+  }, [botColor, buildBotChatHistory, gameStarted, gameState, queueBotChat, selectedBot]);
+
+  useEffect(() => {
+    if (botThinkingLineTimeoutRef.current) {
+      clearTimeout(botThinkingLineTimeoutRef.current);
+      botThinkingLineTimeoutRef.current = null;
+    }
+
+    if (!gameStarted || !botThinking || gameState.gameOver) {
+      return;
+    }
+
+    botThinkingLineTimeoutRef.current = setTimeout(() => {
+      const dialogue = maybeCreateThinkingDecision(
+        selectedBot,
+        lang,
+        gameStateRef.current.moveHistory.length,
+        buildBotChatHistory(),
+      );
+
+      if (dialogue && gameStateRef.current.turn === botColor && !gameStateRef.current.gameOver) {
+        queueBotChat(dialogue);
+      }
+    }, getThinkingTriggerDelayMs(selectedBot));
+
+    return () => {
+      if (botThinkingLineTimeoutRef.current) {
+        clearTimeout(botThinkingLineTimeoutRef.current);
+        botThinkingLineTimeoutRef.current = null;
+      }
+    };
+  }, [botColor, botThinking, buildBotChatHistory, gameStarted, gameState.gameOver, queueBotChat, selectedBot]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
@@ -496,12 +675,19 @@ export default function BotGame() {
 
   const handleStartGame = () => {
     clearPendingBotRequest();
+    clearPendingBotChat();
     const resolvedColor: PieceColor = sideChoice === 'random'
       ? (Math.random() < 0.5 ? 'white' : 'black')
       : sideChoice;
+    const freshState = createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS);
+
+    if (botThinkingLineTimeoutRef.current) {
+      clearTimeout(botThinkingLineTimeoutRef.current);
+      botThinkingLineTimeoutRef.current = null;
+    }
 
     setPlayerColor(resolvedColor);
-    setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
+    setGameState(freshState);
     setSelectedSquare(null);
     setLegalMoves([]);
     setGameOverInfo(null);
@@ -513,10 +699,27 @@ export default function BotGame() {
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
+    previousGameStateRef.current = freshState;
+    recentBotLineKeysRef.current = [];
+    lastBotChatMoveCountRef.current = -99;
+    lastBotChatAtRef.current = -100000;
+    botChatVisibleUntilRef.current = -100000;
+    setBotChat(null);
+    setBotChatFading(false);
+    queueBotChat(createBotIntroDecision(selectedBot, lang, buildBotChatHistory()));
   };
 
   const handleReset = () => {
     clearPendingBotRequest();
+    clearPendingBotChat();
+    if (botThinkingLineTimeoutRef.current) {
+      clearTimeout(botThinkingLineTimeoutRef.current);
+      botThinkingLineTimeoutRef.current = null;
+    }
+    if (botChatTimeoutRef.current) {
+      clearTimeout(botChatTimeoutRef.current);
+      botChatTimeoutRef.current = null;
+    }
     setGameStarted(false);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
@@ -529,6 +732,12 @@ export default function BotGame() {
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
+    setBotChat(null);
+    setBotChatFading(false);
+    lastBotChatMoveCountRef.current = -99;
+    lastBotChatAtRef.current = -100000;
+    botChatVisibleUntilRef.current = -100000;
+    recentBotLineKeysRef.current = [];
   };
 
   const handleResign = () => {
@@ -596,7 +805,7 @@ export default function BotGame() {
   const sideChoiceLabel = sideChoice === 'random'
     ? t('bot.random')
     : t(sideChoice === 'white' ? 'common.white' : 'common.black');
-  const levelMeta = BOT_LEVELS.find(entry => entry.level === level) ?? BOT_LEVELS[4];
+  const difficultyLabel = formatDifficultyLabel(selectedBot.difficultyLevel);
 
   if (!gameStarted) {
     return (
@@ -604,7 +813,7 @@ export default function BotGame() {
         <Header subtitle={t('bot.title')} />
 
         <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-2xl animate-slideUp">
+          <div className="w-full max-w-6xl animate-slideUp">
             <div className="overflow-hidden rounded-[1.75rem] border border-accent/20 bg-[radial-gradient(circle_at_top,rgba(96,160,24,0.08),transparent_38%),linear-gradient(180deg,rgba(33,25,20,0.96),rgba(24,18,15,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
               <div className="border-b border-surface-hover/70 px-5 py-5 sm:px-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -617,100 +826,172 @@ export default function BotGame() {
                       {t('bot.setup_desc')}
                     </p>
                   </div>
-                  <div className="grid min-w-[14rem] grid-cols-2 gap-2 self-start rounded-2xl border border-surface-hover/80 bg-surface/55 p-2">
+                  <div className="grid min-w-[18rem] grid-cols-2 gap-2 self-start rounded-2xl border border-surface-hover/80 bg-surface/55 p-2">
                     <div className="rounded-xl bg-surface-alt px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.difficulty')}</div>
-                      <div className="mt-1 text-sm font-semibold text-text-bright">{levelMeta.title}</div>
-                      <div className="text-xs text-text-dim">{levelMeta.description}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Selected Bot</div>
+                      <div className="mt-1 text-sm font-semibold text-text-bright">{selectedBot.name}</div>
+                      <div className="text-xs text-text-dim">{selectedBot.title}</div>
                     </div>
                     <div className="rounded-xl bg-surface-alt px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.play_as')}</div>
-                      <div className="mt-1 text-sm font-semibold text-text-bright">{sideChoiceLabel}</div>
-                      <div className="text-xs text-text-dim">
-                        {sideChoice === 'random' ? t('bot.random_assigned') : t('bot.side_locked')}
-                      </div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Rating</div>
+                      <div className="mt-1 text-sm font-semibold text-text-bright">{selectedBot.rating}</div>
+                      <div className="text-xs text-text-dim">{difficultyLabel}</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-6 px-5 py-5 sm:px-7 sm:py-6">
+              <div className="grid gap-6 px-5 py-5 sm:px-7 sm:py-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)]">
                 <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.difficulty')}</label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    {BOT_LEVELS.map((entry) => {
-                      return (
-                        <button
-                          key={entry.level}
-                          onClick={() => setLevel(entry.level)}
-                          className={`rounded-xl border px-3 py-3 text-sm font-medium transition-all ${
-                            level === entry.level
-                              ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
-                              : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                          }`}
-                        >
-                          <div className="font-bold">{entry.title}</div>
-                          <div className="mt-1 text-xs opacity-70">{entry.description}</div>
-                        </button>
-                      );
-                    })}
+                  <label className="mb-3 block text-sm font-medium text-text-dim">Bot roster</label>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {BOT_PERSONAS.map((persona) => (
+                      <button
+                        key={persona.id}
+                        onClick={() => setSelectedBotId(persona.id)}
+                        className={`rounded-2xl border p-3 text-left transition-all ${
+                          selectedBot.id === persona.id
+                            ? 'border-primary/40 bg-primary/12 shadow-[0_12px_28px_rgba(92,160,26,0.22)]'
+                            : 'border-surface-hover bg-surface-alt/85 hover:bg-surface-hover'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <BotAvatar avatar={persona.avatar} size={60} className="shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-text-bright">{persona.name}</div>
+                            <div className="text-xs text-text-dim">{persona.title}</div>
+                            <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                              <span className="rounded-full border border-surface-hover px-2 py-1">{persona.rating}</span>
+                              <span className="rounded-full border border-surface-hover px-2 py-1">{formatDifficultyLabel(persona.difficultyLevel)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm font-medium text-text">{persona.personalityHook}</div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {persona.playstyleTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.play_as')}</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => setSideChoice('white')}
-                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
-                        sideChoice === 'white'
-                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
-                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                      }`}
-                    >
-                      <PieceSVG type="K" color="white" size={32} />
-                      <span className="text-sm">{t('common.white')}</span>
-                    </button>
-                    <button
-                      onClick={() => setSideChoice('random')}
-                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
-                        sideChoice === 'random'
-                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
-                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                      }`}
-                    >
-                      <span className="text-2xl">🎲</span>
-                      <span className="text-sm">{t('bot.random')}</span>
-                      <span className="text-[11px] opacity-70">{t('bot.random_assigned')}</span>
-                    </button>
-                    <button
-                      onClick={() => setSideChoice('black')}
-                      className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
-                        sideChoice === 'black'
-                          ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
-                          : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                      }`}
-                    >
-                      <PieceSVG type="K" color="black" size={32} />
-                      <span className="text-sm">{t('common.black')}</span>
-                    </button>
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+                    <div className="flex items-start gap-4">
+                      <BotAvatar avatar={selectedBot.avatar} size={88} className="shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent/85">Featured opponent</div>
+                        <h3 className="mt-2 text-2xl font-bold text-text-bright">{selectedBot.name}</h3>
+                        <p className="text-sm text-text-dim">{selectedBot.title}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">Rating {selectedBot.rating}</span>
+                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">{difficultyLabel}</span>
+                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">Engine Lv.{botLevel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-6 text-text">{selectedBot.shortBackstory}</p>
+                    <p className="mt-3 text-sm font-medium text-accent-light">{selectedBot.personalityHook}</p>
+                    <div className="mt-4 grid gap-3 text-sm text-text-dim">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Opening preference</div>
+                        <div className="mt-1 text-text">{selectedBot.openingPreference}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Signature style</div>
+                        <div className="mt-1 text-text">{selectedBot.signatureStyle}</div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Tactical bias</div>
+                          <div className="mt-1 text-text">{selectedBot.tacticalBias}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Strategic weakness</div>
+                          <div className="mt-1 text-text">{selectedBot.strategicWeakness}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {selectedBot.personalityTraits.map((trait) => (
+                        <span key={trait} className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim">
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-col gap-3 border-t border-surface-hover/70 pt-1">
-                  <button
-                    onClick={handleStartGame}
-                    className="w-full rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light"
-                  >
-                    {t('bot.start')}
-                  </button>
+                  <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+                    <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.play_as')}</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setSideChoice('white')}
+                        className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                          sideChoice === 'white'
+                            ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                            : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                        }`}
+                      >
+                        <PieceSVG type="K" color="white" size={32} />
+                        <span className="text-sm">{t('common.white')}</span>
+                      </button>
+                      <button
+                        onClick={() => setSideChoice('random')}
+                        className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                          sideChoice === 'random'
+                            ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                            : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                        }`}
+                      >
+                        <span className="text-2xl">?</span>
+                        <span className="text-sm">{t('bot.random')}</span>
+                        <span className="text-[11px] opacity-70">{t('bot.random_assigned')}</span>
+                      </button>
+                      <button
+                        onClick={() => setSideChoice('black')}
+                        className={`rounded-xl border px-3 py-4 font-medium transition-all flex flex-col items-center gap-1.5 ${
+                          sideChoice === 'black'
+                            ? 'border-primary/40 bg-primary text-white shadow-[0_10px_24px_rgba(92,160,26,0.28)]'
+                            : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
+                        }`}
+                      >
+                        <PieceSVG type="K" color="black" size={32} />
+                        <span className="text-sm">{t('common.black')}</span>
+                      </button>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-surface-hover bg-surface-alt/85 px-3 py-2 text-sm text-text-dim">
+                      <span className="font-semibold text-text-bright">{sideChoiceLabel}</span>
+                      <span className="ml-2">{sideChoice === 'random' ? t('bot.random_assigned') : t('bot.side_locked')}</span>
+                    </div>
+                  </div>
 
-                  <button
-                    onClick={() => navigate('/')}
-                    className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
-                  >
-                    {t('common.back_home')}
-                  </button>
+                  <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Dialogue preview</div>
+                    <p className="mt-2 text-sm italic text-text">"{setupIntroPreview}"</p>
+                    <div className="mt-3 text-xs leading-6 text-text-dim">{selectedBot.chatStyle}</div>
+                    <div className="mt-4 flex flex-col gap-3 border-t border-surface-hover/70 pt-4">
+                      <button
+                        onClick={handleStartGame}
+                        className="w-full rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light"
+                      >
+                        {t('bot.start')}
+                      </button>
+
+                      <button
+                        onClick={() => navigate('/')}
+                        className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                      >
+                        {t('common.back_home')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -748,6 +1029,7 @@ export default function BotGame() {
     : isPlayerTurn
       ? t('bot.your_turn')
       : t('bot.bot_thinking');
+  const botClockSubtitle = `${selectedBot.title} | ${selectedBot.rating}`;
 
   const handleStartCounting = () => {
     const newState = startCounting(gameState);
@@ -768,7 +1050,10 @@ export default function BotGame() {
             <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('bot.vs_bot')}</span>
             <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
-              Level {level}
+              {selectedBot.rating}
+            </span>
+            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+              {difficultyLabel}
             </span>
           </>
         }
@@ -778,7 +1063,8 @@ export default function BotGame() {
             isActive={gameState.turn === botColor && !gameState.gameOver}
             color={botColor}
             playerName={botName}
-            subtitle={t(botColor === 'white' ? 'common.white' : 'common.black')}
+            botAvatar={selectedBot.avatar}
+            subtitle={botClockSubtitle}
             capturedPieces={botCaptureSummary.pieces}
             materialDelta={botCaptureSummary.material}
           />
@@ -845,13 +1131,54 @@ export default function BotGame() {
         }
         sidePanel={
           <>
+            <div className="rounded-[1.35rem] border border-surface-hover bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.16),transparent_38%),linear-gradient(180deg,rgba(47,36,28,0.96),rgba(28,22,18,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
+              <div className="flex items-start gap-3">
+                <BotAvatar avatar={selectedBot.avatar} size={72} className="shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-lg font-semibold text-text-bright">{selectedBot.name}</div>
+                  <div className="text-sm text-text-dim">{selectedBot.title}</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                    <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">Rating {selectedBot.rating}</span>
+                    <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">{difficultyLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 text-sm font-medium text-text">{selectedBot.personalityHook}</div>
+              <div className="mt-2 text-xs leading-6 text-text-dim">{selectedBot.shortBackstory}</div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {selectedBot.playstyleTags.map((tag) => (
+                  <span key={tag} className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              {botChat && (
+                <div className="mt-3 flex items-start gap-2.5">
+                  <BotAvatar avatar={selectedBot.avatar} size={40} className="shrink-0" />
+                  <div className={`min-w-0 flex-1 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] px-3 py-2.5 text-[13px] leading-5 text-text shadow-[0_8px_18px_rgba(0,0,0,0.16)] transition-opacity duration-300 ${botChatFading ? 'opacity-0' : 'opacity-100'}`}>
+                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                      {botChat.category === 'thinking'
+                        ? (lang === 'th' ? 'กำลังคิด' : 'A quiet thought')
+                        : selectedBot.name}
+                    </div>
+                    <div>{botChat.text}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="font-semibold text-text-bright">{statusText}</div>
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                   <span>{t('bot.vs_bot')}</span>
                   <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
-                    Level {level}
+                    {selectedBot.rating}
+                  </span>
+                  <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
+                    {difficultyLabel}
                   </span>
                 </div>
               </div>

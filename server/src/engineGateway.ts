@@ -123,6 +123,7 @@ export function normalizeEngineEvaluation(evalCp: number, turn: AnalysisPosition
 function buildLocalBotMoveResult(
   snapshot: AnalysisPositionSnapshot,
   level: number,
+  botId?: string,
 ): BotMoveResult {
   const normalizedLevel = clampBotLevel(level);
   const config = getBotLevelConfig(normalizedLevel);
@@ -131,6 +132,7 @@ function buildLocalBotMoveResult(
     maxDepth: config.maxDepth,
     maxNodes: config.maxNodes,
     maxMs: config.maxMs,
+    botId,
   });
 
   return {
@@ -149,6 +151,7 @@ export function resolveBotMoveCandidate(
   snapshot: AnalysisPositionSnapshot,
   level: number,
   candidate: { from: { row: number; col: number }; to: { row: number; col: number } } | null,
+  botId?: string,
 ): { move: { from: { row: number; col: number }; to: { row: number; col: number } } | null; source: 'engine' | 'local' } {
   if (candidate) {
     const state = createStateFromSnapshot(snapshot);
@@ -161,7 +164,7 @@ export function resolveBotMoveCandidate(
   }
 
   return {
-    move: buildLocalBotMoveResult(snapshot, level).move,
+    move: buildLocalBotMoveResult(snapshot, level, botId).move,
     source: 'local',
   };
 }
@@ -452,6 +455,7 @@ export async function analyzeGameWithEngine(
 export async function getBotMoveWithEngine(
   snapshot: AnalysisPositionSnapshot,
   level: number,
+  botId?: string,
 ): Promise<BotMoveResult> {
   const normalizedLevel = clampBotLevel(level);
   const startedAt = Date.now();
@@ -474,7 +478,7 @@ export async function getBotMoveWithEngine(
 
   if (result) {
     const parsedMove = result.bestMoveUci ? uciToMove(result.bestMoveUci) : null;
-    const resolved = resolveBotMoveCandidate(snapshot, normalizedLevel, parsedMove);
+    const resolved = resolveBotMoveCandidate(snapshot, normalizedLevel, parsedMove, botId);
 
     if (resolved.source === 'engine') {
       return {
@@ -500,7 +504,7 @@ export async function getBotMoveWithEngine(
     });
   }
 
-  const fallback = buildLocalBotMoveResult(snapshot, normalizedLevel);
+  const fallback = buildLocalBotMoveResult(snapshot, normalizedLevel, botId);
   logInfo('bot_move_fallback_local', {
     level: normalizedLevel,
     elapsedMs: Date.now() - startedAt,

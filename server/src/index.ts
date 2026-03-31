@@ -54,6 +54,7 @@ import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboa
 import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine } from './engineGateway';
 import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
+import { getBotPersonaById } from '../../shared/botPersonas';
 
 const app = express();
 const httpServer = createServer(app);
@@ -240,7 +241,11 @@ function normalizeBotGamePlayerName(
   return 'Anonymous';
 }
 
-function buildBotName(level: number) {
+function buildBotName(level: number, botId?: string) {
+  if (botId) {
+    return getBotPersonaById(botId).name;
+  }
+
   return `Makruk Bot Lv.${level}`;
 }
 
@@ -477,6 +482,7 @@ app.post('/api/bot/move', analysisLimiter, async (req, res) => {
   const position = typeof req.body?.position === 'string' ? req.body.position : '';
   const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
   const level = Number.isFinite(req.body?.level) ? Number(req.body.level) : 5;
+  const botId = typeof req.body?.botId === 'string' ? req.body.botId.trim() : undefined;
   const snapshot = deserializeAnalysisPosition(position, counting);
 
   if (!snapshot) {
@@ -484,7 +490,7 @@ app.post('/api/bot/move', analysisLimiter, async (req, res) => {
     return;
   }
 
-  const result = await getBotMoveWithEngine(snapshot, level);
+  const result = await getBotMoveWithEngine(snapshot, level, botId);
   res.json(result);
 });
 
@@ -500,6 +506,9 @@ app.post('/api/games/bot', async (req, res) => {
   const level = Number.isFinite(req.body?.level)
     ? Math.min(Math.max(Number(req.body.level), 1), 10)
     : 5;
+  const botId = typeof req.body?.botId === 'string' && req.body.botId.trim()
+    ? req.body.botId.trim()
+    : undefined;
   const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
   const finalBoard = Array.isArray(req.body?.finalBoard) ? req.body.finalBoard : null;
   const moveCount = Number.isFinite(req.body?.moveCount) ? Number(req.body.moveCount) : Array.isArray(moves) ? moves.length : 0;
@@ -514,7 +523,7 @@ app.post('/api/games/bot', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   const playerName = normalizeBotGamePlayerName(user, req.body?.playerName);
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
-  const botName = buildBotName(level);
+  const botName = buildBotName(level, botId);
 
   await saveCompletedGame({
     id,
