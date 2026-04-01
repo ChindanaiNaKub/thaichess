@@ -8,7 +8,40 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
-import { initDatabase, saveCompletedGame, getRecentGames, getGame as getDbGame, getStats, getGameCount, getLeaderboard, getLeaderboardCount, saveFeedback, getFeedbackCount, getFeedbackForAdmin, moderateFeedback, updateUsername, getCompletedPuzzleIdsForUser, getPuzzleProgressForUser, markPuzzlePlayed, markPuzzleCompleted, markPuzzleAttempt, mergeCompletedPuzzles, mergePuzzleProgress, getBotPerformanceStats, type PuzzleProgressRecord, type RecentGamesFilter } from './database';
+import {
+  initDatabase,
+  saveCompletedGame,
+  getRecentGames,
+  getGame as getDbGame,
+  getStats,
+  getGameCount,
+  getLeaderboard,
+  getLeaderboardCount,
+  saveFeedback,
+  getFeedbackCount,
+  getFeedbackForAdmin,
+  moderateFeedback,
+  updateUsername,
+  getCompletedPuzzleIdsForUser,
+  getPuzzleProgressForUser,
+  markPuzzlePlayed,
+  markPuzzleCompleted,
+  markPuzzleAttempt,
+  mergeCompletedPuzzles,
+  mergePuzzleProgress,
+  getBotPerformanceStats,
+  recordFairPlayEvent,
+  getFairPlayCases,
+  getFairPlayCaseCount,
+  dismissFairPlayCase,
+  restrictUserForFairPlay,
+  clearFairPlayRestriction,
+  getUserById,
+  type AuthUser,
+  type FairPlayCaseStatus,
+  type PuzzleProgressRecord,
+  type RecentGamesFilter,
+} from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor } from '../../shared/types';
 import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
@@ -51,6 +84,14 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', apiLimiter);
+
+const analysisLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many analysis requests. Please try again later.' },
+});
 
 // Request logging (lightweight)
 app.use((req, _res, next) => {
@@ -208,6 +249,68 @@ function buildBotName(level: number, botId?: string) {
   return `Makruk Bot Lv.${level}`;
 }
 
+function isValidFairPlayCaseStatus(value: unknown): value is FairPlayCaseStatus {
+  return value === 'open' || value === 'reviewed' || value === 'restricted' || value === 'dismissed';
+}
+
+function isValidGameIdParam(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9-]{4,32}$/.test(value.trim());
+}
+
+async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response) {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return false;
+
+  const activeGameId = gameManager.getBlockingPlayerGame(user.id);
+  if (!activeGameId) return false;
+
+  const room = gameManager.getGame(activeGameId);
+  if (!room || room.status !== 'playing' || !room.rated) return false;
+
+  await recordFairPlayEvent({
+    userId: user.id,
+    type: 'analysis_blocked',
+    gameId: activeGameId,
+    metadata: {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+    },
+  });
+
+  logWarn('fair_play_analysis_blocked', {
+    userId: user.id,
+    gameId: activeGameId,
+    path: req.path,
+    ip: req.ip,
+  });
+  res.status(403).json({ error: 'Fair play restriction: analysis is disabled during active rated games.' });
+  return true;
+}
+
+async function resolveFairPlayReportTarget(gameId: string, reporterUserId: string) {
+  const liveRoom = gameManager.getGame(gameId);
+  if (liveRoom && liveRoom.status === 'finished' && liveRoom.rated) {
+    if (liveRoom.whiteUserId === reporterUserId && liveRoom.blackUserId) {
+      return liveRoom.blackUserId;
+    }
+    if (liveRoom.blackUserId === reporterUserId && liveRoom.whiteUserId) {
+      return liveRoom.whiteUserId;
+    }
+    return null;
+  }
+
+  const savedGame = await getDbGame(gameId);
+  if (!savedGame || savedGame.rated !== 1) return null;
+  if (savedGame.white_user_id === reporterUserId && savedGame.black_user_id) {
+    return savedGame.black_user_id;
+  }
+  if (savedGame.black_user_id === reporterUserId && savedGame.white_user_id) {
+    return savedGame.white_user_id;
+  }
+  return null;
+}
+
 io.use(async (socket, next) => {
   try {
     const authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
@@ -292,7 +395,9 @@ app.get('/api/game/:id', async (req, res) => {
   res.status(404).json({ error: 'Game not found' });
 });
 
-app.post('/api/analysis/game', async (req, res) => {
+app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
+  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+
   const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
   const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
   const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
@@ -306,7 +411,9 @@ app.post('/api/analysis/game', async (req, res) => {
   res.json({ analysis });
 });
 
-app.post('/api/analysis/game/stream', async (req, res) => {
+app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
+  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+
   const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
   const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
   const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
@@ -348,7 +455,9 @@ app.post('/api/analysis/game/stream', async (req, res) => {
   }
 });
 
-app.post('/api/analysis/position', async (req, res) => {
+app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
+  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+
   const position = typeof req.body?.position === 'string' ? req.body.position : '';
   const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
   const snapshot = deserializeAnalysisPosition(position, counting);
@@ -367,7 +476,9 @@ app.post('/api/analysis/position', async (req, res) => {
   res.json(analysis);
 });
 
-app.post('/api/bot/move', async (req, res) => {
+app.post('/api/bot/move', analysisLimiter, async (req, res) => {
+  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+
   const position = typeof req.body?.position === 'string' ? req.body.position : '';
   const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
   const level = Number.isFinite(req.body?.level) ? Number(req.body.level) : 5;
@@ -507,6 +618,14 @@ app.get('/api/auth/me', async (req, res) => {
   res.json({ user });
 });
 
+const fairPlayReportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many fair-play reports. Please try again later.' },
+});
+
 app.post('/api/auth/request-code', authLimiter, async (req, res) => {
   const email = normalizeEmail(String(req.body?.email || ''));
   if (!isValidEmail(email)) {
@@ -564,6 +683,126 @@ app.patch('/api/auth/profile', async (req, res) => {
   }
 
   res.json({ ok: true, user: updated });
+});
+
+app.get('/api/fair-play/cases', async (req, res) => {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const page = parseInt(req.query.page as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+  const rawStatus = typeof req.query.status === 'string' ? req.query.status : 'all';
+  const status = rawStatus === 'all'
+    ? 'all'
+    : isValidFairPlayCaseStatus(rawStatus)
+      ? rawStatus
+      : 'open';
+
+  const [cases, total] = await Promise.all([
+    getFairPlayCases(limit, page * limit, status),
+    getFairPlayCaseCount(status),
+  ]);
+  res.json({ cases, total, page, limit, status });
+});
+
+app.post('/api/fair-play/report', fairPlayReportLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const gameId = typeof req.body?.gameId === 'string' ? req.body.gameId.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 500) : '';
+  if (!isValidGameIdParam(gameId)) {
+    res.status(400).json({ error: 'Valid gameId is required.' });
+    return;
+  }
+
+  const targetUserId = await resolveFairPlayReportTarget(gameId, user.id);
+  if (!targetUserId) {
+    res.status(400).json({ error: 'Only finished rated games against a signed-in opponent can be reported.' });
+    return;
+  }
+
+  const result = await recordFairPlayEvent({
+    userId: targetUserId,
+    type: 'user_reported',
+    gameId,
+    reporterUserId: user.id,
+    metadata: {
+      message: message || null,
+    },
+  });
+  if (!result.event) {
+    res.status(500).json({ error: 'Failed to submit fair-play report.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const caseId = Number(req.params.id);
+  if (!Number.isInteger(caseId) || caseId <= 0) {
+    res.status(400).json({ error: 'Invalid case ID.' });
+    return;
+  }
+
+  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const ok = await restrictUserForFairPlay(caseId, admin.id, note);
+  if (!ok) {
+    res.status(500).json({ error: 'Failed to restrict player.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const caseId = Number(req.params.id);
+  if (!Number.isInteger(caseId) || caseId <= 0) {
+    res.status(400).json({ error: 'Invalid case ID.' });
+    return;
+  }
+
+  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const ok = await dismissFairPlayCase(caseId, admin.id, note);
+  if (!ok) {
+    res.status(500).json({ error: 'Failed to dismiss case.' });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+app.post('/api/fair-play/users/:id/clear', async (req, res) => {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const userId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+  if (!userId) {
+    res.status(400).json({ error: 'Invalid user ID.' });
+    return;
+  }
+
+  const user = await getUserById(userId);
+  if (!user) {
+    res.status(404).json({ error: 'Player not found.' });
+    return;
+  }
+
+  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const ok = await clearFairPlayRestriction(user.id, admin.id, note);
+  if (!ok) {
+    res.status(500).json({ error: 'Failed to clear restriction.' });
+    return;
+  }
+
+  res.json({ ok: true });
 });
 
 app.get('/api/puzzle-progress', async (req, res) => {

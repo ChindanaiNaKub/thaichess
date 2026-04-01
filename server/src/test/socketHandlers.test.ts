@@ -63,6 +63,26 @@ function createSocketMock(id: string, authUser: AuthUser | null = null, playerId
   };
 }
 
+function createAuthUser(id: string, email: string, username: string, fairPlayStatus: AuthUser['fair_play_status'] = 'clear'): AuthUser {
+  return {
+    id,
+    email,
+    username,
+    role: 'user',
+    fair_play_status: fairPlayStatus,
+    rated_restricted_at: fairPlayStatus === 'restricted' ? 1 : null,
+    rated_restriction_note: fairPlayStatus === 'restricted' ? 'Restricted for rated play' : null,
+    rating: 1500,
+    rated_games: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    created_at: 0,
+    updated_at: 0,
+    last_login_at: null,
+  };
+}
+
 describe('socket entry handlers', () => {
   let gameManager: GameManager;
   let matchmaking: MatchmakingQueue;
@@ -105,20 +125,7 @@ describe('socket entry handlers', () => {
   });
 
   it('creates private games with a reserved color preference and lets waiting rooms be left', () => {
-    const socket = connectSocket('socket-private', {
-      id: 'user-private',
-      email: 'private@example.com',
-      username: 'private_user',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    });
+    const socket = connectSocket('socket-private', createAuthUser('user-private', 'private@example.com', 'private_user'));
 
     socket.trigger('create_game', { timeControl, colorPreference: 'black' });
 
@@ -143,20 +150,7 @@ describe('socket entry handlers', () => {
   });
 
   it('prevents duplicate matchmaking entries and emits cancellation when removed', () => {
-    const socket = connectSocket('socket-queue', {
-      id: 'user-queue',
-      email: 'queue@example.com',
-      username: 'queue_user',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    });
+    const socket = connectSocket('socket-queue', createAuthUser('user-queue', 'queue@example.com', 'queue_user'));
 
     socket.trigger('find_game', { timeControl });
     socket.trigger('find_game', { timeControl });
@@ -171,34 +165,8 @@ describe('socket entry handlers', () => {
   });
 
   it('marks signed-in quick-play matches as rated and keeps player user ids', () => {
-    const whiteSocket = connectSocket('socket-a', {
-      id: 'user-a',
-      email: 'a@example.com',
-      username: 'user_a',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    });
-    const blackSocket = connectSocket('socket-b', {
-      id: 'user-b',
-      email: 'b@example.com',
-      username: 'user_b',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    });
+    const whiteSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a'));
+    const blackSocket = connectSocket('socket-b', createAuthUser('user-b', 'b@example.com', 'user_b'));
 
     whiteSocket.trigger('find_game', { timeControl });
     blackSocket.trigger('find_game', { timeControl });
@@ -213,20 +181,7 @@ describe('socket entry handlers', () => {
   });
 
   it('keeps mixed-auth quick-play matches casual', () => {
-    const signedInSocket = connectSocket('socket-a', {
-      id: 'user-a',
-      email: 'a@example.com',
-      username: 'user_a',
-      role: 'user',
-      rating: 1500,
-      rated_games: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      created_at: 0,
-      updated_at: 0,
-      last_login_at: null,
-    });
+    const signedInSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a'));
     const anonymousSocket = connectSocket('socket-b');
 
     signedInSocket.trigger('find_game', { timeControl });
@@ -239,6 +194,21 @@ describe('socket entry handlers', () => {
     expect(room.gameMode).toBe('quick_play');
     expect(room.rated).toBe(false);
     expect([room.whiteUserId, room.blackUserId].filter(Boolean)).toEqual(['user-a']);
+  });
+
+  it('keeps restricted users out of rated quick-play while still allowing casual pairing', () => {
+    const restrictedSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a', 'restricted'));
+    const clearSocket = connectSocket('socket-b', createAuthUser('user-b', 'b@example.com', 'user_b'));
+
+    restrictedSocket.trigger('find_game', { timeControl });
+    clearSocket.trigger('find_game', { timeControl });
+
+    const createdGameId = (ioMock.to('socket-a').emitMock.mock.calls.find((call: any[]) => call[0] === 'matchmaking_found')?.[1]?.gameId
+      ?? ioMock.to('socket-b').emitMock.mock.calls.find((call: any[]) => call[0] === 'matchmaking_found')?.[1]?.gameId) as string;
+    const room = gameManager.getGame(createdGameId)!;
+
+    expect(room.rated).toBe(false);
+    expect([room.whiteUserId, room.blackUserId].sort()).toEqual(['user-a', 'user-b']);
   });
 
   it('does not emit rematch events for unfinished games through the socket layer', () => {
