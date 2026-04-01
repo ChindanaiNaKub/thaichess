@@ -348,7 +348,7 @@ const BOT_LEVEL_CONFIGS: readonly BotLevelConfig[] = [
     choiceWindow: 1,
     randomPickChance: 0,
     noise: 0,
-    allowExternalEngine: false,
+    allowExternalEngine: true,
     styleInfluence: 0.36,
     styleCap: 32,
     evaluationSharpness: 1,

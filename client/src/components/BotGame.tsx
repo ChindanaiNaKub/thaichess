@@ -39,7 +39,8 @@ import Clock from './Clock';
 import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
-const BOT_REQUEST_TIMEOUT_MS = 2500;
+const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
+const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 5500;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
@@ -50,6 +51,10 @@ type SideChoice = PieceColor | 'random';
 function createBotGameId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `bot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getBotRequestTimeoutMs(level: number): number {
+  return level >= 10 ? LEVEL10_BOT_REQUEST_TIMEOUT_MS : DEFAULT_BOT_REQUEST_TIMEOUT_MS;
 }
 
 function buildNoMoveGameOverState(state: GameState): GameState | null {
@@ -269,7 +274,7 @@ export default function BotGame() {
       botRequestAbortRef.current = controller;
       botRequestTimeoutRef.current = setTimeout(() => {
         controller.abort();
-      }, BOT_REQUEST_TIMEOUT_MS);
+      }, getBotRequestTimeoutMs(botLevel));
 
       try {
         const result = await requestBotMove(requestedState, botLevel, {
