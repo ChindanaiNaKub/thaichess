@@ -25,6 +25,7 @@ describe('shared SEO routes', () => {
       routes.whatIsMakruk,
       routes.howToPlayMakruk,
       routes.playMakrukOnline,
+      routes.lessons,
       routes.puzzles,
       routes.quickPlay,
       routes.bot,
@@ -53,6 +54,18 @@ describe('shared SEO routes', () => {
     expect(whatIs.robots).toBeUndefined();
     expect(howTo.robots).toBeUndefined();
     expect(playOnline.robots).toBeUndefined();
+  });
+
+  it('returns dedicated metadata for the lessons section and its aliases', () => {
+    const overview = getPublicSeoRoute(routes.lessons, 'https://thaichess.dev');
+    const alias = getPublicSeoRoute(routes.coursePath, 'https://thaichess.dev');
+    const lesson = getPublicSeoRoute('/lessons/rook-activity', 'https://thaichess.dev');
+
+    expect(overview.path).toBe('/lessons');
+    expect(overview.title).toContain('Lessons');
+    expect(alias.path).toBe('/lessons');
+    expect(lesson.path).toBe('/lessons/rook-activity');
+    expect(lesson.title).toContain('Lesson');
   });
 
   it('uses cleaned public titles for puzzle metadata', () => {

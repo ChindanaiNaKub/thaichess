@@ -15,7 +15,7 @@ import {
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgress, usePuzzleProgressSummary } from '../lib/puzzleProgress';
-import { lessonRoute, routes } from '../lib/routes';
+import { puzzleRoute, routes } from '../lib/routes';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
@@ -308,7 +308,7 @@ function PuzzleLessonsPage() {
                     : t('puzzle.next_up_fresh')}
                 </p>
                 <button
-                  onClick={() => navigate(lessonRoute(String(recommendedPuzzle.id)))}
+                  onClick={() => navigate(puzzleRoute(String(recommendedPuzzle.id)))}
                   className="mt-4 w-full rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-3 transition-colors"
                 >
                   {completedPuzzleSet.has(recommendedPuzzle.id) ? t('common.retry') : t('puzzle.start_here')}
@@ -425,7 +425,7 @@ function PuzzleLessonsPage() {
               return (
                 <button
                   key={puzzle.id}
-                  onClick={() => navigate(lessonRoute(String(puzzle.id)))}
+                  onClick={() => navigate(puzzleRoute(String(puzzle.id)))}
                   className={`rounded-2xl p-4 sm:p-5 text-left transition-all group border ${
                     isRecommended
                       ? 'bg-primary/10 border-primary/35 hover:border-primary/55 shadow-lg shadow-primary/10'
@@ -1373,7 +1373,7 @@ function PuzzlePlayer() {
         <div className="text-center">
           <h2 className="text-xl font-bold text-text-bright mb-4">{t('puzzle.not_found')}</h2>
           <button
-            onClick={() => navigate(routes.learn)}
+            onClick={() => navigate(routes.lessons)}
             className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors"
           >
             {t('puzzle.back_to_lessons')}
@@ -1428,7 +1428,7 @@ function PuzzlePlayer() {
               {t('puzzle.play_streak')}
             </button>
             <button
-              onClick={() => navigate(routes.learn)}
+              onClick={() => navigate(routes.lessons)}
               className="text-text-dim hover:text-text-bright transition-colors text-sm"
             >
               {t('puzzle.all_lessons')}
@@ -1556,7 +1556,7 @@ function PuzzlePlayer() {
                   {relatedThemePuzzles.map((relatedPuzzle) => (
                     <button
                       key={relatedPuzzle.id}
-                      onClick={() => navigate(lessonRoute(String(relatedPuzzle.id)))}
+                      onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
                       className="w-full rounded-lg border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
                     >
                       <div className="text-sm font-medium text-text-bright">
@@ -1596,7 +1596,7 @@ function PuzzlePlayer() {
               )}
               {status === 'success' && nextPuzzle && (
                 <button
-                  onClick={() => navigate(lessonRoute(String(nextPuzzle)))}
+                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
                   className="flex-1 min-w-0 py-2 px-3 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors font-semibold"
                 >
                   {t('puzzle.next')} →
@@ -1607,21 +1607,21 @@ function PuzzlePlayer() {
             <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               {prevPuzzle && (
                 <button
-                  onClick={() => navigate(lessonRoute(String(prevPuzzle)))}
+                  onClick={() => navigate(puzzleRoute(String(prevPuzzle)))}
                   className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                 >
                   ← {t('puzzle.previous')}
                 </button>
               )}
               <button
-                onClick={() => navigate(routes.learn)}
+                onClick={() => navigate(routes.lessons)}
                 className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
               >
                 {t('puzzle.all_lessons')}
               </button>
               {nextPuzzle && status !== 'success' && (
                 <button
-                  onClick={() => navigate(lessonRoute(String(nextPuzzle)))}
+                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
                   className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                 >
                   {t('puzzle.next')} →

@@ -7,16 +7,23 @@ describe('routes', () => {
     expect(spectatorGameRoute('abc123')).toBe('/spectate/abc123');
     expect(watchRoute()).toBe('/watch');
     expect(savedGameAnalysisRoute('abc123')).toBe('/analysis/abc123');
-    expect(lessonRoute('77')).toBe('/learn/77');
-    expect(puzzleRoute('77')).toBe('/learn/77');
+    expect(lessonRoute('77')).toBe('/lessons/77');
+    expect(puzzleRoute('77')).toBe('/puzzle/77');
   });
 
-  it('keeps the route patterns centralized for the router', () => {
+  it('keeps lesson, puzzle, and legacy route patterns centralized for the router', () => {
     expect(routes.liveGamePattern).toBe('/game/:gameId');
     expect(routes.spectatorGamePattern).toBe('/spectate/:gameId');
     expect(routes.watch).toBe('/watch');
-    expect(routes.learn).toBe('/learn');
-    expect(routes.lessonPattern).toBe('/learn/:id');
+    expect(routes.lessons).toBe('/lessons');
+    expect(routes.course).toBe('/course');
+    expect(routes.coursePath).toBe('/course-path');
+    expect(routes.learn).toBe('/lessons');
+    expect(routes.legacyLearn).toBe('/learn');
+    expect(routes.lessonPattern).toBe('/lessons/:id');
+    expect(routes.coursePattern).toBe('/course/:id');
+    expect(routes.legacyLessonPattern).toBe('/learn/:id');
+    expect(routes.puzzlePattern).toBe('/puzzle/:id');
     expect(routes.analysisPattern).toBe('/analysis/:gameId');
   });
 

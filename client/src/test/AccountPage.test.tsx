@@ -167,7 +167,7 @@ describe('AccountPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'account.puzzle_continue' }));
-    expect(navigateMock).toHaveBeenCalledWith('/learn/5001');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzle/5001');
   });
 
   it('shows rated restriction messaging when the account is restricted', () => {

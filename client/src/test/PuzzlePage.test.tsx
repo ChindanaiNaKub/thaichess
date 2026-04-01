@@ -455,7 +455,7 @@ function renderStreakPage() {
 
 function renderLessonsPage() {
   return render(
-    <MemoryRouter initialEntries={['/learn']}>
+    <MemoryRouter initialEntries={['/lessons']}>
       <PuzzleListPage />
     </MemoryRouter>
   );
@@ -463,9 +463,9 @@ function renderLessonsPage() {
 
 function renderLessonPlayer() {
   return render(
-    <MemoryRouter initialEntries={['/learn/77']}>
+    <MemoryRouter initialEntries={['/puzzle/77']}>
       <Routes>
-        <Route path="/learn/:id" element={<PuzzlePlayer />} />
+        <Route path="/puzzle/:id" element={<PuzzlePlayer />} />
       </Routes>
     </MemoryRouter>
   );
@@ -542,7 +542,7 @@ describe('Puzzle surfaces', () => {
     expect(screen.getAllByRole('button', { name: 'Play Streak' }).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByText('Start here')[0]!);
-    expect(navigateMock).toHaveBeenCalledWith('/learn/78');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzle/78');
   });
 
   it('still exposes lesson player details separately from streak mode', () => {

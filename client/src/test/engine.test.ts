@@ -432,7 +432,7 @@ describe('Game Engine', () => {
         countingColor: 'black',
         strongerColor: 'white',
         currentCount: 3,
-        limit: 16,
+        limit: 26,
         finalAttackPending: false,
       });
     });
@@ -497,7 +497,7 @@ describe('Game Engine', () => {
         strongerColor: 'white',
         currentCount: 9,
         startCount: 3,
-        limit: 16,
+        limit: 26,
         finalAttackPending: false,
       };
 
@@ -621,8 +621,8 @@ describe('Game Engine', () => {
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
-        currentCount: 16,
-        limit: 16,
+        currentCount: 26,
+        limit: 26,
         finalAttackPending: true,
       };
 

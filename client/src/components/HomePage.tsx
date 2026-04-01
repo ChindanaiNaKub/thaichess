@@ -471,7 +471,7 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => navigate(routes.learn)}
+                onClick={() => navigate(routes.lessons)}
                 className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="flex items-center gap-3">

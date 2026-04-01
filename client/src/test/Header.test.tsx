@@ -61,4 +61,12 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenCalledWith('/games');
     expect(document.getElementById('mobile-site-menu')).toBeNull();
   });
+
+  it('shows Lessons as a first-class navigation item', () => {
+    render(<Header active="lessons" />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /^lessons$/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/lessons');
+  });
 });

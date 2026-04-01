@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { initializeGlobalErrorReporting } from './lib/errorReporting';
 import { I18nProvider } from './lib/i18n';
+import { LessonProgressProvider } from './lib/lessonProgress';
 import { PieceStyleProvider } from './lib/pieceStyle';
 import { PuzzleProgressProvider } from './lib/puzzleProgress';
 import './index.css';
@@ -19,11 +20,13 @@ createRoot(document.getElementById('root')!).render(
       <I18nProvider>
         <AuthProvider>
           <PuzzleProgressProvider>
-            <PieceStyleProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
-            </PieceStyleProvider>
+            <LessonProgressProvider>
+              <PieceStyleProvider>
+                <BrowserRouter>
+                  <App />
+                </BrowserRouter>
+              </PieceStyleProvider>
+            </LessonProgressProvider>
           </PuzzleProgressProvider>
         </AuthProvider>
       </I18nProvider>

@@ -295,6 +295,46 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     };
   }
 
+  if (cleanPath === '/lessons' || cleanPath === '/course' || cleanPath === '/course-path' || cleanPath === '/learn') {
+    return {
+      title: 'Makruk Lessons | Structured ThaiChess Course',
+      description: 'Study Makruk through a structured lessons course with guided explanations, interactive boards, and practice linked to real concepts.',
+      path: '/lessons',
+      keywords: [...defaultKeywords, 'Makruk lessons', 'Thai chess course', 'learn Makruk'],
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Course',
+          name: 'ThaiChess Makruk Lessons',
+          url: `${baseUrl}/lessons`,
+          description: 'A structured Makruk course with beginner, intermediate, and advanced lessons.',
+          educationalLevel: ['Beginner', 'Intermediate', 'Advanced'],
+        },
+      ],
+    };
+  }
+
+  if (cleanPath.startsWith('/lessons/') || cleanPath.startsWith('/course/') || cleanPath.startsWith('/learn/')) {
+    const lessonId = cleanPath.split('/')[2] ?? '';
+
+    return {
+      title: 'Makruk Lesson | ThaiChess Course',
+      description: 'Work through an interactive Makruk lesson with guided steps, practice tasks, and follow-up puzzles.',
+      path: lessonId ? `/lessons/${lessonId}` : '/lessons',
+      keywords: [...defaultKeywords, 'Makruk lesson', 'Thai chess training'],
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'LearningResource',
+          name: 'ThaiChess Makruk Lesson',
+          url: lessonId ? `${baseUrl}/lessons/${lessonId}` : `${baseUrl}/lessons`,
+          description: 'An interactive Makruk lesson from the ThaiChess course.',
+          learningResourceType: 'Interactive lesson',
+        },
+      ],
+    };
+  }
+
   if (cleanPath.startsWith('/puzzle/')) {
     const id = Number(cleanPath.split('/')[2]);
     const puzzle = PUZZLES.find((entry) => entry.id === id);
@@ -374,6 +414,7 @@ export function getIndexablePaths(): string[] {
     '/what-is-makruk',
     '/how-to-play-makruk',
     '/play-makruk-online',
+    '/lessons',
     '/puzzles',
     '/quick-play',
     '/bot',

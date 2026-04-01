@@ -3,7 +3,11 @@ export const routes = {
   local: '/local',
   bot: '/bot',
   puzzles: '/puzzles',
-  learn: '/learn',
+  lessons: '/lessons',
+  course: '/course',
+  coursePath: '/course-path',
+  learn: '/lessons',
+  legacyLearn: '/learn',
   watch: '/watch',
   quickPlay: '/quick-play',
   about: '/about',
@@ -20,7 +24,9 @@ export const routes = {
   analysisRoot: '/analysis',
   liveGamePattern: '/game/:gameId',
   spectatorGamePattern: '/spectate/:gameId',
-  lessonPattern: '/learn/:id',
+  lessonPattern: '/lessons/:id',
+  coursePattern: '/course/:id',
+  legacyLessonPattern: '/learn/:id',
   puzzlePattern: '/puzzle/:id',
   analysisPattern: '/analysis/:gameId',
 } as const;
@@ -42,9 +48,9 @@ export function savedGameAnalysisRoute(gameId: string): string {
 }
 
 export function lessonRoute(id: string): string {
-  return `/learn/${id}`;
+  return `/lessons/${id}`;
 }
 
 export function puzzleRoute(id: string): string {
-  return lessonRoute(id);
+  return `/puzzle/${id}`;
 }
