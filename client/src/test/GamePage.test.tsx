@@ -392,6 +392,20 @@ describe('GamePage', () => {
     expect(screen.getByText('RivalPlayer (1588)')).toBeInTheDocument();
   });
 
+  it('keeps countdown timers enabled for online human games', async () => {
+    renderGamePage('/game/timers-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload({
+        whitePlayerName: 'MifiAndPrab',
+        blackPlayerName: 'RivalPlayer',
+      }));
+    });
+
+    expect(getLatestClockProps('MifiAndPrab')).not.toHaveProperty('showTimer', false);
+    expect(getLatestClockProps('RivalPlayer')).not.toHaveProperty('showTimer', false);
+  });
+
   it('renders waiting-room state, copies the invite link, and plays the start sound on transition to playing', async () => {
     renderGamePage('/game/waiting-room');
 

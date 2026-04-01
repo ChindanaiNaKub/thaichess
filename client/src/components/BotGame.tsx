@@ -37,7 +37,6 @@ import Clock from './Clock';
 import InGameShell from './InGameShell';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
-const LOCAL_CLOCK_TICK_MS = 500;
 const BOT_REQUEST_TIMEOUT_MS = 2500;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
@@ -121,6 +120,7 @@ export default function BotGame() {
   const selectedBot = getBotPersonaById(selectedBotId);
   const botLevel = selectedBot.engine.level;
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
+  const isBotGame = true;
   const isPlayerTurn = gameState.turn === playerColor;
   const playerDisplayName = user?.username?.trim()
     || user?.email.split('@')[0]?.trim()
@@ -359,48 +359,6 @@ export default function BotGame() {
     isPlayerTurn,
     selectedBot.id,
   ]);
-
-  useEffect(() => {
-    if (!gameStarted || gameState.gameOver) return;
-
-    const interval = setInterval(() => {
-      let timeoutWinner: PieceColor | null = null;
-
-      setGameState((prev) => {
-        if (prev.gameOver) return prev;
-
-        const now = Date.now();
-        const elapsed = now - prev.lastMoveTime;
-        if (elapsed <= 0) return prev;
-
-        if (prev.turn === 'white') {
-          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
-          if (whiteTime === 0) {
-            timeoutWinner = 'black';
-            return { ...prev, whiteTime: 0, lastMoveTime: now, gameOver: true, winner: 'black', resultReason: 'timeout', counting: null };
-          }
-          return { ...prev, whiteTime, lastMoveTime: now };
-        }
-
-        const blackTime = Math.max(0, prev.blackTime - elapsed);
-        if (blackTime === 0) {
-          timeoutWinner = 'white';
-          return { ...prev, blackTime: 0, lastMoveTime: now, gameOver: true, winner: 'white', resultReason: 'timeout', counting: null };
-        }
-        return { ...prev, blackTime, lastMoveTime: now };
-      });
-
-      if (timeoutWinner) {
-        if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
-        setBotThinking(false);
-        setPremove(null);
-        setGameOverInfo({ reason: 'timeout', winner: timeoutWinner });
-        playGameOverSound();
-      }
-    }, LOCAL_CLOCK_TICK_MS);
-
-    return () => clearInterval(interval);
-  }, [gameStarted, gameState.gameOver]);
 
   // Auto-execute premove when it becomes player's turn
   useEffect(() => {
@@ -1067,6 +1025,7 @@ export default function BotGame() {
             subtitle={botClockSubtitle}
             capturedPieces={botCaptureSummary.pieces}
             materialDelta={botCaptureSummary.material}
+            showTimer={!isBotGame}
           />
         }
         board={
@@ -1098,6 +1057,7 @@ export default function BotGame() {
             subtitle={t(playerColor === 'white' ? 'common.white' : 'common.black')}
             capturedPieces={playerCaptureSummary.pieces}
             materialDelta={playerCaptureSummary.material}
+            showTimer={!isBotGame}
           />
         }
         statusText={statusText}

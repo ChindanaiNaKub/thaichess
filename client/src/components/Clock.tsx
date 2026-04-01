@@ -19,6 +19,7 @@ interface ClockProps {
   subtitle?: string | null;
   capturedPieces?: Array<{ type: PieceType; count: number; capturedColor: PieceColor }>;
   materialDelta?: number | null;
+  showTimer?: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -64,6 +65,7 @@ export default function Clock({
   subtitle = null,
   capturedPieces = [],
   materialDelta = null,
+  showTimer = true,
 }: ClockProps) {
   const { t } = useTranslation();
   const [displayTime, setDisplayTime] = useState(time);
@@ -130,8 +132,9 @@ export default function Clock({
 
   return (
     <div className={`
-      w-full rounded-2xl border px-3.5 py-3 sm:px-4 lg:px-2.5 lg:py-1.5
+      w-full rounded-2xl border px-3.5 py-3 sm:px-4 lg:px-2.5
       transition-all duration-200
+      ${showTimer ? 'lg:py-1.5' : 'py-2.5 lg:py-2'}
       ${isActive
         ? isCritical
           ? 'border-danger/35 bg-[linear-gradient(180deg,rgba(120,36,36,0.18),rgba(41,27,24,0.95))] shadow-[0_10px_30px_rgba(80,24,24,0.18)]'
@@ -139,8 +142,8 @@ export default function Clock({
         : 'border-surface-hover/70 bg-[linear-gradient(180deg,rgba(51,42,32,0.46),rgba(30,26,22,0.96))] shadow-[0_10px_24px_rgba(0,0,0,0.16)]'
       }
     `}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3 lg:gap-2">
+      <div className={`flex gap-3 ${showTimer ? 'items-center justify-between' : 'items-start justify-between'}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-2">
           {botAvatar ? (
             <div className="relative shrink-0 lg:origin-left lg:scale-[0.92]">
               <BotAvatar avatar={botAvatar} size={40} />
@@ -179,7 +182,7 @@ export default function Clock({
               <div className="truncate text-sm font-semibold text-text-bright sm:text-[15px] lg:text-[13px]">
                 {displayName}
               </div>
-              {isActive && (
+              {isActive && showTimer && (
                 <span className="hidden rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex lg:px-1.5">
                   {t('game.to_move')}
                 </span>
@@ -229,26 +232,28 @@ export default function Clock({
           </div>
         </div>
 
-        <div className={`
-          min-w-[104px] rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
-          ${isCritical
-            ? 'border-danger/30 bg-danger/10'
-            : isActive
-              ? 'border-primary/25 bg-surface/72'
-              : 'border-surface-hover/65 bg-surface/55'
-          }
-        `}>
-          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-text-dim lg:text-[9px]">
-            {isActive ? t('game.to_move') : statusLabel}
-          </div>
+        {showTimer && (
           <div className={`
-            font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl lg:text-[1.45rem]
-            ${isCritical ? 'text-danger' : isLow ? 'text-accent' : 'text-text-bright'}
-            ${isActive && isCritical ? 'animate-pulse' : ''}
+            min-w-[104px] rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
+            ${isCritical
+              ? 'border-danger/30 bg-danger/10'
+              : isActive
+                ? 'border-primary/25 bg-surface/72'
+                : 'border-surface-hover/65 bg-surface/55'
+            }
           `}>
-            {formatTime(displayTime)}
+            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-text-dim lg:text-[9px]">
+              {isActive ? t('game.to_move') : statusLabel}
+            </div>
+            <div className={`
+              font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl lg:text-[1.45rem]
+              ${isCritical ? 'text-danger' : isLow ? 'text-accent' : 'text-text-bright'}
+              ${isActive && isCritical ? 'animate-pulse' : ''}
+            `}>
+              {formatTime(displayTime)}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

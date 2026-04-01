@@ -105,7 +105,11 @@ vi.mock('../components/Header', () => ({
 vi.mock('../components/Clock', () => ({
   default: (props: any) => {
     clockPropsMock(props);
-    return <div data-testid="clock">{props.playerName}</div>;
+    return (
+      <div data-testid="clock" data-show-timer={String(props.showTimer !== false)}>
+        {props.playerName}
+      </div>
+    );
   },
 }));
 
@@ -168,13 +172,16 @@ describe('BotGame', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the started game with the selected bot persona and player clocks', () => {
+  it('renders the started game without countdown timers while keeping both player bars', () => {
     renderBotGame();
 
     fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
+    expect(screen.getAllByTestId('clock').every((node) => node.getAttribute('data-show-timer') === 'false')).toBe(true);
+    expect(clockPropsMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ showTimer: false }));
+    expect(clockPropsMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ showTimer: false }));
     expect(screen.getAllByText('Panya Suman').length).toBeGreaterThan(0);
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
     expect(screen.getByText('Scholar of Lantern Cloister')).toBeInTheDocument();
