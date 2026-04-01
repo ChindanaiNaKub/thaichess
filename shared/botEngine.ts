@@ -1,6 +1,13 @@
 import { Board, PieceColor, PieceType, Position, GameState } from './types';
 import { getLegalMoves, makeMove, getAllPieces, isInCheck } from './engine';
 import { getBotPersonaById } from './botPersonas';
+import {
+  clampBotLevel,
+  getBotDisplayedStrength,
+  getBotLevelConfig as getStrengthConfig,
+  type BotLevelConfig,
+  type BotPublicStrengthLabel,
+} from './botStrength';
 
 export type BotDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -15,22 +22,12 @@ interface SearchResult {
   completed: boolean;
 }
 
-export interface BotLevelConfig {
-  maxDepth: number;
-  maxNodes: number;
-  maxMs: number;
-  rootBreadth: number;
-  replyBreadth: number;
-  choiceWindow: number;
-  randomPickChance: number;
-  noise: number;
-}
-
 export interface BotSearchOptions {
   maxDepth?: number;
   maxNodes?: number;
   maxMs?: number | null;
   botId?: string;
+  randomFn?: () => number;
 }
 
 interface SearchContext {
@@ -75,26 +72,8 @@ const KING_SAFETY: number[][] = [
   [20, 20, 10, 0, 0, 10, 20, 20],
 ];
 
-const BOT_LEVEL_CONFIGS: readonly BotLevelConfig[] = [
-  { maxDepth: 1, maxNodes: 80, maxMs: 25, rootBreadth: 4, replyBreadth: 3, choiceWindow: 4, randomPickChance: 1, noise: 140 },
-  { maxDepth: 1, maxNodes: 120, maxMs: 30, rootBreadth: 5, replyBreadth: 4, choiceWindow: 4, randomPickChance: 0.7, noise: 110 },
-  { maxDepth: 1, maxNodes: 170, maxMs: 35, rootBreadth: 6, replyBreadth: 4, choiceWindow: 3, randomPickChance: 0.45, noise: 80 },
-  { maxDepth: 2, maxNodes: 230, maxMs: 45, rootBreadth: 5, replyBreadth: 4, choiceWindow: 3, randomPickChance: 0.3, noise: 55 },
-  { maxDepth: 2, maxNodes: 320, maxMs: 60, rootBreadth: 6, replyBreadth: 4, choiceWindow: 2, randomPickChance: 0.2, noise: 35 },
-  { maxDepth: 2, maxNodes: 430, maxMs: 75, rootBreadth: 7, replyBreadth: 5, choiceWindow: 2, randomPickChance: 0.12, noise: 18 },
-  { maxDepth: 2, maxNodes: 560, maxMs: 90, rootBreadth: 8, replyBreadth: 5, choiceWindow: 2, randomPickChance: 0.06, noise: 8 },
-  { maxDepth: 3, maxNodes: 800, maxMs: 120, rootBreadth: 7, replyBreadth: 5, choiceWindow: 1, randomPickChance: 0, noise: 0 },
-  { maxDepth: 3, maxNodes: 1050, maxMs: 150, rootBreadth: 8, replyBreadth: 5, choiceWindow: 1, randomPickChance: 0, noise: 0 },
-  { maxDepth: 3, maxNodes: 1350, maxMs: 180, rootBreadth: 9, replyBreadth: 6, choiceWindow: 1, randomPickChance: 0, noise: 0 },
-] as const;
-
-function clampLevel(level: number): number {
-  if (!Number.isFinite(level)) return 5;
-  return Math.min(10, Math.max(1, Math.round(level)));
-}
-
 export function getBotLevelConfig(level: number): BotLevelConfig {
-  return BOT_LEVEL_CONFIGS[clampLevel(level) - 1];
+  return getStrengthConfig(level);
 }
 
 function evaluateBoard(board: Board, color: PieceColor): number {
@@ -224,10 +203,27 @@ function getDevelopmentScore(board: Board, move: ScoredMove): number {
   return centerGain;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getGamePhase(state: GameState): 'opening' | 'middlegame' | 'endgame' {
+  if (isEndgameBoard(state.board)) {
+    return 'endgame';
+  }
+
+  if (state.moveCount < 14) {
+    return 'opening';
+  }
+
+  return 'middlegame';
+}
+
 function getPersonaMoveBonus(
   state: GameState,
   newState: GameState,
   move: ScoredMove,
+  profile: BotLevelConfig,
   botId?: string,
 ): number {
   if (!botId) return 0;
@@ -287,7 +283,59 @@ function getPersonaMoveBonus(
     bonus += persona.engine.caution * 1.5;
   }
 
-  return bonus;
+  return clamp(bonus * profile.styleInfluence, -profile.styleCap, profile.styleCap);
+}
+
+function getStrengthMoveBias(
+  state: GameState,
+  newState: GameState,
+  move: ScoredMove,
+  profile: BotLevelConfig,
+): number {
+  const piece = state.board[move.from.row][move.from.col];
+  if (!piece) return 0;
+
+  const phase = getGamePhase(state);
+  const opponent = piece.color === 'white' ? 'black' : 'white';
+  const captured = state.board[move.to.row][move.to.col];
+  const attackers = getSquareAttackers(newState.board, opponent, move.to);
+  const defenders = getSquareAttackers(newState.board, piece.color, move.to);
+  const isLoose = attackers > defenders;
+  const isHanging = attackers > 0 && defenders === 0;
+  const centerDelta = CENTER_BONUS[move.to.row][move.to.col] - CENTER_BONUS[move.from.row][move.from.col];
+  const homeRow = piece.color === 'white' ? 0 : 7;
+  const backRankMove = move.to.row === homeRow ? 1 : 0;
+  const retreat = piece.color === 'white'
+    ? Number(move.to.row < move.from.row)
+    : Number(move.to.row > move.from.row);
+  const sidePawnPush = piece.type === 'P' && (move.from.col <= 1 || move.from.col >= 6) ? 1 : 0;
+  const earlyHeavyPieceMove = phase === 'opening' && (piece.type === 'R' || piece.type === 'K') ? 1 : 0;
+  const captureGreed = captured ? (PIECE_VALUES[captured.type] / 100) * profile.captureGreed * 16 : 0;
+  const passiveDrift = (retreat + backRankMove + Number(centerDelta < 0)) * profile.passiveBias * 6;
+  const openingBadHabits = phase === 'opening'
+    ? ((earlyHeavyPieceMove * 12) + (sidePawnPush * 6) + (Number(centerDelta < 0) * 5)) * (1 - profile.openingQuality)
+    : 0;
+
+  let bias = captureGreed + passiveDrift + openingBadHabits;
+
+  if (isHanging) {
+    bias -= 36 * profile.defenseAwareness;
+    bias += profile.captureGreed * 7;
+  } else if (isLoose) {
+    bias -= 18 * profile.defenseAwareness;
+  }
+
+  if (phase === 'endgame') {
+    const evalForMover = evaluateBoard(state.board, piece.color);
+    const quietShuffle = !captured && centerDelta <= 0 ? 1 : 0;
+    if (evalForMover > 180) {
+      bias += quietShuffle * (1 - profile.conversionTechnique) * 12;
+    } else {
+      bias -= quietShuffle * profile.endgameAccuracy * 4;
+    }
+  }
+
+  return bias;
 }
 
 function getMoveOrderingScore(board: Board, move: ScoredMove): number {
@@ -317,7 +365,7 @@ function orderMoves(moves: ScoredMove[], board: Board): ScoredMove[] {
   return moves.sort((a, b) => getMoveOrderingScore(board, b) - getMoveOrderingScore(board, a));
 }
 
-function orderRootMoves(moves: ScoredMove[], state: GameState, botId?: string): ScoredMove[] {
+function orderRootMoves(moves: ScoredMove[], state: GameState, profile: BotLevelConfig, botId?: string): ScoredMove[] {
   if (!botId) {
     return orderMoves(moves, state.board);
   }
@@ -325,8 +373,8 @@ function orderRootMoves(moves: ScoredMove[], state: GameState, botId?: string): 
   return [...moves].sort((a, b) => {
     const aState = makeMove(state, a.from, a.to);
     const bState = makeMove(state, b.from, b.to);
-    const aScore = getMoveOrderingScore(state.board, a) + (aState ? getPersonaMoveBonus(state, aState, a, botId) : -999999);
-    const bScore = getMoveOrderingScore(state.board, b) + (bState ? getPersonaMoveBonus(state, bState, b, botId) : -999999);
+    const aScore = getMoveOrderingScore(state.board, a) + (aState ? getPersonaMoveBonus(state, aState, a, profile, botId) : -999999);
+    const bScore = getMoveOrderingScore(state.board, b) + (bState ? getPersonaMoveBonus(state, bState, b, profile, botId) : -999999);
     return bScore - aScore;
   });
 }
@@ -446,44 +494,142 @@ function minimax(
   return { score: minEval === Infinity ? evaluateBoard(state.board, botColor) : minEval, completed: true };
 }
 
-function applyDifficultyVariance(moves: ScoredMove[], profile: BotLevelConfig): ScoredMove[] {
+function applyDifficultyVariance(
+  moves: ScoredMove[],
+  profile: BotLevelConfig,
+  randomFn: () => number,
+): ScoredMove[] {
   if (moves.length === 0 || profile.noise <= 0) {
     return [...moves];
   }
 
   return moves.map((move) => ({
     ...move,
-    score: move.score + ((Math.random() * 2) - 1) * profile.noise,
+    score: move.score + ((randomFn() * 2) - 1) * profile.noise,
   }));
 }
 
-function chooseMove(scoredMoves: ScoredMove[], profile: BotLevelConfig): ScoredMove | null {
+function rebalanceWeaknessBuckets(
+  profile: BotLevelConfig,
+  state: GameState,
+  bestScore: number,
+): BotLevelConfig['bucketWeights'] {
+  const phase = getGamePhase(state);
+  const weights = { ...profile.bucketWeights };
+
+  const slipInOpening = phase === 'opening' ? (1 - profile.openingQuality) * 0.12 : 0;
+  const slipInEndgame = phase === 'endgame' ? (1 - profile.endgameAccuracy) * 0.12 : 0;
+  const conversionWobble = bestScore > 180 ? (1 - profile.conversionTechnique) * 0.14 : 0;
+  const pressureWobble = bestScore < -120 ? (1 - profile.defenseAwareness) * 0.08 : 0;
+  const totalSlip = slipInOpening + slipInEndgame + conversionWobble + pressureWobble;
+
+  if (totalSlip > 0) {
+    const removable = Math.min(totalSlip, Math.max(0, weights.best + weights.solid - 0.2));
+    const fromBest = Math.min(weights.best * 0.6, removable * 0.55);
+    const fromSolid = Math.min(weights.solid * 0.5, removable - fromBest);
+    weights.best -= fromBest;
+    weights.solid -= fromSolid;
+    const distributed = fromBest + fromSolid;
+    weights.inaccuracy += distributed * 0.34;
+    weights.mistake += distributed * 0.43;
+    weights.blunder += distributed * 0.23;
+  }
+
+  const total = weights.best + weights.solid + weights.inaccuracy + weights.mistake + weights.blunder;
+  return {
+    best: weights.best / total,
+    solid: weights.solid / total,
+    inaccuracy: weights.inaccuracy / total,
+    mistake: weights.mistake / total,
+    blunder: weights.blunder / total,
+  };
+}
+
+function classifyMoveBucket(bestScore: number, moveScore: number): keyof BotLevelConfig['bucketWeights'] {
+  const delta = bestScore - moveScore;
+  if (delta <= 24) return 'best';
+  if (delta <= 90) return 'solid';
+  if (delta <= 180) return 'inaccuracy';
+  if (delta <= 320) return 'mistake';
+  return 'blunder';
+}
+
+function pickWeightedBucket(
+  profile: BotLevelConfig,
+  state: GameState,
+  scoredMoves: ScoredMove[],
+  randomFn: () => number,
+): keyof BotLevelConfig['bucketWeights'] {
+  const bestScore = Math.max(...scoredMoves.map((move) => move.score));
+  const availableBuckets = new Set(scoredMoves.map((move) => classifyMoveBucket(bestScore, move.score)));
+  const weights = rebalanceWeaknessBuckets(profile, state, bestScore);
+  const orderedBuckets: (keyof BotLevelConfig['bucketWeights'])[] = ['best', 'solid', 'inaccuracy', 'mistake', 'blunder'];
+  const filtered = orderedBuckets
+    .filter((bucket) => availableBuckets.has(bucket))
+    .map((bucket) => ({ bucket, weight: weights[bucket] }));
+
+  const total = filtered.reduce((sum, entry) => sum + entry.weight, 0);
+  let threshold = randomFn() * total;
+
+  for (const entry of filtered) {
+    threshold -= entry.weight;
+    if (threshold <= 0) {
+      return entry.bucket;
+    }
+  }
+
+  return filtered[filtered.length - 1]?.bucket ?? 'best';
+}
+
+function chooseMove(
+  state: GameState,
+  scoredMoves: ScoredMove[],
+  profile: BotLevelConfig,
+  options?: BotSearchOptions,
+): ScoredMove | null {
   if (scoredMoves.length === 0) return null;
 
-  const ranked = applyDifficultyVariance(scoredMoves, profile)
+  const randomFn = options?.randomFn ?? Math.random;
+  const noisyMoves = applyDifficultyVariance(scoredMoves, profile, randomFn);
+  const bestScore = Math.max(...noisyMoves.map((move) => move.score));
+  const bucket = pickWeightedBucket(profile, state, noisyMoves, randomFn);
+  const bucketMoves = noisyMoves.filter((move) => classifyMoveBucket(bestScore, move.score) === bucket);
+  const candidates = bucketMoves.length > 0 ? bucketMoves : noisyMoves;
+
+  const ranked = candidates
+    .map((move) => {
+      const newState = makeMove(state, move.from, move.to);
+      const styleBonus = newState ? getPersonaMoveBonus(state, newState, move, profile, options?.botId) : 0;
+      const habitBias = newState ? getStrengthMoveBias(state, newState, move, profile) : 0;
+      return {
+        ...move,
+        score: (move.score * profile.evaluationSharpness) + styleBonus + habitBias,
+      };
+    })
     .sort((a, b) => b.score - a.score);
 
-  if (profile.choiceWindow > 1 && Math.random() < profile.randomPickChance) {
+  if (profile.choiceWindow > 1 && randomFn() < profile.randomPickChance) {
     const pool = ranked.slice(0, Math.min(profile.choiceWindow, ranked.length));
-    return pool[Math.floor(Math.random() * pool.length)];
+    return pool[Math.floor(randomFn() * pool.length)];
   }
 
   return ranked[0];
 }
 
-function getHeuristicFallbackMove(state: GameState, profile: BotLevelConfig, botId?: string): ScoredMove | null {
-  const moves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, botId)
-    .slice(0, Math.max(1, profile.choiceWindow));
+function getHeuristicFallbackMove(state: GameState, profile: BotLevelConfig, options?: BotSearchOptions): ScoredMove | null {
+  const moves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, profile, options?.botId)
+    .slice(0, Math.max(1, profile.rootBreadth));
 
   const scoredMoves = moves.map((move) => {
     const newState = makeMove(state, move.from, move.to);
     return {
       ...move,
-      score: getMoveOrderingScore(state.board, move) + (newState ? getPersonaMoveBonus(state, newState, move, botId) : 0),
+      score: getMoveOrderingScore(state.board, move)
+        + (newState ? getStrengthMoveBias(state, newState, move, profile) : 0),
     };
   });
 
-  return chooseMove(scoredMoves, profile);
+  return chooseMove(state, scoredMoves, profile, options);
 }
 
 function searchBestMove(
@@ -491,7 +637,7 @@ function searchBestMove(
   profile: BotLevelConfig,
   options?: BotSearchOptions,
 ): ScoredMove | null {
-  let rootMoves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, options?.botId);
+  let rootMoves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, profile, options?.botId);
   if (rootMoves.length === 0) return null;
 
   const context: SearchContext = {
@@ -502,7 +648,7 @@ function searchBestMove(
   };
 
   const maxDepth = Math.max(1, Math.round(options?.maxDepth ?? profile.maxDepth));
-  let bestMove = getHeuristicFallbackMove(state, profile, options?.botId);
+  let bestMove = getHeuristicFallbackMove(state, profile, options);
   let bestRootMoves = [...rootMoves];
 
   for (let depth = 1; depth <= maxDepth; depth += 1) {
@@ -526,7 +672,7 @@ function searchBestMove(
       iterationMoves.push({
         from: move.from,
         to: move.to,
-        score: result.score + getPersonaMoveBonus(state, newState, move, options?.botId),
+        score: result.score,
       });
 
       if (!result.completed) {
@@ -542,7 +688,7 @@ function searchBestMove(
     bestRootMoves = [...iterationMoves].sort((a, b) => b.score - a.score);
 
     if (completed) {
-      bestMove = chooseMove(bestRootMoves, profile);
+      bestMove = chooseMove(state, bestRootMoves, profile, options);
       continue;
     }
 
@@ -563,6 +709,18 @@ export function getBotMoveForLevel(
   if (!move) return null;
 
   return { from: move.from, to: move.to };
+}
+
+export function getBotPublicStrengthLabel(level: number): BotPublicStrengthLabel {
+  return getBotDisplayedStrength(level).label;
+}
+
+export function getBotDisplayedRating(level: number): number {
+  return getBotDisplayedStrength(level).rating;
+}
+
+export function shouldUseExternalEngineForBot(level: number): boolean {
+  return getBotLevelConfig(level).allowExternalEngine;
 }
 
 export function getBotMove(
