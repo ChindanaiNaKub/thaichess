@@ -10,6 +10,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "test:bot-calibration": "vitest run src/test/botCalibration.test.ts",
     "test:coverage": "vitest run --coverage",
     "bench": "vitest bench --reporter=verbose",
     "test:e2e": "playwright test",

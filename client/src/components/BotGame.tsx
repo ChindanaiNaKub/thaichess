@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BOT_PERSONAS, DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById, type BotDifficultyTier } from '@shared/botPersonas';
+import { BOT_PERSONAS, DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById } from '@shared/botPersonas';
+import { getBotPublicStrengthLabel } from '@shared/botEngine';
+import { formatBotEstimatedEloRange } from '@shared/botEstimatedElo';
 import { getBotDialoguePack } from '@shared/botDialogueCatalog';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
@@ -44,10 +46,6 @@ const BOT_GAME_TIME_CONTROL = {
 };
 
 type SideChoice = PieceColor | 'random';
-
-function formatDifficultyLabel(tier: BotDifficultyTier): string {
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
 
 function createBotGameId() {
   return globalThis.crypto?.randomUUID?.()
@@ -763,7 +761,9 @@ export default function BotGame() {
   const sideChoiceLabel = sideChoice === 'random'
     ? t('bot.random')
     : t(sideChoice === 'white' ? 'common.white' : 'common.black');
-  const difficultyLabel = formatDifficultyLabel(selectedBot.difficultyLevel);
+  const difficultyLabel = getBotPublicStrengthLabel(selectedBot.engine.level);
+  const levelLabel = t('bot.level_short', { level: botLevel });
+  const estimatedEloLabel = t('bot.estimated_elo_range', { range: formatBotEstimatedEloRange(botLevel) });
 
   if (!gameStarted) {
     return (
@@ -791,9 +791,9 @@ export default function BotGame() {
                       <div className="text-xs text-text-dim">{selectedBot.title}</div>
                     </div>
                     <div className="rounded-xl bg-surface-alt px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Rating</div>
-                      <div className="mt-1 text-sm font-semibold text-text-bright">{selectedBot.rating}</div>
-                      <div className="text-xs text-text-dim">{difficultyLabel}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.level_label')}</div>
+                      <div className="mt-1 text-sm font-semibold text-text-bright">{levelLabel}</div>
+                      <div className="text-xs text-text-dim">{estimatedEloLabel}</div>
                     </div>
                   </div>
                 </div>
@@ -819,8 +819,8 @@ export default function BotGame() {
                             <div className="text-sm font-semibold text-text-bright">{persona.name}</div>
                             <div className="text-xs text-text-dim">{persona.title}</div>
                             <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                              <span className="rounded-full border border-surface-hover px-2 py-1">{persona.rating}</span>
-                              <span className="rounded-full border border-surface-hover px-2 py-1">{formatDifficultyLabel(persona.difficultyLevel)}</span>
+                              <span className="rounded-full border border-surface-hover px-2 py-1">{t('bot.level_short', { level: persona.engine.level })}</span>
+                              <span className="rounded-full border border-surface-hover px-2 py-1">{getBotPublicStrengthLabel(persona.engine.level)}</span>
                             </div>
                           </div>
                         </div>
@@ -849,10 +849,10 @@ export default function BotGame() {
                         <h3 className="mt-2 text-2xl font-bold text-text-bright">{selectedBot.name}</h3>
                         <p className="text-sm text-text-dim">{selectedBot.title}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">Rating {selectedBot.rating}</span>
+                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">{levelLabel}</span>
                           <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">{difficultyLabel}</span>
-                          <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">Engine Lv.{botLevel}</span>
                         </div>
+                        <div className="mt-3 text-xs text-text-dim">{estimatedEloLabel}</div>
                       </div>
                     </div>
                     <p className="mt-4 text-sm leading-6 text-text">{selectedBot.shortBackstory}</p>
@@ -884,6 +884,9 @@ export default function BotGame() {
                         </span>
                       ))}
                     </div>
+                    <p className="mt-4 text-[11px] leading-5 text-text-dim">
+                      {t('bot.estimated_elo_note')}
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
@@ -987,7 +990,7 @@ export default function BotGame() {
     : isPlayerTurn
       ? t('bot.your_turn')
       : t('bot.bot_thinking');
-  const botClockSubtitle = `${selectedBot.title} | ${selectedBot.rating}`;
+  const botClockSubtitle = `${selectedBot.title} | ${levelLabel} | ${estimatedEloLabel}`;
 
   const handleStartCounting = () => {
     const newState = startCounting(gameState);
@@ -1008,7 +1011,7 @@ export default function BotGame() {
             <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('bot.vs_bot')}</span>
             <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
-              {selectedBot.rating}
+              {levelLabel}
             </span>
             <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
               {difficultyLabel}
@@ -1098,9 +1101,10 @@ export default function BotGame() {
                   <div className="text-lg font-semibold text-text-bright">{selectedBot.name}</div>
                   <div className="text-sm text-text-dim">{selectedBot.title}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                    <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">Rating {selectedBot.rating}</span>
+                    <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">{levelLabel}</span>
                     <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">{difficultyLabel}</span>
                   </div>
+                  <div className="mt-2 text-xs text-text-dim">{estimatedEloLabel}</div>
                 </div>
               </div>
 
@@ -1135,7 +1139,7 @@ export default function BotGame() {
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                   <span>{t('bot.vs_bot')}</span>
                   <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
-                    {selectedBot.rating}
+                    {levelLabel}
                   </span>
                   <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
                     {difficultyLabel}

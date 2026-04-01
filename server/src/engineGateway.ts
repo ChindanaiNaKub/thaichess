@@ -13,7 +13,7 @@ import {
   type AnalyzedMove,
   type GameAnalysis,
 } from '../../shared/analysis';
-import { getBotLevelConfig, getBotMoveForLevel } from '../../shared/botEngine';
+import { getBotLevelConfig, getBotMoveForLevel, shouldUseExternalEngineForBot } from '../../shared/botEngine';
 import {
   moveToUci,
   serializeAnalysisPosition,
@@ -459,6 +459,19 @@ export async function getBotMoveWithEngine(
 ): Promise<BotMoveResult> {
   const normalizedLevel = clampBotLevel(level);
   const startedAt = Date.now();
+  const config = getBotLevelConfig(normalizedLevel);
+  const fallback = buildLocalBotMoveResult(snapshot, normalizedLevel, botId);
+
+  if (!shouldUseExternalEngineForBot(normalizedLevel)) {
+    logInfo('bot_move_calibrated_local', {
+      level: normalizedLevel,
+      elapsedMs: Date.now() - startedAt,
+      rating: config.displayedRating,
+      label: config.publicLabel,
+    });
+    return fallback;
+  }
+
   const serialized = serializeAnalysisPosition(snapshot);
   const request: EngineServiceAnalyzeRequest = {
     variant: 'makruk',
@@ -504,7 +517,6 @@ export async function getBotMoveWithEngine(
     });
   }
 
-  const fallback = buildLocalBotMoveResult(snapshot, normalizedLevel, botId);
   logInfo('bot_move_fallback_local', {
     level: normalizedLevel,
     elapsedMs: Date.now() - startedAt,

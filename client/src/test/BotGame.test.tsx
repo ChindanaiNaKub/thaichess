@@ -31,7 +31,12 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, params?: Record<string, string | number>) => {
+      if (key === 'bot.level_short') return `Level ${params?.level ?? ''}`.trim();
+      if (key === 'bot.estimated_elo_range') return `Estimated ${params?.range ?? ''} ELO`.trim();
+      if (key === 'bot.estimated_elo_note') return 'Estimated strength based on play behavior, not an official rating.';
+      return key;
+    },
     lang: 'en' as const,
     setLang: vi.fn(),
   }),
@@ -192,6 +197,14 @@ describe('BotGame', () => {
 
     expect(screen.getAllByText('Mekhala Saeng').length).toBeGreaterThan(0);
     expect(screen.getByText('Matron of Riverlight Sala')).toBeInTheDocument();
+  });
+
+  it('shows level as the primary bot difficulty and estimated elo as supporting info', () => {
+    renderBotGame();
+
+    expect(screen.getAllByText('Level 4').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Estimated 650-800 ELO').length).toBeGreaterThan(0);
+    expect(screen.getByText('Estimated strength based on play behavior, not an official rating.')).toBeInTheDocument();
   });
 
   it('falls back to a local move when the server returns no bot move', async () => {
