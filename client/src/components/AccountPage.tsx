@@ -84,6 +84,16 @@ export default function AccountPage() {
               </span>
             </div>
 
+            {user.fair_play_status === 'restricted' && (
+              <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                <div className="font-semibold">{t('account.rated_restricted_title')}</div>
+                <p className="mt-1 text-amber-100/90">{t('account.rated_restricted_desc')}</p>
+                {user.rated_restriction_note && (
+                  <p className="mt-2 text-xs text-amber-100/80">{user.rated_restriction_note}</p>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-surface-hover bg-surface p-4">
@@ -141,12 +151,20 @@ export default function AccountPage() {
                 {t('leaderboard.title')}
               </button>
               {user.role === 'admin' && (
-                <button
-                  onClick={() => navigate('/feedback')}
-                  className="w-full py-2 rounded-lg border border-surface-hover text-text"
-                >
-                  {t('account.open_feedback')}
-                </button>
+                <>
+                  <button
+                    onClick={() => navigate('/feedback')}
+                    className="w-full py-2 rounded-lg border border-surface-hover text-text"
+                  >
+                    {t('account.open_feedback')}
+                  </button>
+                  <button
+                    onClick={() => navigate(routes.fairPlay)}
+                    className="w-full py-2 rounded-lg border border-surface-hover text-text"
+                  >
+                    {t('account.open_fair_play')}
+                  </button>
+                </>
               )}
               <button
                 onClick={async () => {

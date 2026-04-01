@@ -358,4 +358,109 @@ describe('database rated game persistence', () => {
       highestBotLevelDefeated: 3,
     });
   });
+
+  it('excludes rated-restricted users from the leaderboard', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    await database.upsertUserByEmail({
+      id: 'top-user',
+      email: 'topplayer@example.com',
+      role: 'user',
+    });
+    await database.upsertUserByEmail({
+      id: 'second-user',
+      email: 'second@example.com',
+      role: 'user',
+    });
+
+    await database.saveCompletedGame({
+      id: 'leaderboard-game-2',
+      result: 'white',
+      resultReason: 'checkmate',
+      whiteUserId: 'top-user',
+      blackUserId: 'second-user',
+      rated: true,
+      gameMode: 'quick_play',
+      timeControl: { initial: 300, increment: 0 },
+      moves: [],
+      finalBoard: [],
+      moveCount: 20,
+    });
+
+    await database.recordFairPlayEvent({
+      userId: 'top-user',
+      type: 'user_reported',
+      gameId: 'leaderboard-game-2',
+      reporterUserId: 'second-user',
+    });
+
+    const cases = await database.getFairPlayCases(10, 0, 'open');
+    expect(cases).toHaveLength(1);
+
+    await database.restrictUserForFairPlay(cases[0].id, 'admin-user', 'Restricted from rated play');
+
+    const leaderboard = await database.getLeaderboard(10, 0);
+    const total = await database.getLeaderboardCount();
+
+    expect(total).toBe(1);
+    expect(leaderboard).toHaveLength(1);
+    expect(leaderboard[0]?.id).toBe('second-user');
+  });
+
+  it('reuses one open fair-play case across repeated signals and can clear restrictions later', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    await database.upsertUserByEmail({
+      id: 'suspect-user',
+      email: 'suspect@example.com',
+      role: 'user',
+    });
+    await database.upsertUserByEmail({
+      id: 'reporter-user',
+      email: 'reporter@example.com',
+      role: 'user',
+    });
+
+    const first = await database.recordFairPlayEvent({
+      userId: 'suspect-user',
+      type: 'analysis_blocked',
+      gameId: 'game-a',
+    });
+    const second = await database.recordFairPlayEvent({
+      userId: 'suspect-user',
+      type: 'user_reported',
+      gameId: 'game-b',
+      reporterUserId: 'reporter-user',
+    });
+
+    expect(first.caseId).toBeTruthy();
+    expect(second.caseId).toBe(first.caseId);
+
+    const openCases = await database.getFairPlayCases(10, 0, 'open');
+    expect(openCases).toHaveLength(1);
+    expect(openCases[0]?.event_count).toBe(2);
+    expect(openCases[0]?.latest_event_type).toBe('user_reported');
+
+    const restricted = await database.restrictUserForFairPlay(openCases[0].id, 'admin-user', 'Manual restriction');
+    expect(restricted).toBe(true);
+
+    const restrictedUser = await database.getUserById('suspect-user');
+    expect(restrictedUser?.fair_play_status).toBe('restricted');
+    expect(restrictedUser?.rated_restricted_at).toBeTruthy();
+
+    const cleared = await database.clearFairPlayRestriction('suspect-user', 'admin-user', 'Restriction lifted');
+    expect(cleared).toBe(true);
+
+    const clearedUser = await database.getUserById('suspect-user');
+    expect(clearedUser?.fair_play_status).toBe('clear');
+    expect(clearedUser?.rated_restricted_at).toBeNull();
+
+    const reviewedCases = await database.getFairPlayCases(10, 0, 'reviewed');
+    expect(reviewedCases).toHaveLength(1);
+    expect(reviewedCases[0]?.user_id).toBe('suspect-user');
+  });
 });

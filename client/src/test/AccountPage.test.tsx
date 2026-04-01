@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import AccountPage from '../components/AccountPage';
+import type { AuthUser } from '../lib/auth';
 
 const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSummaryState } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -14,6 +15,9 @@ const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSu
       email: 'player@example.com',
       username: 'player_one',
       role: 'user' as const,
+      fair_play_status: 'clear' as const,
+      rated_restricted_at: null,
+      rated_restriction_note: null,
       rating: 1612,
       rated_games: 24,
       wins: 14,
@@ -22,7 +26,7 @@ const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSu
       created_at: 0,
       updated_at: 0,
       last_login_at: null,
-    },
+    } as AuthUser,
     loading: false,
   },
   puzzleProgressSummaryState: {
@@ -164,5 +168,23 @@ describe('AccountPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'account.puzzle_continue' }));
     expect(navigateMock).toHaveBeenCalledWith('/puzzle/5001');
+  });
+
+  it('shows rated restriction messaging when the account is restricted', () => {
+    authState.user = {
+      ...authState.user,
+      fair_play_status: 'restricted',
+      rated_restricted_at: 1,
+      rated_restriction_note: 'Restricted pending review',
+    };
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('account.rated_restricted_title')).toBeInTheDocument();
+    expect(screen.getByText('Restricted pending review')).toBeInTheDocument();
   });
 });

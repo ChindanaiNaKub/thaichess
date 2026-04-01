@@ -145,6 +145,8 @@ export default function QuickPlay() {
     return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
   };
 
+  const ratedEligible = user?.fair_play_status === 'clear';
+
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <Header subtitle={t('quick.title')} />
@@ -180,14 +182,24 @@ export default function QuickPlay() {
             <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
             <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
               <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-                user
+                user && ratedEligible
                   ? 'bg-primary/15 text-primary-light border border-primary/30'
-                  : 'bg-accent/15 text-accent border border-accent/30'
+                  : user
+                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    : 'bg-accent/15 text-accent border border-accent/30'
               }`}>
-                {user ? t('quick.rated_available') : t('quick.casual_only')}
+                {user
+                  ? ratedEligible
+                    ? t('quick.rated_available')
+                    : t('quick.rated_unavailable')
+                  : t('quick.casual_only')}
               </div>
               <p className="mt-2 text-xs text-text-dim">
-                {user ? t('quick.rated_signed_in') : t('quick.rated_sign_in')}
+                {user
+                  ? ratedEligible
+                    ? t('quick.rated_signed_in')
+                    : t('quick.rated_restricted')
+                  : t('quick.rated_sign_in')}
               </p>
             </div>
 
