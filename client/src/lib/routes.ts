@@ -17,6 +17,7 @@ export const routes = {
   howToPlayMakruk: '/how-to-play-makruk',
   playMakrukOnline: '/play-makruk-online',
   feedback: '/feedback',
+  fairPlay: '/fair-play',
   login: '/login',
   account: '/account',
   appearanceSettings: '/settings/board-pieces',

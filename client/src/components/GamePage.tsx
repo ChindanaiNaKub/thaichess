@@ -74,6 +74,8 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [reportState, setReportState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [reportFeedback, setReportFeedback] = useState<string | null>(null);
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
   const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'disconnected');
   const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
@@ -231,6 +233,8 @@ export default function GamePage() {
       setGameState(null);
       setGameOverInfo(null);
       setShowGameOverModal(false);
+      setReportState('idle');
+      setReportFeedback(null);
       setRematchState('idle');
       clearSelection();
       setDrawOffered(false);
@@ -445,6 +449,30 @@ export default function GamePage() {
     navigate(routes.home);
   };
 
+  const handleReportOpponent = async () => {
+    if (!gameId || !gameState?.rated || !user || !playerColor || reportState !== 'idle') return;
+
+    setReportState('sending');
+    setReportFeedback(null);
+
+    try {
+      const response = await fetch('/api/fair-play/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : t('fair_play.report_failed'));
+      }
+      setReportState('sent');
+      setReportFeedback(t('fair_play.report_sent'));
+    } catch (err) {
+      setReportState('idle');
+      setReportFeedback(err instanceof Error ? err.message : t('fair_play.report_failed'));
+    }
+  };
+
   const copyGameLink = () => {
     const link = window.location.href;
     navigator.clipboard.writeText(link).then(() => {
@@ -614,6 +642,7 @@ export default function GamePage() {
   }
 
   const opponentColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
+  const canReportOpponent = Boolean(user && playerColor && gameState.gameOver && gameState.rated && gameId);
   const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
   const whitePlayerName = gameState.whitePlayerName?.trim() || '';
   const blackPlayerName = gameState.blackPlayerName?.trim() || '';
@@ -878,6 +907,14 @@ export default function GamePage() {
                   ? () => navigate(savedGameAnalysisRoute(gameId))
                   : undefined
                 }
+                onReport={canReportOpponent ? handleReportOpponent : undefined}
+                reportLabel={reportState === 'sending'
+                  ? t('common.sending')
+                  : reportState === 'sent'
+                    ? t('fair_play.report_sent_short')
+                    : t('fair_play.report_action')}
+                reportDisabled={reportState !== 'idle'}
+                reportStatusMessage={reportFeedback}
               />
             )}
 
@@ -940,6 +977,14 @@ export default function GamePage() {
             ? () => navigate(savedGameAnalysisRoute(gameId))
             : undefined
           }
+          onReport={canReportOpponent ? handleReportOpponent : undefined}
+          reportLabel={reportState === 'sending'
+            ? t('common.sending')
+            : reportState === 'sent'
+              ? t('fair_play.report_sent_short')
+              : t('fair_play.report_action')}
+          reportDisabled={reportState !== 'idle'}
+          reportStatusMessage={reportFeedback}
           onClose={() => setShowGameOverModal(false)}
         />
       )}

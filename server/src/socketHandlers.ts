@@ -139,6 +139,10 @@ function getSocketDisplayName(socket: ServerSocket) {
   return 'Guest';
 }
 
+function isRatedEligibleUser(authUser: AuthUser | null): boolean {
+  return Boolean(authUser && authUser.fair_play_status === 'clear');
+}
+
 function enforceSocketRateLimit(
   socket: ServerSocket,
   event: keyof typeof SOCKET_RATE_LIMITS,
@@ -206,7 +210,7 @@ function tryMatchmakeQueue(deps: SocketHandlerDeps) {
       const blackEntry = blackId === entry.socketId ? entryStillQueued : matchStillQueued;
       const room = deps.gameManager.createGame(entryStillQueued.timeControl, {
         gameMode: 'quick_play',
-        rated: Boolean(whiteEntry.userId && blackEntry.userId),
+        rated: Boolean(whiteEntry.ratedEligible && blackEntry.ratedEligible),
       });
 
       room.white = whiteId;
@@ -571,6 +575,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       deps.matchmaking.addToQueue(socket.id, payload.timeControl, {
         playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
+        ratedEligible: isRatedEligibleUser(socket.data.authUser),
         displayName: getSocketDisplayName(socket),
         rating: socket.data.authUser?.rating ?? null,
       });

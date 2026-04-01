@@ -22,6 +22,7 @@ const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
 const GuidePage = lazy(() => import('./components/GuidePage'));
 const AnalysisPage = lazy(() => import('./components/AnalysisPage'));
 const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPage'));
+const FairPlayCasesPage = lazy(() => import('./components/FairPlayCasesPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 const AccountPage = lazy(() => import('./components/AccountPage'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
@@ -72,6 +73,7 @@ export default function App() {
           <Route path={routes.analysisPattern} element={<AnalysisPage />} />
           <Route path={routes.analysisRoot} element={<AnalysisPage />} />
           <Route path={routes.feedback} element={<FeedbackMessagesPage />} />
+          <Route path={routes.fairPlay} element={<FairPlayCasesPage />} />
           <Route path={routes.login} element={<LoginPage />} />
           <Route path={routes.account} element={<AccountPage />} />
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />

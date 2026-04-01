@@ -5,6 +5,9 @@ export interface AuthUser {
   email: string;
   username: string | null;
   role: 'user' | 'admin';
+  fair_play_status: 'clear' | 'restricted';
+  rated_restricted_at: number | null;
+  rated_restriction_note: string | null;
   rating: number;
   rated_games: number;
   wins: number;
