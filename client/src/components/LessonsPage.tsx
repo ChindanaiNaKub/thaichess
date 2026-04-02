@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getLegalMoves, isInCheck, makeMove } from '@shared/engine';
 import type { GameState, Position } from '@shared/types';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -19,6 +19,54 @@ import { isLessonUnlocked, useLessonProgress, useLessonProgressSummary } from '.
 import { useTranslation } from '../lib/i18n';
 import Header from './Header';
 import Board from './Board';
+
+function shouldLogLessonDebug(): boolean {
+  if (typeof window === 'undefined') return false;
+  return import.meta.env.DEV || window.location.hostname === 'localhost';
+}
+
+function useSquareFitSize<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [size, setSize] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    let frame = 0;
+
+    const measure = () => {
+      frame = 0;
+      const rect = node.getBoundingClientRect();
+      const nextSize = Math.max(0, Math.floor(Math.min(rect.width, rect.height)));
+      setSize(current => (current === nextSize ? current : nextSize));
+    };
+
+    const scheduleMeasure = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => scheduleMeasure())
+      : null;
+
+    resizeObserver?.observe(node);
+    window.addEventListener('resize', scheduleMeasure);
+
+    return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', scheduleMeasure);
+    };
+  }, []);
+
+  return { ref, size };
+}
 
 function createLessonGameState(scene: LessonScene): GameState {
   const board = scene.board.map(row => row.map(piece => (piece ? { ...piece } : null)));
@@ -101,6 +149,23 @@ function LessonCoursePage() {
   const { completedLessonSet, startedLessonSet } = useLessonProgress();
   const lessonSummary = useLessonProgressSummary();
   const nextLesson = lessonSummary.nextLesson ?? MAKRUK_LESSONS[0] ?? null;
+
+  useEffect(() => {
+    if (!shouldLogLessonDebug()) return;
+    console.info('[LessonsPage] lesson catalog loaded', {
+      source: 'client/src/lib/lessons.ts',
+      moduleCount: LESSON_MODULES.length,
+      lessonCount: MAKRUK_LESSONS.length,
+      sampleLesson: MAKRUK_LESSONS[0]
+        ? {
+            id: MAKRUK_LESSONS[0].id,
+            title: MAKRUK_LESSONS[0].title,
+            dependsOnCounting: MAKRUK_LESSONS[0].dependsOnCounting,
+            ruleImpact: MAKRUK_LESSONS[0].ruleImpact,
+          }
+        : null,
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -301,6 +366,7 @@ function StructuredLessonPlayer() {
   const lesson = getLessonById(id);
   const { completedLessonSet, visitLesson, completeLesson } = useLessonProgress();
   const { t } = useTranslation();
+  const { ref: boardStageRef, size: boardStageSize } = useSquareFitSize<HTMLDivElement>();
   const [phase, setPhase] = useState<'guided' | 'practice'>('guided');
   const [guidedIndex, setGuidedIndex] = useState(0);
   const [practiceIndex, setPracticeIndex] = useState(0);
@@ -314,6 +380,32 @@ function StructuredLessonPlayer() {
     if (!lesson) return;
     visitLesson(lesson.id);
   }, [lesson, visitLesson]);
+
+  useEffect(() => {
+    if (!lesson) return;
+    setPhase('guided');
+    setGuidedIndex(0);
+    setPracticeIndex(0);
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    setFeedback(null);
+    setResolved(false);
+    setGameState(createLessonGameState(lesson.guidedSteps[0]?.scene ?? lesson.example));
+  }, [lesson]);
+
+  useEffect(() => {
+    if (!lesson || !shouldLogLessonDebug()) return;
+    console.info('[LessonsPage] active lesson loaded', {
+      source: 'client/src/lib/lessons.ts',
+      id: lesson.id,
+      title: lesson.title,
+      objective: lesson.objective,
+      dependsOnCounting: lesson.dependsOnCounting,
+      ruleImpact: lesson.ruleImpact,
+      guidedStepIds: lesson.guidedSteps.map(step => step.id),
+      practiceTaskIds: lesson.practiceTasks.map(task => task.id),
+    });
+  }, [lesson]);
 
   const guidedStep = lesson?.guidedSteps[guidedIndex] ?? null;
   const practiceTask = lesson?.practiceTasks[practiceIndex] ?? null;
@@ -456,7 +548,6 @@ function StructuredLessonPlayer() {
       ? 'border-danger/35 bg-danger/12 text-danger'
       : 'border-surface-hover bg-surface-alt text-text-dim';
 
-  const stageBoardWidth = 'min(100%, calc(100dvh - 12rem))';
   const activePanelTitle = activeStep && 'title' in activeStep ? activeStep.title : 'Practice task';
 
   return (
@@ -483,7 +574,7 @@ function StructuredLessonPlayer() {
       />
 
       <main id="main-content" className="flex-1 overflow-hidden px-3 py-3 sm:px-4 sm:py-4">
-        <div className="mx-auto grid h-full max-w-[1400px] grid-rows-[auto_minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1">
+        <div className="mx-auto grid h-full max-w-[1400px] grid-rows-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1">
           <section className="min-h-0 overflow-hidden rounded-3xl border border-primary/18 bg-[radial-gradient(circle_at_top_left,_rgba(121,181,62,0.12),_transparent_34%),linear-gradient(180deg,rgba(31,28,22,0.96),rgba(22,18,14,0.96))] p-3 sm:p-4">
             <div className="flex h-full flex-col">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-surface-hover/70 pb-3">
@@ -493,6 +584,15 @@ function StructuredLessonPlayer() {
                   </div>
                   <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-text-bright">{lesson.title}</h1>
                   <p className="mt-1 text-sm text-text-dim max-w-2xl">{lesson.objective}</p>
+                  <div className="mt-3">
+                    <span className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] ${
+                      lesson.dependsOnCounting
+                        ? 'border-amber-400/35 bg-amber-400/10 text-amber-200'
+                        : 'border-surface-hover bg-surface text-text-dim'
+                    }`}>
+                      {lesson.dependsOnCounting ? 'Counting-aware lesson' : 'No counting dependency'}
+                    </span>
+                  </div>
                 </div>
                 <div className="shrink-0 rounded-2xl border border-surface-hover/70 bg-surface/75 px-3 py-2 text-right">
                   <div className="text-[10px] uppercase tracking-[0.18em] text-text-dim">
@@ -507,8 +607,20 @@ function StructuredLessonPlayer() {
               </div>
 
               <div className="flex-1 min-h-0 pt-3 sm:pt-4">
-                <div className="flex h-full items-center justify-center">
-                  <div className="w-full" style={{ maxWidth: stageBoardWidth }}>
+                <div
+                  ref={boardStageRef}
+                  data-testid="lesson-board-stage"
+                  className="flex h-full min-h-0 items-center justify-center overflow-hidden"
+                >
+                  <div
+                    data-testid="lesson-board-frame"
+                    className="max-w-full max-h-full shrink-0"
+                    style={{
+                      width: boardStageSize ? `${boardStageSize}px` : '100%',
+                      height: boardStageSize ? `${boardStageSize}px` : undefined,
+                      aspectRatio: '1 / 1',
+                    }}
+                  >
                     {gameState && activeScene && (
                       <Board
                         board={gameState.board}
@@ -525,6 +637,7 @@ function StructuredLessonPlayer() {
                         squareHighlights={activeScene.highlights}
                         squareAnnotations={activeScene.annotations}
                         arrows={activeScene.arrows}
+                        className="h-full w-full"
                       />
                     )}
                   </div>
@@ -557,6 +670,24 @@ function StructuredLessonPlayer() {
                   <section>
                     <div className="text-xs uppercase tracking-[0.2em] text-primary-light/80">Concept explanation</div>
                     <p className="mt-3 text-sm leading-relaxed text-text">{lesson.conceptExplanation}</p>
+                  </section>
+
+                  <section className={`rounded-2xl border p-4 ${
+                    lesson.dependsOnCounting
+                      ? 'border-amber-400/25 bg-amber-400/8'
+                      : 'border-surface-hover/70 bg-surface/65'
+                  }`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs uppercase tracking-[0.2em] text-primary-light/80">Rule impact</div>
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] ${
+                        lesson.dependsOnCounting
+                          ? 'border-amber-400/35 bg-amber-400/10 text-amber-200'
+                          : 'border-surface-hover bg-surface text-text-dim'
+                      }`}>
+                        {lesson.dependsOnCounting ? 'Counting changes the evaluation' : 'Counting does not change this lesson'}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-text">{lesson.ruleImpact}</p>
                   </section>
 
                   <section className="rounded-2xl border border-surface-hover/70 bg-surface/65 p-4">
