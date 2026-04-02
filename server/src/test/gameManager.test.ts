@@ -326,7 +326,7 @@ describe('GameManager', () => {
     expect(stopped?.gameState.counting?.active).toBe(false);
   });
 
-  it('resets the counting number when the counting side starts again after stopping', () => {
+  it('resets the counting number when board-honor counting starts again after stopping', () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
     manager.joinGame(room.id, 'white-socket');
@@ -334,12 +334,12 @@ describe('GameManager', () => {
     const activeRoom = manager.getGame(room.id)!;
     activeRoom.gameState.counting = {
       active: false,
-      type: 'pieces_honor',
+      type: 'board_honor',
       countingColor: 'white',
       strongerColor: 'black',
       currentCount: 12,
-      startCount: 3,
-      limit: 16,
+      startCount: 0,
+      limit: 64,
       finalAttackPending: true,
     };
 
@@ -347,8 +347,8 @@ describe('GameManager', () => {
 
     expect(restarted?.gameState.counting).toMatchObject({
       active: true,
-      currentCount: 3,
-      startCount: 3,
+      currentCount: 0,
+      startCount: 0,
       finalAttackPending: false,
     });
   });
@@ -371,5 +371,33 @@ describe('GameManager', () => {
     expect(latestRoom.gameState.gameOver).toBe(true);
     expect(latestRoom.gameState.resultReason).toBe('timeout');
     expect(latestRoom.gameState.winner).toBe('black');
+  });
+
+  it('draws on timeout when the side with time left lacks an official winning material set', () => {
+    const manager = new GameManager();
+    const fastTime: TimeControl = { initial: 1, increment: 0 };
+    const room = manager.createGame(fastTime);
+    manager.joinGame(room.id, 'white-socket');
+    manager.joinGame(room.id, 'black-socket');
+
+    const activeRoom = manager.getGame(room.id)!;
+    activeRoom.gameState.board = Array(8).fill(null).map(() => Array(8).fill(null));
+    activeRoom.gameState.board[0][0] = { type: 'K', color: 'white' };
+    activeRoom.gameState.board[2][2] = { type: 'N', color: 'white' };
+    activeRoom.gameState.board[7][7] = { type: 'K', color: 'black' };
+    activeRoom.gameState.turn = 'black';
+
+    let latestRoom = activeRoom;
+    manager.startClock(room.id, (updatedRoom) => {
+      latestRoom = updatedRoom;
+    });
+
+    vi.advanceTimersByTime(1_100);
+
+    expect(latestRoom.status).toBe('finished');
+    expect(latestRoom.gameState.gameOver).toBe(true);
+    expect(latestRoom.gameState.isDraw).toBe(true);
+    expect(latestRoom.gameState.resultReason).toBe('timeout');
+    expect(latestRoom.gameState.winner).toBeNull();
   });
 });

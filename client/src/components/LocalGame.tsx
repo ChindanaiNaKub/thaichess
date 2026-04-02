@@ -5,6 +5,7 @@ import {
   getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove,
   startCounting, stopCounting,
 } from '@shared/engine';
+import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { buildInlineAnalysisRoute } from '../lib/analysis';
@@ -93,16 +94,36 @@ export default function LocalGame() {
           if (prev.turn === 'white') {
             const whiteTime = Math.max(0, prev.whiteTime - elapsed);
             if (whiteTime === 0) {
-              timeoutWinner = 'black';
-              return { ...prev, whiteTime: 0, lastMoveTime: now, gameOver: true, winner: 'black', resultReason: 'timeout', counting: null };
+              const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'white');
+              timeoutWinner = timeoutOutcome.winner;
+              return {
+                ...prev,
+                whiteTime: 0,
+                lastMoveTime: now,
+                gameOver: true,
+                isDraw: timeoutOutcome.isDraw,
+                winner: timeoutOutcome.winner,
+                resultReason: 'timeout',
+                counting: null,
+              };
             }
             return { ...prev, whiteTime, lastMoveTime: now };
           }
 
           const blackTime = Math.max(0, prev.blackTime - elapsed);
           if (blackTime === 0) {
-            timeoutWinner = 'white';
-            return { ...prev, blackTime: 0, lastMoveTime: now, gameOver: true, winner: 'white', resultReason: 'timeout', counting: null };
+            const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'black');
+            timeoutWinner = timeoutOutcome.winner;
+            return {
+              ...prev,
+              blackTime: 0,
+              lastMoveTime: now,
+              gameOver: true,
+              isDraw: timeoutOutcome.isDraw,
+              winner: timeoutOutcome.winner,
+              resultReason: 'timeout',
+              counting: null,
+            };
           }
           return { ...prev, blackTime, lastMoveTime: now };
       });
