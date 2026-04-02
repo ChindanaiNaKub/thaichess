@@ -1,5 +1,5 @@
 import type { Move } from '../../shared/types';
-import { createInitialGameState, makeMove } from '../../shared/engine';
+import { createInitialGameState, getAllPieces, getLegalMoves, isInCheck, makeMove } from '../../shared/engine';
 import {
   analyzeGame,
   classifyMove,
@@ -13,7 +13,13 @@ import {
   type AnalyzedMove,
   type GameAnalysis,
 } from '../../shared/analysis';
-import { getBotLevelConfig, getBotMoveForLevel, shouldUseExternalEngineForBot } from '../../shared/botEngine';
+import {
+  getBotLevelConfig,
+  getBotMoveForLevel,
+  scoreBotMoveCandidate,
+  shouldUseExternalEngineForBot,
+  type BotSearchOptions,
+} from '../../shared/botEngine';
 import {
   moveToUci,
   serializeAnalysisPosition,
@@ -30,7 +36,7 @@ import { analyzeBotWithBinaryEngine, analyzeWithBinaryEngine, hasBinaryEngineCon
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 
 const BOT_LEVEL_MOVETIMES_MS = [50, 60, 70, 80, 95, 110, 130, 150, 170, 190] as const;
-const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 1450, 1550, 1650] as const;
+const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 1450, 1550, 5200] as const;
 const REVIEW_MOVETIME_MS = 250;
 const REVIEW_MIN_MOVETIME_MS = 60;
 const REVIEW_TOTAL_TARGET_MS = 12000;
@@ -39,6 +45,12 @@ const REVIEW_TOTAL_BUDGET_MAX_MS = 40000;
 const REVIEW_ANALYSIS_MIN_TIMEOUT_MS = 1400;
 const REVIEW_ANALYSIS_TIMEOUT_BUFFER_MS = 900;
 const REVIEW_LOCAL_FALLBACK_DEADLINE_BUFFER_MS = 1800;
+const LEVEL10_ENGINE_OVERRIDE_DELTA = 140;
+
+interface Level10BotSearchPlan {
+  search: EngineServiceAnalyzeRequest['search'];
+  localValidation: BotSearchOptions;
+}
 
 function getServiceUrl(pathname: string): string | null {
   if (!SERVICE_URL) return null;
@@ -120,6 +132,92 @@ export function normalizeEngineEvaluation(evalCp: number, turn: AnalysisPosition
   return turn === 'white' ? evalCp : -evalCp;
 }
 
+function isSnapshotEndgame(snapshot: AnalysisPositionSnapshot): boolean {
+  let remainingNonPawnMaterial = 0;
+
+  for (const row of snapshot.board) {
+    for (const piece of row) {
+      if (!piece || piece.type === 'K' || piece.type === 'P') continue;
+      remainingNonPawnMaterial += piece.type === 'R'
+        ? 500
+        : piece.type === 'N'
+          ? 300
+          : piece.type === 'S'
+            ? 250
+            : 200;
+    }
+  }
+
+  return remainingNonPawnMaterial <= 1700 || Boolean(snapshot.counting);
+}
+
+function getSnapshotMoveSignals(snapshot: AnalysisPositionSnapshot): { captureCount: number; checkingCount: number } {
+  const pieces = getAllPieces(snapshot.board, snapshot.turn);
+  let captureCount = 0;
+  let checkingCount = 0;
+
+  for (const { pos } of pieces) {
+    const legalMoves = getLegalMoves(snapshot.board, pos);
+    for (const move of legalMoves) {
+      const target = snapshot.board[move.row][move.col];
+      if (target && target.color !== snapshot.turn) {
+        captureCount += 1;
+      }
+
+      const state = createStateFromSnapshot(snapshot);
+      const nextState = makeMove(state, pos, move);
+      if (nextState?.isCheck) {
+        checkingCount += 1;
+      }
+    }
+  }
+
+  return { captureCount, checkingCount };
+}
+
+export function createLevel10BotSearchPlan(snapshot: AnalysisPositionSnapshot): Level10BotSearchPlan {
+  const inCheck = isInCheck(snapshot.board, snapshot.turn);
+  const endgame = isSnapshotEndgame(snapshot);
+  const { captureCount, checkingCount } = getSnapshotMoveSignals(snapshot);
+  const forcing = inCheck || checkingCount > 0 || captureCount >= 2;
+
+  if (inCheck) {
+    return {
+      search: { depth: 14 },
+      localValidation: { maxDepth: 7, maxNodes: 26000, maxMs: 1200 },
+    };
+  }
+
+  if (forcing) {
+    return {
+      search: { depth: 12 },
+      localValidation: { maxDepth: 6, maxNodes: 20000, maxMs: 950 },
+    };
+  }
+
+  if (endgame) {
+    return {
+      search: { depth: 12 },
+      localValidation: { maxDepth: 6, maxNodes: 18000, maxMs: 900 },
+    };
+  }
+
+  return {
+    search: { movetimeMs: 260 },
+    localValidation: { maxDepth: 5, maxNodes: 12000, maxMs: 700 },
+  };
+}
+
+function getPreferredBotEngineSource(level: number): 'service' | 'binary' | 'none' {
+  if (clampBotLevel(level) === 10 && hasBinaryEngineConfigured()) {
+    return 'binary';
+  }
+
+  if (SERVICE_URL) return 'service';
+  if (hasBinaryEngineConfigured()) return 'binary';
+  return 'none';
+}
+
 function buildLocalBotMoveResult(
   snapshot: AnalysisPositionSnapshot,
   level: number,
@@ -128,12 +226,15 @@ function buildLocalBotMoveResult(
   const normalizedLevel = clampBotLevel(level);
   const config = getBotLevelConfig(normalizedLevel);
   const state = createStateFromSnapshot(snapshot);
-  const move = getBotMoveForLevel(state, normalizedLevel, {
-    maxDepth: config.maxDepth,
-    maxNodes: config.maxNodes,
-    maxMs: config.maxMs,
-    botId,
-  });
+  const localSearch = normalizedLevel === 10
+    ? { ...createLevel10BotSearchPlan(snapshot).localValidation, botId }
+    : {
+      maxDepth: config.maxDepth,
+      maxNodes: config.maxNodes,
+      maxMs: config.maxMs,
+      botId,
+    };
+  const move = getBotMoveForLevel(state, normalizedLevel, localSearch);
 
   return {
     move,
@@ -142,7 +243,7 @@ function buildLocalBotMoveResult(
     principalVariation: move ? [moveToUci(move)] : [],
     stats: {
       source: 'local',
-      depth: config.maxDepth,
+      depth: localSearch.maxDepth,
     },
   };
 }
@@ -244,6 +345,42 @@ function resolveValidatedAnalysisMove(
   return {
     move: null,
     source: 'local',
+  };
+}
+
+function validateLevel10EngineMove(
+  snapshot: AnalysisPositionSnapshot,
+  candidate: { from: { row: number; col: number }; to: { row: number; col: number } },
+  botId?: string,
+): { move: { from: { row: number; col: number }; to: { row: number; col: number } }; source: 'engine' | 'local'; depth: number } {
+  const state = createStateFromSnapshot(snapshot);
+  const plan = createLevel10BotSearchPlan(snapshot);
+  const localBest = getBotMoveForLevel(state, 10, { ...plan.localValidation, botId });
+
+  if (!localBest) {
+    return { move: candidate, source: 'engine', depth: plan.localValidation.maxDepth ?? 0 };
+  }
+
+  const candidateScore = scoreBotMoveCandidate(state, 10, candidate, plan.localValidation);
+  const localScore = scoreBotMoveCandidate(state, 10, localBest, plan.localValidation);
+  const shouldOverride = localScore > candidateScore + LEVEL10_ENGINE_OVERRIDE_DELTA
+    || (candidateScore <= -90000 && localScore >= 0);
+
+  if (!shouldOverride) {
+    return { move: candidate, source: 'engine', depth: plan.localValidation.maxDepth ?? 0 };
+  }
+
+  logInfo('engine_bot_move_overridden_level10', {
+    candidateScore,
+    localScore,
+    engineMove: moveToUci(candidate),
+    localMove: moveToUci(localBest),
+  });
+
+  return {
+    move: localBest,
+    source: 'local',
+    depth: plan.localValidation.maxDepth ?? 0,
   };
 }
 
@@ -477,16 +614,23 @@ export async function getBotMoveWithEngine(
     variant: 'makruk',
     position: serialized.position,
     counting: serialized.counting,
-    search: {
-      movetimeMs: getBotMovetime(normalizedLevel),
-    },
+    search: normalizedLevel === 10
+      ? createLevel10BotSearchPlan(snapshot).search
+      : {
+        movetimeMs: getBotMovetime(normalizedLevel),
+      },
     multipv: normalizedLevel <= 4 ? 2 : 1,
   };
 
-  const remote = SERVICE_URL
+  const preferredSource = getPreferredBotEngineSource(normalizedLevel);
+  const remote = preferredSource === 'service'
     ? await callService('/bot-move', request, { timeoutMs: getBotRequestTimeoutMs(normalizedLevel) })
     : null;
-  const binary = remote || SERVICE_URL ? null : await analyzeBotWithBinaryEngine(request);
+  const binary = preferredSource === 'binary'
+    ? await analyzeBotWithBinaryEngine(request)
+    : remote || preferredSource === 'service'
+      ? null
+      : await analyzeBotWithBinaryEngine(request);
   const result = remote ?? binary;
 
   if (result) {
@@ -494,17 +638,20 @@ export async function getBotMoveWithEngine(
     const resolved = resolveBotMoveCandidate(snapshot, normalizedLevel, parsedMove, botId);
 
     if (resolved.source === 'engine') {
+      const validated = normalizedLevel === 10
+        ? validateLevel10EngineMove(snapshot, resolved.move!, botId)
+        : { move: resolved.move!, source: 'engine' as const, depth: result.depth ?? config.maxDepth };
       return {
-        move: resolved.move,
+        move: validated.move,
         evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
-        bestMove: resolved.move,
-        principalVariation: result.pvUci ?? [],
+        bestMove: validated.move,
+        principalVariation: validated.source === 'local' ? [moveToUci(validated.move)] : result.pvUci ?? [],
         stats: {
-          source: remote ? 'service' : 'binary',
-          depth: result.depth,
-          selDepth: result.selDepth ?? undefined,
-          nodes: result.nodes ?? undefined,
-          nps: result.nps ?? undefined,
+          source: validated.source === 'local' ? 'local' : remote ? 'service' : 'binary',
+          depth: validated.source === 'local' ? validated.depth : result.depth,
+          selDepth: validated.source === 'local' ? undefined : result.selDepth ?? undefined,
+          nodes: validated.source === 'local' ? undefined : result.nodes ?? undefined,
+          nps: validated.source === 'local' ? undefined : result.nps ?? undefined,
         },
       };
     }
@@ -520,7 +667,7 @@ export async function getBotMoveWithEngine(
   logInfo('bot_move_fallback_local', {
     level: normalizedLevel,
     elapsedMs: Date.now() - startedAt,
-    engineSourceTried: SERVICE_URL ? 'service' : hasBinaryEngineConfigured() ? 'binary' : 'none',
+    engineSourceTried: preferredSource,
   });
   return fallback;
 }

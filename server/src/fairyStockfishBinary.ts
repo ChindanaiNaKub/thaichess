@@ -307,8 +307,14 @@ export function getEngineSearchTimeoutMs(
   request: EngineServiceAnalyzeRequest,
   lane: EngineLane,
 ): number {
-  if (request.search.depth || request.search.nodes) {
-    return lane === 'bot' ? 1800 : 9000;
+  if (request.search.depth) {
+    const perPly = lane === 'bot' ? 260 : 420;
+    const base = lane === 'bot' ? 1800 : 9000;
+    return Math.max(base, 600 + (request.search.depth * perPly));
+  }
+
+  if (request.search.nodes) {
+    return lane === 'bot' ? 2400 : 9000;
   }
 
   const movetimeMs = request.search.movetimeMs ?? 400;

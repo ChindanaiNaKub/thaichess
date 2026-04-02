@@ -3,6 +3,7 @@ import { createInitialGameState } from '../../../shared/engine';
 import { moveToUci } from '../../../shared/engineAdapter';
 import { getEngineSearchTimeoutMs, normalizeEngineFen } from '../fairyStockfishBinary';
 import {
+  createLevel10BotSearchPlan,
   getBotRequestTimeoutMs,
   getReviewMovetime,
   getReviewTotalBudgetMs,
@@ -36,10 +37,18 @@ describe('normalizeEngineFen', () => {
     }, 'analysis')).toBe(2400);
   });
 
+  it('allows deeper Level 10 bot depth searches enough time to finish', () => {
+    expect(getEngineSearchTimeoutMs({
+      variant: 'makruk',
+      position: '8/8/8/8/8/8/8/8 b',
+      search: { depth: 14 },
+    }, 'bot')).toBe(4240);
+  });
+
   it('keeps bot service request timeouts capped tightly by level', () => {
     expect(getBotRequestTimeoutMs(1)).toBe(900);
     expect(getBotRequestTimeoutMs(5)).toBe(1150);
-    expect(getBotRequestTimeoutMs(10)).toBe(1650);
+    expect(getBotRequestTimeoutMs(10)).toBe(5200);
   });
 
   it('scales review movetime down for long games while preserving short-game quality', () => {
@@ -144,5 +153,41 @@ describe('normalizeEngineFen', () => {
 
     expect(result.evaluation).toBe(-280);
     expect(result.bestMove).toEqual(legalMove);
+  });
+
+  it('forces deeper Level 10 search in check and endgame positions', () => {
+    const inCheckState = createInitialGameState(0, 0);
+    inCheckState.board = Array.from({ length: 8 }, () => Array(8).fill(null));
+    inCheckState.board[7][0] = { type: 'K', color: 'black' };
+    inCheckState.board[3][3] = { type: 'R', color: 'black' };
+    inCheckState.board[5][1] = { type: 'K', color: 'white' };
+    inCheckState.board[6][2] = { type: 'S', color: 'white' };
+    inCheckState.board[7][7] = { type: 'R', color: 'white' };
+    inCheckState.turn = 'black';
+
+    const inCheckPlan = createLevel10BotSearchPlan({
+      board: inCheckState.board,
+      turn: inCheckState.turn,
+      counting: null,
+    });
+
+    expect(inCheckPlan.search).toEqual({ depth: 14 });
+    expect(inCheckPlan.localValidation.maxDepth).toBeGreaterThanOrEqual(7);
+
+    const endgameState = createInitialGameState(0, 0);
+    endgameState.board = Array.from({ length: 8 }, () => Array(8).fill(null));
+    endgameState.board[0][0] = { type: 'K', color: 'white' };
+    endgameState.board[2][2] = { type: 'R', color: 'white' };
+    endgameState.board[7][7] = { type: 'K', color: 'black' };
+    endgameState.turn = 'black';
+
+    const endgamePlan = createLevel10BotSearchPlan({
+      board: endgameState.board,
+      turn: endgameState.turn,
+      counting: null,
+    });
+
+    expect(endgamePlan.search).toEqual({ depth: 12 });
+    expect(endgamePlan.localValidation.maxDepth).toBeGreaterThanOrEqual(6);
   });
 });
