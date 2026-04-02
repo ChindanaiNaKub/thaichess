@@ -415,7 +415,7 @@ describe('Game Engine', () => {
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
     });
 
-    it('should expose bare-king counting as available but undeclared', () => {
+    it('should start Sak Mak automatically against a bare king', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[0][0] = { type: 'K', color: 'white' };
       board[0][1] = { type: 'R', color: 'white' };
@@ -427,12 +427,12 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 0, col: 1 }, { row: 1, col: 1 });
 
       expect(newState?.counting).toMatchObject({
-        active: false,
+        active: true,
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
         currentCount: 3,
-        limit: 26,
+        limit: 16,
         finalAttackPending: false,
       });
     });
@@ -450,7 +450,7 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 2, col: 2 }, { row: 4, col: 3 });
 
       expect(newState?.counting).toMatchObject({
-        active: false,
+        active: true,
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
@@ -473,7 +473,7 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 1, col: 1 }, { row: 2, col: 0 });
 
       expect(newState?.counting).toMatchObject({
-        active: false,
+        active: true,
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
@@ -481,7 +481,36 @@ describe('Game Engine', () => {
       });
     });
 
-    it('should allow the counting side to start and stop counting', () => {
+    it('should allow only board-honor counting to start and stop manually', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[0][1] = { type: 'R', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+      board[6][6] = { type: 'S', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'black';
+      state.counting = {
+        active: false,
+        type: 'board_honor',
+        countingColor: 'black',
+        strongerColor: 'white',
+        currentCount: 9,
+        startCount: 0,
+        limit: 64,
+        finalAttackPending: false,
+      };
+
+      const started = startCounting(state);
+      expect(started?.counting?.active).toBe(true);
+      expect(started?.counting?.currentCount).toBe(0);
+
+      const stopped = stopCounting(started!);
+      expect(stopped?.counting?.active).toBe(false);
+    });
+
+    it('should not allow manual start or stop for Sak Mak because it is automatic', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[0][0] = { type: 'K', color: 'white' };
       board[0][1] = { type: 'R', color: 'white' };
@@ -491,22 +520,18 @@ describe('Game Engine', () => {
       state.board = board;
       state.turn = 'black';
       state.counting = {
-        active: false,
+        active: true,
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
-        currentCount: 9,
+        currentCount: 3,
         startCount: 3,
-        limit: 26,
+        limit: 16,
         finalAttackPending: false,
       };
 
-      const started = startCounting(state);
-      expect(started?.counting?.active).toBe(true);
-      expect(started?.counting?.currentCount).toBe(3);
-
-      const stopped = stopCounting(started!);
-      expect(stopped?.counting?.active).toBe(false);
+      expect(startCounting(state)).toBeNull();
+      expect(stopCounting(state)).toBeNull();
     });
 
     it('should keep the original pieces-honor limit after captures', () => {
@@ -621,12 +646,36 @@ describe('Game Engine', () => {
         type: 'pieces_honor',
         countingColor: 'black',
         strongerColor: 'white',
-        currentCount: 26,
-        limit: 26,
+        currentCount: 16,
+        limit: 16,
         finalAttackPending: true,
       };
 
       const newState = makeMove(state, { row: 0, col: 1 }, { row: 1, col: 1 });
+
+      expect(newState?.isDraw).toBe(true);
+      expect(newState?.gameOver).toBe(true);
+      expect(newState?.resultReason).toBe('counting_rule');
+    });
+
+    it('should draw immediately when Sak Mak starts above the two-Rua limit', () => {
+      const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      board[0][0] = { type: 'K', color: 'white' };
+      board[0][1] = { type: 'R', color: 'white' };
+      board[0][2] = { type: 'R', color: 'white' };
+      board[0][3] = { type: 'N', color: 'white' };
+      board[0][4] = { type: 'N', color: 'white' };
+      board[0][5] = { type: 'S', color: 'white' };
+      board[0][6] = { type: 'S', color: 'white' };
+      board[0][7] = { type: 'M', color: 'white' };
+      board[1][0] = { type: 'PM', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
+
+      const state = createInitialGameState(300000, 300000);
+      state.board = board;
+      state.turn = 'black';
+
+      const newState = makeMove(state, { row: 7, col: 7 }, { row: 6, col: 7 });
 
       expect(newState?.isDraw).toBe(true);
       expect(newState?.gameOver).toBe(true);

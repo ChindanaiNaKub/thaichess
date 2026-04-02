@@ -1,4 +1,9 @@
 import { Board, Piece, PieceColor, PieceType, Position, Move, GameState, CountingState, ResultReason } from './types';
+import {
+  getMakrukCountingState,
+  hasBareKingsOnly,
+  isMakrukPiecesHonorImmediateDraw,
+} from './makrukRules';
 
 export function createInitialBoard(): Board {
   const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
@@ -68,157 +73,8 @@ function findKing(board: Board, color: PieceColor): Position | null {
   return null;
 }
 
-const MATERIAL_VALUES: Record<Exclude<PieceType, 'K'>, number> = {
-  R: 500,
-  N: 300,
-  S: 250,
-  M: 200,
-  PM: 200,
-  P: 100,
-};
-
-function getNonKingPieceCount(board: Board, color: PieceColor): number {
-  let count = 0;
-
-  for (const row of board) {
-    for (const piece of row) {
-      if (piece && piece.color === color && piece.type !== 'K') {
-        count++;
-      }
-    }
-  }
-
-  return count;
-}
-
-function getTotalPieceCount(board: Board): number {
-  let count = 0;
-
-  for (const row of board) {
-    for (const piece of row) {
-      if (piece) count++;
-    }
-  }
-
-  return count;
-}
-
-function hasUnpromotedPawn(board: Board): boolean {
-  for (const row of board) {
-    for (const piece of row) {
-      if (piece?.type === 'P') return true;
-    }
-  }
-
-  return false;
-}
-
-function getMaterialScore(board: Board, color: PieceColor): number {
-  let score = 0;
-
-  for (const row of board) {
-    for (const piece of row) {
-      if (piece && piece.color === color && piece.type !== 'K') {
-        score += MATERIAL_VALUES[piece.type];
-      }
-    }
-  }
-
-  return score;
-}
-
-function getPieceHonorLimit(board: Board, strongerColor: PieceColor): number {
-  let rooks = 0;
-  let bishops = 0;
-  let knights = 0;
-  let promotedPawns = 0;
-  let otherPieces = 0;
-
-  for (const row of board) {
-    for (const piece of row) {
-      if (!piece || piece.color !== strongerColor || piece.type === 'K') continue;
-
-      if (piece.type === 'R') {
-        rooks++;
-      } else if (piece.type === 'S') {
-        bishops++;
-      } else if (piece.type === 'N') {
-        knights++;
-      } else if (piece.type === 'PM') {
-        promotedPawns++;
-      } else {
-        otherPieces++;
-      }
-    }
-  }
-
-  if (rooks >= 2) return 8;
-  if (rooks === 1) return 26;
-  if (bishops >= 2) return 22;
-  if (knights >= 2) return 32;
-  if (bishops === 1) return 44;
-  if (knights === 1) return 64;
-  if (promotedPawns >= 3) return 64;
-  if (promotedPawns > 0 || otherPieces > 0) return 64;
-  return 64;
-}
-
-function getBareKingCountingState(board: Board): CountingState | null {
-  const whiteNonKings = getNonKingPieceCount(board, 'white');
-  const blackNonKings = getNonKingPieceCount(board, 'black');
-
-  if (whiteNonKings === 0 && blackNonKings === 0) return null;
-
-  if (whiteNonKings === 0 || blackNonKings === 0) {
-    const countingColor: PieceColor = whiteNonKings === 0 ? 'white' : 'black';
-    const strongerColor: PieceColor = countingColor === 'white' ? 'black' : 'white';
-    const limit = getPieceHonorLimit(board, strongerColor);
-    const currentCount = getTotalPieceCount(board);
-
-    return {
-      active: false,
-      type: 'pieces_honor',
-      countingColor,
-      strongerColor,
-      currentCount,
-      startCount: currentCount,
-      limit,
-      finalAttackPending: false,
-    };
-  }
-
-  return null;
-}
-
-function getBoardHonorCountingState(board: Board): CountingState | null {
-  const whiteMaterial = getMaterialScore(board, 'white');
-  const blackMaterial = getMaterialScore(board, 'black');
-
-  if (whiteMaterial === blackMaterial) {
-    return null;
-  }
-
-  const countingColor: PieceColor = whiteMaterial < blackMaterial ? 'white' : 'black';
-  const strongerColor: PieceColor = countingColor === 'white' ? 'black' : 'white';
-
-  return {
-    active: false,
-    type: 'board_honor',
-    countingColor,
-    strongerColor,
-    currentCount: 0,
-    startCount: 0,
-    limit: 64,
-    finalAttackPending: false,
-  };
-}
-
 function getInitialCountingState(board: Board): CountingState | null {
-  if (hasUnpromotedPawn(board)) {
-    return null;
-  }
-
-  return getBareKingCountingState(board) ?? getBoardHonorCountingState(board);
+  return getMakrukCountingState(board);
 }
 
 function cloneCountingState(counting: CountingState): CountingState {
@@ -249,12 +105,13 @@ function getNextCountingState(previous: CountingState | null, board: Board): Cou
 }
 
 function getAutomaticDrawReason(board: Board): ResultReason | null {
-  return isInsufficientMaterial(board) ? 'insufficient_material' : null;
+  return hasBareKingsOnly(board) ? 'insufficient_material' : null;
 }
 
 export function canStartCounting(state: GameState): boolean {
   return Boolean(
     state.counting &&
+    state.counting.type === 'board_honor' &&
     !state.gameOver &&
     !state.counting.active &&
     state.turn === state.counting.countingColor,
@@ -264,6 +121,7 @@ export function canStartCounting(state: GameState): boolean {
 export function canStopCounting(state: GameState): boolean {
   return Boolean(
     state.counting &&
+    state.counting.type === 'board_honor' &&
     !state.gameOver &&
     state.counting.active &&
     state.turn === state.counting.countingColor,
@@ -593,6 +451,13 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
   let isDraw = false;
   let gameOver = false;
 
+  if (!gameOver && counting?.type === 'pieces_honor' && isMakrukPiecesHonorImmediateDraw(newBoard, counting.strongerColor)) {
+    isDraw = true;
+    gameOver = true;
+    winner = null;
+    resultReason = 'counting_rule';
+  }
+
   if (!gameOver && counting?.active && state.turn === counting.countingColor) {
     counting = cloneCountingState(counting);
     counting.currentCount += 1;
@@ -661,24 +526,6 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
     counting: gameOver ? null : counting,
     moveCount: state.moveCount + 1,
   };
-}
-
-function isInsufficientMaterial(board: Board): boolean {
-  const pieces: { white: PieceType[]; black: PieceType[] } = { white: [], black: [] };
-
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const piece = board[row][col];
-      if (piece) {
-        pieces[piece.color].push(piece.type);
-      }
-    }
-  }
-
-  // King vs King
-  if (pieces.white.length === 1 && pieces.black.length === 1) return true;
-
-  return false;
 }
 
 export function posToAlgebraic(pos: Position): string {

@@ -4,6 +4,7 @@ import {
   Position, ClientGameState, Move, PublicLiveGameSummary, PlayerPresence, PlayerPresenceStatus,
 } from '../../shared/types';
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
+import { resolveMakrukTimeoutOutcome } from '../../shared/makrukRules';
 
 export class GameManager {
   private games: Map<string, GameRoom> = new Map();
@@ -237,9 +238,12 @@ export class GameManager {
 
     // Check if time ran out
     if (room.gameState.whiteTime <= 0 || room.gameState.blackTime <= 0) {
+      const flaggedColor: PieceColor = room.gameState.whiteTime <= 0 ? 'white' : 'black';
+      const timeoutOutcome = resolveMakrukTimeoutOutcome(room.gameState.board, flaggedColor);
       room.status = 'finished';
       room.gameState.gameOver = true;
-      room.gameState.winner = room.gameState.whiteTime <= 0 ? 'black' : 'white';
+      room.gameState.isDraw = timeoutOutcome.isDraw;
+      room.gameState.winner = timeoutOutcome.winner;
       room.gameState.resultReason = 'timeout';
       room.gameState.counting = null;
       this.stopClock(gameId);
@@ -818,17 +822,21 @@ export class GameManager {
       this.updateClock(room);
 
       if (room.gameState.whiteTime <= 0) {
+        const timeoutOutcome = resolveMakrukTimeoutOutcome(room.gameState.board, 'white');
         room.gameState.whiteTime = 0;
         room.gameState.gameOver = true;
-        room.gameState.winner = 'black';
+        room.gameState.isDraw = timeoutOutcome.isDraw;
+        room.gameState.winner = timeoutOutcome.winner;
         room.gameState.resultReason = 'timeout';
         room.gameState.counting = null;
         room.status = 'finished';
         this.stopClock(gameId);
       } else if (room.gameState.blackTime <= 0) {
+        const timeoutOutcome = resolveMakrukTimeoutOutcome(room.gameState.board, 'black');
         room.gameState.blackTime = 0;
         room.gameState.gameOver = true;
-        room.gameState.winner = 'white';
+        room.gameState.isDraw = timeoutOutcome.isDraw;
+        room.gameState.winner = timeoutOutcome.winner;
         room.gameState.resultReason = 'timeout';
         room.gameState.counting = null;
         room.status = 'finished';
