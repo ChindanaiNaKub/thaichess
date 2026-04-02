@@ -158,8 +158,8 @@ function getPracticeTask(lessonId: string, taskId: string) {
 describe('Makruk lessons curriculum', () => {
   it('ships a three-stage curriculum with ordered lessons', () => {
     expect(LESSON_MODULES.map(module => module.level)).toEqual(['beginner', 'intermediate', 'advanced']);
-    expect(MAKRUK_LESSONS).toHaveLength(18);
-    expect(MAKRUK_LESSONS.map(lesson => lesson.order)).toEqual(Array.from({ length: 18 }, (_, index) => index + 1));
+    expect(MAKRUK_LESSONS).toHaveLength(20);
+    expect(MAKRUK_LESSONS.map(lesson => lesson.order)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
   });
 
   it('keeps every lesson scene legal and gives the move to the correct side', () => {
@@ -174,6 +174,8 @@ describe('Makruk lessons curriculum', () => {
       'khon-basics',
       'met-basics',
       'check-and-checkmate',
+      'expand-advantage-with-khon',
+      'knight-clamps-met-escape',
       'endgame-fundamentals',
     ];
 
@@ -191,6 +193,22 @@ describe('Makruk lessons curriculum', () => {
     expect(puzzleConcepts.has('pin')).toBe(true);
     expect(puzzleConcepts.has('opening')).toBe(true);
     expect(puzzleConcepts.has('endgame')).toBe(true);
+  });
+
+  it('marks counting-dependent lessons explicitly and explains the rule impact', () => {
+    for (const lesson of MAKRUK_LESSONS) {
+      expect(typeof lesson.dependsOnCounting, `${lesson.id} should declare whether counting matters`).toBe('boolean');
+      expect(lesson.ruleImpact.trim().length, `${lesson.id} should explain the rule impact`).toBeGreaterThan(0);
+
+      if (lesson.dependsOnCounting) {
+        expect(lesson.ruleImpact).toMatch(/\b(?:8|16|22|32|44|64|65)\b/);
+        expect(lesson.ruleImpact).toMatch(/\b(?:delay|delays|too slow|wastes time)\b/i);
+        expect(lesson.ruleImpact).toMatch(/\b(?:winning|win|draw|drawn)\b/i);
+      }
+    }
+
+    expect(getLessonById('endgame-fundamentals')?.dependsOnCounting).toBe(true);
+    expect(getLessonById('rook-basics')?.dependsOnCounting).toBe(false);
   });
 
   it('uses legal expected moves for every guided step and practice task', () => {

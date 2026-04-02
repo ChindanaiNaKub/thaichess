@@ -89,6 +89,11 @@ export interface LessonPracticeTask {
   wrongMoveMessage: string;
 }
 
+export interface LessonRuleContext {
+  dependsOnCounting: boolean;
+  ruleImpact: string;
+}
+
 export interface MakrukLesson {
   id: string;
   level: LessonLevel;
@@ -97,6 +102,8 @@ export interface MakrukLesson {
   title: string;
   shortTitle: string;
   objective: string;
+  dependsOnCounting: boolean;
+  ruleImpact: string;
   conceptExplanation: string;
   summary: string;
   estimatedMinutes: number;
@@ -114,6 +121,12 @@ export interface LessonModule {
   title: string;
   description: string;
   lessons: MakrukLesson[];
+}
+
+type MakrukLessonDraft = Omit<MakrukLesson, keyof LessonRuleContext>;
+
+interface LessonModuleDraft extends Omit<LessonModule, 'lessons'> {
+  lessons: MakrukLessonDraft[];
 }
 
 export interface LessonValidationIssue {
@@ -779,11 +792,47 @@ function validateTeachingQuality(
   return issues;
 }
 
+function validateRuleImpact(lesson: MakrukLesson): LessonValidationIssue[] {
+  const issues: LessonValidationIssue[] = [];
+  const scope = `${lesson.id}/ruleImpact`;
+  const text = lesson.ruleImpact.trim();
+  const lessonSynopsis = `${lesson.title} ${lesson.objective} ${lesson.conceptExplanation} ${lesson.summary}`;
+  const needsCountingReview = lesson.concepts.includes('endgame') || /\b(?:endgame|winning|wins?|advantage|convert|conversion|drawn?|better)\b/i.test(lessonSynopsis);
+
+  if (!text) {
+    issues.push({ scope, message: 'lesson must explain how Makruk result rules affect the position' });
+    return issues;
+  }
+
+  if (needsCountingReview && !/\bcount/i.test(text) && !/\bSak\b/i.test(text)) {
+    issues.push({ scope, message: 'lesson with endgame or advantage language must explicitly address counting impact' });
+  }
+
+  if (!lesson.dependsOnCounting) {
+    return issues;
+  }
+
+  if (!/\b(?:8|16|22|32|44|64|65)\b/.test(text)) {
+    issues.push({ scope, message: 'counting-dependent lesson must state the remaining move limit or relevant count number' });
+  }
+
+  if (!/\b(?:delay|delays|too slow|wastes time|if white delays|if black delays)\b/i.test(text)) {
+    issues.push({ scope, message: 'counting-dependent lesson must explain what happens if the player delays' });
+  }
+
+  if (!/\b(?:winning|win|draw|drawn)\b/i.test(text)) {
+    issues.push({ scope, message: 'counting-dependent lesson must say whether the position is winning or drawn' });
+  }
+
+  return issues;
+}
+
 export function validateLessonCatalog(modules: LessonModule[]): LessonValidationIssue[] {
   const issues: LessonValidationIssue[] = [];
 
   for (const module of modules) {
     for (const lesson of module.lessons) {
+      issues.push(...validateRuleImpact(lesson));
       issues.push(...validateScene(lesson.example, `${lesson.id}/example`));
 
       for (const step of lesson.guidedSteps) {
@@ -993,7 +1042,122 @@ const strategicPlanningBoard = board(
   ['h8', 'K', 'black'],
 );
 
-const MODULES: LessonModule[] = [
+const sourceKhonExpansionBoard = board(
+  ['g1', 'K', 'white'],
+  ['e5', 'R', 'white'],
+  ['d3', 'S', 'white'],
+  ['h5', 'K', 'black'],
+  ['d5', 'N', 'black'],
+  ['f5', 'S', 'black'],
+);
+
+const sourceKnightClampBoard = board(
+  ['e2', 'K', 'white'],
+  ['d2', 'N', 'white'],
+  ['e4', 'P', 'white'],
+  ['c7', 'K', 'black'],
+  ['b6', 'M', 'black'],
+  ['c5', 'P', 'black'],
+  ['e6', 'S', 'black'],
+);
+
+const LESSON_RULE_CONTEXTS: Record<string, LessonRuleContext> = {
+  'board-and-battlefield': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the starting board still has every unpromoted Bia, so neither Sak Mak nor Sak Kradan can start.',
+  },
+  'pawn-basics': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: this lesson is teaching how an unpromoted Bia moves and captures, so counting is automatically off.',
+  },
+  'knight-basics': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: this is a pure Ma movement and fork pattern, not a counted ending.',
+  },
+  'rook-basics': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: both sides still have several unpromoted Bia, so the open-file attack is judged by tactics, not by count pressure.',
+  },
+  'khon-basics': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the lesson is about Khon placement in a live middlegame position, not a pawnless counted phase.',
+  },
+  'met-basics': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the Met is removing a defender in a middlegame attack while unpromoted Bia still remain.',
+  },
+  'values-captures-and-safety': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: this lesson is about punishing a loose rook immediately, so there is no counted-endgame question to solve first.',
+  },
+  'check-and-checkmate': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: mate ends the game immediately, and a finished mating net matters more than any later counting rule.',
+  },
+  'opening-principles': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: opening lessons always begin before any counting rule can exist because the unpromoted pawns are still on the board.',
+  },
+  'pawn-role-in-the-opening': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: this is an opening-space lesson with unpromoted Bia in play, so counting is irrelevant here.',
+  },
+  'piece-coordination': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the position is about an immediate coordinated attack, not converting a long endgame edge under a draw clock.',
+  },
+  'knight-forks': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the fork wins by force in the current tactic and does not depend on any Sak Mak or Sak Kradan count.',
+  },
+  'pins-traps-and-forcing': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the lesson is about restriction moves in an active position, not about proving a win before the count runs out.',
+  },
+  'common-mistakes': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: answering check is urgent in any phase, and this board is far from a counted ending.',
+  },
+  'positional-play': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: White is improving a Ma on an outpost while multiple unpromoted Bia remain, so no count has started.',
+  },
+  'pawn-structure': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: the c4 and d4 Bia are still unpromoted, so this space-gaining lesson is outside counted-endgame rules.',
+  },
+  'expand-advantage-with-khon': {
+    dependsOnCounting: false,
+    ruleImpact: 'ไม่มีผลจากกติกานับ เพราะตำแหน่งนี้ยังเป็นกลางกระดานและยังมีเบี้ยคว่ำอยู่หลายตัว การตัดสินใจจึงขึ้นกับการเพิ่มแรงกดและบีบตาเดิน ไม่ใช่การนับ Sak Mak หรือ Sak Kradan',
+  },
+  'knight-clamps-met-escape': {
+    dependsOnCounting: false,
+    ruleImpact: 'ไม่มีผลจากกติกานับ เพราะตำแหน่งนี้ยังไม่ใช่ช่วงไล่หมากและยังมีเบี้ยคว่ำอยู่ การประเมินจึงอยู่ที่จังหวะของม้าและทางหนีของเม็ด',
+  },
+  'endgame-fundamentals': {
+    dependsOnCounting: true,
+    ruleImpact: 'Counting matters here. In the counted Rua-versus-bare-Khun scene, Sak Mak starts automatically at count 3 and White only gets 16 counted moves with one Rua. If White delays with harmless checks or king shuffles, Black holds a draw after White spends the final attacking move without mate. So the position is not automatically winning just because White has a rook; it is winning only if White can finish before the count closes.',
+  },
+  'strategic-planning': {
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: White is improving a rook in a middlegame structure with unpromoted Bia still present, so the plan is not constrained by a counting limit.',
+  },
+};
+
+function withRuleContext(lesson: MakrukLessonDraft): MakrukLesson {
+  const ruleContext = LESSON_RULE_CONTEXTS[lesson.id];
+
+  if (!ruleContext) {
+    throw new Error(`Missing lesson rule context for ${lesson.id}`);
+  }
+
+  return {
+    ...lesson,
+    ...ruleContext,
+  };
+}
+
+const MODULE_DRAFTS: LessonModuleDraft[] = [
   {
     id: 'beginner-foundations',
     level: 'beginner',
@@ -2288,15 +2452,137 @@ const MODULES: LessonModule[] = [
         ],
       },
       {
-        id: 'endgame-fundamentals',
+        id: 'expand-advantage-with-khon',
         moduleId: 'advanced-strategy',
         level: 'advanced',
         order: 17,
+        title: 'ขยายความได้เปรียบด้วยโคน',
+        shortTitle: 'โคนเพิ่มแรงกด',
+        objective: 'เมื่อได้เปรียบนิดเดียว ให้เพิ่มแรงกดใส่สองจุดพร้อมกันก่อน ไม่ใช่รีบเปิดเกม',
+        conceptExplanation: 'แนวคิดจากต้นทางคือ เมื่อขาวมีจังหวะเล่นที่สบายกว่านิดหนึ่ง ตาที่ดีไม่จำเป็นต้องเป็นตาหักทันที แต่ควรเป็นตาที่ทำให้ดำอึดอัดขึ้นก่อน ในรูปนี้เรือขาวที่ จ5 กดโคนดำ ฉ5 อยู่แล้ว พอขาวเดินโคน ง3-จ4 ก็จะกดทั้งม้า ง5 และเพิ่มตัวช่วยใส่โคน ฉ5 พร้อมกัน จึงเป็นการขยายความได้เปรียบแบบหมากรุกไทยแท้ ๆ',
+        summary: 'ถ้าได้เปรียบยังไม่ขาด ให้หาตาที่เพิ่มแรงกดหลายจุดพร้อมกันก่อน',
+        estimatedMinutes: 5,
+        concepts: ['planning', 'positional-play', 'coordination'],
+        puzzleConcepts: ['coordination', 'opening'],
+        example: scene(sourceKhonExpansionBoard, 'white', {
+          arrows: [arrow('d3', 'e4', '#4fc3f7')],
+          highlights: [
+            highlight('e4', 'rgba(79, 195, 247, 0.25)'),
+            highlight('d5', 'rgba(255, 213, 79, 0.28)'),
+            highlight('f5', 'rgba(255, 213, 79, 0.28)'),
+          ],
+        }),
+        guidedSteps: [
+          {
+            id: 'khon-pressure-first',
+            title: 'เพิ่มแรงกดก่อนเร่งเกม',
+            instruction: 'ขาวยังไม่ต้องรีบแตกหัก เพราะเรือ จ5 กดโคน ฉ5 อยู่แล้ว และโคนที่ ง3 มีตาไป จ4 เพื่อเพิ่มแรงกดอีกชั้นหนึ่ง',
+            coachTip: 'ต้นฉบับพูดถึงการขยายความได้เปรียบ ไม่ใช่การรีบรุก ตานี้จึงเด่นเพราะทำให้ดำต้องรับแรงกดหลายด้านพร้อมกัน',
+            scene: scene(sourceKhonExpansionBoard, 'white', {
+              arrows: [arrow('d3', 'e4', '#4fc3f7')],
+              highlights: [
+                highlight('e4', 'rgba(79, 195, 247, 0.25)'),
+                highlight('d5', 'rgba(255, 213, 79, 0.28)'),
+                highlight('f5', 'rgba(255, 213, 79, 0.28)'),
+              ],
+            }),
+          },
+        ],
+        practiceTasks: [
+          {
+            id: 'khon-expansion-task',
+            prompt: 'เดินโคนจาก ง3 ไป จ4 เพื่อเพิ่มแรงกดใส่ม้าและโคนดำพร้อมกัน',
+            coachTip: 'บทนี้ไม่ได้ถามหาตารุกแรงที่สุด แต่ถามหาตาที่ทำให้ดำเดินลำบากขึ้นทันที โดยมีเรือ จ5 ช่วยกดอยู่แล้ว',
+            scene: scene(sourceKhonExpansionBoard, 'white'),
+            expectedMove: move('d3', 'e4'),
+            candidateMoves: [
+              candidateMove('d3', 'e4', 'correct', 'โคนไป จ4 แล้วแตะทั้งม้า ง5 และโคน ฉ5 พร้อมกัน อีกทั้งยังช่วยเรือ จ5 กดโคน ฉ5 ให้หนักขึ้น'),
+              candidateMove('g1', 'h2', 'tempting', 'ขยับขุนปลอดภัยดี แต่ไม่ได้เพิ่มแรงกดต่อม้า ง5 และโคน ฉ5 ในทันที'),
+            ],
+            teaching: teaching(
+              'ขาวมีจังหวะเล่นที่สบายกว่านิดหนึ่ง แต่ถ้าไม่เพิ่มแรงกด ดำก็ยังมีเวลาจัดรูปได้',
+              'โคน ง3-จ4 เอาหมากระยะสั้นเข้าจุดที่ทำงานจริงทันที และไปประสานกับเรือ จ5',
+              'จาก จ4 โคนขาวแตะทั้งม้า ง5 และโคน ฉ5 ทำให้ดำต้องรับมือมากกว่าหนึ่งจุดในตาเดียว',
+              'เรือขาวที่ จ5 กับโคนที่ จ4 เริ่มกดโคนดำ ฉ5 ร่วมกัน',
+              'ม้าดำ ง5 กลายเป็นเป้ากดดันในทันที',
+              'โคนดำ ฉ5 ต้องระวังมากขึ้น เพราะไม่ได้ถูกเรือกดอยู่ตัวเดียวอีกแล้ว',
+            ),
+            successMessage: 'ถูกต้อง ตานี้ขยายความได้เปรียบของขาวให้เป็นแรงกดจริงโดยไม่ต้องรีบแตกหัก',
+            wrongMoveMessage: 'มองหาตาที่ทำให้ดำต้องห่วงสองจุดพร้อมกัน คือ โคน ง3-จ4',
+          },
+        ],
+      },
+      {
+        id: 'knight-clamps-met-escape',
+        moduleId: 'advanced-strategy',
+        level: 'advanced',
+        order: 18,
+        title: 'ม้า ง2-ค4 จี้เม็ดและปิด ก5',
+        shortTitle: 'ม้ากดเม็ด',
+        objective: 'มองหาตาม้าที่ทำสองงานพร้อมกัน คือจี้เม็ดและตัดช่องหนี',
+        conceptExplanation: 'เม็ดดำที่ ข6 ยังไม่ตายทันทีถ้าขาวเดินช้า เพราะมันยังคิดเรื่องถอยไป ก5 ได้ ตาที่แรงจริงจึงไม่ใช่ตาปรับหมากธรรมดา แต่เป็น ม้า ง2-ค4 ซึ่งทั้งจี้เม็ด ข6 และคุม ก5 ในตาเดียว ทำให้แรงกดของขาวอยู่ต่อเนื่อง',
+        summary: 'ตาม้าที่ดีในหมากรุกไทยมักทำสองงานพร้อมกัน ทั้งกดตัวสำคัญและลดทางหนี',
+        estimatedMinutes: 5,
+        concepts: ['planning', 'coordination', 'positional-play'],
+        puzzleConcepts: ['fork', 'coordination'],
+        example: scene(sourceKnightClampBoard, 'white', {
+          arrows: [arrow('d2', 'c4', '#81c784')],
+          highlights: [
+            highlight('c4', 'rgba(129, 196, 84, 0.25)'),
+            highlight('b6', 'rgba(255, 213, 79, 0.28)'),
+            highlight('a5', 'rgba(255, 213, 79, 0.22)'),
+          ],
+        }),
+        guidedSteps: [
+          {
+            id: 'knight-two-jobs',
+            title: 'ตาม้าที่ดีต้องทำสองงาน',
+            instruction: 'ถ้าม้าไปช่องที่แค่คุมทางหนี แต่ยังไม่กดเม็ด ก็ยังไม่คมพอ ตาที่ต้องเห็นคือช่องที่ทำสองอย่างพร้อมกัน',
+            coachTip: 'อย่ามองม้าแค่เป็นตัวกระโดด ให้มองว่าหลังลงแล้วมันเปลี่ยนเงื่อนไขของกระดานอย่างไร',
+            scene: scene(sourceKnightClampBoard, 'white', {
+              arrows: [arrow('d2', 'c4', '#81c784')],
+              highlights: [
+                highlight('c4', 'rgba(129, 196, 84, 0.25)'),
+                highlight('b6', 'rgba(255, 213, 79, 0.28)'),
+                highlight('a5', 'rgba(255, 213, 79, 0.22)'),
+              ],
+            }),
+          },
+        ],
+        practiceTasks: [
+          {
+            id: 'knight-clamp-task',
+            prompt: 'กระโดดม้าไปช่องที่ทั้งจี้เม็ด ข6 และคุม ก5',
+            coachTip: 'ถ้าตานั้นทำได้แค่อย่างเดียว ยังไม่ใช่คำตอบของบทนี้',
+            scene: scene(sourceKnightClampBoard, 'white'),
+            expectedMove: move('d2', 'c4'),
+            candidateMoves: [
+              candidateMove('d2', 'c4', 'correct', 'ม้าไป ค4 แล้วโจมตีเม็ด ข6 พร้อมกับคุม ก5 ขาวจึงเก็บแรงกดไว้ได้'),
+              candidateMove('d2', 'b3', 'tempting', 'ม้าไป ข3 ช่วยคุม ก5 ได้ แต่ยังไม่จี้เม็ด ข6 โดยตรง จึงทำได้ไม่ครบสองงาน'),
+            ],
+            teaching: teaching(
+              'ขาวมีแรงกดต่อเม็ดดำอยู่แล้ว แต่ถ้าไม่ตัดช่องหนีด้วย เม็ดอาจคลายตัวได้',
+              'ม้า ง2-ค4 วางม้าไว้ในช่องที่โจมตีเม็ด ข6 และปิด ก5 พร้อมกัน',
+              'ดำต้องคิดเรื่องเม็ดและทางหนีในเวลาเดียวกัน ทำให้รูปดำแคบลงทันที',
+              'ม้าขาวจาก ค4 จี้เม็ดดำ ข6 โดยตรง',
+              'ช่อง ก5 ถูกม้าคุมไว้ เม็ดจึงถอยตัวลื่น ๆ ไม่ได้',
+              'แรงกดของขาวเปลี่ยนจากชั่วคราวเป็นแรงกดต่อเนื่อง',
+            ),
+            successMessage: 'ใช่เลย ม้า ค4 เป็นตาที่ทำสองงานพร้อมกันตามแนวคิดของรูปนี้',
+            wrongMoveMessage: 'มองหาตาม้าที่ทั้งแตะเม็ด ข6 และปิด ก5 พร้อมกัน คือ ง2-ค4',
+          },
+        ],
+      },
+      {
+        id: 'endgame-fundamentals',
+        moduleId: 'advanced-strategy',
+        level: 'advanced',
+        order: 19,
         title: 'Endgame Fundamentals',
         shortTitle: 'Endgames',
         objective: 'Activate the king, convert promotion carefully, and understand the traditional counting rule.',
-        conceptExplanation: 'Makruk endgames are technical. The king becomes an active piece, pawns matter enormously, and promotion creates a Met, not a full queen. Traditional play also uses counting once the ending is simplified, so the stronger side must know both how to improve and how quickly the win must be shown.',
-        summary: 'In endgames, bring the king in, treat promotion as improvement, and know when counting matters.',
+        conceptExplanation: 'Makruk endgames are technical because activity alone is not enough. The king must step toward the fight, promotion only creates a Met, and some endings are judged by counting. In the counted Rua-versus-bare-Khun scene shown later in this lesson, White starts at count 3 and only has 16 counted moves to finish. If White delays, the position that looks winning by material becomes a draw by rule.',
+        summary: 'In Makruk endgames, improve the king and pawn play quickly, then ask whether the count still leaves enough moves to prove a win.',
         estimatedMinutes: 6,
         concepts: ['endgame', 'planning', 'safety'],
         puzzleConcepts: ['endgame', 'promotion'],
@@ -2315,8 +2601,8 @@ const MODULES: LessonModule[] = [
           {
             id: 'endgame-king',
             title: 'The king joins the fight',
-            instruction: 'In the ending, king activity is a strength. Hiding forever is usually too passive.',
-            coachTip: 'This is one of the biggest mindset shifts for newer players.',
+            instruction: 'In this scene the unpromoted Bia on e4 is still on the board, so counting has not started yet. That means White should first improve the king and win the loose rook cleanly.',
+            coachTip: 'This is one of the biggest mindset shifts for newer players: first ask whether counting is active, then choose the most active king move.',
             scene: scene(realisticEndgameBoard, 'white', {
               arrows: [arrow('d4', 'e5', '#4fc3f7')],
               highlights: [
@@ -2328,8 +2614,8 @@ const MODULES: LessonModule[] = [
           {
             id: 'endgame-promotion',
             title: 'Promotion is useful, not magical',
-            instruction: 'When the pawn reaches the sixth rank, it becomes Bia-ngai, a promoted pawn that moves like a Met. That helps, but you still need technique afterward.',
-            coachTip: 'Makruk endings reward patience because promotion is modest.',
+            instruction: 'When the pawn reaches e6 it becomes Bia-ngai, not a western queen. In this exact scene that move also removes the last unpromoted Bia, so Sak Mak begins immediately at count 3 with a 64-move limit for White.',
+            coachTip: 'Promotion helps, but it also turns the ending into a counted win attempt. If White drifts after promoting, Black can still hold the draw.',
             scene: scene(board(
               ['e4', 'K', 'white'],
               ['e5', 'P', 'white'],
@@ -2341,8 +2627,8 @@ const MODULES: LessonModule[] = [
           {
             id: 'endgame-counting',
             title: 'Know when counting starts',
-            instruction: 'Traditional Makruk endings use two common counts. If the material edge is small, the defender may ask for a 64-move board count. If one side is reduced to a lone Khun and there are no unpromoted Bia left, the stronger side gets a piece-based count instead.',
-            coachTip: 'A lone Rua gets 26 moves in the traditional count. Two Khon get 22, two Ma get 32, one Khon gets 44, and the remaining minor cases use 64.',
+            instruction: 'In this exact scene, White has a lone Rua against a bare black Khun and there are no unpromoted Bia left. That means Sak Mak starts automatically right now at count 3, and White has a 16-move limit for this one-Rua case.',
+            coachTip: 'If White spends those counted moves without mate, the game is drawn. In this codebase the Sak Mak limits are 8 for two Rua, 16 for one Rua, 22 for two Khon, 32 for two Ma, 44 for one Khon, and 64 for the remaining minor-piece cases.',
             scene: scene(countingRuleBoard, 'white', {
               highlights: [
                 highlight('c3', 'rgba(79, 195, 247, 0.28)'),
@@ -2356,7 +2642,7 @@ const MODULES: LessonModule[] = [
           {
             id: 'endgame-king-task',
             prompt: 'Activate the king by stepping from d4 to e5.',
-            coachTip: 'Start by bringing the king closer to the pawn battle.',
+            coachTip: 'Because the Bia on e4 is still unpromoted, no count is running yet. Start by winning the rook and centralizing the king.',
             scene: scene(realisticEndgameBoard, 'white'),
             expectedMove: move('d4', 'e5'),
             candidateMoves: [
@@ -2364,9 +2650,9 @@ const MODULES: LessonModule[] = [
               candidateMove('d4', 'c4', 'tempting', 'Kc4 is legal, but it moves away from the main action. In endgames, the king should head toward the important squares.'),
             ],
             teaching: teaching(
-              'White\'s king can become active and win material at the same time.',
-              'Ke5 centralizes the king by capturing the loose rook on e5.',
-              'White improves the king and removes a major black piece in one move.',
+              'White can win the rook immediately, and counting is still off because the unpromoted Bia on e4 remains.',
+              'Ke5 centralizes the king by capturing the loose rook on e5 before any counted phase begins.',
+              'White improves the king and removes a major black piece in one move while the ending is still not under Sak Mak pressure.',
               'The king reaches a strong central square immediately.',
               'The black rook on e5 disappears right away.',
             ),
@@ -2376,7 +2662,7 @@ const MODULES: LessonModule[] = [
           {
             id: 'endgame-promotion-task',
             prompt: 'Now promote the pawn by pushing it to e6.',
-            coachTip: 'Promotion helps, but it is still only a Met, so stay precise.',
+            coachTip: 'After e6, White gets a Bia-ngai and Sak Mak starts at count 3 with a 64-move limit. Promote now, then convert without drifting.',
             scene: scene(board(
               ['e4', 'K', 'white'],
               ['e5', 'P', 'white'],
@@ -2384,15 +2670,15 @@ const MODULES: LessonModule[] = [
             ), 'white'),
             expectedMove: move('e5', 'e6'),
             candidateMoves: [
-              candidateMove('e5', 'e6', 'correct', 'e6 promotes the pawn and improves your winning chances immediately.'),
+              candidateMove('e5', 'e6', 'correct', 'e6 promotes the pawn, starts Sak Mak at count 3, and gives White the strongest practical winning try.'),
               candidateMove('e4', 'f4', 'tempting', 'Kf4 improves the king a little, but it misses the ready promotion. When promotion is safe, it is the stronger move.'),
             ],
             teaching: teaching(
-              'White has a pawn ready to improve right now and should not delay it.',
-              'e6 promotes the pawn immediately instead of making a slower king move.',
-              'White gains a new promoted pawn at once and improves the winning chances immediately.',
+              'White has one last unpromoted Bia on e5. Promoting it now is the move that improves the position and also defines the counted phase correctly.',
+              'e6 promotes the pawn immediately, and that same move starts Sak Mak at count 3 with the 64-move met-like limit.',
+              'White is still winning after promotion, but only if White converts before the new count runs out instead of drifting.',
               'The pawn promotes on this move.',
-              'White\'s material and endgame resources both improve right away.',
+              'Sak Mak begins as soon as the pawn becomes Bia-ngai.',
             ),
             successMessage: 'Exactly. The pawn promotes and your endgame resources improve.',
             wrongMoveMessage: 'Push the pawn to the sixth rank on e6.',
@@ -2403,7 +2689,7 @@ const MODULES: LessonModule[] = [
         id: 'strategic-planning',
         moduleId: 'advanced-strategy',
         level: 'advanced',
-        order: 18,
+        order: 20,
         title: 'Strategic Planning',
         shortTitle: 'Planning',
         objective: 'Turn static features into a practical next move.',
@@ -2469,6 +2755,11 @@ const MODULES: LessonModule[] = [
     ],
   },
 ];
+
+const MODULES: LessonModule[] = MODULE_DRAFTS.map(module => ({
+  ...module,
+  lessons: module.lessons.map(withRuleContext),
+}));
 
 const lessonValidationIssues = validateLessonCatalog(MODULES);
 if (lessonValidationIssues.length > 0) {
