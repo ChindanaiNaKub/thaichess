@@ -431,12 +431,12 @@ describe('socket entry handlers', () => {
     const activeRoom = gameManager.getGame(room.id)!;
     activeRoom.gameState.counting = {
       active: false,
-      type: 'pieces_honor',
+      type: 'board_honor',
       countingColor: 'white',
       strongerColor: 'black',
       currentCount: 9,
-      startCount: 3,
-      limit: 16,
+      startCount: 0,
+      limit: 64,
       finalAttackPending: true,
     };
 
@@ -448,8 +448,8 @@ describe('socket entry handlers', () => {
       expect.objectContaining({
         counting: expect.objectContaining({
           active: true,
-          currentCount: 3,
-          startCount: 3,
+          currentCount: 0,
+          startCount: 0,
           finalAttackPending: false,
         }),
       }),
@@ -459,8 +459,8 @@ describe('socket entry handlers', () => {
       expect.objectContaining({
         counting: expect.objectContaining({
           active: true,
-          currentCount: 3,
-          startCount: 3,
+          currentCount: 0,
+          startCount: 0,
           finalAttackPending: false,
         }),
       }),
