@@ -277,7 +277,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/game/room-enter');
   });
 
-  it('ignores blank join ids and routes the other main actions', () => {
+  it('ignores blank join ids and routes the other main actions', async () => {
     render(<HomePage />, { wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
@@ -293,7 +293,7 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
     expect(navigateMock).toHaveBeenCalledWith('/bot');
 
-    fireEvent.click(screen.getAllByText(/puzzle streak/i)[0]!.closest('button')!);
+    fireEvent.click(await screen.findByRole('button', { name: /puzzles tactical training/i }));
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');
 
     fireEvent.click(screen.getAllByText(/^lessons$/i)[0]!.closest('button')!);
@@ -345,18 +345,18 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows the streak card and routes to the new default puzzle flow', () => {
+  it('shows the streak card and routes to the new default puzzle flow', async () => {
     render(<HomePage />, { wrapper });
 
+    const streakCard = await screen.findByRole('button', { name: /puzzles tactical training/i });
     expect(screen.getByText(/jump back in/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/puzzle streak/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /puzzles tactical training/i })).toBeInTheDocument();
+    expect(streakCard).toBeInTheDocument();
     expect(screen.getByText(/2\/7 lessons solved/i)).toBeInTheDocument();
     expect(screen.getByText(/best lesson theme so far: hanging piece/i)).toBeInTheDocument();
     expect(screen.getByText(/last lesson played: trapped knight/i)).toBeInTheDocument();
     expect(screen.getByText(/latest lesson solved: rook harvest/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(/2\/7 lessons solved/i).closest('button')!);
+    fireEvent.click(streakCard);
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');
   });
 });
