@@ -141,7 +141,7 @@ We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.
 - [x] AI opponent
 - [ ] Tournaments
 - [x] ThaiChess counting rules (full implementation)
-- [ ] Spectator mode improvements
+- [X] Spectator mode improvements
 
 ## License
 
