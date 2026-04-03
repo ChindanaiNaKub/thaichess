@@ -49,7 +49,9 @@ describe('shared SEO routes', () => {
     const playOnline = getPublicSeoRoute(routes.playMakrukOnline, 'https://thaichess.dev');
 
     expect(whatIs.title).toContain('What Is Makruk');
+    expect(whatIs.title).toContain('หมากรุกไทย');
     expect(howTo.title).toContain('How to Play Makruk');
+    expect(howTo.title).toContain('หมากรุกไทย');
     expect(playOnline.title).toContain('Play Makruk Online');
     expect(whatIs.robots).toBeUndefined();
     expect(howTo.robots).toBeUndefined();
@@ -101,5 +103,12 @@ describe('shared SEO routes', () => {
     const faqPayloads = payloads.filter((payload) => payload['@type'] === 'FAQPage');
     expect(faqPayloads).toHaveLength(1);
     expect(faqPayloads[0].mainEntity).toHaveLength(2);
+  });
+
+  it('includes Thai query support in the homepage SEO snapshot', () => {
+    const seo = getPublicSeoRoute(routes.home, 'https://thaichess.dev');
+
+    expect(seo.keywords).toContain('หมากรุกไทย');
+    expect(seo.snapshot?.paragraphs?.some((paragraph) => paragraph.text.includes('หมากรุกไทย'))).toBe(true);
   });
 });
