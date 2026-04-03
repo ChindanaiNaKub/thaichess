@@ -4,7 +4,6 @@ import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
-import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 
 import PieceSVG from './PieceSVG';
 
@@ -18,6 +17,7 @@ import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
+const DeferredHomePuzzleProgressCard = lazy(() => import('./HomePuzzleProgressCard'));
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
@@ -48,19 +48,9 @@ interface HomeStats {
 type SocketModule = typeof import('../lib/socket');
 type SocketLike = SocketModule['socket'];
 
-function getPublicPuzzleTitle(title: string): string {
-  return title
-    .replace(/\s*\([0-9a-f]{8}\s*@\s*ply\s*\d+\)$/i, '')
-    .replace(/^Real-Game\s+/i, '')
-    .trim();
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
-  const puzzleProgress = usePuzzleProgressSummary();
-  const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
-  const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -70,6 +60,7 @@ export default function HomePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showDeferredContent, setShowDeferredContent] = useState(false);
+  const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
@@ -115,6 +106,19 @@ export default function HomePage() {
       })
       .catch(() => {});
   }, [showDeferredContent]);
+
+  useEffect(() => {
+    if (showPuzzleProgressCard || typeof window === 'undefined') return;
+
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      const idleId = requestIdle(() => setShowPuzzleProgressCard(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(() => setShowPuzzleProgressCard(true), 250);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [showPuzzleProgressCard]);
 
   useEffect(() => {
     if (showDeferredContent) return;
@@ -319,45 +323,27 @@ export default function HomePage() {
             </div>
 
             <aside className="grid gap-2.5 content-start">
-              <button
-                type="button"
-                onClick={() => navigate(routes.puzzles)}
-                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
-              >
-                <div className="flex items-start gap-3">
-                  <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {puzzleProgress.attemptCount > 0 ? t('home.streak_continue') : t('home.streak_start')}
-                    </div>
-                    <div className="mt-1 text-text-bright text-[1rem] font-semibold">
-                      {t('home.streak_title')}
-                    </div>
-                    <div className="mt-1 text-text-dim text-xs sm:text-sm">
-                      {t('home.streak_progress', {
-                        done: puzzleProgress.completedCount,
-                        total: puzzleProgress.totalCount,
-                      })}
-                    </div>
-                    {puzzleProgress.favoriteTheme && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+              {showPuzzleProgressCard ? (
+                <Suspense
+                  fallback={(
+                    <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-6 w-6 rounded-full bg-primary/20" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3 w-28 rounded-full bg-primary/20" />
+                          <div className="h-5 w-36 rounded-full bg-primary/20" />
+                          <div className="h-3 w-full rounded-full bg-primary/15" />
+                          <div className="h-3 w-4/5 rounded-full bg-primary/15" />
+                        </div>
                       </div>
-                    )}
-                    {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
-                      </div>
-                    )}
-                    {latestSolvedPuzzle && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
+                    </div>
+                  )}
+                >
+                  <DeferredHomePuzzleProgressCard />
+                </Suspense>
+              ) : (
+                <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4" />
+              )}
 
               {!showCreate ? (
                 <button
