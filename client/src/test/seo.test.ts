@@ -8,9 +8,10 @@ import { render } from '@testing-library/react';
 import { SeoHeadManager } from '../lib/seo';
 
 const managedStructuredDataSelector = 'script[type="application/ld+json"][data-seo-managed="true"]';
+const serverStructuredDataSelector = 'script[type="application/ld+json"][data-seo-server="true"]';
 
 afterEach(() => {
-  for (const node of document.head.querySelectorAll(managedStructuredDataSelector)) {
+  for (const node of document.head.querySelectorAll(`${managedStructuredDataSelector}, ${serverStructuredDataSelector}`)) {
     node.remove();
   }
 });
@@ -103,6 +104,44 @@ describe('shared SEO routes', () => {
     const faqPayloads = payloads.filter((payload) => payload['@type'] === 'FAQPage');
     expect(faqPayloads).toHaveLength(1);
     expect(faqPayloads[0].mainEntity).toHaveLength(2);
+  });
+
+  it('replaces server structured data during hydration instead of duplicating FAQPage', () => {
+    const serverScript = document.createElement('script');
+    serverScript.type = 'application/ld+json';
+    serverScript.setAttribute('data-seo-server', 'true');
+    serverScript.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is ThaiChess?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'ThaiChess is Makruk.',
+          },
+        },
+      ],
+    });
+    document.head.appendChild(serverScript);
+
+    render(
+      createElement(
+        MemoryRouter,
+        { initialEntries: [routes.home] },
+        createElement(SeoHeadManager)
+      )
+    );
+
+    expect(document.head.querySelector(serverStructuredDataSelector)).toBeNull();
+
+    const scripts = Array.from(document.head.querySelectorAll(managedStructuredDataSelector));
+    const faqPayloads = scripts
+      .map((script) => JSON.parse(script.textContent ?? '{}'))
+      .filter((payload) => payload['@type'] === 'FAQPage');
+
+    expect(faqPayloads).toHaveLength(1);
   });
 
   it('includes Thai query support in the homepage SEO snapshot', () => {

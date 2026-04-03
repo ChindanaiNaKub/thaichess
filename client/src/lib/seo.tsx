@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { getPublicSeoRoute } from '@shared/seo';
 
 const META_KEY = 'data-seo-managed';
+const STRUCTURED_DATA_SELECTOR = 'script[type="application/ld+json"][data-seo-managed="true"], script[type="application/ld+json"][data-seo-server="true"]';
 
 function getBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location.origin) {
@@ -41,8 +42,7 @@ function upsertLink(rel: string, href: string) {
 }
 
 function upsertStructuredData(entries: Record<string, unknown>[]) {
-  const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
-  const existing = Array.from(document.head.querySelectorAll(selector));
+  const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
 
   for (const node of existing) {
     node.remove();
@@ -83,8 +83,7 @@ export function SeoHeadManager() {
       return;
     }
 
-    const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
-    const existing = Array.from(document.head.querySelectorAll(selector));
+    const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
     for (const node of existing) {
       node.remove();
     }
