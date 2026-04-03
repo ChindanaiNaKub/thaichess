@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { scheduleOnUserIntent } from '../lib/defer';
 import { liveGameRoute, routes } from '../lib/routes';
 
-import { ensureEnglishExtraTranslations, useTranslation } from '../lib/i18n';
+import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
 
 import PieceSVG from './PieceSVG';
@@ -18,13 +18,7 @@ import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
-const DeferredHomePuzzleProgressCard = lazy(async () => {
-  const [module] = await Promise.all([
-    import('./HomePuzzleProgressCard'),
-    ensureEnglishExtraTranslations(),
-  ]);
-  return module;
-});
+const DeferredHomePuzzleProgressCard = lazy(() => import('./HomePuzzleProgressCard'));
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 

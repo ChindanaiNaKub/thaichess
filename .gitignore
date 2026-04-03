@@ -49,5 +49,3 @@ assets/
 client/playwright-report/
 client/test-results/
 client/coverage/
-.codex
-.codex/

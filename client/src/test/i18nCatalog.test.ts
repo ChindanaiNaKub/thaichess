@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EN_CORE_TRANSLATIONS } from '../lib/i18n';
-import { EN_EXTRA_TRANSLATIONS } from '../lib/i18n.en.extra';
+import { EN_TRANSLATIONS } from '../lib/i18n';
 import { TH_TRANSLATIONS } from '../lib/i18n.th';
-
-const EN_TRANSLATIONS = {
-  ...EN_CORE_TRANSLATIONS,
-  ...EN_EXTRA_TRANSLATIONS,
-};
 
 function findMissingKeys(
   source: Record<string, string>,
