@@ -34,7 +34,50 @@ vi.mock('../lib/lessonProgress', () => ({
 
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, params?: Record<string, string | number>) => {
+      switch (key) {
+        case 'lessons.player.no_counting_dependency':
+          return 'No counting dependency';
+        case 'lessons.player.counting_aware':
+          return 'Counting-aware lesson';
+        case 'lessons.player.practice_task':
+          return 'Practice task';
+        case 'lessons.player.guided_step':
+          return 'Guided step';
+        case 'lessons.player.mini_practice':
+          return 'Mini practice';
+        case 'lessons.player.next_step':
+          return 'Next step';
+        case 'lessons.player.start_mini_practice':
+          return 'Start mini practice';
+        case 'lessons.player.review_summary':
+          return 'Review summary';
+        case 'lessons.player.next_task':
+          return 'Next task';
+        case 'lessons.player.next_lesson':
+          return 'Next lesson';
+        case 'lessons.player.back_to_course':
+          return 'Back to course';
+        case 'lessons.player.previous_lesson':
+          return 'Previous lesson';
+        case 'lessons.player.course_path':
+          return 'Course path';
+        case 'nav.puzzles':
+          return 'Puzzles';
+        case 'lessons.player.level_and_order':
+          return `${params?.level ?? 'beginner'} · Lesson ${params?.order ?? ''}`;
+        case 'lessons.player.step_of':
+          return `Step ${params?.current} of ${params?.total}`;
+        case 'lessons.player.task_of':
+          return `Task ${params?.current} of ${params?.total}`;
+        case 'lessons.player.step_badge':
+          return `Step ${params?.number}`;
+        case 'lessons.player.task_badge':
+          return `Task ${params?.number}`;
+        default:
+          return key;
+      }
+    },
   }),
 }));
 
