@@ -2,7 +2,7 @@ import './env';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import cors from 'cors';
+import cors, { type CorsOptions } from 'cors';
 import fs from 'fs';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
@@ -46,7 +46,7 @@ import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor }
 import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
-import { SocketRateLimiter } from './security';
+import { getAllowedCorsOrigins, isAllowedCorsOrigin, SocketRateLimiter } from './security';
 import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
@@ -60,17 +60,29 @@ import { renderSeoHtml } from './seoHtml';
 const app = express();
 const httpServer = createServer(app);
 const startTime = Date.now();
+const allowedCorsOrigins = getAllowedCorsOrigins(process.env);
+
+const corsOptions: CorsOptions = {
+  origin(origin, callback) {
+    if (isAllowedCorsOrigin(origin, allowedCorsOrigins)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origin not allowed by CORS'));
+  },
+};
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:5174'],
+    origin: allowedCorsOrigins,
     methods: ['GET', 'POST'],
   },
   pingTimeout: 20000,
   pingInterval: 10000,
 });
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
@@ -402,8 +414,14 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
     writeEvent('result', { analysis });
     res.end();
   } catch (error) {
+    logError('analysis_game_stream_failed', error, {
+      moveCount: moves.length,
+      depth: depth ?? null,
+      movetimeMs: movetimeMs ?? null,
+      ip: req.ip,
+    });
     writeEvent('error', {
-      message: error instanceof Error ? error.message : 'Analysis failed',
+      message: 'Analysis failed. Please try again later.',
     });
     res.end();
   }

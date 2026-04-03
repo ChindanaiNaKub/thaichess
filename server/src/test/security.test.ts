@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SocketRateLimiter, getSocketIp, isValidBoolean, isValidGameId, isValidPosition, isValidTimeControl } from '../security';
+import {
+  getAllowedCorsOrigins,
+  getSocketIp,
+  isAllowedCorsOrigin,
+  isValidBoolean,
+  isValidGameId,
+  isValidPosition,
+  isValidTimeControl,
+  SocketRateLimiter,
+} from '../security';
 
 describe('security utilities', () => {
   it('extracts the first forwarded IP before falling back to handshake address', () => {
@@ -55,5 +64,33 @@ describe('security utilities', () => {
     expect(limiter.allow('socket:1:create_game', rule)).toEqual({ allowed: true, retryAfterMs: 0 });
 
     vi.useRealTimers();
+  });
+
+  it('builds an explicit production CORS allowlist from configured site URLs', () => {
+    const origins = getAllowedCorsOrigins({
+      NODE_ENV: 'production',
+      SITE_URL: 'https://thaichess.dev/',
+      PUBLIC_SITE_URL: 'https://thaichess.dev',
+      APP_URL: '',
+      RENDER_EXTERNAL_URL: 'https://thaichess.onrender.com/',
+    });
+
+    expect(origins).toEqual([
+      'https://thaichess.dev',
+      'https://thaichess.onrender.com',
+    ]);
+    expect(isAllowedCorsOrigin('https://thaichess.dev/', origins)).toBe(true);
+    expect(isAllowedCorsOrigin('https://evil.example', origins)).toBe(false);
+  });
+
+  it('allows localhost origins outside production and accepts requests without an origin header', () => {
+    const origins = getAllowedCorsOrigins({
+      NODE_ENV: 'test',
+      SITE_URL: 'https://thaichess.dev',
+    });
+
+    expect(origins).toContain('http://localhost:5173');
+    expect(origins).toContain('http://localhost:5174');
+    expect(isAllowedCorsOrigin(undefined, origins)).toBe(true);
   });
 });
