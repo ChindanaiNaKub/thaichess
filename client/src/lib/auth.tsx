@@ -29,6 +29,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const AUTH_CACHE_KEY = 'thaichess-auth-user';
 
 async function readJsonOrThrow(response: Response) {
   const data = await response.json().catch(() => ({}));
@@ -38,20 +39,85 @@ async function readJsonOrThrow(response: Response) {
   return data;
 }
 
+function readCachedUser(): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+    return null;
+  }
+}
+
+function writeCachedUser(user: AuthUser | null) {
+  if (typeof window === 'undefined') return;
+
+  if (user) {
+    window.sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialUser = readCachedUser();
+  const onHomeRoute = typeof window !== 'undefined' && window.location.pathname === '/';
+  const [user, setUser] = useState<AuthUser | null>(initialUser);
+  const [loading, setLoading] = useState(initialUser ? false : !onHomeRoute);
 
   async function refreshUser() {
     const response = await fetch('/api/auth/me');
     const data = await readJsonOrThrow(response);
-    setUser(data.user ?? null);
+    const nextUser = data.user ?? null;
+    setUser(nextUser);
+    writeCachedUser(nextUser);
   }
 
   useEffect(() => {
-    refreshUser()
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    const deferredDelay = import.meta.env.MODE === 'test' ? 0 : 1800;
+    let timeoutId: number | null = null;
+    let idleHandle: number | null = null;
+
+    const runRefresh = () => {
+      refreshUser()
+        .catch(() => {
+          setUser(null);
+          writeCachedUser(null);
+        })
+        .finally(() => setLoading(false));
+    };
+
+    if (onHomeRoute) {
+      const schedule = () => {
+        timeoutId = window.setTimeout(() => {
+          const idle = window.requestIdleCallback;
+          if (typeof idle === 'function') {
+            idleHandle = idle(runRefresh, { timeout: 2000 });
+            return;
+          }
+          void runRefresh();
+        }, deferredDelay);
+      };
+
+      if (document.readyState === 'complete') {
+        schedule();
+      } else {
+        window.addEventListener('load', schedule, { once: true });
+      }
+
+      return () => {
+        window.removeEventListener('load', schedule);
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        if (idleHandle !== null) window.cancelIdleCallback?.(idleHandle);
+      };
+    }
+
+    void runRefresh();
   }, []);
 
   async function requestCode(email: string) {
@@ -71,13 +137,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, code }),
     });
     const data = await readJsonOrThrow(response);
-    setUser(data.user ?? null);
+    const nextUser = data.user ?? null;
+    setUser(nextUser);
+    writeCachedUser(nextUser);
     return { ok: true as const };
   }
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
+    writeCachedUser(null);
   }
 
   async function updateProfile(username: string) {
@@ -88,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await readJsonOrThrow(response);
     setUser(data.user);
+    writeCachedUser(data.user as AuthUser);
     return data.user as AuthUser;
   }
 

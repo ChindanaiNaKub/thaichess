@@ -338,8 +338,8 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper });
 
     expect(await screen.findByText('Live Now')).toBeInTheDocument();
-    expect(screen.getByText('Rated White (1812)')).toBeInTheDocument();
-    expect(screen.getByText('Rated Black (1760)')).toBeInTheDocument();
+    expect(await screen.findByText('Rated White (1812)')).toBeInTheDocument();
+    expect(await screen.findByText('Rated Black (1760)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /view all live games/i }));
     expect(navigateMock).toHaveBeenCalledWith('/watch');
