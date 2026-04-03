@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { scheduleOnUserIntent } from './defer';
 
 export interface AuthUser {
   id: string;
@@ -29,6 +30,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const AUTH_CACHE_KEY = 'thaichess-auth-user';
 
 async function readJsonOrThrow(response: Response) {
   const data = await response.json().catch(() => ({}));
@@ -38,21 +40,69 @@ async function readJsonOrThrow(response: Response) {
   return data;
 }
 
+function readCachedUser(): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+    return null;
+  }
+}
+
+function writeCachedUser(user: AuthUser | null) {
+  if (typeof window === 'undefined') return;
+
+  if (user) {
+    window.sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+}
+
+function shouldDeferInitialAuthRefresh() {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname === '/';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialUser = readCachedUser();
+  const deferInitialRefresh = !initialUser && shouldDeferInitialAuthRefresh();
+  const [user, setUser] = useState<AuthUser | null>(initialUser);
+  const [loading, setLoading] = useState(!initialUser && !deferInitialRefresh);
 
   async function refreshUser() {
     const response = await fetch('/api/auth/me');
     const data = await readJsonOrThrow(response);
-    setUser(data.user ?? null);
+    const nextUser = data.user ?? null;
+    setUser(nextUser);
+    writeCachedUser(nextUser);
   }
 
   useEffect(() => {
+    if (deferInitialRefresh) {
+      return scheduleOnUserIntent(() => {
+        refreshUser()
+          .catch(() => {
+            setUser(null);
+            writeCachedUser(null);
+          })
+          .finally(() => {});
+      }, 12_000);
+    }
+
     refreshUser()
-      .catch(() => setUser(null))
+      .catch(() => {
+        setUser(null);
+        writeCachedUser(null);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [deferInitialRefresh, initialUser]);
 
   async function requestCode(email: string) {
     const response = await fetch('/api/auth/request-code', {
@@ -71,13 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, code }),
     });
     const data = await readJsonOrThrow(response);
-    setUser(data.user ?? null);
+    const nextUser = data.user ?? null;
+    setUser(nextUser);
+    writeCachedUser(nextUser);
     return { ok: true as const };
   }
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
+    writeCachedUser(null);
   }
 
   async function updateProfile(username: string) {
@@ -88,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await readJsonOrThrow(response);
     setUser(data.user);
+    writeCachedUser(data.user as AuthUser);
     return data.user as AuthUser;
   }
 

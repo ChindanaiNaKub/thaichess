@@ -118,7 +118,7 @@ export default function AnalysisPage() {
         });
         setLoading(false);
       } catch {
-        setError('Failed to parse game data');
+        setError(t('analysis.parse_failed'));
         setLoading(false);
       }
       return;
@@ -128,7 +128,7 @@ export default function AnalysisPage() {
       setMode('game');
       fetch(`/api/game/${gameId}`)
         .then(r => {
-          if (!r.ok) throw new Error('Game not found');
+          if (!r.ok) throw new Error(t('analysis.game_not_found'));
           return r.json();
         })
         .then(data => {
@@ -141,19 +141,19 @@ export default function AnalysisPage() {
               moveCount: data.moveCount || data.moves.length,
             });
           } else {
-            setError('Game has no moves to analyze');
+            setError(t('analysis.no_moves'));
           }
           setLoading(false);
         })
         .catch(() => {
-          setError('Game not found');
+          setError(t('analysis.game_not_found'));
           setLoading(false);
         });
     } else {
       setMode('editor');
       setLoading(false);
     }
-  }, [gameId, searchParams]);
+  }, [gameId, searchParams, t]);
 
   useEffect(() => {
     return () => {
@@ -207,7 +207,7 @@ export default function AnalysisPage() {
         return;
       }
 
-      setError(message.message || 'Analysis failed');
+      setError(message.message || t('analysis.failed'));
       setAnalyzing(false);
       setProgress(null);
       setAnalysisStartedAt(null);
@@ -221,7 +221,7 @@ export default function AnalysisPage() {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [analysis, gameData, mode]);
+  }, [analysis, gameData, mode, t]);
 
   useEffect(() => {
     if (!analyzing || analysisStartedAt === null) {
@@ -337,11 +337,11 @@ export default function AnalysisPage() {
       });
       setPositionAnalysis(result);
     } catch {
-      setError('Position analysis failed');
+      setError(t('analysis.editor.error'));
     } finally {
       setPositionAnalyzing(false);
     }
-  }, [editorSnapshot]);
+  }, [editorSnapshot, t]);
 
   const handleEditorSquareClick = useCallback((pos: Position) => {
     setEditorBoard(prev => {
@@ -535,18 +535,18 @@ export default function AnalysisPage() {
               <div className="flex flex-col items-center gap-2 flex-1">
                 <div className="flex items-center gap-2 text-sm w-full justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-text-dim">Editor</span>
+                    <span className="text-text-dim">{t('analysis.editor.label')}</span>
                     <button
                       onClick={() => setEditorTurn('white')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
-                      {t('common.white')} to move
+                      {t('analysis.editor.turn_to_move', { color: t('common.white') })}
                     </button>
                     <button
                       onClick={() => setEditorTurn('black')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
-                      {t('common.black')} to move
+                      {t('analysis.editor.turn_to_move', { color: t('common.black') })}
                     </button>
                   </div>
                   <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0)}</div>
@@ -577,20 +577,20 @@ export default function AnalysisPage() {
                     onClick={() => setEditorBoard(createInitialBoard())}
                     className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
                   >
-                    Reset board
+                    {t('analysis.editor.reset_board')}
                   </button>
                   <button
                     onClick={() => setEditorBoard(Array.from({ length: 8 }, () => Array(8).fill(null)))}
                     className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
                   >
-                    Clear board
+                    {t('analysis.editor.clear_board')}
                   </button>
                   <button
                     onClick={handleAnalyzeEditorPosition}
                     disabled={positionAnalyzing}
                     className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
-                    {positionAnalyzing ? 'Analyzing...' : 'Analyze position'}
+                    {positionAnalyzing ? t('analysis.editor.analyzing_position') : t('analysis.editor.analyze_position')}
                   </button>
                 </div>
               </div>
@@ -598,19 +598,19 @@ export default function AnalysisPage() {
 
             <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:self-start">
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <h3 className="mb-2 text-sm font-semibold text-text-bright">Editor Tools</h3>
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.tools')}</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setEditorTool('move')}
                     className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'move' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
                   >
-                    Move pieces
+                    {t('analysis.editor.move_pieces')}
                   </button>
                   <button
                     onClick={() => setEditorTool('erase')}
                     className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'erase' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
                   >
-                    Erase square
+                    {t('analysis.editor.erase_square')}
                   </button>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -634,7 +634,7 @@ export default function AnalysisPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <h3 className="mb-2 text-sm font-semibold text-text-bright">Position</h3>
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.position')}</h3>
                 <textarea
                   readOnly
                   value={serialized.position}
@@ -642,43 +642,43 @@ export default function AnalysisPage() {
                 />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button onClick={handleCopyEditorPosition} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
-                    Copy position
+                    {t('analysis.editor.copy_position')}
                   </button>
                   <button onClick={handleCopyEditorLink} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
-                    Copy link
+                    {t('analysis.editor.copy_link')}
                   </button>
                 </div>
               </div>
 
               {positionAnalysis && (
                 <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                  <h3 className="mb-2 text-sm font-semibold text-text-bright">Engine</h3>
+                  <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.engine')}</h3>
                   <div className="space-y-2 text-sm text-text">
                     <div className="flex items-center justify-between">
-                      <span>Eval</span>
+                      <span>{t('analysis.editor.eval')}</span>
                       <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Best move</span>
+                      <span>{t('analysis.editor.best_move')}</span>
                       <span className="font-mono text-text-bright">
                         {positionAnalysis.bestMove
                           ? `${posToAlgebraic(positionAnalysis.bestMove.from)}-${posToAlgebraic(positionAnalysis.bestMove.to)}`
-                          : 'none'}
+                          : t('analysis.editor.none')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Source</span>
+                      <span>{t('analysis.editor.source')}</span>
                       <span className="text-text-bright">{positionAnalysis.stats.source}</span>
                     </div>
                     {positionAnalysis.stats.depth && (
                       <div className="flex items-center justify-between">
-                        <span>Depth</span>
+                        <span>{t('analysis.editor.depth')}</span>
                         <span className="font-mono text-text-bright">{positionAnalysis.stats.depth}</span>
                       </div>
                     )}
                     {positionAnalysis.principalVariation.length > 0 && (
                       <div>
-                        <div className="mb-1 text-xs uppercase tracking-[0.18em] text-text-dim">PV</div>
+                        <div className="mb-1 text-xs uppercase tracking-[0.18em] text-text-dim">{t('analysis.editor.pv')}</div>
                         <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text">
                           {positionAnalysis.principalVariation.join(' ')}
                         </div>

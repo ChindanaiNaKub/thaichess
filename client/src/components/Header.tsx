@@ -59,20 +59,20 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   );
 
   return (
-    <header className="bg-surface-alt/80 backdrop-blur-md border-b border-surface-hover/60 sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <header className="site-header sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/80 sm:backdrop-blur-md">
+      <div className="site-header__inner max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => handleNavigate('/')}
-            className="flex items-center gap-2 transition-opacity duration-150 hover:opacity-80 active:opacity-60"
+            className="site-brand flex items-center gap-2 transition-opacity duration-150 hover:opacity-80 active:opacity-60"
           >
             <PieceSVG type="K" color="white" size={28} />
-            <span className="text-base font-bold text-text-bright tracking-tight leading-none">
+            <span className="site-brand__name text-base font-bold text-text-bright tracking-tight leading-none">
               {t('app.name')}
             </span>
           </button>
           {subtitle && (
-            <span className="text-text-dim text-sm hidden sm:inline border-l border-surface-hover pl-3 ml-1">
+            <span className="site-subtitle text-text-dim text-sm hidden sm:inline border-l border-surface-hover pl-3 ml-1">
               {subtitle}
             </span>
           )}
@@ -115,7 +115,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             ) : (
               <button
                 onClick={() => handleNavigate('/login')}
-                className="h-7 px-2.5 rounded-md bg-primary text-white text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
+                className="button-primary-contrast h-7 px-2.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
               >
                 {t('header.sign_in')}
               </button>
@@ -129,7 +129,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
           <button
             onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
             className="hidden sm:inline-flex h-7 px-2.5 rounded-md bg-surface hover:bg-surface-hover border border-surface-hover/60 text-text-dim hover:text-text-bright text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
-            title={lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'}
+            title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
           >
             {t('lang.switch')}
           </button>
@@ -169,7 +169,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               <button
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
                 className="inline-flex h-9 items-center justify-center rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
-                title={lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'}
+                title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
               >
                 {t('lang.switch')}
               </button>

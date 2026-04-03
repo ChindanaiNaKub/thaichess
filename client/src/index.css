@@ -32,7 +32,7 @@
   /* Text — tinted, never pure gray */
   --color-text: oklch(0.76 0.015 65);
   --color-text-bright: oklch(0.90 0.01 65);
-  --color-text-dim: oklch(0.56 0.015 65);
+  --color-text-dim: oklch(0.68 0.015 65);
 }
 
 /* ─── Base Layer ─────────────────────────────────────────────────────
@@ -45,13 +45,11 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    hanging-punctuation: first last;
   }
 
   body {
     margin: 0;
-    font-family: 'DM Sans', 'Noto Sans Thai', system-ui, -apple-system, sans-serif;
+    font-family: 'Noto Sans Thai', 'Leelawadee UI', 'Segoe UI', 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
     background-color: var(--color-surface);
     color: var(--color-text);
@@ -60,12 +58,7 @@
   }
 
   h1, h2, h3, h4 {
-    text-wrap: balance;
     letter-spacing: -0.02em;
-  }
-
-  p {
-    text-wrap: pretty;
   }
 
   ::selection {
@@ -117,6 +110,18 @@
     top: 1rem;
     outline: 3px solid var(--color-text-bright);
     outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
 
@@ -297,6 +302,35 @@
     flex-shrink: 0;
     aspect-ratio: auto;
   }
+
+  .footer-link {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+
+  .button-primary-contrast {
+    background: oklch(0.58 0.16 135);
+    color: var(--color-surface);
+  }
+
+  .button-primary-contrast:hover {
+    background: oklch(0.62 0.17 135);
+  }
+
+  .button-accent-contrast {
+    background: oklch(0.68 0.14 75);
+    color: var(--color-surface);
+  }
+
+  .button-accent-contrast:hover {
+    background: oklch(0.72 0.15 75);
+  }
+
+  .deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 720px;
+  }
 }
 
 /* ─── Utilities Layer ───────────────────────────────────────────────
@@ -391,5 +425,12 @@
 @media (max-height: 700px) {
   .max-h-\[300px\] {
     max-height: 150px;
+  }
+}
+
+@supports (content-visibility: auto) {
+  .deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 420px;
   }
 }

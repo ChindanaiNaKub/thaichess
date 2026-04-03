@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import { socket, connectSocket } from '../lib/socket';
+import { scheduleOnUserIntent } from '../lib/defer';
 import { liveGameRoute, routes } from '../lib/routes';
 
-import { useTranslation } from '../lib/i18n';
+import { ensureEnglishExtraTranslations, useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
-import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 
 import PieceSVG from './PieceSVG';
 
@@ -20,7 +17,14 @@ import BotSVG from './BotSVG';
 import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
-import LiveGamesPanel from './LiveGamesPanel';
+const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
+const DeferredHomePuzzleProgressCard = lazy(async () => {
+  const [module] = await Promise.all([
+    import('./HomePuzzleProgressCard'),
+    ensureEnglishExtraTranslations(),
+  ]);
+  return module;
+});
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
@@ -48,20 +52,12 @@ const SHOWCASE_PIECES: { type: PieceType; color: PieceColor }[] = [
 interface HomeStats {
   totalGames: number;
 }
-
-function getPublicPuzzleTitle(title: string): string {
-  return title
-    .replace(/\s*\([0-9a-f]{8}\s*@\s*ply\s*\d+\)$/i, '')
-    .replace(/^Real-Game\s+/i, '')
-    .trim();
-}
+type SocketModule = typeof import('../lib/socket');
+type SocketLike = SocketModule['socket'];
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { t, lang } = useTranslation();
-  const puzzleProgress = usePuzzleProgressSummary();
-  const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
-  const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
+  const { t } = useTranslation();
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -70,25 +66,33 @@ export default function HomePage() {
   const [joinId, setJoinId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
+  const [showDeferredContent, setShowDeferredContent] = useState(false);
+  const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
+  const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
-  const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4 });
+  const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
+  const socketRef = useRef<SocketLike | null>(null);
+  const deferredContentRef = useRef<HTMLDivElement | null>(null);
 
   const cleanupCreateHandlers = () => {
-    if (gameCreatedHandlerRef.current) {
-      socket.off('game_created', gameCreatedHandlerRef.current);
+    const activeSocket = socketRef.current;
+
+    if (activeSocket && gameCreatedHandlerRef.current) {
+      activeSocket.off('game_created', gameCreatedHandlerRef.current);
       gameCreatedHandlerRef.current = null;
     }
 
-    if (connectHandlerRef.current) {
-      socket.off('connect', connectHandlerRef.current);
+    if (activeSocket && connectHandlerRef.current) {
+      activeSocket.off('connect', connectHandlerRef.current);
       connectHandlerRef.current = null;
     }
 
-    if (errorHandlerRef.current) {
-      socket.off('error', errorHandlerRef.current);
+    if (activeSocket && errorHandlerRef.current) {
+      activeSocket.off('error', errorHandlerRef.current);
       errorHandlerRef.current = null;
     }
   };
@@ -100,7 +104,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (typeof fetch !== 'function') return;
+    if (!showDeferredContent || typeof fetch !== 'function') return;
 
     fetch('/api/stats')
       .then((response) => response.json())
@@ -110,11 +114,92 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [showDeferredContent]);
 
-  const handleCreateGame = () => {
+  useEffect(() => {
+    if (deferredContentReady || typeof window === 'undefined') return;
+
+    const markReady = () => setDeferredContentReady(true);
+
+    if (document.readyState === 'complete') {
+      markReady();
+      return;
+    }
+
+    window.addEventListener('load', markReady, { once: true });
+    return () => window.removeEventListener('load', markReady);
+  }, [deferredContentReady]);
+
+  useEffect(() => {
+    if (showHeroDecor || !deferredContentReady || typeof window === 'undefined') return;
+
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    const requestIdle = window.requestIdleCallback;
+
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(() => setShowHeroDecor(true), { timeout: 1_200 });
+    } else {
+      timeoutId = window.setTimeout(() => setShowHeroDecor(true), 250);
+    }
+
+    return () => {
+      if (idleId !== undefined) {
+        window.cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [deferredContentReady, showHeroDecor]);
+
+  useEffect(() => {
+    if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
+
+    return scheduleOnUserIntent(() => setShowPuzzleProgressCard(true), 12_000);
+  }, [deferredContentReady, showPuzzleProgressCard]);
+
+  useEffect(() => {
+    if (showDeferredContent || !deferredContentReady) return;
+
+    if (import.meta.env.MODE === 'test') {
+      setShowDeferredContent(true);
+      return;
+    }
+
+    const target = deferredContentRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setShowDeferredContent(true);
+      observer.disconnect();
+    }, {
+      rootMargin: '120px 0px',
+    });
+
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [deferredContentReady, showDeferredContent]);
+
+  const handleCreateGame = async () => {
     setIsCreating(true);
     setCreateError(null);
+    let socketModule: SocketModule;
+
+    try {
+      socketModule = await import('../lib/socket');
+    } catch {
+      setIsCreating(false);
+      setCreateError(t('error.connection_body'));
+      return;
+    }
+
+    const { socket, connectSocket } = socketModule;
+    socketRef.current = socket;
     connectSocket();
     cleanupCreateHandlers();
 
@@ -168,165 +253,150 @@ export default function HomePage() {
     setShowCreate(false);
   };
 
-  const learnCards = lang === 'th'
-    ? [
-      {
-        href: routes.whatIsMakruk,
-        title: 'หมากรุกไทยคืออะไร',
-        desc: 'ดูภาพรวมของเกมก่อน ว่าทำไมหมากรุกไทยถึงต่างจากหมากรุกสากล',
-      },
-      {
-        href: routes.howToPlayMakruk,
-        title: 'วิธีเล่นหมากรุกไทย',
-        desc: 'เรียนการเดินหมาก การหงาย และกฎการนับแบบเข้าใจง่าย',
-      },
-      {
-        href: routes.playMakrukOnline,
-        title: 'เล่นหมากรุกไทยออนไลน์',
-        desc: 'ดูว่าเริ่มจากบอท โจทย์ หรือเกมคนจริงแบบไหนเหมาะที่สุด',
-      },
-    ]
-    : [
-      {
-        href: routes.whatIsMakruk,
-        title: 'What Is Makruk?',
-        desc: 'Get the big picture first and see why Thai chess feels different from western chess.',
-      },
-      {
-        href: routes.howToPlayMakruk,
-        title: 'How to Play Makruk',
-        desc: 'Learn piece movement, promotion, and the counting rule without the usual confusion.',
-      },
-      {
-        href: routes.playMakrukOnline,
-        title: 'Play Makruk Online',
-        desc: 'See whether bot games, puzzles, or live play make the best first step for you.',
-      },
-    ];
+  const learnCards = [
+    {
+      href: routes.whatIsMakruk,
+      title: t('home.learn_card.what_is_title'),
+      desc: t('home.learn_card.what_is_desc'),
+    },
+    {
+      href: routes.howToPlayMakruk,
+      title: t('home.learn_card.how_to_title'),
+      desc: t('home.learn_card.how_to_desc'),
+    },
+    {
+      href: routes.playMakrukOnline,
+      title: t('home.learn_card.play_online_title'),
+      desc: t('home.learn_card.play_online_desc'),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="homepage-shell min-h-screen bg-surface flex flex-col">
       <Header active="play" subtitle={t('app.tagline')} />
 
-      <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
-            <div className="bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10 animate-slideUp">
-              <div className="flex items-center justify-center gap-1 mb-4 sm:mb-5">
-                {SHOWCASE_PIECES.map((p, i) => (
+      <main id="main-content" className="homepage-main flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="homepage-layout mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
+          <section className="homepage-grid grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
+            <div className="home-hero-card bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10">
+              <div className="mb-4 flex min-h-10 items-center justify-center gap-1 sm:mb-5">
+                {showHeroDecor ? SHOWCASE_PIECES.map((p, i) => (
                   <div key={i} className="opacity-80 hover:opacity-100 transition-opacity">
                     <PieceSVG type={p.type} color={p.color} size={40} />
                   </div>
-                ))}
+                )) : null}
               </div>
 
-              <div className="mx-auto max-w-2xl text-center">
-                <h2 className="text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
+              <div className="home-hero-copy mx-auto max-w-2xl text-center">
+                <h1 className="home-hero-title text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
                   {t('home.hero_title')}
-                </h2>
-                <p className="text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
+                </h1>
+                <p className="home-hero-desc text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
                   {t('home.hero_desc')}
                 </p>
               </div>
 
-              <div className="mt-8 sm:mt-10 rounded-2xl border border-accent/20 bg-surface/75 p-5 sm:p-6 lg:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
+              <div className="home-cta-card mt-8 sm:mt-10 rounded-2xl border border-accent/20 bg-surface/75 p-5 sm:p-6 lg:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
+                    <p className="home-cta-card__eyebrow text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
                       {t('nav.play')}
                     </p>
-                    <h3 className="display text-3xl text-text-bright">{t('home.quick_play')}</h3>
-                    <p className="text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
+                    <h2 className="home-cta-card__title display text-3xl text-text-bright">{t('home.quick_play')}</h2>
+                    <p className="home-cta-card__desc text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
                   </div>
                   <QuickPlaySVG size={46} className="text-text-bright flex-shrink-0" />
                 </div>
 
-                <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
-                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                <div className="home-pills flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
+                  <span className="home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.no_signup')}
                   </span>
-                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                  <span className="home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.free_to_play')}
                   </span>
-                  {stats && stats.totalGames > 0 && (
-                    <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
-                      {t('home.games_played', { count: stats.totalGames })}
-                    </span>
-                  )}
+                  <span
+                    aria-hidden={stats === null}
+                    className={`home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    {stats && stats.totalGames > 0 ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
+                  </span>
                 </div>
 
-                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
+                <div className="home-buttons flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
-                    className="w-full sm:w-auto min-w-[16rem] py-3.5 px-7 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg text-lg transition-colors shadow-md"
+                    className="home-button-primary button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
                     {t('home.find_opponent')}
                   </button>
                   <button
                     onClick={() => navigate(routes.leaderboard)}
-                    className="w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
+                    className="home-button-secondary w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
                   >
                     {t('leaderboard.title')}
                   </button>
-                  <p className="text-xs sm:text-sm text-text-dim">
+                  <p className="home-buttons-note text-xs sm:text-sm text-text-dim">
                     {t('quick.rated_available')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <aside className="grid gap-2.5 content-start">
-              <button
-                type="button"
-                onClick={() => navigate(routes.puzzles)}
-                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
-              >
-                <div className="flex items-start gap-3">
-                  <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {puzzleProgress.attemptCount > 0 ? t('home.streak_continue') : t('home.streak_start')}
-                    </div>
-                    <div className="mt-1 text-text-bright text-[1rem] font-semibold">
-                      {t('home.streak_title')}
-                    </div>
-                    <div className="mt-1 text-text-dim text-xs sm:text-sm">
-                      {t('home.streak_progress', {
-                        done: puzzleProgress.completedCount,
-                        total: puzzleProgress.totalCount,
-                      })}
-                    </div>
-                    {puzzleProgress.favoriteTheme && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+            <aside className="home-side-stack grid gap-2.5 content-start">
+              {showPuzzleProgressCard ? (
+                <Suspense
+                  fallback={(
+                    <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-6 w-6 rounded-full bg-primary/20" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3 w-28 rounded-full bg-primary/20" />
+                          <div className="h-5 w-36 rounded-full bg-primary/20" />
+                          <div className="h-3 w-full rounded-full bg-primary/15" />
+                          <div className="h-3 w-4/5 rounded-full bg-primary/15" />
+                        </div>
                       </div>
-                    )}
-                    {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
+                    </div>
+                  )}
+                >
+                  <DeferredHomePuzzleProgressCard />
+                </Suspense>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate(routes.puzzles)}
+                  aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                  className="home-side-card home-side-card--primary min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
+                >
+                  <div className="home-side-card__row flex items-start gap-3">
+                    <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
+                    <div className="min-w-0">
+                      <div className="home-side-card__eyebrow text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                        {t('home.streak_start')}
                       </div>
-                    )}
-                    {latestSolvedPuzzle && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
+                      <div className="home-side-card__title mt-1 text-[1rem] font-semibold text-text-bright">
+                        {t('home.streak_title')}
                       </div>
-                    )}
+                      <div className="home-side-card__desc mt-1 text-xs text-text-dim sm:text-sm">
+                        {t('home.puzzles_desc')}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              )}
 
               {!showCreate ? (
                 <button
                   type="button"
                   onClick={openCreatePanel}
-                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                  className="home-side-card bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="home-side-card__row flex items-center gap-3">
                     <FriendSVG size={24} className="text-text-bright flex-shrink-0" />
                     <div>
-                      <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.create_private')}</div>
-                      <div className="text-text-dim text-xs sm:text-sm">{t('home.private_desc')}</div>
+                      <div className="home-side-card__title text-text-bright text-[0.95rem] font-semibold">{t('home.create_private')}</div>
+                      <div className="home-side-card__desc text-text-dim text-xs sm:text-sm">{t('home.private_desc')}</div>
                     </div>
                   </div>
                 </button>
@@ -409,10 +479,10 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={openJoinPanel}
-                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                  className="home-side-card bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
                 >
-                  <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.join_title')}</div>
-                  <div className="text-text-dim text-xs sm:text-sm mt-1">{t('home.join_desc')}</div>
+                  <div className="home-side-card__title text-text-bright text-[0.95rem] font-semibold">{t('home.join_title')}</div>
+                  <div className="home-side-card__desc text-text-dim text-xs sm:text-sm mt-1">{t('home.join_desc')}</div>
                 </button>
               ) : (
                 <div className="bg-surface-alt border border-surface-hover rounded-xl p-5">
@@ -508,33 +578,48 @@ export default function HomePage() {
             </aside>
           </section>
 
-          <LiveGamesPanel
-            games={liveGames}
-            loading={liveGamesLoading}
-            title={t('home.live_now_title')}
-            description={t('home.live_now_desc')}
-            emptyTitle={t('home.no_live_games')}
-            emptyDesc={t('home.no_live_games_desc')}
-            compact
-            showViewAll
-            viewAllLabel={t('home.view_all_live')}
-            onViewAll={() => navigate(routes.watch)}
-          />
+          <div ref={deferredContentRef}>
+            {showDeferredContent ? (
+              <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
+                <DeferredLiveGamesPanel
+                  games={liveGames}
+                  loading={liveGamesLoading}
+                  title={t('home.live_now_title')}
+                  description={t('home.live_now_desc')}
+                  emptyTitle={t('home.no_live_games')}
+                  emptyDesc={t('home.no_live_games_desc')}
+                  compact
+                  showViewAll
+                  viewAllLabel={t('home.view_all_live')}
+                  onViewAll={() => navigate(routes.watch)}
+                />
+              </Suspense>
+            ) : (
+              <section aria-hidden="true" className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="space-y-3">
+                    <div className="h-4 w-24 rounded-full bg-surface" />
+                    <div className="h-4 w-56 rounded-full bg-surface" />
+                  </div>
+                  <div className="h-10 w-36 rounded-lg bg-surface" />
+                </div>
+                <div className="mt-5 h-[10.5rem] rounded-2xl border border-dashed border-surface-hover bg-surface/55" />
+              </section>
+            )}
+          </div>
 
-          <section className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
+          <section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-                  {lang === 'th' ? 'คู่มือเริ่มต้น' : 'Learn'}
+                  {t('home.learn_eyebrow')}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-text-bright">
-                  {lang === 'th' ? 'เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง' : 'Start With the Pages That Actually Help'}
+                  {t('home.learn_title')}
                 </h2>
               </div>
               <p className="max-w-xl text-sm leading-6 text-text-dim">
-                {lang === 'th'
-                  ? 'ถ้าคุณเพิ่งเข้ามาใหม่ 3 หน้านี้จะพาคุณจากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง'
-                  : 'If you are new here, these three pages take you from basic context to your first real Makruk session.'}
+                {t('home.learn_desc')}
               </p>
             </div>
 
@@ -554,52 +639,53 @@ export default function HomePage() {
         </div>
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-6 px-4">
+      <footer className="deferred-section bg-surface-alt border-t border-surface-hover py-6 px-4">
         <div className="max-w-6xl mx-auto">
+          <h2 className="sr-only">{t('footer.links_label')}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 mb-4">
             {/* Play */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.play')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.play')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/quick-play" className="hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
-                <li><a href="/watch" className="hover:text-primary transition-colors">{t('home.watch_live')}</a></li>
-                <li><a href="/local" className="hover:text-primary transition-colors">{t('home.play_local')}</a></li>
-                <li><a href="/bot" className="hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
+                <li><a href="/quick-play" className="footer-link hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
+                <li><a href="/watch" className="footer-link hover:text-primary transition-colors">{t('home.watch_live')}</a></li>
+                <li><a href="/local" className="footer-link hover:text-primary transition-colors">{t('home.play_local')}</a></li>
+                <li><a href="/bot" className="footer-link hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
               </ul>
             </div>
             {/* Puzzles */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.puzzles')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.puzzles')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+                <li><a href="/puzzles" className="footer-link hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
               </ul>
             </div>
             {/* About */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href={routes.whatIsMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'หมากรุกไทยคืออะไร' : 'What Is Makruk?'}</a></li>
-                <li><a href={routes.howToPlayMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'วิธีเล่นหมากรุกไทย' : 'How to Play Makruk'}</a></li>
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
+                <li><a href="/games" className="footer-link hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href={routes.whatIsMakruk} className="footer-link hover:text-primary transition-colors">{t('footer.what_is_makruk')}</a></li>
+                <li><a href={routes.howToPlayMakruk} className="footer-link hover:text-primary transition-colors">{t('footer.how_to_play_makruk')}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="footer-link hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>
             {/* Community */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('footer.community')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('footer.community')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
-                <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="footer-link hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
+                <li><a href="/feedback" className="footer-link hover:text-primary transition-colors">{t('feedback.button')}</a></li>
               </ul>
             </div>
           </div>
           <div className="pt-4 border-t border-surface-hover text-center">
             <p className="text-text-dim text-xs">{t('footer.tagline')} — {t('footer.inspired')}{' '}
-              <a href="https://lichess.org" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+              <a href="https://lichess.org" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
                 Lichess
               </a>
               {' '}and{' '}
-              <a href="https://chess.com" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+              <a href="https://chess.com" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
                 Chess.com
               </a>
             </p>

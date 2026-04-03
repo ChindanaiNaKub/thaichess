@@ -2,7 +2,7 @@ import './env';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import cors from 'cors';
+import cors, { type CorsOptions } from 'cors';
 import fs from 'fs';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
@@ -43,10 +43,10 @@ import {
   type RecentGamesFilter,
 } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor } from '../../shared/types';
-import { getIndexablePaths, getPublicSeoRoute } from '../../shared/seo';
+import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
-import { SocketRateLimiter } from './security';
+import { getAllowedCorsOrigins, isAllowedCorsOrigin, SocketRateLimiter } from './security';
 import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
@@ -55,21 +55,34 @@ import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine 
 import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
+import { renderSeoHtml } from './seoHtml';
 
 const app = express();
 const httpServer = createServer(app);
 const startTime = Date.now();
+const allowedCorsOrigins = getAllowedCorsOrigins(process.env);
+
+const corsOptions: CorsOptions = {
+  origin(origin, callback) {
+    if (isAllowedCorsOrigin(origin, allowedCorsOrigins)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origin not allowed by CORS'));
+  },
+};
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:5174'],
+    origin: allowedCorsOrigins,
     methods: ['GET', 'POST'],
   },
   pingTimeout: 20000,
   pingInterval: 10000,
 });
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
@@ -137,53 +150,6 @@ function getSiteUrl(req?: express.Request): string {
   }
 
   return 'https://thaichess.dev';
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function upsertHeadTag(html: string, pattern: RegExp, replacement: string): string {
-  if (pattern.test(html)) {
-    return html.replace(pattern, replacement);
-  }
-
-  return html.replace('</head>', `  ${replacement}\n  </head>`);
-}
-
-function renderSeoHtml(template: string, pathname: string, baseUrl: string): string {
-  const seo = getPublicSeoRoute(pathname, baseUrl);
-  const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
-  const robots = seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
-  const keywords = seo.keywords?.join(', ');
-  const structuredData = seo.structuredData?.length
-    ? JSON.stringify(seo.structuredData.length === 1 ? seo.structuredData[0] : seo.structuredData).replace(/</g, '\\u003c')
-    : null;
-
-  let html = template;
-  html = html.replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(seo.title)}</title>`);
-  html = upsertHeadTag(html, /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i, `<meta name="description" content="${escapeHtml(seo.description)}" />`);
-  html = upsertHeadTag(html, /<meta\s+name="robots"\s+content="[^"]*"\s*\/?>/i, `<meta name="robots" content="${escapeHtml(robots)}" />`);
-  html = upsertHeadTag(html, /<meta\s+name="keywords"\s+content="[^"]*"\s*\/?>/i, `<meta name="keywords" content="${escapeHtml(keywords ?? '')}" />`);
-  html = upsertHeadTag(html, /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i, `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`);
-  html = upsertHeadTag(html, /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:title" content="${escapeHtml(seo.title)}" />`);
-  html = upsertHeadTag(html, /<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:description" content="${escapeHtml(seo.description)}" />`);
-  html = upsertHeadTag(html, /<meta\s+property="og:type"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:type" content="${escapeHtml(seo.type ?? 'website')}" />`);
-  html = upsertHeadTag(html, /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`);
-  html = upsertHeadTag(html, /<meta\s+name="twitter:card"\s+content="[^"]*"\s*\/?>/i, '<meta name="twitter:card" content="summary" />');
-  html = upsertHeadTag(html, /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(seo.title)}" />`);
-  html = upsertHeadTag(html, /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(seo.description)}" />`);
-
-  html = html.replace(/\s*<script[^>]*data-seo-server="true"[^>]*>.*?<\/script>/gs, '');
-  if (structuredData) {
-    html = html.replace('</head>', `  <script type="application/ld+json" data-seo-server="true">${structuredData}</script>\n  </head>`);
-  }
-
-  return html;
 }
 
 // Initialize database
@@ -448,8 +414,14 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
     writeEvent('result', { analysis });
     res.end();
   } catch (error) {
+    logError('analysis_game_stream_failed', error, {
+      moveCount: moves.length,
+      depth: depth ?? null,
+      movetimeMs: movetimeMs ?? null,
+      ip: req.ip,
+    });
     writeEvent('error', {
-      message: error instanceof Error ? error.message : 'Analysis failed',
+      message: 'Analysis failed. Please try again later.',
     });
     res.end();
   }

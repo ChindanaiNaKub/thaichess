@@ -1,31 +1,52 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
-import FeedbackWidget from './components/FeedbackWidget';
+import { scheduleOnUserIntent } from './lib/defer';
+import { ensureEnglishExtraTranslations } from './lib/i18n';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
 
+function lazyRoute<TModule extends { default: ComponentType<any> }>(
+  loader: () => Promise<TModule>,
+) {
+  return lazy(async () => {
+    const [module] = await Promise.all([loader(), ensureEnglishExtraTranslations()]);
+    return module;
+  });
+}
+
+function lazyNamedRoute<TModule, TKey extends keyof TModule>(
+  loader: () => Promise<TModule>,
+  exportName: TKey,
+) {
+  return lazy(async () => {
+    const [module] = await Promise.all([loader(), ensureEnglishExtraTranslations()]);
+    return { default: module[exportName] as ComponentType<any> };
+  });
+}
+
 // Lazy load route components for code splitting
-const GamePage = lazy(() => import('./components/GamePage'));
-const SpectatorPage = lazy(() => import('./components/SpectatorPage'));
-const LiveGamesPage = lazy(() => import('./components/LiveGamesPage'));
-const LocalGame = lazy(() => import('./components/LocalGame'));
-const BotGame = lazy(() => import('./components/BotGame'));
-const PuzzleStreakPage = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzleStreakPage })));
-const LessonCoursePage = lazy(() => import('./components/LessonsPage').then(m => ({ default: m.LessonCoursePage })));
-const LessonPlayerPage = lazy(() => import('./components/LessonsPage').then(m => ({ default: m.LessonPlayerPage })));
-const PuzzlePlayer = lazy(() => import('./components/PuzzlePage').then(m => ({ default: m.PuzzlePlayer })));
-const QuickPlay = lazy(() => import('./components/QuickPlay'));
-const AboutPage = lazy(() => import('./components/AboutPage'));
-const GamesPage = lazy(() => import('./components/GamesPage'));
-const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
-const GuidePage = lazy(() => import('./components/GuidePage'));
-const AnalysisPage = lazy(() => import('./components/AnalysisPage'));
-const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPage'));
-const FairPlayCasesPage = lazy(() => import('./components/FairPlayCasesPage'));
-const LoginPage = lazy(() => import('./components/LoginPage'));
-const AccountPage = lazy(() => import('./components/AccountPage'));
-const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
+const GamePage = lazyRoute(() => import('./components/GamePage'));
+const SpectatorPage = lazyRoute(() => import('./components/SpectatorPage'));
+const LiveGamesPage = lazyRoute(() => import('./components/LiveGamesPage'));
+const LocalGame = lazyRoute(() => import('./components/LocalGame'));
+const BotGame = lazyRoute(() => import('./components/BotGame'));
+const PuzzleStreakPage = lazyNamedRoute(() => import('./routes/PuzzleRoutes'), 'PuzzleStreakRoute');
+const LessonCoursePage = lazyNamedRoute(() => import('./routes/LessonsRoutes'), 'LessonCourseRoute');
+const LessonPlayerPage = lazyNamedRoute(() => import('./routes/LessonsRoutes'), 'LessonPlayerRoute');
+const PuzzlePlayer = lazyNamedRoute(() => import('./routes/PuzzleRoutes'), 'PuzzlePlayerRoute');
+const QuickPlay = lazyRoute(() => import('./components/QuickPlay'));
+const AboutPage = lazyRoute(() => import('./components/AboutPage'));
+const GamesPage = lazyRoute(() => import('./components/GamesPage'));
+const LeaderboardPage = lazyRoute(() => import('./components/LeaderboardPage'));
+const GuidePage = lazyRoute(() => import('./components/GuidePage'));
+const AnalysisPage = lazyRoute(() => import('./components/AnalysisPage'));
+const FeedbackMessagesPage = lazyRoute(() => import('./components/FeedbackMessagesPage'));
+const FairPlayCasesPage = lazyRoute(() => import('./components/FairPlayCasesPage'));
+const LoginPage = lazyRoute(() => import('./components/LoginPage'));
+const AccountPage = lazyRoute(() => import('./routes/AccountRoute'));
+const AppearanceSettingsPage = lazyRoute(() => import('./components/AppearanceSettingsPage'));
+const FeedbackWidget = lazyRoute(() => import('./components/FeedbackWidget'));
 
 // Shared loading fallback component
 function RouteFallback() {
@@ -40,6 +61,16 @@ function RouteFallback() {
 }
 
 export default function App() {
+  const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
+
+  useEffect(() => {
+    if (showFeedbackWidget || typeof window === 'undefined') {
+      return;
+    }
+
+    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), 12_000);
+  }, [showFeedbackWidget]);
+
   return (
     <div className="min-h-screen bg-surface">
       <SeoHeadManager />
@@ -79,7 +110,11 @@ export default function App() {
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
         </Routes>
       </Suspense>
-      <FeedbackWidget />
+      {showFeedbackWidget ? (
+        <Suspense fallback={null}>
+          <FeedbackWidget />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

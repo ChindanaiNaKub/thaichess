@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
     fetch('/api/leaderboard?limit=50')
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error(`Failed to load leaderboard (${response.status})`);
+          throw new Error(t('leaderboard.load_failed', { status: response.status }));
         }
 
         return response.json();
@@ -48,7 +48,7 @@ export default function LeaderboardPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">

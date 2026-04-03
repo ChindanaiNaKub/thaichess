@@ -24,7 +24,7 @@ const TYPE_STYLES: Record<string, { bg: string; text: string; icon: string }> = 
 
 export default function FeedbackMessagesPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -42,7 +42,7 @@ export default function FeedbackMessagesPage() {
     if (seconds < 3600) return t('time.min_ago', { n: Math.floor(seconds / 60) });
     if (seconds < 86400) return t('time.hour_ago', { n: Math.floor(seconds / 3600) });
     if (seconds < 604800) return t('time.day_ago', { n: Math.floor(seconds / 86400) });
-    return new Date(timestamp * 1000).toLocaleDateString();
+    return new Date(timestamp * 1000).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US');
   }
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function FeedbackMessagesPage() {
     fetch(`/api/feedback?${params}`)
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.error || 'Failed to load feedback.');
+        if (!r.ok) throw new Error(data.error || t('feedback_page.load_failed'));
         return data;
       })
       .then(data => {
@@ -71,10 +71,10 @@ export default function FeedbackMessagesPage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to load feedback.');
+        setError(err instanceof Error ? err.message : t('feedback_page.load_failed'));
         setLoading(false);
       });
-  }, [authLoading, filter, page, user]);
+  }, [authLoading, filter, page, t, user]);
 
   useEffect(() => {
     setPage(0);
@@ -86,11 +86,11 @@ export default function FeedbackMessagesPage() {
     const response = await fetch(`/api/feedback/${feedbackId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note: 'Removed by admin' }),
+      body: JSON.stringify({ note: t('feedback_page.removed_by_admin') }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to moderate feedback.');
+      throw new Error(data.error || t('feedback_page.moderate_failed'));
     }
 
     setFeedback((current) => current.filter((entry) => entry.id !== feedbackId));
@@ -100,7 +100,7 @@ export default function FeedbackMessagesPage() {
   if (authLoading || user?.role !== 'admin') {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center text-text-dim">
-        Loading moderation...
+        {t('feedback_page.loading')}
       </div>
     );
   }
@@ -183,7 +183,7 @@ export default function FeedbackMessagesPage() {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-text-dim">
                               <span className="font-medium">{t('feedback_page.detail_date')}:</span>
-                              <span>{new Date(item.created_at * 1000).toLocaleString()}</span>
+                              <span>{new Date(item.created_at * 1000).toLocaleString(lang === 'th' ? 'th-TH' : 'en-US')}</span>
                             </div>
                           </div>
                         )}
@@ -200,12 +200,12 @@ export default function FeedbackMessagesPage() {
                           try {
                             await handleDelete(item.id);
                           } catch (err) {
-                            setError(err instanceof Error ? err.message : 'Failed to moderate feedback.');
+                            setError(err instanceof Error ? err.message : t('feedback_page.moderate_failed'));
                           }
                         }}
                         className="px-3 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-medium"
                       >
-                        Delete
+                        {t('feedback_page.delete')}
                       </button>
                     </div>
                   </div>

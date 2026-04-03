@@ -1,401 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-
-export type Language = 'en' | 'th';
-type TranslationCatalog = Record<string, string>;
-
-interface I18nContextType {
-  lang: Language;
-  setLang: (lang: Language) => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}
-
-const I18nContext = createContext<I18nContextType | null>(null);
-
-export function detectLanguage(): Language {
-  if (typeof window === 'undefined') return 'en';
-
-  const saved = localStorage.getItem('thaichess-lang');
-  if (saved === 'th' || saved === 'en') return saved;
-
-  const browserLang = navigator.language || (navigator as any).userLanguage || '';
-  if (browserLang.startsWith('th')) return 'th';
-
-  return 'en';
-}
-
-async function loadThaiTranslations(): Promise<TranslationCatalog> {
-  const module = await import('./i18n.th');
-  return module.TH_TRANSLATIONS;
-}
-
-async function loadEnglishExtraTranslations(): Promise<TranslationCatalog> {
-  const module = await import('./i18n.en.extra');
-  return module.EN_EXTRA_TRANSLATIONS;
-}
-
-function applyParams(text: string, params?: Record<string, string | number>): string {
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
-    }
-  }
-  return text;
-}
-
-export const EN_CORE_TRANSLATIONS: Record<string, string> = {
-  'app.name': 'ThaiChess',
-  'app.tagline': 'The Ancient Art of Chess',
-  'nav.play': 'Play',
-  'nav.watch': 'Watch',
-  'nav.lessons': 'Lessons',
-  'nav.puzzles': 'Puzzles',
-  'nav.games': 'Games',
-  'nav.about': 'About',
-  'common.back_home': 'Back to Home',
-  'common.white': 'White',
-  'common.black': 'Black',
-  'common.draw': 'Draw',
-  'common.you': 'You',
-  'common.guest': 'Guest',
-  'common.anonymous': 'Anonymous',
-  'common.cancel': 'Cancel',
-  'common.send': 'Send',
-  'common.sending': 'Sending...',
-  'common.close': 'Close',
-  'common.retry': 'Retry',
-  'common.new_game': 'New Game',
-  'common.loading': 'Loading...',
-  'footer.tagline': 'ThaiChess — Free & Open Source',
-  'footer.inspired': 'Inspired by',
-  'footer.community': 'Community',
-  'footer.github': 'GitHub',
-  'footer.star_github': 'Star on GitHub',
-  'appearance.title': 'Board & Pieces',
-  'appearance.board_and_pieces': 'Board & Pieces',
-  'appearance.subtitle': 'Choose a board theme and a readable piece color theme once, then use them everywhere: online, bot, local, and puzzles.',
-  'appearance.open': 'Board & Pieces',
-  'appearance.open_short': 'Theme',
-  'appearance.boards_tab': 'Boards',
-  'appearance.colors_tab': 'Piece Colors',
-  'appearance.live_preview': 'Live Preview',
-  'appearance.preview_title': 'Preview',
-  'appearance.preview_subtitle': 'Hover to preview, click to apply instantly. Your choice is saved automatically on this device.',
-  'appearance.preview_board': 'Board theme',
-  'appearance.preview_piece_theme': 'Piece color theme',
-  'appearance.core_shape_label': 'Core shape',
-  'appearance.core_shape_desc': 'is the single supported gameplay silhouette for fast recognition and consistent play.',
-  'appearance.saved_note': 'Saved automatically on this device',
-  'appearance.category_classic': 'Classic',
-  'appearance.category_soft': 'Soft',
-  'appearance.category_dark': 'Dark Mode',
-  'appearance.category_elegant': 'Elegant',
-  'appearance.readability_checked': 'Contrast checked',
-  'appearance.grid_contrast': 'Grid contrast',
-  'appearance.piece_contrast': 'Weakest piece contrast',
-  'appearance.single_surface_label': 'Single-surface Makruk',
-  'appearance.single_surface_desc': 'Themes now change board tone, texture feel, and grid only.',
-  'appearance.comparison_title': 'Old vs Makruk',
-  'appearance.comparison_desc': 'Themes no longer switch square colors. They only change the board material tone and grid.',
-  'appearance.comparison_before': 'Before',
-  'appearance.comparison_after': 'Makruk now',
-  'home.hero_title': 'Play Makruk Instantly',
-  'home.hero_desc': 'No signup required. Start a ThaiChess game in seconds, play with friends, or practice against the bot.',
-  'home.quick_play': 'Play Now',
-  'home.quick_play_desc': 'Get paired instantly for casual or rated Makruk.',
-  'home.find_opponent': 'Find Opponent',
-  'home.no_signup': 'No signup required',
-  'home.free_to_play': 'Free to play',
-  'home.games_played': '{count} games played',
-  'home.play_friend': 'Play a Friend',
-  'home.play_friend_desc': 'Share a link',
-  'home.play_bot': 'Play vs Bot',
-  'home.play_bot_desc': '10 themed personas',
-  'home.play_bot_long_desc': 'Challenge a roster of distinct Makruk rivals, each with a named identity, rating, and signature style.',
-  'home.puzzles': 'Puzzles',
-  'home.puzzles_desc': 'Tactical training',
-  'home.puzzles_long_desc': 'Sharpen your tactical skills with curated puzzles from real games.',
-  'home.lessons': 'Lessons',
-  'home.lessons_desc': 'Structured Makruk course',
-  'home.create_private': 'Create a Private Game',
-  'home.private_desc': 'Choose a time control, pick a color, and share the game link.',
-  'home.time_control': 'Time Control',
-  'home.choose_color': 'Choose Color',
-  'home.color_random': 'Random',
-  'home.color_white': 'White',
-  'home.color_black': 'Black',
-  'home.play_with_friend': 'Play with a Friend',
-  'home.creating': 'Creating...',
-  'home.or': 'or',
-  'home.play_local': 'Play Locally (Same Screen)',
-  'home.play_local_desc': 'Pass the board back and forth on one screen.',
-  'home.watch_live': 'Watch Live Games',
-  'home.watch_live_desc': 'See active public Makruk games and jump straight into spectator mode.',
-  'home.live_now_title': 'Live Now',
-  'home.live_now_desc': 'Active public games update in real time. Open any board in read-only spectator mode.',
-  'home.view_all_live': 'View All Live Games',
-  'home.no_live_games': 'No live games right now',
-  'home.no_live_games_desc': 'Check back soon for active public matches to watch.',
-  'home.join_prompt': 'Have a game code?',
-  'home.join_link': 'Join a game',
-  'home.join_title': 'Join a Game',
-  'home.join_desc': 'Open a shared game instantly with a code from a friend.',
-  'home.join_placeholder': 'Enter game code...',
-  'home.join': 'Join',
-  'home.training_start': 'Start puzzle track',
-  'home.training_continue': 'Continue training',
-  'home.training_progress': '{done}/{total} puzzles completed',
-  'home.training_focus': 'Strongest theme so far: {theme}',
-  'home.training_resume': 'Last played: {title}',
-  'home.training_recent': 'Latest solve: {title}',
-  'home.streak_start': 'Start streak',
-  'home.streak_continue': 'Jump back in',
-  'home.streak_title': 'Puzzle streak',
-  'home.streak_progress': '{done}/{total} lessons solved',
-  'home.streak_focus': 'Best lesson theme so far: {theme}',
-  'home.streak_resume': 'Last lesson played: {title}',
-  'home.streak_recent': 'Latest lesson solved: {title}',
-  'home.learn_eyebrow': 'Learn',
-  'home.learn_title': 'Start With the Pages That Actually Help',
-  'home.learn_desc': 'If you are new here, these three pages take you from basic context to your first real Makruk session.',
-  'home.learn_card.what_is_title': 'What Is Makruk?',
-  'home.learn_card.what_is_desc': 'Get the big picture first and see why Thai chess feels different from western chess.',
-  'home.learn_card.how_to_title': 'How to Play Makruk',
-  'home.learn_card.how_to_desc': 'Learn piece movement, promotion, and the counting rule without the usual confusion.',
-  'home.learn_card.play_online_title': 'Play Makruk Online',
-  'home.learn_card.play_online_desc': 'See whether bot games, puzzles, or live play make the best first step for you.',
-  'time.bullet': 'Bullet',
-  'time.blitz': 'Blitz',
-  'time.rapid': 'Rapid',
-  'time.classical': 'Classical',
-
-  // Bot Game
-  'bot.title': 'Play vs Bot',
-  'bot.setup_title': 'Play vs Computer',
-  'bot.setup_desc': 'Choose a bot persona, review its style, level, and estimated strength, pick your side, then begin. Random side is decided only when the game begins.',
-  'bot.difficulty': 'Difficulty',
-  'bot.level_label': 'Level',
-  'bot.level_short': 'Level {level}',
-  'bot.estimated_elo_label': 'Estimated ELO',
-  'bot.estimated_elo_range': 'Estimated {range} ELO',
-  'bot.estimated_elo_note': 'Estimated strength based on play behavior, not an official rating.',
-  'bot.easy': 'Easy',
-  'bot.easy_desc': 'Random moves with basic captures',
-  'bot.medium': 'Medium',
-  'bot.medium_desc': 'Thinks 2 moves ahead',
-  'bot.hard': 'Hard',
-  'bot.hard_desc': 'Thinks 4 moves ahead',
-  'bot.play_as': 'Play as',
-  'bot.random': 'Random',
-  'bot.random_assigned': 'Assigned on start',
-  'bot.side_locked': 'Locked before game start',
-  'bot.start': 'Start Game',
-  'bot.thinking': 'thinking...',
-  'bot.your_turn': 'Your turn',
-  'bot.bot_thinking': 'Bot is thinking...',
-  'bot.you_won': 'You Won!',
-  'bot.bot_wins': 'Bot Wins',
-  'bot.resign': 'Resign',
-  'bot.resign_confirm': 'Are you sure you want to resign?',
-  'bot.vs_bot': 'vs Bot',
-
-  // Puzzles
-  'puzzle.title': 'Puzzle Streak',
-  'puzzle.desc': 'Play one tactical puzzle after another with hidden adaptive difficulty and instant scoring.',
-  'puzzle.completed': '{done}/{total} completed',
-  'puzzle.completed_summary': 'Overall progress',
-  'puzzle.progress_hint': 'Solved puzzles stay checked on this device.',
-  'puzzle.all': 'All',
-  'puzzle.all_lessons': 'All Lessons',
-  'puzzle.beginner': 'Beginner',
-  'puzzle.intermediate': 'Intermediate',
-  'puzzle.advanced': 'Advanced',
-  'puzzle.filter_label': 'Current track',
-  'puzzle.filter_all_desc': 'Mix every shipped lesson in one queue.',
-  'puzzle.filter_beginner_desc': 'Short tactical wins and basic mates.',
-  'puzzle.filter_intermediate_desc': 'Two-step ideas that punish weak defense.',
-  'puzzle.filter_advanced_desc': 'Tougher calculation once the catalog grows.',
-  'puzzle.theme_drill_title': 'Theme drills',
-  'puzzle.theme_drill_desc': 'Narrow the queue to one tactical idea when you want repetition.',
-  'puzzle.theme_drill_count': '{count} themes in this track',
-  'puzzle.theme_all': 'All ideas',
-  'puzzle.track_progress': '{track} progress',
-  'puzzle.track_completed': '{done}/{total} in this track',
-  'puzzle.remaining_label': 'Still fresh',
-  'puzzle.remaining_desc': 'Unsolved puzzles are listed first.',
-  'puzzle.focus_label': 'Theme focus',
-  'puzzle.focus_desc': 'Use this to pick what idea you want to drill next.',
-  'puzzle.focus_empty': 'No themes yet',
-  'puzzle.next_up': 'Next lesson',
-  'puzzle.next_up_fresh': 'Start with the first unsolved puzzle in this track.',
-  'puzzle.next_up_review': 'You cleared this track. Replay a solved puzzle to stay sharp.',
-  'puzzle.start_here': 'Start here',
-  'puzzle.practice_title': 'Practice queue',
-  'puzzle.practice_desc': 'Fresh puzzles come first, solved ones stay available for review.',
-  'puzzle.new_badge': 'Fresh',
-  'puzzle.solved_badge': 'Solved',
-  'puzzle.empty_title': 'No puzzles in this track yet',
-  'puzzle.empty_desc': 'Switch difficulty or come back after more lessons are reviewed.',
-  'puzzle.empty_theme_title': 'No {theme} drills here yet',
-  'puzzle.empty_theme_desc': 'Try another idea or switch out of {track} to find more {theme} puzzles.',
-  'puzzle.to_move': '{color} to move',
-  'puzzle.find_best': 'Find the best move for {color}!',
-  'puzzle.step': 'Step {current} of {total}',
-  'puzzle.correct': 'Correct!',
-  'puzzle.solved_hint': 'Solved with hint',
-  'puzzle.solved_clean': 'Solved without hints!',
-  'puzzle.wrong': 'Not quite!',
-  'puzzle.wrong_desc': "That wasn't the best move. Try again!",
-  'puzzle.hint': 'Hint',
-  'puzzle.next': 'Next Puzzle',
-  'puzzle.previous': 'Previous',
-  'puzzle.all_puzzles': 'All Puzzles',
-  'puzzle.back_to_lessons': 'Back to Lessons',
-  'puzzle.not_found': 'Puzzle not found',
-  'puzzle.back': 'Back to Puzzles',
-  'puzzle.lesson': 'Lesson',
-  'puzzle.lessons_nav': 'Lessons',
-  'puzzle.lessons_eyebrow': 'Lesson Mode',
-  'puzzle.lessons_title': 'Lessons',
-  'puzzle.lessons_desc': 'Learn Makruk through a progressive course, then reinforce each concept with puzzles.',
-  'puzzle.lessons_tracks_title': 'Learning tracks',
-  'puzzle.lessons_tracks_desc': 'Beginner, Intermediate, and Advanced stay here as deliberate study paths.',
-  'puzzle.play_streak': 'Play Streak',
-  'puzzle.streak_nav': 'Puzzle Streak',
-  'puzzle.streak_eyebrow': 'Primary Mode',
-  'puzzle.streak_title': 'Puzzle Streak',
-  'puzzle.streak_desc': 'Solve continuously, build your streak, and let the system quietly raise or lower the challenge based on your play.',
-  'puzzle.streak_prompt_title': 'Keep the streak alive',
-  'puzzle.streak_prompt_desc': 'Correct moves score immediately and the next puzzle loads right away.',
-  'puzzle.streak_score_label': 'Score',
-  'puzzle.streak_label': 'Streak',
-  'puzzle.streak_session_label': 'Solved',
-  'puzzle.streak_checkpoint_label': 'Checkpoint',
-  'puzzle.streak_checkpoint_progress': '{current}/{total} to the next pulse',
-  'puzzle.streak_flow_label': 'Flow',
-  'puzzle.streak_flow_desc': 'Adaptive pacing',
-  'puzzle.streak_puzzle_label': 'Puzzle {number}',
-  'puzzle.streak_points': '+{points} points',
-  'puzzle.streak_focus_title': 'Current puzzle',
-  'puzzle.streak_focus_keep': 'Breathe, reset, and go again.',
-  'puzzle.streak_focus_desc': 'Difficulty stays hidden here so the rhythm feels fast and frictionless.',
-  'puzzle.streak_session_title': 'Session',
-  'puzzle.streak_best_label': 'Best streak',
-  'puzzle.streak_lessons_progress_label': 'Lessons',
-  'puzzle.visit_lessons': 'Open Lessons',
-  'puzzle.streak_end_eyebrow': 'Session Ended',
-  'puzzle.streak_end_title': 'Streak ended',
-  'puzzle.streak_end_desc': 'One mistake breaks the run, but your lesson progress stays saved.',
-  'puzzle.streak_ended_at': 'Streak ended at {streak}',
-  'puzzle.streak_end_summary': 'Final streak {streak} · session score {score}',
-  'puzzle.retry_puzzle': 'Retry puzzle',
-  'puzzle.streak_try_again': 'Start a new streak',
-  'puzzle.streak_milestone_improving': 'You’re improving. Keep the flow going.',
-  'puzzle.streak_milestone_harder': 'Now facing harder puzzles. Stay sharp.',
-  'puzzle.source': 'Source',
-  'puzzle.source_real_game_ply': 'Real game · ply {ply}',
-  'puzzle.source_seed_game_ply': 'Seed game · ply {ply}',
-  'puzzle.source_starter_pack': 'Starter pack',
-  'puzzle.source_curated_tactic': 'Curated tactic',
-  'puzzle.source_tactical_motif': 'Tactical motif',
-  'puzzle.source_review_batch': 'Review batch',
-  'puzzle.rating_label': 'Adaptive target',
-  'puzzle.rating_short': 'Rating {score}',
-  'puzzle.success_rate': 'Success rate',
-  'puzzle.attempts_label': 'Attempts',
-  'puzzle.activity_title': 'Session activity',
-  'puzzle.activity_status_label': 'Status',
-  'puzzle.activity_status_new': 'New',
-  'puzzle.activity_status_in_progress': 'In progress',
-  'puzzle.activity_status_solved': 'Solved',
-  'puzzle.activity_last_played': 'Last played {date}',
-  'puzzle.activity_completed_on': 'Solved {date}',
-  'puzzle.related_theme_title': 'More in this theme',
-  'puzzle.related_theme_desc': 'Keep drilling {theme} with these follow-ups.',
-  'puzzle.related_theme_empty': 'No other {theme} puzzles yet.',
-
-  // Puzzle themes
-  'theme.BasicCheckmate': 'Basic Checkmate',
-  'theme.BackRank': 'Back Rank',
-  'theme.Checkmate': 'Checkmate',
-  'theme.Clearance': 'Clearance',
-  'theme.Decoy': 'Decoy',
-  'theme.Defense': 'Defense',
-  'theme.BestDefense': 'Best Defense',
-  'theme.Deflection': 'Deflection',
-  'theme.CountDefense': 'Count Defense',
-  'theme.CountingDraw': 'Counting Draw',
-  'theme.DoubleAttack': 'Double Attack',
-  'theme.DoubleCheck': 'Double Check',
-  'theme.ExchangeSacrifice': 'Exchange Sacrifice',
-  'theme.HangingPiece': 'Hanging Piece',
-  'theme.Interference': 'Interference',
-  'theme.MateIn1': 'Mate in 1',
-  'theme.MateIn2': 'Mate in 2',
-  'theme.MateIn3': 'Mate in 3+',
-  'theme.MatingNet': 'Mating Net',
-  'theme.Overloading': 'Overloading',
-  'theme.PerpetualCheck': 'Perpetual Check',
-  'theme.Fork': 'Fork',
-  'theme.Pin': 'Pin',
-  'theme.Promotion': 'Promotion',
-  'theme.Discovery': 'Discovery',
-  'theme.RemovalOfDefender': 'Removal of the Defender',
-  'theme.OnlyMove': 'Only Move',
-  'theme.Sacrifice': 'Sacrifice',
-  'theme.SaveTheDraw': 'Save the Draw',
-  'theme.Simplification': 'Simplification',
-  'theme.SmotheredMate': 'Smothered Mate',
-  'theme.Skewer': 'Skewer',
-  'theme.Stalemate': 'Stalemate',
-  'theme.SupportMate': 'Support Mate',
-  'theme.Tactic': 'Tactic',
-  'theme.TacticalWin': 'Tactical Win',
-  'theme.TrappedPiece': 'Trapped Piece',
-  'theme.VulnerableKing': 'Vulnerable King',
-  'theme.WinBeforeCountExpires': 'Win Before Count Expires',
-  'theme.Windmill': 'Windmill',
-  'theme.XRay': 'X-Ray Attack',
-  'theme.Zwischenzug': 'Zwischenzug',
-  'theme.Endgame': 'Endgame',
-  'theme.Desperado': 'Desperado',
-
-  // Quick Play / Matchmaking
-  'quick.title': 'Quick Play',
-  'quick.desc': 'Find an opponent instantly. No link sharing needed!',
-  'quick.searching': 'Finding opponent...',
-  'quick.search_time': 'Searching for {time}',
-  'quick.queue': '{count} player(s) in queue',
-  'quick.find': 'Find Opponent',
-  'quick.rated_available': 'Rated Available',
-  'games.title': 'Recent Games',
-  'feedback.button': 'Feedback',
-  'time.just_now': 'just now',
-  'time.min_ago': '{n}m ago',
-  'time.hour_ago': '{n}h ago',
-  'time.day_ago': '{n}d ago',
-  'leaderboard.title': 'Leaderboard',
-  'error.board_display': 'Board display error',
-  'error.connection_title': 'Connection Error',
-  'error.connection_body': 'An error occurred while loading data',
-  'error.try_again': 'Try Again',
-  'error.something_wrong': 'Something went wrong',
-  'error.unexpected': 'The app encountered an unexpected error. This has been noted.',
-  'error.unknown': 'Unknown error',
-  'error.reload_page': 'Reload Page',
-  'error.report_bug': 'Report this bug on GitHub',
-  'header.admin': 'Admin',
-  'header.sign_in': 'Sign In',
-  'header.menu': 'Menu',
-  'header.close_menu': 'Close',
-  'header.switch_to_th': 'Switch to Thai',
-  'header.switch_to_en': 'Switch to English',
-  'footer.links_label': 'Site footer links',
-  'footer.what_is_makruk': 'What Is Makruk?',
-  'footer.how_to_play_makruk': 'How to Play Makruk',
-  'lang.switch': 'TH',
-};
-
-const TH: Record<string, string> = {
+export const TH_TRANSLATIONS: Record<string, string> = {
   // Common
   'app.name': 'หมากรุก',
   'app.tagline': 'หมากรุกไทยออนไลน์',
@@ -411,6 +14,7 @@ const TH: Record<string, string> = {
   'common.draw': 'เสมอ',
   'common.you': 'คุณ',
   'common.guest': 'ผู้เล่นทั่วไป',
+  'common.anonymous': 'ไม่ระบุตัวตน',
   'common.cancel': 'ยกเลิก',
   'common.send': 'ส่ง',
   'common.sending': 'กำลังส่ง...',
@@ -506,11 +110,86 @@ const TH: Record<string, string> = {
   'home.training_recent': 'แก้ล่าสุด: {title}',
   'home.streak_start': 'เริ่มสตรีค',
   'home.streak_continue': 'ลุยต่อ',
-  'home.streak_title': 'Puzzle Streak',
+  'home.streak_title': 'สตรีคปริศนา',
   'home.streak_progress': 'แก้บทเรียนแล้ว {done}/{total} ข้อ',
   'home.streak_focus': 'ธีมบทเรียนที่เด่นตอนนี้: {theme}',
   'home.streak_resume': 'บทเรียนล่าสุดที่เล่น: {title}',
   'home.streak_recent': 'บทเรียนล่าสุดที่แก้ได้: {title}',
+  'home.learn_eyebrow': 'คู่มือเริ่มต้น',
+  'home.learn_title': 'เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง',
+  'home.learn_desc': 'ถ้าคุณเพิ่งเข้ามาใหม่ 3 หน้านี้จะพาคุณจากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง',
+  'home.learn_card.what_is_title': 'หมากรุกไทยคืออะไร',
+  'home.learn_card.what_is_desc': 'ดูภาพรวมของเกมก่อน ว่าทำไมหมากรุกไทยถึงต่างจากหมากรุกสากล',
+  'home.learn_card.how_to_title': 'วิธีเล่นหมากรุกไทย',
+  'home.learn_card.how_to_desc': 'เรียนการเดินหมาก การหงาย และกฎการนับแบบเข้าใจง่าย',
+  'home.learn_card.play_online_title': 'เล่นหมากรุกไทยออนไลน์',
+  'home.learn_card.play_online_desc': 'ดูว่าเริ่มจากบอท โจทย์ หรือเกมคนจริงแบบไหนเหมาะที่สุด',
+  'lessons.course.eyebrow': 'บทเรียนแบบเป็นลำดับ',
+  'lessons.course.title': 'เรียนหมากรุกไทยเหมือนมีโค้ชคอยพาไปทีละขั้น',
+  'lessons.course.desc': 'ค่อย ๆ เรียนตามโมดูลระดับเริ่มต้น ปานกลาง และขั้นสูงตามลำดับ แต่ละบทจะอธิบายแนวคิดหนึ่งอย่าง แสดงบนกระดาน พาคุณทำทีละขั้น แล้วให้ลองฝึกเองทันที',
+  'lessons.course.stats.progress': 'ความคืบหน้า',
+  'lessons.course.stats.completed': 'บทเรียนที่เรียนจบแล้ว',
+  'lessons.course.stats.shape': 'โครงคอร์ส',
+  'lessons.course.stats.shape_desc': '3 โมดูล ตั้งแต่พื้นฐานไปจนถึงการวางแผน',
+  'lessons.course.stats.format': 'รูปแบบ',
+  'lessons.course.stats.format_value': 'มีโค้ชนำทาง',
+  'lessons.course.stats.format_desc': 'อธิบาย สาธิต ฝึก และตอกย้ำ',
+  'lessons.course.progress_label': 'ความคืบหน้าของคอร์ส',
+  'lessons.course.progress_value': 'สำเร็จแล้ว {percent}%',
+  'lessons.course.next_lesson': 'บทเรียนถัดไป',
+  'lessons.course.minutes': '{minutes} นาที',
+  'lessons.course.start_lesson': 'เริ่มบทเรียน',
+  'lessons.course.complete_title': 'เรียนครบคอร์สแล้ว',
+  'lessons.course.complete_desc': 'คุณเรียนคอร์สหมากรุกไทยชุดปัจจุบันครบแล้ว กลับไปทบทวนบทไหนก็ได้เพื่อให้แนวคิดแม่นขึ้น แล้วค่อยไปต่อที่ปริศนาเพื่อฝึกแพตเทิร์นให้คม',
+  'lessons.course.go_to_puzzles': 'ไปที่ปริศนา',
+  'lessons.course.module_progress': '{done}/{total} บทเสร็จแล้ว',
+  'lessons.course.lesson_label': 'บทเรียน {order}',
+  'lessons.course.status.completed': 'จบแล้ว',
+  'lessons.course.status.resume': 'ทำต่อ',
+  'lessons.course.status.unlocked': 'ปลดล็อกแล้ว',
+  'lessons.course.status.locked': 'ล็อกอยู่',
+  'lessons.player.not_found': 'ไม่พบบทเรียน',
+  'lessons.player.back_to_course': 'กลับไปคอร์ส',
+  'lessons.player.default_correct': 'ถูกต้อง',
+  'lessons.player.default_wrong': 'ตาเดินนี้ไม่ตรงกับเป้าหมายของบทเรียน',
+  'lessons.player.practice_task': 'แบบฝึกหัด',
+  'lessons.player.guided_step': 'ขั้นนำทาง',
+  'lessons.player.mini_practice': 'ฝึกสั้น',
+  'lessons.player.status.completed': 'จบแล้ว',
+  'lessons.player.status.guided': 'นำทาง',
+  'lessons.player.status.practice': 'ฝึก',
+  'lessons.player.header_subtitle': 'บทเรียน · {title}',
+  'lessons.player.course_path': 'เส้นทางคอร์ส',
+  'lessons.player.level_and_order': '{level} · บทเรียน {order}',
+  'lessons.player.counting_aware': 'บทเรียนที่เกี่ยวกับการนับ',
+  'lessons.player.no_counting_dependency': 'ไม่ขึ้นกับกฎการนับ',
+  'lessons.player.lesson_flow': 'ลำดับบทเรียน',
+  'lessons.player.step_of': 'ขั้น {current} จาก {total}',
+  'lessons.player.task_of': 'แบบฝึก {current} จาก {total}',
+  'lessons.player.concept_explanation': 'คำอธิบายแนวคิด',
+  'lessons.player.rule_impact': 'ผลของกฎ',
+  'lessons.player.counting_changes_evaluation': 'กฎการนับมีผลต่อการประเมิน',
+  'lessons.player.counting_not_relevant': 'กฎการนับไม่กระทบบทเรียนนี้',
+  'lessons.player.why_this_move_works': 'ทำไมตานี้จึงใช้ได้ผล',
+  'lessons.player.problem': 'ปัญหา',
+  'lessons.player.what_it_fixes': 'ตานี้แก้อะไร',
+  'lessons.player.new_threat': 'ภัยคุกคามใหม่',
+  'lessons.player.after_the_move': 'หลังจากเดินแล้ว',
+  'lessons.player.compare_moves': 'เปรียบเทียบตาเดิน',
+  'lessons.player.best_move': 'ตาที่ดีที่สุด',
+  'lessons.player.tempting_move': 'ตาที่น่าลองแต่ยังไม่ดีที่สุด',
+  'lessons.player.step_badge': 'ขั้น {number}',
+  'lessons.player.task_badge': 'แบบฝึก {number}',
+  'lessons.player.start_mini_practice': 'เริ่มฝึกสั้น',
+  'lessons.player.next_step': 'ขั้นถัดไป',
+  'lessons.player.review_summary': 'ดูสรุป',
+  'lessons.player.next_task': 'แบบฝึกถัดไป',
+  'lessons.player.next_lesson': 'บทเรียนถัดไป',
+  'lessons.player.summary': 'สรุป',
+  'lessons.player.puzzles_reinforce': 'ปริศนาไว้ตอกย้ำบทเรียนนี้',
+  'lessons.player.puzzles_reinforce_desc': 'หลังเรียนจบแล้ว ลองไปฝึกปริศนาธีมที่เกี่ยวข้องเพื่อให้แนวคิดเปลี่ยนจากคำอธิบายเป็นการจำรูปแบบ',
+  'lessons.player.more_puzzles_coming': 'ลิงก์ปริศนาเพิ่มเติมจะมาแสดงตรงนี้เมื่อชุดโจทย์ของแนวคิดนี้ขยายขึ้น',
+  'lessons.player.previous_lesson': 'บทเรียนก่อนหน้า',
 
   // Time presets
   'time.bullet': 'บุลเลต',
@@ -522,6 +201,14 @@ const TH: Record<string, string> = {
   'bot.title': 'เล่นกับบอท',
   'bot.setup_title': 'เล่นกับคอมพิวเตอร์',
   'bot.setup_desc': 'เลือกบุคลิกบอท ดูสไตล์ ระดับ และพลังฝีมือโดยประมาณ เลือกฝั่ง แล้วเริ่มเกมซ้อมได้เลย หากเลือกสุ่ม ระบบจะตัดสินฝั่งให้ตอนเริ่มเกมเท่านั้น',
+  'bot.selected_bot': 'บอทที่เลือก',
+  'bot.roster': 'รายชื่อบอท',
+  'bot.featured_opponent': 'คู่ต่อสู้เด่น',
+  'bot.opening_preference': 'สไตล์เปิดเกม',
+  'bot.signature_style': 'เอกลักษณ์การเล่น',
+  'bot.tactical_bias': 'แนวโน้มเชิงแท็กติก',
+  'bot.strategic_weakness': 'จุดอ่อนเชิงกลยุทธ์',
+  'bot.dialogue_preview': 'ตัวอย่างบทสนทนา',
   'bot.difficulty': 'ระดับความยาก',
   'bot.level_label': 'เลเวล',
   'bot.level_short': 'เลเวล {level}',
@@ -540,6 +227,7 @@ const TH: Record<string, string> = {
   'bot.side_locked': 'ล็อกฝั่งก่อนเริ่มเกม',
   'bot.start': 'เริ่มเกม',
   'bot.thinking': 'กำลังคิด...',
+  'bot.chat_thinking': 'กำลังคิด',
   'bot.your_turn': 'ตาของคุณ',
   'bot.bot_thinking': 'บอทกำลังคิด...',
   'bot.you_won': 'คุณชนะ!',
@@ -549,7 +237,7 @@ const TH: Record<string, string> = {
   'bot.vs_bot': 'กับบอท',
 
   // Puzzles
-  'puzzle.title': 'Puzzle Streak',
+  'puzzle.title': 'สตรีคปริศนา',
   'puzzle.desc': 'เล่นปริศนาต่อเนื่อง เก็บคะแนน และให้ระบบปรับความยากแบบซ่อนอยู่ตามผลงานของคุณ',
   'puzzle.completed': '{done}/{total} สำเร็จ',
   'puzzle.completed_summary': 'ความคืบหน้าทั้งหมด',
@@ -608,11 +296,11 @@ const TH: Record<string, string> = {
   'puzzle.lessons_title': 'บทเรียน',
   'puzzle.lessons_desc': 'เรียนหมากรุกไทยเป็นคอร์สตามลำดับ แล้วค่อยต่อยอดด้วยปริศนาที่ตรงกับแนวคิดของบทเรียน',
   'puzzle.lessons_tracks_title': 'เส้นทางการเรียน',
-  'puzzle.lessons_tracks_desc': 'Beginner, Intermediate และ Advanced ยังคงอยู่ที่นี่ในฐานะเส้นทางฝึกแบบตั้งใจ',
+  'puzzle.lessons_tracks_desc': 'ระดับเริ่มต้น ระดับกลาง และระดับสูง ยังคงอยู่ที่นี่ในฐานะเส้นทางฝึกแบบตั้งใจ',
   'puzzle.play_streak': 'เล่นสตรีค',
-  'puzzle.streak_nav': 'Puzzle Streak',
+  'puzzle.streak_nav': 'สตรีคปริศนา',
   'puzzle.streak_eyebrow': 'โหมดหลัก',
-  'puzzle.streak_title': 'Puzzle Streak',
+  'puzzle.streak_title': 'สตรีคปริศนา',
   'puzzle.streak_desc': 'แก้ปริศนาต่อเนื่อง เก็บสตรีค และให้ระบบค่อย ๆ ปรับความท้าทายขึ้นหรือลงจากการเล่นของคุณ',
   'puzzle.streak_prompt_title': 'รักษาสตรีคไว้',
   'puzzle.streak_prompt_desc': 'ตอบถูกแล้วได้คะแนนทันที และโจทย์ถัดไปจะขึ้นต่อแบบลื่นไหล',
@@ -642,8 +330,8 @@ const TH: Record<string, string> = {
   'puzzle.streak_milestone_improving': 'คุณกำลังดีขึ้น เล่นต่อให้ลื่นเลย',
   'puzzle.streak_milestone_harder': 'ตอนนี้กำลังเจอโจทย์ที่ยากขึ้นแล้ว ระวังให้ดี',
   'puzzle.source': 'ที่มา',
-  'puzzle.source_real_game_ply': 'เกมจริง · ply {ply}',
-  'puzzle.source_seed_game_ply': 'เกมตัวอย่าง · ply {ply}',
+  'puzzle.source_real_game_ply': 'เกมจริง · ตาที่ {ply}',
+  'puzzle.source_seed_game_ply': 'เกมตัวอย่าง · ตาที่ {ply}',
   'puzzle.source_starter_pack': 'ชุดเริ่มต้น',
   'puzzle.source_curated_tactic': 'แทคติกคัดสรร',
   'puzzle.source_tactical_motif': 'มอติฟแทคติก',
@@ -669,11 +357,11 @@ const TH: Record<string, string> = {
   'theme.Checkmate': 'รุกจน',
   'theme.Clearance': 'เปิดทาง',
   'theme.Decoy': 'ล่อ',
-  'theme.Defense': 'ตั้งรับ',
   'theme.BestDefense': 'ตั้งรับที่ดีที่สุด',
-  'theme.Deflection': 'เบี่ยงตัวป้องกัน',
   'theme.CountDefense': 'กันเสมอด้วยการนับ',
   'theme.CountingDraw': 'เสมอเพราะการนับ',
+  'theme.Defense': 'ตั้งรับ',
+  'theme.Deflection': 'เบี่ยงตัวป้องกัน',
   'theme.DoubleAttack': 'โจมตีสองเป้า',
   'theme.DoubleCheck': 'รุกสองทาง',
   'theme.ExchangeSacrifice': 'สังเวยเรือแลกตัว',
@@ -719,6 +407,7 @@ const TH: Record<string, string> = {
   'quick.rated_available': 'จัดอันดับได้',
   'quick.rated_unavailable': 'ปิดเกมจัดอันดับ',
   'quick.casual_only': 'เกมทั่วไป',
+  'quick.load_failed': 'ไม่สามารถเริ่มเล่นด่วนได้ในขณะนี้',
   'quick.rated_signed_in': 'จะเป็นเกมจัดอันดับเมื่อเจอคู่แข่งที่เข้าสู่ระบบเช่นกัน',
   'quick.rated_restricted': 'บัญชีนี้ยังเล่นควิกเพลย์แบบทั่วไปได้ แต่ปิดการจับคู่แบบจัดอันดับไว้',
   'quick.rated_sign_in': 'เข้าสู่ระบบเพื่อปลดล็อกเกมจัดอันดับ',
@@ -733,6 +422,7 @@ const TH: Record<string, string> = {
   'game.casual': 'ทั่วไป',
   'game.rating_change': 'เรตติ้ง',
   'game.connecting': 'กำลังเชื่อมต่อ...',
+  'game.load_failed': 'ไม่สามารถโหลดเกมนี้ได้ในขณะนี้',
   'game.error': 'ข้อผิดพลาด',
   'game.opponent': 'คู่แข่ง',
   'game.online': 'ออนไลน์',
@@ -812,6 +502,7 @@ const TH: Record<string, string> = {
   'gameover.by_agreement': 'ตกลงเสมอ',
   'gameover.by_material': 'ตัวหมากไม่เพียงพอ',
   'gameover.by_counting': 'โดยกฎการนับ',
+  'gameover.by_unknown': 'เกมจบแล้ว',
   'gameover.rematch': 'แข่งอีกครั้ง',
   'gameover.rematch_accept': 'ยอมรับแข่งอีกครั้ง',
   'gameover.rematch_sent': 'ส่งคำขอแล้ว',
@@ -836,20 +527,20 @@ const TH: Record<string, string> = {
 
   // Piece Guide
   'guide.title': 'คู่มือตัวหมาก',
-  'guide.king': 'ขุน (King)',
-  'guide.queen': 'เม็ด (Queen)',
-  'guide.bishop': 'โคน (Bishop)',
-  'guide.rook': 'เรือ (Rook)',
-  'guide.knight': 'ม้า (Knight)',
-  'guide.pawn': 'เบี้ย (Pawn)',
-  'guide.promoted': 'เบี้ยหงาย (Promoted)',
+  'guide.king': 'ขุน',
+  'guide.queen': 'เม็ด',
+  'guide.bishop': 'โคน',
+  'guide.rook': 'เรือ',
+  'guide.knight': 'ม้า',
+  'guide.pawn': 'เบี้ย',
+  'guide.promoted': 'เบี้ยหงาย',
   'guide.king_move': 'เดินได้ 1 ช่องทุกทิศทาง',
   'guide.queen_move': 'เดินได้ 1 ช่องแนวทแยง',
   'guide.bishop_move': 'เดินได้ 1 ช่องแนวทแยงหรือ 1 ช่องหน้า',
   'guide.rook_move': 'เดินได้ไม่จำกัดในแนวตั้งและแนวนอน',
   'guide.knight_move': 'รูปตัว L: 2+1 ช่อง',
   'guide.pawn_move': 'เดินหน้า 1 ช่อง; กินแนวทแยง',
-  'guide.promoted_move': 'เหมือนเม็ด (1 ช่องทแยง)',
+  'guide.promoted_move': 'เหมือนเม็ด เดินทแยง 1 ช่อง',
 
   // Connection
   'conn.connected': 'เชื่อมต่อแล้ว',
@@ -859,7 +550,7 @@ const TH: Record<string, string> = {
   // About Page
   'about.eyebrow': 'เรียนรู้หมากรุก',
   'about.title': 'เกี่ยวกับหมากรุกไทย',
-  'about.hero_desc': 'Makruk คือหมากรุกดั้งเดิมของไทย จังหวะเกมค่อยเป็นค่อยไปกว่าเดิม ลดการแลกง่าย ๆ และเต็มไปด้วยรูปแบบตัวหมากที่ไม่เหมือนหมากรุกสากล ThaiChess ถูกสร้างขึ้นเพื่อให้คนเรียนรู้และเล่นออนไลน์ได้ง่ายขึ้น',
+  'about.hero_desc': 'หมากรุกไทยคือหมากรุกดั้งเดิมของไทย จังหวะเกมค่อยเป็นค่อยไปกว่าเดิม ลดการแลกง่าย ๆ และเต็มไปด้วยรูปแบบตัวหมากที่ไม่เหมือนหมากรุกสากล เว็บไซต์นี้ถูกสร้างขึ้นเพื่อให้คนเรียนรู้และเล่นออนไลน์ได้ง่ายขึ้น',
   'about.cta_play': 'เริ่มเล่น',
   'about.cta_puzzles': 'ลองปริศนา',
   'about.quick_facts': 'ข้อมูลเร็ว',
@@ -877,12 +568,12 @@ const TH: Record<string, string> = {
   'about.white_wins': 'ฝั่งขาวชนะ',
   'about.black_wins': 'ฝั่งดำชนะ',
   'about.what_title': 'หมากรุกไทยคืออะไร?',
-  'about.what1': '<strong>หมากรุกไทย (Makruk)</strong> เป็นหมากรุกดั้งเดิมของไทย พัฒนามาจากจตุรงค์ของอินเดียโบราณ และเล่นกันในไทยมาหลายศตวรรษ',
+  'about.what1': '<strong>หมากรุกไทย</strong> เป็นหมากรุกดั้งเดิมของไทย พัฒนามาจากจตุรงค์ของอินเดียโบราณ และเล่นกันในไทยมาหลายศตวรรษ',
   'about.what2': 'ต่างจากหมากรุกสากล หมากรุกไทยยังคงรักษาลักษณะดั้งเดิมไว้ — เม็ด (ควีน) อ่อนแอ โคน (บิชอป) เดินต่างออกไป และเบี้ยเริ่มที่แถวที่สาม ทำให้เกมมีกลยุทธ์ลึกซึ้งและสวยงามเป็นเอกลักษณ์',
   'about.what3': 'หมากรุกไทยเป็นที่นิยมในไทยและกัมพูชา (เรียกว่า อุกจตุรงค์) ได้รับการยอมรับจากสหพันธ์หมากรุกโลกและมีการแข่งขันระดับนานาชาติ',
   'about.what4': 'เราเชื่อว่าหมากรุกไทยสมควรได้รับการยอมรับระดับโลกเทียบเท่าหมากรุกสากล ช่วยเราเผยแพร่!',
   'about.diff_eyebrow': 'อะไรที่ต่างออกไป',
-  'about.diff_title': 'Makruk ให้ความรู้สึกต่างจากหมากรุกสากลอย่างไร',
+  'about.diff_title': 'หมากรุกไทยให้ความรู้สึกต่างจากหมากรุกสากลอย่างไร',
   'about.diff1': 'เม็ดอ่อนกว่าควีนสากลมาก เกมรุกจึงค่อยเป็นค่อยไปและการวางตำแหน่งสำคัญขึ้น',
   'about.diff2': 'รูปแบบการเดินของโคนเปลี่ยนแนวทแยงและทำให้เกิดแทคติกที่ผู้เล่นหมากรุกสากลต้องเรียนรู้ใหม่',
   'about.diff3': 'เบี้ยเริ่มบนแถวที่สามและหงายไม่เหมือนเดิม ทำให้โอเพนนิงและเอนด์เกมมีเอกลักษณ์ของตัวเอง',
@@ -891,7 +582,7 @@ const TH: Record<string, string> = {
   'about.pieces_title': 'จำการเดินของตัวหมากให้เร็ว',
   'about.learn_by_playing': 'เรียนรู้ต่อด้วยเกมเร็ว',
   'about.opensource_title': 'โอเพนซอร์ส',
-  'about.opensource_desc': 'หมากรุกไทยเป็นโอเพนซอร์ส 100% ภายใต้ MIT license โค้ดทั้งหมดอยู่บน GitHub',
+  'about.opensource_desc': 'หมากรุกไทยเป็นโอเพนซอร์ส 100% ภายใต้สัญญาอนุญาต MIT และโค้ดทั้งหมดอยู่บน GitHub',
   'about.footer': 'หมากรุกไทย — ฟรีและโอเพนซอร์ส — สร้างด้วยรักเพื่อหมากรุกไทย',
 
   // Games Page
@@ -929,8 +620,10 @@ const TH: Record<string, string> = {
   'games.reason_timeout': 'หมดเวลา',
   'games.reason_stalemate': 'อับ',
   'games.reason_agreement': 'ตกลง',
+  'games.reason_material': 'ตัวหมากไม่พอ',
   'games.reason_counting': 'กฎการนับ',
   'games.reason_draw': 'เสมอ',
+  'games.reason_unknown': 'จบเกม',
   'live.title': 'ชมเกมสด',
   'live.desc': 'ค้นหาเกมหมากรุกไทยสาธารณะที่กำลังเล่น และตามดูทุกตาเดินในโหมดผู้ชม',
   'live.live_now': 'กำลังเล่น',
@@ -938,15 +631,15 @@ const TH: Record<string, string> = {
   'live.recently_finished': 'เพิ่งจบไป',
   'live.recently_finished_desc': 'เกมสาธารณะเหล่านี้เพิ่งจบ และยังเปิดทบทวนได้',
   'live.empty_title': 'ตอนนี้ยังไม่มีเกมสด',
-  'live.empty_desc': 'เมื่อมีเกม quick play สาธารณะเริ่มเล่น เกมเหล่านั้นจะปรากฏที่นี่อัตโนมัติ',
+  'live.empty_desc': 'เมื่อมีเกมเล่นด่วนสาธารณะเริ่มขึ้น เกมเหล่านั้นจะปรากฏที่นี่โดยอัตโนมัติ',
   'live.card_live': 'สด',
   'live.card_finished': 'จบแล้ว',
   'live.watchers': 'ผู้ชม {count} คน',
   'live.watch': 'ชมเกม',
   'live.view_spectator': 'เปิดโหมดผู้ชม',
-  'live.mode_quick_play': 'Quick Play',
-  'live.mode_rated': 'Quick Play จัดอันดับ',
-  'live.mode_casual': 'Quick Play ทั่วไป',
+  'live.mode_quick_play': 'เล่นด่วน',
+  'live.mode_rated': 'เล่นด่วนจัดอันดับ',
+  'live.mode_casual': 'เล่นด่วนทั่วไป',
   'live.moves': '{count} ตาเดิน',
   'live.updated': 'ตาเดินล่าสุดเมื่อ {n} นาทีที่แล้ว',
   'live.just_now': 'อัปเดตเมื่อสักครู่',
@@ -972,6 +665,11 @@ const TH: Record<string, string> = {
   'feedback_page.empty_desc': 'ข้อความจากผู้ใช้จะแสดงที่นี่',
   'feedback_page.detail_page': 'หน้า',
   'feedback_page.detail_date': 'วันที่',
+  'feedback_page.loading': 'กำลังโหลดหน้าเครื่องมือดูแล...',
+  'feedback_page.load_failed': 'โหลดข้อความแจ้งปัญหาไม่สำเร็จ',
+  'feedback_page.moderate_failed': 'จัดการข้อความแจ้งปัญหาไม่สำเร็จ',
+  'feedback_page.removed_by_admin': 'ลบโดยแอดมิน',
+  'feedback_page.delete': 'ลบ',
   'fair_play.report_action': 'รายงานการเล่นต้องสงสัย',
   'fair_play.report_sent': 'ส่งรายงานแฟร์เพลย์เพื่อตรวจสอบแล้ว',
   'fair_play.report_sent_short': 'ส่งรายงานแล้ว',
@@ -995,6 +693,13 @@ const TH: Record<string, string> = {
   'fair_play.updated_at': 'อัปเดต',
   'fair_play.case_id': 'เคส',
   'fair_play.restricted_since': 'จำกัดตั้งแต่',
+  'fair_play.status.open': 'เปิดอยู่',
+  'fair_play.status.reviewed': 'ตรวจแล้ว',
+  'fair_play.status.restricted': 'จำกัดแล้ว',
+  'fair_play.status.dismissed': 'ยกเลิกแล้ว',
+  'fair_play.event.analysis_blocked': 'บล็อกการวิเคราะห์',
+  'fair_play.event.user_reported': 'ผู้ใช้รายงาน',
+  'fair_play.event.none': 'ไม่มีเหตุการณ์',
 
   // Time ago
   'time.just_now': 'เมื่อสักครู่',
@@ -1005,6 +710,10 @@ const TH: Record<string, string> = {
   // Analysis
   'analysis.title': 'วิเคราะห์แบบเร็ว',
   'analysis.loading': 'กำลังโหลดเกม...',
+  'analysis.parse_failed': 'อ่านข้อมูลเกมไม่สำเร็จ',
+  'analysis.game_not_found': 'ไม่พบเกม',
+  'analysis.no_moves': 'เกมนี้ไม่มีตาเดินให้วิเคราะห์',
+  'analysis.failed': 'วิเคราะห์ไม่สำเร็จ',
   'analysis.analyzing': 'กำลังตรวจเกม...',
   'analysis.analyzing_note': 'กำลังให้ Fairy-Stockfish ตรวจเกมนี้อยู่ เมื่อเอนจินประมวลผลเสร็จ รายงานจะขึ้นที่นี่',
   'analysis.progress': 'ตาที่ {current} จาก {total}',
@@ -1038,6 +747,26 @@ const TH: Record<string, string> = {
   'analysis.desc_inaccuracy': 'ตานี้ทำให้โอกาสชนะลดลงบ้าง แต่รูปยังเล่นต่อได้',
   'analysis.desc_mistake': 'ตานี้ทำให้โอกาสชนะลดลงพอสมควร และเอนจินพบแนวที่ดีกว่า',
   'analysis.desc_blunder': 'ตานี้ทำให้โอกาสชนะหายไปมาก และเอนจินพบแนวที่ดีกว่าชัดเจน',
+  'analysis.editor.error': 'วิเคราะห์ตำแหน่งไม่สำเร็จ',
+  'analysis.editor.reset_board': 'รีเซ็ตกระดาน',
+  'analysis.editor.clear_board': 'ล้างกระดาน',
+  'analysis.editor.analyzing_position': 'กำลังวิเคราะห์...',
+  'analysis.editor.analyze_position': 'วิเคราะห์ตำแหน่ง',
+  'analysis.editor.tools': 'เครื่องมือจัดตำแหน่ง',
+  'analysis.editor.move_pieces': 'ย้ายตัวหมาก',
+  'analysis.editor.erase_square': 'ลบช่อง',
+  'analysis.editor.position': 'ตำแหน่ง',
+  'analysis.editor.copy_position': 'คัดลอกตำแหน่ง',
+  'analysis.editor.copy_link': 'คัดลอกลิงก์',
+  'analysis.editor.engine': 'เอนจิน',
+  'analysis.editor.eval': 'การประเมิน',
+  'analysis.editor.best_move': 'ตาที่ดีที่สุด',
+  'analysis.editor.none': 'ไม่มี',
+  'analysis.editor.source': 'แหล่งที่มา',
+  'analysis.editor.depth': 'ความลึก',
+  'analysis.editor.pv': 'แนวหลัก',
+  'analysis.editor.label': 'ตัวแก้ตำแหน่ง',
+  'analysis.editor.turn_to_move': 'ถึงตาฝั่ง{color}',
 
   // Auth / Account
   'auth.sign_in': 'เข้าสู่ระบบ',
@@ -1051,8 +780,10 @@ const TH: Record<string, string> = {
   'auth.step_email': 'อีเมล',
   'auth.step_code': 'รหัส',
   'auth.email': 'อีเมล',
+  'auth.email_placeholder': 'you@example.com',
   'auth.email_hint': 'เราจะส่งรหัส 6 หลักแบบใช้ครั้งเดียวไปที่อีเมลนี้',
   'auth.code': 'รหัส 6 หลัก',
+  'auth.code_placeholder': '123456',
   'auth.code_hint': 'โดยปกติรหัสจะมาถึงภายใน 1 นาที ถ้ายังไม่เห็นให้ตรวจสอบโฟลเดอร์สแปม',
   'auth.send_code': 'ส่งรหัสเข้าสู่ระบบ',
   'auth.sending_code': 'กำลังส่งรหัส...',
@@ -1117,6 +848,7 @@ const TH: Record<string, string> = {
   'leaderboard.you': 'คุณ',
   'leaderboard.view_recent': 'เกมล่าสุด',
   'leaderboard.mobile_stats': '{games} เกม • {record} • {winrate}',
+  'leaderboard.load_failed': 'โหลดตารางคะแนนไม่สำเร็จ ({status})',
 
   // Error UI
   'error.board_display': 'เกิดข้อผิดพลาดในการแสดงกระดาน',
@@ -1134,115 +866,19 @@ const TH: Record<string, string> = {
   'header.sign_in': 'เข้าสู่ระบบ',
   'header.menu': 'เมนู',
   'header.close_menu': 'ปิด',
+  'header.switch_to_th': 'เปลี่ยนเป็นภาษาไทย',
+  'header.switch_to_en': 'เปลี่ยนเป็นภาษาอังกฤษ',
+
+  // Guide Page
+  'guide.cta_title': 'พร้อมลองเล่นหรือยัง',
+  'guide.cta_desc': 'ถ้าอยากลองทันที ให้เริ่มจากบอทหรือโจทย์ก่อน แล้วค่อยไปเล่นกับคนจริงเมื่อเริ่มคุ้นกับเกม',
+  'guide.cta_next': 'ไปหน้าถัดไป',
+
+  // Footer
+  'footer.links_label': 'ลิงก์ส่วนท้ายเว็บไซต์',
+  'footer.what_is_makruk': 'หมากรุกไทยคืออะไร',
+  'footer.how_to_play_makruk': 'วิธีเล่นหมากรุกไทย',
 
   // Language
   'lang.switch': 'EN',
 };
-const loadedTranslations: Partial<Record<Language, TranslationCatalog>> = {
-  en: EN_CORE_TRANSLATIONS,
-};
-let englishExtraPromise: Promise<TranslationCatalog> | null = null;
-let englishExtraLoaded = false;
-
-function getEnglishTranslations(): TranslationCatalog {
-  return loadedTranslations.en ?? EN_CORE_TRANSLATIONS;
-}
-
-export async function ensureEnglishExtraTranslations(): Promise<TranslationCatalog> {
-  if (englishExtraLoaded) {
-    return getEnglishTranslations();
-  }
-
-  if (!englishExtraPromise) {
-    englishExtraPromise = loadEnglishExtraTranslations().then((extraTranslations) => {
-      const mergedTranslations = {
-        ...EN_CORE_TRANSLATIONS,
-        ...extraTranslations,
-      };
-      loadedTranslations.en = mergedTranslations;
-      englishExtraLoaded = true;
-      return mergedTranslations;
-    });
-  }
-
-  return englishExtraPromise;
-}
-
-export async function ensureTranslations(lang: Language): Promise<TranslationCatalog> {
-  if (loadedTranslations[lang]) {
-    return loadedTranslations[lang];
-  }
-
-  if (lang === 'th') {
-    const thaiTranslations = await loadThaiTranslations();
-    loadedTranslations.th = thaiTranslations;
-    return thaiTranslations;
-  }
-
-  return EN_CORE_TRANSLATIONS;
-}
-
-export async function preloadDetectedTranslations(): Promise<Language> {
-  const lang = detectLanguage();
-  await ensureTranslations(lang);
-  return lang;
-}
-
-function getTranslations(lang: Language): TranslationCatalog {
-  if (lang === 'en') {
-    return getEnglishTranslations();
-  }
-
-  return loadedTranslations[lang] ?? EN_CORE_TRANSLATIONS;
-}
-
-export function translate(
-  key: string,
-  params?: Record<string, string | number>,
-  lang: Language = detectLanguage()
-): string {
-  const translations = getTranslations(lang);
-  return applyParams(translations[key] || EN_CORE_TRANSLATIONS[key] || key, params);
-}
-
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>(detectLanguage);
-
-  const setLang = useCallback((newLang: Language) => {
-    const applyLanguage = () => {
-      setLangState(newLang);
-      localStorage.setItem('thaichess-lang', newLang);
-      document.documentElement.lang = newLang;
-    };
-
-    if (newLang === 'en' || loadedTranslations[newLang]) {
-      applyLanguage();
-      return;
-    }
-
-    void ensureTranslations(newLang).then(() => {
-      applyLanguage();
-    });
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
-
-  const t = useCallback((key: string, params?: Record<string, string | number>): string => {
-    const translations = getTranslations(lang);
-    return applyParams(translations[key] || EN_CORE_TRANSLATIONS[key] || key, params);
-  }, [lang]);
-
-  return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </I18nContext.Provider>
-  );
-}
-
-export function useTranslation() {
-  const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error('useTranslation must be used within I18nProvider');
-  return ctx;
-}

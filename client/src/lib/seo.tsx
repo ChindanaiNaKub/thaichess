@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getPublicSeoRoute } from '@shared/seo';
 
 const META_KEY = 'data-seo-managed';
+const STRUCTURED_DATA_SELECTOR = 'script[type="application/ld+json"][data-seo-managed="true"], script[type="application/ld+json"][data-seo-server="true"]';
 
 function getBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location.origin) {
@@ -41,8 +41,7 @@ function upsertLink(rel: string, href: string) {
 }
 
 function upsertStructuredData(entries: Record<string, unknown>[]) {
-  const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
-  const existing = Array.from(document.head.querySelectorAll(selector));
+  const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
 
   for (const node of existing) {
     node.remove();
@@ -59,35 +58,57 @@ function upsertStructuredData(entries: Record<string, unknown>[]) {
 
 export function SeoHeadManager() {
   const location = useLocation();
+  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
     const baseUrl = getBaseUrl();
-    const seo = getPublicSeoRoute(location.pathname, baseUrl);
-    const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
+    const canonicalTag = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    const isInitialHomeRoute = isFirstRenderRef.current
+      && location.pathname === '/'
+      && document.title.length > 0
+      && canonicalTag?.href === new URL('/', `${baseUrl}/`).toString();
 
-    document.title = seo.title;
-    upsertMeta('description', seo.description);
-    upsertMeta('robots', seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
-    upsertMeta('keywords', seo.keywords?.join(', ') ?? '');
-    upsertMeta('og:title', seo.title, 'property');
-    upsertMeta('og:description', seo.description, 'property');
-    upsertMeta('og:type', seo.type ?? 'website', 'property');
-    upsertMeta('og:url', canonicalUrl, 'property');
-    upsertMeta('twitter:card', 'summary', 'name');
-    upsertMeta('twitter:title', seo.title, 'name');
-    upsertMeta('twitter:description', seo.description, 'name');
-    upsertLink('canonical', canonicalUrl);
+    isFirstRenderRef.current = false;
 
-    if (seo.structuredData?.length) {
-      upsertStructuredData(seo.structuredData);
+    if (isInitialHomeRoute) {
       return;
     }
 
-    const selector = `script[type="application/ld+json"][${META_KEY}="true"]`;
-    const existing = Array.from(document.head.querySelectorAll(selector));
-    for (const node of existing) {
-      node.remove();
-    }
+    let cancelled = false;
+
+    void import('@shared/seo').then(({ getPublicSeoRoute }) => {
+      if (cancelled) return;
+
+      const seo = getPublicSeoRoute(location.pathname, baseUrl);
+      const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
+
+      document.title = seo.title;
+      upsertMeta('description', seo.description);
+      upsertMeta('robots', seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
+      upsertMeta('keywords', seo.keywords?.join(', ') ?? '');
+      upsertMeta('og:title', seo.title, 'property');
+      upsertMeta('og:description', seo.description, 'property');
+      upsertMeta('og:type', seo.type ?? 'website', 'property');
+      upsertMeta('og:url', canonicalUrl, 'property');
+      upsertMeta('twitter:card', 'summary', 'name');
+      upsertMeta('twitter:title', seo.title, 'name');
+      upsertMeta('twitter:description', seo.description, 'name');
+      upsertLink('canonical', canonicalUrl);
+
+      if (seo.structuredData?.length) {
+        upsertStructuredData(seo.structuredData);
+        return;
+      }
+
+      const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
+      for (const node of existing) {
+        node.remove();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [location.pathname]);
 
   return null;

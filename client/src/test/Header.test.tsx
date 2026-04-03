@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import Header from '../components/Header';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
 const { navigateMock, authState } = vi.hoisted(() => ({
@@ -43,6 +43,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('Header', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     navigateMock.mockReset();
   });
 
@@ -68,5 +69,14 @@ describe('Header', () => {
     fireEvent.click(screen.getByRole('button', { name: /^lessons$/i }));
 
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
+  });
+
+  it('localizes the language switch tooltip in Thai mode', async () => {
+    window.localStorage.setItem('thaichess-lang', 'th');
+    await preloadDetectedTranslations();
+
+    render(<Header active="play" />, { wrapper });
+
+    expect(screen.getAllByTitle('เปลี่ยนเป็นภาษาอังกฤษ').length).toBeGreaterThan(0);
   });
 });
