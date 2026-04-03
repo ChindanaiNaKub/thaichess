@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getPublicSeoRoute } from '@shared/seo';
 
 const META_KEY = 'data-seo-managed';
 const STRUCTURED_DATA_SELECTOR = 'script[type="application/ld+json"][data-seo-managed="true"], script[type="application/ld+json"][data-seo-server="true"]';
@@ -61,32 +60,42 @@ export function SeoHeadManager() {
   const location = useLocation();
 
   useEffect(() => {
-    const baseUrl = getBaseUrl();
-    const seo = getPublicSeoRoute(location.pathname, baseUrl);
-    const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
+    let cancelled = false;
 
-    document.title = seo.title;
-    upsertMeta('description', seo.description);
-    upsertMeta('robots', seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
-    upsertMeta('keywords', seo.keywords?.join(', ') ?? '');
-    upsertMeta('og:title', seo.title, 'property');
-    upsertMeta('og:description', seo.description, 'property');
-    upsertMeta('og:type', seo.type ?? 'website', 'property');
-    upsertMeta('og:url', canonicalUrl, 'property');
-    upsertMeta('twitter:card', 'summary', 'name');
-    upsertMeta('twitter:title', seo.title, 'name');
-    upsertMeta('twitter:description', seo.description, 'name');
-    upsertLink('canonical', canonicalUrl);
+    void import('@shared/seo').then(({ getPublicSeoRoute }) => {
+      if (cancelled) return;
 
-    if (seo.structuredData?.length) {
-      upsertStructuredData(seo.structuredData);
-      return;
-    }
+      const baseUrl = getBaseUrl();
+      const seo = getPublicSeoRoute(location.pathname, baseUrl);
+      const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
 
-    const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
-    for (const node of existing) {
-      node.remove();
-    }
+      document.title = seo.title;
+      upsertMeta('description', seo.description);
+      upsertMeta('robots', seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1');
+      upsertMeta('keywords', seo.keywords?.join(', ') ?? '');
+      upsertMeta('og:title', seo.title, 'property');
+      upsertMeta('og:description', seo.description, 'property');
+      upsertMeta('og:type', seo.type ?? 'website', 'property');
+      upsertMeta('og:url', canonicalUrl, 'property');
+      upsertMeta('twitter:card', 'summary', 'name');
+      upsertMeta('twitter:title', seo.title, 'name');
+      upsertMeta('twitter:description', seo.description, 'name');
+      upsertLink('canonical', canonicalUrl);
+
+      if (seo.structuredData?.length) {
+        upsertStructuredData(seo.structuredData);
+        return;
+      }
+
+      const existing = Array.from(document.head.querySelectorAll(STRUCTURED_DATA_SELECTOR));
+      for (const node of existing) {
+        node.remove();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [location.pathname]);
 
   return null;

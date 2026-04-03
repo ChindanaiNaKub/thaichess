@@ -1,8 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import { socket, connectSocket } from '../lib/socket';
 import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
@@ -20,7 +17,7 @@ import BotSVG from './BotSVG';
 import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
-import LiveGamesPanel from './LiveGamesPanel';
+const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
@@ -48,6 +45,8 @@ const SHOWCASE_PIECES: { type: PieceType; color: PieceColor }[] = [
 interface HomeStats {
   totalGames: number;
 }
+type SocketModule = typeof import('../lib/socket');
+type SocketLike = SocketModule['socket'];
 
 function getPublicPuzzleTitle(title: string): string {
   return title
@@ -70,25 +69,29 @@ export default function HomePage() {
   const [joinId, setJoinId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showDeferredContent, setShowDeferredContent] = useState(false);
   const [stats, setStats] = useState<HomeStats | null>(null);
-  const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4 });
+  const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
+  const socketRef = useRef<SocketLike | null>(null);
 
   const cleanupCreateHandlers = () => {
-    if (gameCreatedHandlerRef.current) {
-      socket.off('game_created', gameCreatedHandlerRef.current);
+    const activeSocket = socketRef.current;
+
+    if (activeSocket && gameCreatedHandlerRef.current) {
+      activeSocket.off('game_created', gameCreatedHandlerRef.current);
       gameCreatedHandlerRef.current = null;
     }
 
-    if (connectHandlerRef.current) {
-      socket.off('connect', connectHandlerRef.current);
+    if (activeSocket && connectHandlerRef.current) {
+      activeSocket.off('connect', connectHandlerRef.current);
       connectHandlerRef.current = null;
     }
 
-    if (errorHandlerRef.current) {
-      socket.off('error', errorHandlerRef.current);
+    if (activeSocket && errorHandlerRef.current) {
+      activeSocket.off('error', errorHandlerRef.current);
       errorHandlerRef.current = null;
     }
   };
@@ -100,7 +103,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (typeof fetch !== 'function') return;
+    if (!showDeferredContent || typeof fetch !== 'function') return;
 
     fetch('/api/stats')
       .then((response) => response.json())
@@ -110,11 +113,35 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
+  }, [showDeferredContent]);
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback;
+
+    if (typeof idle === 'function') {
+      const handle = idle(() => setShowDeferredContent(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(handle);
+    }
+
+    const timeout = window.setTimeout(() => setShowDeferredContent(true), 700);
+    return () => window.clearTimeout(timeout);
   }, []);
 
-  const handleCreateGame = () => {
+  const handleCreateGame = async () => {
     setIsCreating(true);
     setCreateError(null);
+    let socketModule: SocketModule;
+
+    try {
+      socketModule = await import('../lib/socket');
+    } catch {
+      setIsCreating(false);
+      setCreateError(t('error.connection_body'));
+      return;
+    }
+
+    const { socket, connectSocket } = socketModule;
+    socketRef.current = socket;
     connectSocket();
     cleanupCreateHandlers();
 
@@ -221,9 +248,9 @@ export default function HomePage() {
               </div>
 
               <div className="mx-auto max-w-2xl text-center">
-                <h2 className="text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
+                <h1 className="text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
                   {t('home.hero_title')}
-                </h2>
+                </h1>
                 <p className="text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
                   {t('home.hero_desc')}
                 </p>
@@ -235,7 +262,7 @@ export default function HomePage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
                       {t('nav.play')}
                     </p>
-                    <h3 className="display text-3xl text-text-bright">{t('home.quick_play')}</h3>
+                    <h2 className="display text-3xl text-text-bright">{t('home.quick_play')}</h2>
                     <p className="text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
                   </div>
                   <QuickPlaySVG size={46} className="text-text-bright flex-shrink-0" />
@@ -508,20 +535,24 @@ export default function HomePage() {
             </aside>
           </section>
 
-          <LiveGamesPanel
-            games={liveGames}
-            loading={liveGamesLoading}
-            title={t('home.live_now_title')}
-            description={t('home.live_now_desc')}
-            emptyTitle={t('home.no_live_games')}
-            emptyDesc={t('home.no_live_games_desc')}
-            compact
-            showViewAll
-            viewAllLabel={t('home.view_all_live')}
-            onViewAll={() => navigate(routes.watch)}
-          />
+          {showDeferredContent && (
+            <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
+              <DeferredLiveGamesPanel
+                games={liveGames}
+                loading={liveGamesLoading}
+                title={t('home.live_now_title')}
+                description={t('home.live_now_desc')}
+                emptyTitle={t('home.no_live_games')}
+                emptyDesc={t('home.no_live_games_desc')}
+                compact
+                showViewAll
+                viewAllLabel={t('home.view_all_live')}
+                onViewAll={() => navigate(routes.watch)}
+              />
+            </Suspense>
+          )}
 
-          <section className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
+          <section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
@@ -554,52 +585,53 @@ export default function HomePage() {
         </div>
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-6 px-4">
+      <footer className="deferred-section bg-surface-alt border-t border-surface-hover py-6 px-4">
         <div className="max-w-6xl mx-auto">
+          <h2 className="sr-only">{lang === 'th' ? 'ลิงก์ส่วนท้ายเว็บไซต์' : 'Site footer links'}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 mb-4">
             {/* Play */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.play')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.play')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/quick-play" className="hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
-                <li><a href="/watch" className="hover:text-primary transition-colors">{t('home.watch_live')}</a></li>
-                <li><a href="/local" className="hover:text-primary transition-colors">{t('home.play_local')}</a></li>
-                <li><a href="/bot" className="hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
+                <li><a href="/quick-play" className="footer-link hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
+                <li><a href="/watch" className="footer-link hover:text-primary transition-colors">{t('home.watch_live')}</a></li>
+                <li><a href="/local" className="footer-link hover:text-primary transition-colors">{t('home.play_local')}</a></li>
+                <li><a href="/bot" className="footer-link hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
               </ul>
             </div>
             {/* Puzzles */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.puzzles')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.puzzles')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+                <li><a href="/puzzles" className="footer-link hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
               </ul>
             </div>
             {/* About */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href={routes.whatIsMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'หมากรุกไทยคืออะไร' : 'What Is Makruk?'}</a></li>
-                <li><a href={routes.howToPlayMakruk} className="hover:text-primary transition-colors">{lang === 'th' ? 'วิธีเล่นหมากรุกไทย' : 'How to Play Makruk'}</a></li>
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
+                <li><a href="/games" className="footer-link hover:text-primary transition-colors">{t('games.title')}</a></li>
+                <li><a href={routes.whatIsMakruk} className="footer-link hover:text-primary transition-colors">{lang === 'th' ? 'หมากรุกไทยคืออะไร' : 'What Is Makruk?'}</a></li>
+                <li><a href={routes.howToPlayMakruk} className="footer-link hover:text-primary transition-colors">{lang === 'th' ? 'วิธีเล่นหมากรุกไทย' : 'How to Play Makruk'}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="footer-link hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>
             {/* Community */}
             <div>
-              <h4 className="text-text-bright font-semibold mb-2 text-sm">{t('footer.community')}</h4>
+              <p className="text-text-bright font-semibold mb-2 text-sm">{t('footer.community')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
-                <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
+                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="footer-link hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
+                <li><a href="/feedback" className="footer-link hover:text-primary transition-colors">{t('feedback.button')}</a></li>
               </ul>
             </div>
           </div>
           <div className="pt-4 border-t border-surface-hover text-center">
             <p className="text-text-dim text-xs">{t('footer.tagline')} — {t('footer.inspired')}{' '}
-              <a href="https://lichess.org" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+              <a href="https://lichess.org" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
                 Lichess
               </a>
               {' '}and{' '}
-              <a href="https://chess.com" target="_blank" rel="noopener" className="text-primary hover:text-primary-light">
+              <a href="https://chess.com" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
                 Chess.com
               </a>
             </p>

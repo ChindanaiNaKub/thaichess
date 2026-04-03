@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -141,11 +141,15 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create a private game/i }));
   }
 
-  it('cleans up create-game socket listeners on unmount', () => {
+  it('cleans up create-game socket listeners on unmount', async () => {
     const { unmount } = render(<HomePage />, { wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
+
+    await waitFor(() => {
+      expect(connectSocketMock).toHaveBeenCalledTimes(1);
+    });
 
     expect(connectSocketMock).toHaveBeenCalledTimes(1);
     expect(socketMock.on).toHaveBeenCalledWith('game_created', expect.any(Function));
@@ -160,7 +164,7 @@ describe('HomePage', () => {
     expect(socketMock.off).toHaveBeenCalledWith('connect', connectHandler);
   });
 
-  it('emits create_game immediately when the socket is already connected', () => {
+  it('emits create_game immediately when the socket is already connected', async () => {
     socketMock.connected = true;
 
     render(<HomePage />, { wrapper });
@@ -168,18 +172,26 @@ describe('HomePage', () => {
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
-    expect(connectSocketMock).toHaveBeenCalledTimes(1);
-    expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
-      timeControl: { initial: 300, increment: 0 },
-      colorPreference: 'random',
+    await waitFor(() => {
+      expect(connectSocketMock).toHaveBeenCalledTimes(1);
+      expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
+        timeControl: { initial: 300, increment: 0 },
+        colorPreference: 'random',
+      });
     });
+
+    expect(connectSocketMock).toHaveBeenCalledTimes(1);
   });
 
-  it('recovers from create_game errors by re-enabling the button and showing the message', () => {
+  it('recovers from create_game errors by re-enabling the button and showing the message', async () => {
     render(<HomePage />, { wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
+
+    await waitFor(() => {
+      expect(socketMock.on).toHaveBeenCalledWith('error', expect.any(Function));
+    });
 
     const errorHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
     expect(errorHandler).toBeTypeOf('function');
@@ -192,7 +204,7 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: /play with a friend/i })).toBeEnabled();
   });
 
-  it('uses the selected time preset when creating a private game', () => {
+  it('uses the selected time preset when creating a private game', async () => {
     socketMock.connected = true;
 
     render(<HomePage />, { wrapper });
@@ -201,13 +213,15 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
-    expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
-      timeControl: { initial: 600, increment: 5 },
-      colorPreference: 'random',
+    await waitFor(() => {
+      expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
+        timeControl: { initial: 600, increment: 5 },
+        colorPreference: 'random',
+      });
     });
   });
 
-  it('sends the selected color preference when creating a private game', () => {
+  it('sends the selected color preference when creating a private game', async () => {
     socketMock.connected = true;
 
     render(<HomePage />, { wrapper });
@@ -216,17 +230,23 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /^white$/i }));
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
-    expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
-      timeControl: { initial: 300, increment: 0 },
-      colorPreference: 'white',
+    await waitFor(() => {
+      expect(socketMock.emit).toHaveBeenCalledWith('create_game', {
+        timeControl: { initial: 300, increment: 0 },
+        colorPreference: 'white',
+      });
     });
   });
 
-  it('navigates to the created game when the server returns a game id', () => {
+  it('navigates to the created game when the server returns a game id', async () => {
     render(<HomePage />, { wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
+
+    await waitFor(() => {
+      expect(socketMock.on).toHaveBeenCalledWith('game_created', expect.any(Function));
+    });
 
     const createdHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'game_created')?.[1];
     expect(createdHandler).toBeTypeOf('function');
