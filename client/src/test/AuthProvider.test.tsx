@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '../lib/auth';
 
@@ -18,20 +18,14 @@ describe('AuthProvider', () => {
     window.history.pushState({}, '', '/');
   });
 
-  it('defers the initial auth refresh on the homepage until idle time', async () => {
+  it('defers the initial auth refresh on the homepage until user intent', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ user: null }),
     });
-    const idleCallbacks: IdleRequestCallback[] = [];
 
     window.history.pushState({}, '', '/');
     vi.stubGlobal('fetch', fetchMock);
-    vi.stubGlobal('requestIdleCallback', vi.fn((callback: IdleRequestCallback) => {
-      idleCallbacks.push(callback);
-      return 1;
-    }));
-    vi.stubGlobal('cancelIdleCallback', vi.fn());
 
     render(
       <AuthProvider>
@@ -39,14 +33,9 @@ describe('AuthProvider', () => {
       </AuthProvider>,
     );
 
-    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.getByText('guest')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(idleCallbacks).toHaveLength(1);
-
-    idleCallbacks[0]({
-      didTimeout: false,
-      timeRemaining: () => 50,
-    });
+    fireEvent.click(window);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/me');

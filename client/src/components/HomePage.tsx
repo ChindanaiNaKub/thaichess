@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { scheduleOnUserIntent } from '../lib/defer';
 import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
@@ -149,24 +150,7 @@ export default function HomePage() {
   useEffect(() => {
     if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
 
-    let idleId: number | undefined;
-    let timeoutId: number | undefined;
-    const requestIdle = window.requestIdleCallback;
-
-    if (typeof requestIdle === 'function') {
-      idleId = requestIdle(() => setShowPuzzleProgressCard(true), { timeout: 2_000 });
-    } else {
-      timeoutId = window.setTimeout(() => setShowPuzzleProgressCard(true), 900);
-    }
-
-    return () => {
-      if (idleId !== undefined) {
-        window.cancelIdleCallback?.(idleId);
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
+    return scheduleOnUserIntent(() => setShowPuzzleProgressCard(true), 12_000);
   }, [deferredContentReady, showPuzzleProgressCard]);
 
   useEffect(() => {
@@ -373,7 +357,27 @@ export default function HomePage() {
                   <DeferredHomePuzzleProgressCard />
                 </Suspense>
               ) : (
-                <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4" />
+                <button
+                  type="button"
+                  onClick={() => navigate(routes.puzzles)}
+                  aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                  className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
+                >
+                  <div className="flex items-start gap-3">
+                    <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                        {t('home.streak_start')}
+                      </div>
+                      <div className="mt-1 text-[1rem] font-semibold text-text-bright">
+                        {t('home.streak_title')}
+                      </div>
+                      <div className="mt-1 text-xs text-text-dim sm:text-sm">
+                        {t('home.puzzles_desc')}
+                      </div>
+                    </div>
+                  </div>
+                </button>
               )}
 
               {!showCreate ? (
