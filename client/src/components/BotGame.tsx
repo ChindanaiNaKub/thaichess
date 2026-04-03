@@ -1129,7 +1129,7 @@ export default function BotGame() {
                   <div className={`min-w-0 flex-1 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] px-3 py-2.5 text-[13px] leading-5 text-text shadow-[0_8px_18px_rgba(0,0,0,0.16)] transition-opacity duration-300 ${botChatFading ? 'opacity-0' : 'opacity-100'}`}>
                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                       {botChat.category === 'thinking'
-                        ? (lang === 'th' ? 'กำลังคิด' : 'A quiet thought')
+                        ? t('bot.chat_thinking')
                         : selectedBot.name}
                     </div>
                     <div>{botChat.text}</div>
