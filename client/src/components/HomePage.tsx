@@ -50,7 +50,7 @@ type SocketLike = SocketModule['socket'];
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { t, lang } = useTranslation();
+  const { t } = useTranslation();
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -214,41 +214,23 @@ export default function HomePage() {
     setShowCreate(false);
   };
 
-  const learnCards = lang === 'th'
-    ? [
-      {
-        href: routes.whatIsMakruk,
-        title: 'หมากรุกไทยคืออะไร',
-        desc: 'ดูภาพรวมของเกมก่อน ว่าทำไมหมากรุกไทยถึงต่างจากหมากรุกสากล',
-      },
-      {
-        href: routes.howToPlayMakruk,
-        title: 'วิธีเล่นหมากรุกไทย',
-        desc: 'เรียนการเดินหมาก การหงาย และกฎการนับแบบเข้าใจง่าย',
-      },
-      {
-        href: routes.playMakrukOnline,
-        title: 'เล่นหมากรุกไทยออนไลน์',
-        desc: 'ดูว่าเริ่มจากบอท โจทย์ หรือเกมคนจริงแบบไหนเหมาะที่สุด',
-      },
-    ]
-    : [
-      {
-        href: routes.whatIsMakruk,
-        title: 'What Is Makruk?',
-        desc: 'Get the big picture first and see why Thai chess feels different from western chess.',
-      },
-      {
-        href: routes.howToPlayMakruk,
-        title: 'How to Play Makruk',
-        desc: 'Learn piece movement, promotion, and the counting rule without the usual confusion.',
-      },
-      {
-        href: routes.playMakrukOnline,
-        title: 'Play Makruk Online',
-        desc: 'See whether bot games, puzzles, or live play make the best first step for you.',
-      },
-    ];
+  const learnCards = [
+    {
+      href: routes.whatIsMakruk,
+      title: t('home.learn_card.what_is_title'),
+      desc: t('home.learn_card.what_is_desc'),
+    },
+    {
+      href: routes.howToPlayMakruk,
+      title: t('home.learn_card.how_to_title'),
+      desc: t('home.learn_card.how_to_desc'),
+    },
+    {
+      href: routes.playMakrukOnline,
+      title: t('home.learn_card.play_online_title'),
+      desc: t('home.learn_card.play_online_desc'),
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -571,16 +553,14 @@ export default function HomePage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-                  {lang === 'th' ? 'คู่มือเริ่มต้น' : 'Learn'}
+                  {t('home.learn_eyebrow')}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-text-bright">
-                  {lang === 'th' ? 'เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง' : 'Start With the Pages That Actually Help'}
+                  {t('home.learn_title')}
                 </h2>
               </div>
               <p className="max-w-xl text-sm leading-6 text-text-dim">
-                {lang === 'th'
-                  ? 'ถ้าคุณเพิ่งเข้ามาใหม่ 3 หน้านี้จะพาคุณจากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง'
-                  : 'If you are new here, these three pages take you from basic context to your first real Makruk session.'}
+                {t('home.learn_desc')}
               </p>
             </div>
 
@@ -602,7 +582,7 @@ export default function HomePage() {
 
       <footer className="deferred-section bg-surface-alt border-t border-surface-hover py-6 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="sr-only">{lang === 'th' ? 'ลิงก์ส่วนท้ายเว็บไซต์' : 'Site footer links'}</h2>
+          <h2 className="sr-only">{t('footer.links_label')}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 mb-4">
             {/* Play */}
             <div>
@@ -626,8 +606,8 @@ export default function HomePage() {
               <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.about')}</p>
               <ul className="space-y-2 text-text-dim text-xs">
                 <li><a href="/games" className="footer-link hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href={routes.whatIsMakruk} className="footer-link hover:text-primary transition-colors">{lang === 'th' ? 'หมากรุกไทยคืออะไร' : 'What Is Makruk?'}</a></li>
-                <li><a href={routes.howToPlayMakruk} className="footer-link hover:text-primary transition-colors">{lang === 'th' ? 'วิธีเล่นหมากรุกไทย' : 'How to Play Makruk'}</a></li>
+                <li><a href={routes.whatIsMakruk} className="footer-link hover:text-primary transition-colors">{t('footer.what_is_makruk')}</a></li>
+                <li><a href={routes.howToPlayMakruk} className="footer-link hover:text-primary transition-colors">{t('footer.how_to_play_makruk')}</a></li>
                 <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="footer-link hover:text-primary transition-colors">{t('footer.github')}</a></li>
               </ul>
             </div>

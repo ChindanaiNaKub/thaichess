@@ -43,6 +43,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('Header', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     navigateMock.mockReset();
   });
 
@@ -68,5 +69,13 @@ describe('Header', () => {
     fireEvent.click(screen.getByRole('button', { name: /^lessons$/i }));
 
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
+  });
+
+  it('localizes the language switch tooltip in Thai mode', () => {
+    window.localStorage.setItem('thaichess-lang', 'th');
+
+    render(<Header active="play" />, { wrapper });
+
+    expect(screen.getAllByTitle('เปลี่ยนเป็นภาษาอังกฤษ').length).toBeGreaterThan(0);
   });
 });

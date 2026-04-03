@@ -576,17 +576,13 @@ export default function GuidePage({ slug }: { slug: GuideSlug }) {
 
               <div className="rounded-2xl border border-primary/20 bg-primary/10 p-5">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-light">{t('nav.play')}</div>
-                <div className="mt-3 text-lg font-bold text-text-bright">{lang === 'th' ? 'พร้อมลองเล่นหรือยัง' : 'Ready to try a game?'}</div>
-                <p className="mt-2 text-sm leading-6 text-text">
-                  {lang === 'th'
-                    ? 'ถ้าอยากลองทันที ให้เริ่มจากบอทหรือโจทย์ก่อน แล้วค่อยไปเล่นกับคนจริงเมื่อเริ่มคุ้นกับเกม'
-                    : 'If you want a smooth first session, start with the bot or puzzles, then move into live games once the pieces feel natural.'}
-                </p>
+                <div className="mt-3 text-lg font-bold text-text-bright">{t('guide.cta_title')}</div>
+                <p className="mt-2 text-sm leading-6 text-text">{t('guide.cta_desc')}</p>
                 <a
                   href={nextHref}
                   className="mt-4 inline-flex items-center rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-accent/85"
                 >
-                  {lang === 'th' ? 'ไปหน้าถัดไป' : 'Go to the next guide'}
+                  {t('guide.cta_next')}
                 </a>
               </div>
             </aside>
