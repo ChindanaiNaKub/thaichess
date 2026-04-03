@@ -535,7 +535,7 @@ export default function AnalysisPage() {
               <div className="flex flex-col items-center gap-2 flex-1">
                 <div className="flex items-center gap-2 text-sm w-full justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-text-dim">Editor</span>
+                    <span className="text-text-dim">{t('analysis.editor.label')}</span>
                     <button
                       onClick={() => setEditorTurn('white')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
