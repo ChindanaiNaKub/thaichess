@@ -45,8 +45,6 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    hanging-punctuation: first last;
   }
 
   body {
@@ -60,12 +58,7 @@
   }
 
   h1, h2, h3, h4 {
-    text-wrap: balance;
     letter-spacing: -0.02em;
-  }
-
-  p {
-    text-wrap: pretty;
   }
 
   ::selection {
@@ -432,5 +425,12 @@
 @media (max-height: 700px) {
   .max-h-\[300px\] {
     max-height: 150px;
+  }
+}
+
+@supports (content-visibility: auto) {
+  .deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 420px;
   }
 }

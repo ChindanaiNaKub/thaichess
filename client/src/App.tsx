@@ -39,6 +39,53 @@ function RouteFallback() {
   );
 }
 
+function scheduleAfterWindowLoad(callback: () => void, idleTimeout: number, fallbackDelay: number) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  let idleId: number | undefined;
+  let timeoutId: number | undefined;
+  let cancelled = false;
+
+  const run = () => {
+    if (cancelled) return;
+
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(() => {
+        if (!cancelled) {
+          callback();
+        }
+      }, { timeout: idleTimeout });
+      return;
+    }
+
+    timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        callback();
+      }
+    }, fallbackDelay);
+  };
+
+  if (document.readyState === 'complete') {
+    run();
+  } else {
+    window.addEventListener('load', run, { once: true });
+  }
+
+  return () => {
+    cancelled = true;
+    window.removeEventListener('load', run);
+    if (idleId !== undefined) {
+      window.cancelIdleCallback?.(idleId);
+    }
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  };
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
 
@@ -47,14 +94,7 @@ export default function App() {
       return;
     }
 
-    const requestIdle = window.requestIdleCallback;
-    if (typeof requestIdle === 'function') {
-      const idleId = requestIdle(() => setShowFeedbackWidget(true), { timeout: 1500 });
-      return () => window.cancelIdleCallback?.(idleId);
-    }
-
-    const timeoutId = globalThis.setTimeout(() => setShowFeedbackWidget(true), 350);
-    return () => globalThis.clearTimeout(timeoutId);
+    return scheduleAfterWindowLoad(() => setShowFeedbackWidget(true), 3_000, 1_500);
   }, [showFeedbackWidget]);
 
   return (

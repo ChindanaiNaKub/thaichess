@@ -59,6 +59,7 @@ export default function HomePage() {
   const [joinId, setJoinId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
   const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
@@ -108,20 +109,44 @@ export default function HomePage() {
   }, [showDeferredContent]);
 
   useEffect(() => {
-    if (showPuzzleProgressCard || typeof window === 'undefined') return;
+    if (deferredContentReady || typeof window === 'undefined') return;
 
-    const requestIdle = window.requestIdleCallback;
-    if (typeof requestIdle === 'function') {
-      const idleId = requestIdle(() => setShowPuzzleProgressCard(true), { timeout: 1200 });
-      return () => window.cancelIdleCallback?.(idleId);
+    const markReady = () => setDeferredContentReady(true);
+
+    if (document.readyState === 'complete') {
+      markReady();
+      return;
     }
 
-    const timeoutId = globalThis.setTimeout(() => setShowPuzzleProgressCard(true), 250);
-    return () => globalThis.clearTimeout(timeoutId);
-  }, [showPuzzleProgressCard]);
+    window.addEventListener('load', markReady, { once: true });
+    return () => window.removeEventListener('load', markReady);
+  }, [deferredContentReady]);
 
   useEffect(() => {
-    if (showDeferredContent) return;
+    if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
+
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    const requestIdle = window.requestIdleCallback;
+
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(() => setShowPuzzleProgressCard(true), { timeout: 2_000 });
+    } else {
+      timeoutId = window.setTimeout(() => setShowPuzzleProgressCard(true), 900);
+    }
+
+    return () => {
+      if (idleId !== undefined) {
+        window.cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [deferredContentReady, showPuzzleProgressCard]);
+
+  useEffect(() => {
+    if (showDeferredContent || !deferredContentReady) return;
 
     if (import.meta.env.MODE === 'test') {
       setShowDeferredContent(true);
@@ -136,7 +161,7 @@ export default function HomePage() {
       setShowDeferredContent(true);
       observer.disconnect();
     }, {
-      rootMargin: '320px 0px',
+      rootMargin: '120px 0px',
     });
 
     observer.observe(target);
@@ -144,7 +169,7 @@ export default function HomePage() {
     return () => {
       observer.disconnect();
     };
-  }, [showDeferredContent]);
+  }, [deferredContentReady, showDeferredContent]);
 
   const handleCreateGame = async () => {
     setIsCreating(true);
