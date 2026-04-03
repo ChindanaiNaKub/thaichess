@@ -78,10 +78,15 @@ export default function SpectatorPage() {
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
+  const latestTRef = useRef(t);
 
   useEffect(() => {
     latestGameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    latestTRef.current = t;
+  }, [t]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -134,7 +139,7 @@ export default function SpectatorPage() {
     };
 
     const handleError = ({ message }: { message: string }) => {
-      setError(message || t('game.load_failed'));
+      setError(message || latestTRef.current('game.load_failed'));
     };
 
     socket.on('connect', handleConnect);
@@ -160,7 +165,7 @@ export default function SpectatorPage() {
       socket.off('clock_update', handleClockUpdate);
       socket.off('error', handleError);
     };
-  }, [gameId, t]);
+  }, [gameId]);
 
   useEffect(() => {
     return () => {

@@ -33,9 +33,14 @@ export default function QuickPlay() {
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const searchingRef = useRef(false);
   const requestPendingRef = useRef(false);
+  const latestTRef = useRef(t);
 
   searchingRef.current = searching;
   requestPendingRef.current = requestPending;
+
+  useEffect(() => {
+    latestTRef.current = t;
+  }, [t]);
 
   useEffect(() => {
     connectSocket();
@@ -61,7 +66,7 @@ export default function QuickPlay() {
     const handleError = ({ message }: { message: string }) => {
       setRequestPending(false);
       setSearching(false);
-      setError(message || t('quick.load_failed'));
+      setError(message || latestTRef.current('quick.load_failed'));
     };
 
     const handleQueueStatus = ({ playersInQueue }: { playersInQueue: number }) => {
@@ -88,7 +93,7 @@ export default function QuickPlay() {
         socket.emit('cancel_matchmaking');
       }
     };
-  }, [navigate, t]);
+  }, [navigate]);
 
   useEffect(() => {
     if (searching) {
