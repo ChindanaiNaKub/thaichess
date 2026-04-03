@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import Header from '../components/Header';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
 const { navigateMock, authState } = vi.hoisted(() => ({
@@ -71,8 +71,9 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
   });
 
-  it('localizes the language switch tooltip in Thai mode', () => {
+  it('localizes the language switch tooltip in Thai mode', async () => {
     window.localStorage.setItem('thaichess-lang', 'th');
+    await preloadDetectedTranslations();
 
     render(<Header active="play" />, { wrapper });
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import HomePage from '../components/HomePage';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
 const {
@@ -140,6 +140,7 @@ describe('HomePage', () => {
 
   it('renders the learn section and footer guide links in Thai', async () => {
     window.localStorage.setItem('thaichess-lang', 'th');
+    await preloadDetectedTranslations();
 
     render(<HomePage />, { wrapper });
 
