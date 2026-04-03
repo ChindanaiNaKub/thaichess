@@ -20,24 +20,25 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const LOGIN_CODE_TTL_SECONDS = 60 * 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
 const GUEST_PLAYER_ID_PATTERN = /^guest_[A-Za-z0-9-]{16,128}$/;
-const ADMIN_EMAILS = new Set(
-  (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((email) => normalizeEmail(email))
-    .filter(Boolean),
-);
-const AUTH_SECRET = (
-  process.env.AUTH_SECRET?.trim()
-  || process.env.TURSO_AUTH_TOKEN?.trim()
-  || 'dev-insecure-auth-secret'
-);
+const AUTH_SECRET = resolveAuthSecret();
 const RESEND_API_KEY = process.env.RESEND_API_KEY?.trim() || '';
 const AUTH_FROM_EMAIL = process.env.AUTH_FROM_EMAIL?.trim() || '';
 
-if (!process.env.AUTH_SECRET) {
+function resolveAuthSecret() {
+  const authSecret = process.env.AUTH_SECRET?.trim();
+  if (authSecret) {
+    return authSecret;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SECRET must be set in production.');
+  }
+
   logWarn('auth_secret_missing', {
-    source: process.env.TURSO_AUTH_TOKEN ? 'turso_auth_token_fallback' : 'dev_fallback',
+    source: process.env.TURSO_AUTH_TOKEN ? 'turso_auth_token_ignored' : 'dev_fallback',
   });
+
+  return 'dev-insecure-auth-secret';
 }
 
 export function normalizeEmail(email: string) {
@@ -186,11 +187,10 @@ export async function verifyLoginCode(email: string, code: string) {
   }
 
   await consumeLoginCode(record.id);
-  const role = ADMIN_EMAILS.has(email) ? 'admin' : 'user';
   const user = await upsertUserByEmail({
     id: uuidv4(),
     email,
-    role,
+    role: 'user',
   });
 
   if (!user) {

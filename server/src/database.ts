@@ -1486,7 +1486,6 @@ export async function upsertUserByEmail(data: {
         INSERT INTO users (id, email, role, last_login_at)
         VALUES (?, ?, ?, unixepoch())
         ON CONFLICT(email) DO UPDATE SET
-          role = excluded.role,
           updated_at = unixepoch(),
           last_login_at = unixepoch()
       `,
