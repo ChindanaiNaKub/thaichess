@@ -34,6 +34,8 @@ function SpectatorResultCard({
       ? 'resign'
       : gameState.resultReason === 'timeout'
         ? 'timeout'
+        : gameState.resultReason === 'checkmate'
+          ? 'checkmate'
         : gameState.resultReason === 'stalemate'
           ? 'stalemate'
           : gameState.resultReason === 'draw_agreement'
@@ -42,7 +44,7 @@ function SpectatorResultCard({
               ? 'material'
               : gameState.resultReason === 'counting_rule'
                 ? 'counting'
-                : 'checkmate'}`)
+                : 'unknown'}`)
     : '';
 
   return (
@@ -78,10 +80,15 @@ export default function SpectatorPage() {
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
+  const latestTRef = useRef(t);
 
   useEffect(() => {
     latestGameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    latestTRef.current = t;
+  }, [t]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -134,7 +141,7 @@ export default function SpectatorPage() {
     };
 
     const handleError = ({ message }: { message: string }) => {
-      setError(message);
+      setError(message || latestTRef.current('game.load_failed'));
     };
 
     socket.on('connect', handleConnect);

@@ -81,6 +81,7 @@ export default function GamePage() {
   const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
+  const latestTRef = useRef(t);
   const lastInteractionAtRef = useRef(Date.now());
   const lastHeartbeatAtRef = useRef(0);
   const lastMeasuredLatencyRef = useRef<number | null>(null);
@@ -98,6 +99,10 @@ export default function GamePage() {
   useEffect(() => {
     latestGameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    latestTRef.current = t;
+  }, [t]);
 
   // Use the game interaction hook for move handling
   const {
@@ -250,7 +255,7 @@ export default function GamePage() {
         return;
       }
       setRematchState('idle');
-      setError(message);
+      setError(message || latestTRef.current('game.load_failed'));
     };
 
     socket.on('connect', handleConnect);

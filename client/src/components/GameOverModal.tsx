@@ -62,7 +62,7 @@ export default function GameOverModal({
       case 'draw_agreement': return t('gameover.by_agreement');
       case 'insufficient_material': return t('gameover.by_material');
       case 'counting_rule': return t('gameover.by_counting');
-      default: return reason;
+      default: return t('gameover.by_unknown');
     }
   };
 
