@@ -115,7 +115,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             ) : (
               <button
                 onClick={() => handleNavigate('/login')}
-                className="h-7 px-2.5 rounded-md bg-primary text-white text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
+                className="button-primary-contrast h-7 px-2.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
               >
                 {t('header.sign_in')}
               </button>

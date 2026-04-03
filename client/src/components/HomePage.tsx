@@ -116,15 +116,32 @@ export default function HomePage() {
   }, [showDeferredContent]);
 
   useEffect(() => {
-    const idle = window.requestIdleCallback;
+    const deferredDelay = import.meta.env.MODE === 'test' ? 0 : 1600;
+    let timeoutId: number | null = null;
+    let idleHandle: number | null = null;
 
-    if (typeof idle === 'function') {
-      const handle = idle(() => setShowDeferredContent(true), { timeout: 1200 });
-      return () => window.cancelIdleCallback?.(handle);
+    const schedule = () => {
+      timeoutId = window.setTimeout(() => {
+        const idle = window.requestIdleCallback;
+        if (typeof idle === 'function') {
+          idleHandle = idle(() => setShowDeferredContent(true), { timeout: 1500 });
+          return;
+        }
+        setShowDeferredContent(true);
+      }, deferredDelay);
+    };
+
+    if (document.readyState === 'complete') {
+      schedule();
+    } else {
+      window.addEventListener('load', schedule, { once: true });
     }
 
-    const timeout = window.setTimeout(() => setShowDeferredContent(true), 700);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.removeEventListener('load', schedule);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleHandle !== null) window.cancelIdleCallback?.(idleHandle);
+    };
   }, []);
 
   const handleCreateGame = async () => {
@@ -285,7 +302,7 @@ export default function HomePage() {
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
-                    className="w-full sm:w-auto min-w-[16rem] py-3.5 px-7 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg text-lg transition-colors shadow-md"
+                    className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
                     {t('home.find_opponent')}
                   </button>
