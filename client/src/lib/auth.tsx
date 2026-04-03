@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { scheduleOnUserIntent } from './defer';
 
 export interface AuthUser {
   id: string;
@@ -69,40 +70,11 @@ function shouldDeferInitialAuthRefresh() {
   return window.location.pathname === '/';
 }
 
-function scheduleAfterPageLoad(task: () => void) {
-  if (typeof window === 'undefined') return () => {};
-
-  const runTask = () => {
-    const requestIdle = window.requestIdleCallback;
-    if (typeof requestIdle === 'function') {
-      const idleId = requestIdle(task, { timeout: 1500 });
-      return () => window.cancelIdleCallback?.(idleId);
-    }
-
-    const timeoutId = window.setTimeout(task, 350);
-    return () => window.clearTimeout(timeoutId);
-  };
-
-  if (document.readyState === 'complete') {
-    return runTask();
-  }
-
-  let cleanup = () => {};
-  const handleLoad = () => {
-    cleanup = runTask();
-  };
-
-  window.addEventListener('load', handleLoad, { once: true });
-  return () => {
-    window.removeEventListener('load', handleLoad);
-    cleanup();
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initialUser = readCachedUser();
+  const deferInitialRefresh = !initialUser && shouldDeferInitialAuthRefresh();
   const [user, setUser] = useState<AuthUser | null>(initialUser);
-  const [loading, setLoading] = useState(!initialUser);
+  const [loading, setLoading] = useState(!initialUser && !deferInitialRefresh);
 
   async function refreshUser() {
     const response = await fetch('/api/auth/me');
@@ -113,15 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    if (!initialUser && shouldDeferInitialAuthRefresh()) {
-      return scheduleAfterPageLoad(() => {
+    if (deferInitialRefresh) {
+      return scheduleOnUserIntent(() => {
         refreshUser()
           .catch(() => {
             setUser(null);
             writeCachedUser(null);
           })
-          .finally(() => setLoading(false));
-      });
+          .finally(() => {});
+      }, 12_000);
     }
 
     refreshUser()
@@ -130,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writeCachedUser(null);
       })
       .finally(() => setLoading(false));
-  }, [initialUser]);
+  }, [deferInitialRefresh, initialUser]);
 
   async function requestCode(email: string) {
     const response = await fetch('/api/auth/request-code', {

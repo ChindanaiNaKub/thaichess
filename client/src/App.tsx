@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
+import { scheduleOnUserIntent } from './lib/defer';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
 
@@ -39,53 +40,6 @@ function RouteFallback() {
   );
 }
 
-function scheduleAfterWindowLoad(callback: () => void, idleTimeout: number, fallbackDelay: number) {
-  if (typeof window === 'undefined') {
-    return () => {};
-  }
-
-  let idleId: number | undefined;
-  let timeoutId: number | undefined;
-  let cancelled = false;
-
-  const run = () => {
-    if (cancelled) return;
-
-    const requestIdle = window.requestIdleCallback;
-    if (typeof requestIdle === 'function') {
-      idleId = requestIdle(() => {
-        if (!cancelled) {
-          callback();
-        }
-      }, { timeout: idleTimeout });
-      return;
-    }
-
-    timeoutId = window.setTimeout(() => {
-      if (!cancelled) {
-        callback();
-      }
-    }, fallbackDelay);
-  };
-
-  if (document.readyState === 'complete') {
-    run();
-  } else {
-    window.addEventListener('load', run, { once: true });
-  }
-
-  return () => {
-    cancelled = true;
-    window.removeEventListener('load', run);
-    if (idleId !== undefined) {
-      window.cancelIdleCallback?.(idleId);
-    }
-    if (timeoutId !== undefined) {
-      window.clearTimeout(timeoutId);
-    }
-  };
-}
-
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
 
@@ -94,7 +48,7 @@ export default function App() {
       return;
     }
 
-    return scheduleAfterWindowLoad(() => setShowFeedbackWidget(true), 3_000, 1_500);
+    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), 12_000);
   }, [showFeedbackWidget]);
 
   return (
