@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { getIndexablePaths, getPublicSeoRoute } from '@shared/seo';
 import { PUZZLES } from '@shared/puzzles';
 import { routes } from '../lib/routes';
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { SeoHeadManager } from '../lib/seo';
 
 const managedStructuredDataSelector = 'script[type="application/ld+json"][data-seo-managed="true"]';
@@ -86,7 +86,7 @@ describe('shared SEO routes', () => {
     expect(getPublicSeoRoute('/analysis/abc123', 'https://thaichess.dev').robots).toBe('noindex, nofollow');
   });
 
-  it('emits FAQ structured data as a single FAQPage object per script tag', () => {
+  it('emits FAQ structured data as a single FAQPage object per script tag', async () => {
     render(
       createElement(
         MemoryRouter,
@@ -94,6 +94,10 @@ describe('shared SEO routes', () => {
         createElement(SeoHeadManager)
       )
     );
+
+    await waitFor(() => {
+      expect(document.head.querySelectorAll(managedStructuredDataSelector)).toHaveLength(2);
+    });
 
     const scripts = Array.from(document.head.querySelectorAll(managedStructuredDataSelector));
     expect(scripts).toHaveLength(2);
@@ -106,7 +110,7 @@ describe('shared SEO routes', () => {
     expect(faqPayloads[0].mainEntity).toHaveLength(2);
   });
 
-  it('replaces server structured data during hydration instead of duplicating FAQPage', () => {
+  it('replaces server structured data during hydration instead of duplicating FAQPage', async () => {
     const serverScript = document.createElement('script');
     serverScript.type = 'application/ld+json';
     serverScript.setAttribute('data-seo-server', 'true');
@@ -134,7 +138,10 @@ describe('shared SEO routes', () => {
       )
     );
 
-    expect(document.head.querySelector(serverStructuredDataSelector)).toBeNull();
+    await waitFor(() => {
+      expect(document.head.querySelector(serverStructuredDataSelector)).toBeNull();
+      expect(document.head.querySelectorAll(managedStructuredDataSelector).length).toBeGreaterThan(0);
+    });
 
     const scripts = Array.from(document.head.querySelectorAll(managedStructuredDataSelector));
     const faqPayloads = scripts

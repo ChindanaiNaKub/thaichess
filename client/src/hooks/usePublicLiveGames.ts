@@ -4,6 +4,7 @@ import type { PublicLiveGameSummary } from '@shared/types';
 interface UsePublicLiveGamesOptions {
   status?: 'live' | 'all';
   limit?: number;
+  enabled?: boolean;
 }
 
 interface UsePublicLiveGamesResult {
@@ -12,11 +13,16 @@ interface UsePublicLiveGamesResult {
 }
 
 export function usePublicLiveGames(options: UsePublicLiveGamesOptions = {}): UsePublicLiveGamesResult {
-  const { status = 'all', limit = 12 } = options;
+  const { status = 'all', limit = 12, enabled = true } = options;
   const [games, setGames] = useState<PublicLiveGameSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
 
@@ -36,7 +42,7 @@ export function usePublicLiveGames(options: UsePublicLiveGamesOptions = {}): Use
     return () => {
       cancelled = true;
     };
-  }, [status, limit]);
+  }, [status, limit, enabled]);
 
   return { games, loading };
 }
