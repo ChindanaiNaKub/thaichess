@@ -76,6 +76,7 @@ export default function HomePage() {
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
   const socketRef = useRef<SocketLike | null>(null);
+  const deferredContentRef = useRef<HTMLDivElement | null>(null);
 
   const cleanupCreateHandlers = () => {
     const activeSocket = socketRef.current;
@@ -116,33 +117,30 @@ export default function HomePage() {
   }, [showDeferredContent]);
 
   useEffect(() => {
-    const deferredDelay = import.meta.env.MODE === 'test' ? 0 : 1600;
-    let timeoutId: number | null = null;
-    let idleHandle: number | null = null;
+    if (showDeferredContent) return;
 
-    const schedule = () => {
-      timeoutId = window.setTimeout(() => {
-        const idle = window.requestIdleCallback;
-        if (typeof idle === 'function') {
-          idleHandle = idle(() => setShowDeferredContent(true), { timeout: 1500 });
-          return;
-        }
-        setShowDeferredContent(true);
-      }, deferredDelay);
-    };
-
-    if (document.readyState === 'complete') {
-      schedule();
-    } else {
-      window.addEventListener('load', schedule, { once: true });
+    if (import.meta.env.MODE === 'test') {
+      setShowDeferredContent(true);
+      return;
     }
 
+    const target = deferredContentRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setShowDeferredContent(true);
+      observer.disconnect();
+    }, {
+      rootMargin: '320px 0px',
+    });
+
+    observer.observe(target);
+
     return () => {
-      window.removeEventListener('load', schedule);
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-      if (idleHandle !== null) window.cancelIdleCallback?.(idleHandle);
+      observer.disconnect();
     };
-  }, []);
+  }, [showDeferredContent]);
 
   const handleCreateGame = async () => {
     setIsCreating(true);
@@ -292,11 +290,12 @@ export default function HomePage() {
                   <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.free_to_play')}
                   </span>
-                  {stats && stats.totalGames > 0 && (
-                    <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
-                      {t('home.games_played', { count: stats.totalGames })}
-                    </span>
-                  )}
+                  <span
+                    aria-hidden={stats === null}
+                    className={`rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    {stats && stats.totalGames > 0 ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
+                  </span>
                 </div>
 
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
@@ -552,22 +551,35 @@ export default function HomePage() {
             </aside>
           </section>
 
-          {showDeferredContent && (
-            <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
-              <DeferredLiveGamesPanel
-                games={liveGames}
-                loading={liveGamesLoading}
-                title={t('home.live_now_title')}
-                description={t('home.live_now_desc')}
-                emptyTitle={t('home.no_live_games')}
-                emptyDesc={t('home.no_live_games_desc')}
-                compact
-                showViewAll
-                viewAllLabel={t('home.view_all_live')}
-                onViewAll={() => navigate(routes.watch)}
-              />
-            </Suspense>
-          )}
+          <div ref={deferredContentRef}>
+            {showDeferredContent ? (
+              <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
+                <DeferredLiveGamesPanel
+                  games={liveGames}
+                  loading={liveGamesLoading}
+                  title={t('home.live_now_title')}
+                  description={t('home.live_now_desc')}
+                  emptyTitle={t('home.no_live_games')}
+                  emptyDesc={t('home.no_live_games_desc')}
+                  compact
+                  showViewAll
+                  viewAllLabel={t('home.view_all_live')}
+                  onViewAll={() => navigate(routes.watch)}
+                />
+              </Suspense>
+            ) : (
+              <section aria-hidden="true" className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="space-y-3">
+                    <div className="h-4 w-24 rounded-full bg-surface" />
+                    <div className="h-4 w-56 rounded-full bg-surface" />
+                  </div>
+                  <div className="h-10 w-36 rounded-lg bg-surface" />
+                </div>
+                <div className="mt-5 h-[10.5rem] rounded-2xl border border-dashed border-surface-hover bg-surface/55" />
+              </section>
+            )}
+          </div>
 
           <section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
