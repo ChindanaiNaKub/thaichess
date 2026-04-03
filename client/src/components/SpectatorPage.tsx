@@ -42,7 +42,7 @@ function SpectatorResultCard({
               ? 'material'
               : gameState.resultReason === 'counting_rule'
                 ? 'counting'
-                : 'checkmate'}`)
+                : 'unknown'}`)
     : '';
 
   return (
@@ -134,7 +134,7 @@ export default function SpectatorPage() {
     };
 
     const handleError = ({ message }: { message: string }) => {
-      setError(message);
+      setError(message || t('game.load_failed'));
     };
 
     socket.on('connect', handleConnect);
@@ -160,7 +160,7 @@ export default function SpectatorPage() {
       socket.off('clock_update', handleClockUpdate);
       socket.off('error', handleError);
     };
-  }, [gameId]);
+  }, [gameId, t]);
 
   useEffect(() => {
     return () => {

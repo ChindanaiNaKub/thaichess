@@ -61,7 +61,7 @@ export default function QuickPlay() {
     const handleError = ({ message }: { message: string }) => {
       setRequestPending(false);
       setSearching(false);
-      setError(message);
+      setError(message || t('quick.load_failed'));
     };
 
     const handleQueueStatus = ({ playersInQueue }: { playersInQueue: number }) => {
@@ -88,7 +88,7 @@ export default function QuickPlay() {
         socket.emit('cancel_matchmaking');
       }
     };
-  }, [navigate]);
+  }, [navigate, t]);
 
   useEffect(() => {
     if (searching) {

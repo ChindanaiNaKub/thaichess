@@ -540,13 +540,13 @@ export default function AnalysisPage() {
                       onClick={() => setEditorTurn('white')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
-                      {t('common.white')} to move
+                      {t('analysis.editor.turn_to_move', { color: t('common.white') })}
                     </button>
                     <button
                       onClick={() => setEditorTurn('black')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
-                      {t('common.black')} to move
+                      {t('analysis.editor.turn_to_move', { color: t('common.black') })}
                     </button>
                   </div>
                   <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0)}</div>

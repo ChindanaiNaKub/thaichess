@@ -250,7 +250,7 @@ export default function GamePage() {
         return;
       }
       setRematchState('idle');
-      setError(message);
+      setError(message || t('game.load_failed'));
     };
 
     socket.on('connect', handleConnect);
@@ -292,7 +292,7 @@ export default function GamePage() {
       socket.off('game_created', handleGameCreated);
       socket.off('error', handleError);
     };
-  }, [gameId, navigate, spectatorPath, clearSelection, cancelPremove]);
+  }, [gameId, navigate, spectatorPath, clearSelection, cancelPremove, t]);
 
   useEffect(() => {
     return () => {

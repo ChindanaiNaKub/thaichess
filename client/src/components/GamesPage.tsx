@@ -45,8 +45,12 @@ function formatResult(result: string, reason: string): { text: string; color: st
   return { text: '0-1', color: 'text-text-bright' };
 }
 
-function formatPlayerLabel(name: string, rating: number | null | undefined): string {
-  const displayName = name.trim() || 'Anonymous';
+function formatPlayerLabel(
+  name: string,
+  rating: number | null | undefined,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  const displayName = name.trim() || t('common.anonymous');
   return typeof rating === 'number' ? `${displayName} (${rating})` : displayName;
 }
 
@@ -54,7 +58,11 @@ function isBotGame(game: GameEntry): boolean {
   return game.game_type === 'bot' || game.game_mode === 'bot' || game.opponent_type === 'bot';
 }
 
-function getParticipantLabel(game: GameEntry, color: 'white' | 'black'): string {
+function getParticipantLabel(
+  game: GameEntry,
+  color: 'white' | 'black',
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
   const isBot = isBotGame(game) && game.opponent_name && (
     (color === 'white' ? game.white_name : game.black_name).trim() === game.opponent_name.trim()
   );
@@ -66,6 +74,7 @@ function getParticipantLabel(game: GameEntry, color: 'white' | 'black'): string 
   const label = formatPlayerLabel(
     color === 'white' ? game.white_name : game.black_name,
     rating,
+    t,
   );
 
   return isBot ? `🤖 ${label}` : label;
@@ -81,16 +90,20 @@ function formatReasonLabel(reason: string, t: ReturnType<typeof useTranslation>[
     counting_rule: 'games.reason_counting',
     draw: 'games.reason_draw',
   };
-  return keyMap[reason] ? t(keyMap[reason]) : reason;
+  return keyMap[reason] ? t(keyMap[reason]) : t('games.reason_unknown');
 }
 
-function formatTimeAgoLabel(timestamp: number, t: ReturnType<typeof useTranslation>['t']): string {
+function formatTimeAgoLabel(
+  timestamp: number,
+  t: ReturnType<typeof useTranslation>['t'],
+  lang: ReturnType<typeof useTranslation>['lang'],
+): string {
   const seconds = Math.floor(Date.now() / 1000 - timestamp);
   if (seconds < 60) return t('time.just_now');
   if (seconds < 3600) return t('time.min_ago', { n: Math.floor(seconds / 60) });
   if (seconds < 86400) return t('time.hour_ago', { n: Math.floor(seconds / 3600) });
   if (seconds < 604800) return t('time.day_ago', { n: Math.floor(seconds / 86400) });
-  return new Date(timestamp * 1000).toLocaleDateString();
+  return new Date(timestamp * 1000).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US');
 }
 
 function isLowSignalGame(game: GameEntry): boolean {
@@ -106,6 +119,7 @@ function renderGameRow(
   game: GameEntry,
   navigate: ReturnType<typeof useNavigate>,
   t: ReturnType<typeof useTranslation>['t'],
+  lang: ReturnType<typeof useTranslation>['lang'],
   subdued: boolean = false,
 ) {
   const result = formatResult(game.result, game.result_reason);
@@ -125,7 +139,7 @@ function renderGameRow(
         <div className="flex flex-col gap-1">
           <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
           <span className="text-text-bright text-xs sm:text-sm truncate block max-w-[220px] sm:max-w-[340px]">
-            {getParticipantLabel(game, 'white')} vs {getParticipantLabel(game, 'black')}
+            {getParticipantLabel(game, 'white', t)} vs {getParticipantLabel(game, 'black', t)}
           </span>
           <div className="flex flex-wrap items-center gap-2">
             {botGame ? (
@@ -160,7 +174,7 @@ function renderGameRow(
       </td>
       <td className="px-3 sm:px-4 py-3 text-text-dim hidden md:table-cell">{game.move_count}</td>
       <td className="px-3 sm:px-4 py-3 text-text-dim text-right text-xs whitespace-nowrap">
-        {formatTimeAgoLabel(game.finished_at, t)}
+        {formatTimeAgoLabel(game.finished_at, t, lang)}
       </td>
       <td className="px-3 sm:px-4 py-3 text-right">
         <button
@@ -177,7 +191,7 @@ function renderGameRow(
 
 export default function GamesPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [games, setGames] = useState<GameEntry[]>([]);
   const [botStats, setBotStats] = useState<BotPerformanceStats>({
     gamesCount: 0,
@@ -321,7 +335,7 @@ export default function GamesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {highlightedGames.map(game => renderGameRow(game, navigate, t))}
+                  {highlightedGames.map(game => renderGameRow(game, navigate, t, lang))}
                 </tbody>
               </table>
             </div>
@@ -335,7 +349,7 @@ export default function GamesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[320px] text-sm">
                     <tbody>
-                      {lowSignalGames.map(game => renderGameRow(game, navigate, t, true))}
+                      {lowSignalGames.map(game => renderGameRow(game, navigate, t, lang, true))}
                     </tbody>
                   </table>
                 </div>
