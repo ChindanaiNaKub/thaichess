@@ -272,13 +272,13 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="homepage-shell min-h-screen bg-surface flex flex-col">
+    <div className="min-h-screen bg-surface flex flex-col">
       <Header active="play" subtitle={t('app.tagline')} />
 
-      <main id="main-content" className="homepage-main flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <div className="homepage-layout mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-          <section className="homepage-grid grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
-            <div className="home-hero-card bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10">
+      <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
+            <div className="bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10">
               <div className="mb-4 flex min-h-10 items-center justify-center gap-1 sm:mb-5">
                 {showHeroDecor ? SHOWCASE_PIECES.map((p, i) => (
                   <div key={i} className="opacity-80 hover:opacity-100 transition-opacity">
@@ -287,63 +287,63 @@ export default function HomePage() {
                 )) : null}
               </div>
 
-              <div className="home-hero-copy mx-auto max-w-2xl text-center">
-                <h1 className="home-hero-title text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
+              <div className="mx-auto max-w-2xl text-center">
+                <h1 className="text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
                   {t('home.hero_title')}
                 </h1>
-                <p className="home-hero-desc text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
+                <p className="text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
                   {t('home.hero_desc')}
                 </p>
               </div>
 
-              <div className="home-cta-card mt-8 sm:mt-10 rounded-2xl border border-accent/20 bg-surface/75 p-5 sm:p-6 lg:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
+              <div className="mt-8 sm:mt-10 rounded-2xl border border-accent/20 bg-surface/75 p-5 sm:p-6 lg:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <p className="home-cta-card__eyebrow text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
                       {t('nav.play')}
                     </p>
-                    <h2 className="home-cta-card__title display text-3xl text-text-bright">{t('home.quick_play')}</h2>
-                    <p className="home-cta-card__desc text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
+                    <h2 className="display text-3xl text-text-bright">{t('home.quick_play')}</h2>
+                    <p className="text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
                   </div>
                   <QuickPlaySVG size={46} className="text-text-bright flex-shrink-0" />
                 </div>
 
-                <div className="home-pills flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
-                  <span className="home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
+                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.no_signup')}
                   </span>
-                  <span className="home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.free_to_play')}
                   </span>
                   <span
                     aria-hidden={stats === null}
-                    className={`home-pill rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
+                    className={`rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
                   >
                     {stats && stats.totalGames > 0 ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
                   </span>
                 </div>
 
-                <div className="home-buttons flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
-                    className="home-button-primary button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
+                    className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
                     {t('home.find_opponent')}
                   </button>
                   <button
                     onClick={() => navigate(routes.leaderboard)}
-                    className="home-button-secondary w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
+                    className="w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
                   >
                     {t('leaderboard.title')}
                   </button>
-                  <p className="home-buttons-note text-xs sm:text-sm text-text-dim">
+                  <p className="text-xs sm:text-sm text-text-dim">
                     {t('quick.rated_available')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <aside className="home-side-stack grid gap-2.5 content-start">
+            <aside className="grid gap-2.5 content-start">
               {showPuzzleProgressCard ? (
                 <Suspense
                   fallback={(
@@ -367,18 +367,18 @@ export default function HomePage() {
                   type="button"
                   onClick={() => navigate(routes.puzzles)}
                   aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                  className="home-side-card home-side-card--primary min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
+                  className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
                 >
-                  <div className="home-side-card__row flex items-start gap-3">
+                  <div className="flex items-start gap-3">
                     <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
                     <div className="min-w-0">
-                      <div className="home-side-card__eyebrow text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
                         {t('home.streak_start')}
                       </div>
-                      <div className="home-side-card__title mt-1 text-[1rem] font-semibold text-text-bright">
+                      <div className="mt-1 text-[1rem] font-semibold text-text-bright">
                         {t('home.streak_title')}
                       </div>
-                      <div className="home-side-card__desc mt-1 text-xs text-text-dim sm:text-sm">
+                      <div className="mt-1 text-xs text-text-dim sm:text-sm">
                         {t('home.puzzles_desc')}
                       </div>
                     </div>
@@ -390,13 +390,13 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={openCreatePanel}
-                  className="home-side-card bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
                 >
-                  <div className="home-side-card__row flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     <FriendSVG size={24} className="text-text-bright flex-shrink-0" />
                     <div>
-                      <div className="home-side-card__title text-text-bright text-[0.95rem] font-semibold">{t('home.create_private')}</div>
-                      <div className="home-side-card__desc text-text-dim text-xs sm:text-sm">{t('home.private_desc')}</div>
+                      <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.create_private')}</div>
+                      <div className="text-text-dim text-xs sm:text-sm">{t('home.private_desc')}</div>
                     </div>
                   </div>
                 </button>
@@ -479,10 +479,10 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={openJoinPanel}
-                  className="home-side-card bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
                 >
-                  <div className="home-side-card__title text-text-bright text-[0.95rem] font-semibold">{t('home.join_title')}</div>
-                  <div className="home-side-card__desc text-text-dim text-xs sm:text-sm mt-1">{t('home.join_desc')}</div>
+                  <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.join_title')}</div>
+                  <div className="text-text-dim text-xs sm:text-sm mt-1">{t('home.join_desc')}</div>
                 </button>
               ) : (
                 <div className="bg-surface-alt border border-surface-hover rounded-xl p-5">
