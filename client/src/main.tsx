@@ -9,33 +9,13 @@ import { I18nProvider, preloadDetectedTranslations } from './lib/i18n';
 import { PieceStyleProvider } from './lib/pieceStyle';
 import './index.css';
 
-declare global {
-  interface Window {
-    __thaichessStylesReady?: Promise<void>;
-    __thaichessResolveStylesReady?: () => void;
-    __thaichessStylesReadyResolved?: boolean;
-  }
-}
-
 initializeGlobalErrorReporting();
-
-async function waitForInitialStyles() {
-  if (!import.meta.env.PROD || typeof window === 'undefined') return;
-
-  const stylesReady = window.__thaichessStylesReady;
-  if (!stylesReady) return;
-
-  await stylesReady;
-}
 
 async function bootstrap() {
   try {
-    await Promise.all([
-      preloadDetectedTranslations(),
-      waitForInitialStyles(),
-    ]);
+    await preloadDetectedTranslations();
   } catch {
-    // Keep the app bootable even if a non-default catalog or style handshake fails.
+    // Keep the app bootable even if a non-default catalog fails to load.
   }
 
   window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
