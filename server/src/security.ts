@@ -17,6 +17,10 @@ interface RateLimitState {
   resetAt: number;
 }
 
+function normalizeOrigin(value: string) {
+  return value.trim().replace(/\/+$/, '');
+}
+
 export class SocketRateLimiter {
   private buckets = new Map<string, RateLimitState>();
 
@@ -102,4 +106,26 @@ export function isValidBoolean(value: unknown): value is boolean {
 
 export function isValidPrivateGameColorPreference(value: unknown): value is PrivateGameColorPreference {
   return value === 'white' || value === 'black' || value === 'random';
+}
+
+export function getAllowedCorsOrigins(env: NodeJS.ProcessEnv) {
+  const configuredOrigins = [
+    env.SITE_URL,
+    env.PUBLIC_SITE_URL,
+    env.APP_URL,
+    env.RENDER_EXTERNAL_URL,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(normalizeOrigin);
+
+  if (env.NODE_ENV !== 'production') {
+    configuredOrigins.push('http://localhost:5173', 'http://localhost:5174');
+  }
+
+  return Array.from(new Set(configuredOrigins));
+}
+
+export function isAllowedCorsOrigin(origin: string | undefined, allowedOrigins: readonly string[]) {
+  if (!origin) return true;
+  return allowedOrigins.includes(normalizeOrigin(origin));
 }
