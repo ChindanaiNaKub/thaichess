@@ -110,6 +110,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('HomePage', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     navigateMock.mockReset();
     connectSocketMock.mockReset();
     socketMock.connected = false;
@@ -135,6 +136,18 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper });
 
     expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the learn section and footer guide links in Thai', async () => {
+    window.localStorage.setItem('thaichess-lang', 'th');
+
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('คู่มือเริ่มต้น')).toBeInTheDocument();
+    expect(screen.getByText('เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง')).toBeInTheDocument();
+    expect(screen.getAllByText('หมากรุกไทยคืออะไร').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('วิธีเล่นหมากรุกไทย').length).toBeGreaterThan(0);
+    expect(screen.getByText('เล่นหมากรุกไทยออนไลน์')).toBeInTheDocument();
   });
 
   function openCreatePanel() {

@@ -129,7 +129,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
           <button
             onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
             className="hidden sm:inline-flex h-7 px-2.5 rounded-md bg-surface hover:bg-surface-hover border border-surface-hover/60 text-text-dim hover:text-text-bright text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
-            title={lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'}
+            title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
           >
             {t('lang.switch')}
           </button>
@@ -169,7 +169,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               <button
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
                 className="inline-flex h-9 items-center justify-center rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
-                title={lang === 'en' ? 'เปลี่ยนเป็นภาษาไทย' : 'Switch to English'}
+                title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
               >
                 {t('lang.switch')}
               </button>
