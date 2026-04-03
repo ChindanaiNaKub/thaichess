@@ -37,7 +37,7 @@ function getDisplayName(item: FairPlayCase) {
 
 export default function FairPlayCasesPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { user, loading: authLoading, refreshUser } = useAuth();
   const [cases, setCases] = useState<FairPlayCase[]>([]);
   const [total, setTotal] = useState(0);
@@ -48,6 +48,9 @@ export default function FairPlayCasesPage() {
   const [busyCaseId, setBusyCaseId] = useState<number | null>(null);
 
   const limit = 20;
+
+  const formatDateTime = (timestamp: number) =>
+    new Date(timestamp * 1000).toLocaleString(lang === 'th' ? 'th-TH' : 'en-US');
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'admin') {
@@ -184,10 +187,10 @@ export default function FairPlayCasesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${STATUS_STYLES[item.status]}`}>
-                            {item.status}
+                            {t(`fair_play.status.${item.status}`)}
                           </span>
                           <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                            {item.latest_event_type ?? 'no-event'}
+                            {item.latest_event_type ? t(`fair_play.event.${item.latest_event_type}`) : t('fair_play.event.none')}
                           </span>
                           <span className="text-xs text-text-dim">
                             {t('fair_play.event_count', { count: item.event_count })}
@@ -205,10 +208,10 @@ export default function FairPlayCasesPage() {
                         )}
 
                         <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-dim">
-                          <span>{t('fair_play.updated_at')} {new Date(item.updated_at * 1000).toLocaleString()}</span>
+                          <span>{t('fair_play.updated_at')} {formatDateTime(item.updated_at)}</span>
                           <span>{t('fair_play.case_id')} #{item.id}</span>
                           {isRestrictedUser && item.user_rated_restricted_at && (
-                            <span>{t('fair_play.restricted_since')} {new Date(item.user_rated_restricted_at * 1000).toLocaleString()}</span>
+                            <span>{t('fair_play.restricted_since')} {formatDateTime(item.user_rated_restricted_at)}</span>
                           )}
                         </div>
                       </div>

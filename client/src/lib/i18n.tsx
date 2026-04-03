@@ -716,6 +716,13 @@ const EN: Record<string, string> = {
   'fair_play.updated_at': 'Updated',
   'fair_play.case_id': 'Case',
   'fair_play.restricted_since': 'Restricted since',
+  'fair_play.status.open': 'Open',
+  'fair_play.status.reviewed': 'Reviewed',
+  'fair_play.status.restricted': 'Restricted',
+  'fair_play.status.dismissed': 'Dismissed',
+  'fair_play.event.analysis_blocked': 'Analysis blocked',
+  'fair_play.event.user_reported': 'User reported',
+  'fair_play.event.none': 'No event',
 
   // Time ago
   'time.just_now': 'just now',
@@ -781,6 +788,7 @@ const EN: Record<string, string> = {
   'analysis.editor.source': 'Source',
   'analysis.editor.depth': 'Depth',
   'analysis.editor.pv': 'PV',
+  'analysis.editor.label': 'Editor',
 
   // Auth / Account
   'auth.sign_in': 'Sign in',
@@ -794,8 +802,10 @@ const EN: Record<string, string> = {
   'auth.step_email': 'Email',
   'auth.step_code': 'Code',
   'auth.email': 'Email',
+  'auth.email_placeholder': 'you@example.com',
   'auth.email_hint': 'We will send a one-time 6-digit code to this address.',
   'auth.code': '6-digit code',
+  'auth.code_placeholder': '123456',
   'auth.code_hint': 'The code usually arrives within a minute. Check spam if you do not see it.',
   'auth.send_code': 'Send sign-in code',
   'auth.sending_code': 'Sending code...',
@@ -860,6 +870,7 @@ const EN: Record<string, string> = {
   'leaderboard.you': 'You',
   'leaderboard.view_recent': 'Recent Games',
   'leaderboard.mobile_stats': '{games} games • {record} • {winrate}',
+  'leaderboard.load_failed': 'Failed to load leaderboard ({status})',
 
   // Error UI
   'error.board_display': 'Board display error',
@@ -1576,6 +1587,13 @@ const TH: Record<string, string> = {
   'fair_play.updated_at': 'อัปเดต',
   'fair_play.case_id': 'เคส',
   'fair_play.restricted_since': 'จำกัดตั้งแต่',
+  'fair_play.status.open': 'เปิดอยู่',
+  'fair_play.status.reviewed': 'ตรวจแล้ว',
+  'fair_play.status.restricted': 'จำกัดแล้ว',
+  'fair_play.status.dismissed': 'ยกเลิกแล้ว',
+  'fair_play.event.analysis_blocked': 'บล็อกการวิเคราะห์',
+  'fair_play.event.user_reported': 'ผู้ใช้รายงาน',
+  'fair_play.event.none': 'ไม่มีเหตุการณ์',
 
   // Time ago
   'time.just_now': 'เมื่อสักครู่',
@@ -1641,6 +1659,7 @@ const TH: Record<string, string> = {
   'analysis.editor.source': 'แหล่งที่มา',
   'analysis.editor.depth': 'ความลึก',
   'analysis.editor.pv': 'แนวหลัก',
+  'analysis.editor.label': 'ตัวแก้ตำแหน่ง',
 
   // Auth / Account
   'auth.sign_in': 'เข้าสู่ระบบ',
@@ -1654,8 +1673,10 @@ const TH: Record<string, string> = {
   'auth.step_email': 'อีเมล',
   'auth.step_code': 'รหัส',
   'auth.email': 'อีเมล',
+  'auth.email_placeholder': 'you@example.com',
   'auth.email_hint': 'เราจะส่งรหัส 6 หลักแบบใช้ครั้งเดียวไปที่อีเมลนี้',
   'auth.code': 'รหัส 6 หลัก',
+  'auth.code_placeholder': '123456',
   'auth.code_hint': 'โดยปกติรหัสจะมาถึงภายใน 1 นาที ถ้ายังไม่เห็นให้ตรวจสอบโฟลเดอร์สแปม',
   'auth.send_code': 'ส่งรหัสเข้าสู่ระบบ',
   'auth.sending_code': 'กำลังส่งรหัส...',
@@ -1720,6 +1741,7 @@ const TH: Record<string, string> = {
   'leaderboard.you': 'คุณ',
   'leaderboard.view_recent': 'เกมล่าสุด',
   'leaderboard.mobile_stats': '{games} เกม • {record} • {winrate}',
+  'leaderboard.load_failed': 'โหลดตารางคะแนนไม่สำเร็จ ({status})',
 
   // Error UI
   'error.board_display': 'เกิดข้อผิดพลาดในการแสดงกระดาน',

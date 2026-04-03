@@ -106,7 +106,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    placeholder="you@example.com"
+                    placeholder={t('auth.email_placeholder')}
                     className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-3 text-text-bright outline-none transition-colors placeholder:text-text-dim/70 focus:border-primary"
                   />
                   <span className="mt-2 block text-xs leading-5 text-text-dim">{t('auth.email_hint')}</span>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                     required
                     inputMode="numeric"
                     pattern="\d{6}"
-                    placeholder="123456"
+                    placeholder={t('auth.code_placeholder')}
                     className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-3 text-text-bright outline-none tracking-[0.35em] transition-colors placeholder:text-text-dim/70 focus:border-primary"
                   />
                 </label>
