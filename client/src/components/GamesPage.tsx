@@ -87,6 +87,7 @@ function formatReasonLabel(reason: string, t: ReturnType<typeof useTranslation>[
     timeout: 'games.reason_timeout',
     stalemate: 'games.reason_stalemate',
     draw_agreement: 'games.reason_agreement',
+    insufficient_material: 'games.reason_material',
     counting_rule: 'games.reason_counting',
     draw: 'games.reason_draw',
   };

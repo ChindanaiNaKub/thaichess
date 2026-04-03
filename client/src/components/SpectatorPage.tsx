@@ -34,6 +34,8 @@ function SpectatorResultCard({
       ? 'resign'
       : gameState.resultReason === 'timeout'
         ? 'timeout'
+        : gameState.resultReason === 'checkmate'
+          ? 'checkmate'
         : gameState.resultReason === 'stalemate'
           ? 'stalemate'
           : gameState.resultReason === 'draw_agreement'
