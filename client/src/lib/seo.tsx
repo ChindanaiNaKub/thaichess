@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const META_KEY = 'data-seo-managed';
@@ -58,14 +58,27 @@ function upsertStructuredData(entries: Record<string, unknown>[]) {
 
 export function SeoHeadManager() {
   const location = useLocation();
+  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
+    const baseUrl = getBaseUrl();
+    const canonicalTag = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    const isInitialHomeRoute = isFirstRenderRef.current
+      && location.pathname === '/'
+      && document.title.length > 0
+      && canonicalTag?.href === new URL('/', `${baseUrl}/`).toString();
+
+    isFirstRenderRef.current = false;
+
+    if (isInitialHomeRoute) {
+      return;
+    }
+
     let cancelled = false;
 
     void import('@shared/seo').then(({ getPublicSeoRoute }) => {
       if (cancelled) return;
 
-      const baseUrl = getBaseUrl();
       const seo = getPublicSeoRoute(location.pathname, baseUrl);
       const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
 
