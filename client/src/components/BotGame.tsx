@@ -791,7 +791,7 @@ export default function BotGame() {
                   </div>
                   <div className="grid min-w-[18rem] grid-cols-2 gap-2 self-start rounded-2xl border border-surface-hover/80 bg-surface/55 p-2">
                     <div className="rounded-xl bg-surface-alt px-3 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Selected Bot</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.selected_bot')}</div>
                       <div className="mt-1 text-sm font-semibold text-text-bright">{selectedBot.name}</div>
                       <div className="text-xs text-text-dim">{selectedBot.title}</div>
                     </div>
@@ -806,7 +806,7 @@ export default function BotGame() {
 
               <div className="grid gap-6 px-5 py-5 sm:px-7 sm:py-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)]">
                 <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                  <label className="mb-3 block text-sm font-medium text-text-dim">Bot roster</label>
+                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.roster')}</label>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {BOT_PERSONAS.map((persona) => (
                       <button
@@ -850,7 +850,7 @@ export default function BotGame() {
                     <div className="flex items-start gap-4">
                       <BotAvatar avatar={selectedBot.avatar} size={88} className="shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent/85">Featured opponent</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent/85">{t('bot.featured_opponent')}</div>
                         <h3 className="mt-2 text-2xl font-bold text-text-bright">{selectedBot.name}</h3>
                         <p className="text-sm text-text-dim">{selectedBot.title}</p>
                         <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -864,20 +864,20 @@ export default function BotGame() {
                     <p className="mt-3 text-sm font-medium text-accent-light">{selectedBot.personalityHook}</p>
                     <div className="mt-4 grid gap-3 text-sm text-text-dim">
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Opening preference</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.opening_preference')}</div>
                         <div className="mt-1 text-text">{selectedBot.openingPreference}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Signature style</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.signature_style')}</div>
                         <div className="mt-1 text-text">{selectedBot.signatureStyle}</div>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Tactical bias</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.tactical_bias')}</div>
                           <div className="mt-1 text-text">{selectedBot.tacticalBias}</div>
                         </div>
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Strategic weakness</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.strategic_weakness')}</div>
                           <div className="mt-1 text-text">{selectedBot.strategicWeakness}</div>
                         </div>
                       </div>
@@ -939,7 +939,7 @@ export default function BotGame() {
                   </div>
 
                   <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">Dialogue preview</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.dialogue_preview')}</div>
                     <p className="mt-2 text-sm italic text-text">"{setupIntroPreview}"</p>
                     <div className="mt-3 text-xs leading-6 text-text-dim">{selectedBot.chatStyle}</div>
                     <div className="mt-4 flex flex-col gap-3 border-t border-surface-hover/70 pt-4">
