@@ -97,6 +97,17 @@ describe('Board Component', () => {
       const blackKing = container.querySelector('[data-testid="piece-K-black"]');
       expect(blackKing).toBeInTheDocument();
     });
+
+    it('should render promoted pawns with the stored owner color', () => {
+      const board: BoardType = Array.from({ length: 8 }, () => Array(8).fill(null));
+      board[5][7] = { type: 'PM', color: 'white' };
+      board[2][7] = { type: 'PM', color: 'black' };
+
+      const { container } = render(<Board {...createProps({ board })} />);
+
+      expect(container.querySelector('[data-testid="piece-PM-white"]')).toBeInTheDocument();
+      expect(container.querySelector('[data-testid="piece-PM-black"]')).toBeInTheDocument();
+    });
   });
 
   describe('Square Highlighting', () => {

@@ -42,6 +42,25 @@ describe('analysis helpers', () => {
     expect(route).toContain('position=');
   });
 
+  it('preserves promoted pawn ownership through position serialization', () => {
+    const board = createInitialBoard();
+    board[5][7] = { type: 'PM', color: 'white' };
+    board[2][7] = { type: 'PM', color: 'black' };
+    board[2][6] = null;
+    board[5][6] = null;
+
+    const serialized = serializeAnalysisPosition({
+      board,
+      turn: 'white',
+      counting: null,
+    });
+
+    const parsed = deserializeAnalysisPosition(serialized.position, serialized.counting);
+
+    expect(parsed?.board[5][7]).toEqual({ type: 'PM', color: 'white' });
+    expect(parsed?.board[2][7]).toEqual({ type: 'PM', color: 'black' });
+  });
+
   it('parses uci coordinates into board positions', () => {
     expect(uciToMove('a1a3')).toEqual({
       from: { row: 0, col: 0 },

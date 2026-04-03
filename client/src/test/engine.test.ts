@@ -369,11 +369,13 @@ describe('Game Engine', () => {
       expect(newState?.board[5][5]?.color).toBe('white');
     });
 
-    it('should promote pawn to Met (PM)', () => {
+    it('should promote a white pawn into a white Met (PM)', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
 
       // White pawn at row 4, promoting to row 5 (promotion rank for white)
       board[4][4] = { type: 'P', color: 'white' };
+      board[0][0] = { type: 'K', color: 'white' };
+      board[7][7] = { type: 'K', color: 'black' };
 
       const state = createInitialGameState(300000, 300000);
       state.board = board;
@@ -381,6 +383,8 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 4, col: 4 }, { row: 5, col: 4 });
 
       expect(newState?.board[5][4]?.type).toBe('PM'); // Promoted
+      expect(newState?.board[5][4]?.color).toBe('white');
+      expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
     });
 
     it('should not promote a white pawn before the sixth rank', () => {
@@ -398,7 +402,7 @@ describe('Game Engine', () => {
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(false);
     });
 
-    it('should promote a black pawn on the third rank from blacks perspective', () => {
+    it('should promote a black pawn into a black Met (PM) on the third rank from blacks perspective', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[3][3] = { type: 'P', color: 'black' };
       board[0][0] = { type: 'K', color: 'white' };

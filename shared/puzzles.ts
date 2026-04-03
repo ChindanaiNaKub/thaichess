@@ -1,7 +1,10 @@
-import type { Board, Piece, PieceColor, PieceType, Position } from './types';
+import type { Board, CountingState, Piece, PieceColor, PieceType, Position, ResultReason } from './types';
 import { IMPORTED_PUZZLE_CANDIDATES } from './puzzleImportQueue';
 import type { PuzzleOrigin } from './puzzleMetadata';
 import { finalizePuzzle, type RawPuzzle } from './puzzleCatalog';
+import { validatePuzzle, type PuzzleValidationResult } from './puzzleValidation';
+import { buildPuzzlePublishAudit, isPuzzlePublishable } from './puzzlePublishing';
+import type { PuzzlePiecePlacement } from './puzzlePosition';
 
 export interface PuzzleReviewChecklist {
   themeClarity: 'pass' | 'fail' | 'unreviewed';
@@ -9,6 +12,61 @@ export interface PuzzleReviewChecklist {
   duplicateRisk: 'clear' | 'duplicate' | 'unreviewed';
   reviewNotes: string;
 }
+
+export type PuzzleGoalResult = 'white-win' | 'black-win' | 'draw';
+export type PuzzleOutcomeReason =
+  | Exclude<ResultReason, null>
+  | 'material_win'
+  | 'promotion'
+  | 'draw_saved'
+  | 'win_before_count';
+
+export interface PuzzleMoveReference {
+  from: Position;
+  to: Position;
+}
+
+export interface PuzzleGoal {
+  kind: 'checkmate' | 'promotion' | 'material-win' | 'draw';
+  result: PuzzleGoalResult;
+  reason: PuzzleOutcomeReason;
+  minMaterialSwing?: number;
+}
+
+export interface PuzzleAcceptedMove {
+  move: PuzzleMoveReference;
+  lineId: string;
+  explanation: string;
+}
+
+export interface PuzzleSolutionLine {
+  id: string;
+  label: string;
+  moves: PuzzleMoveReference[];
+  outcome: {
+    result: PuzzleGoalResult;
+    reason: PuzzleOutcomeReason;
+    explanation: string;
+  };
+}
+
+export interface PuzzleBoardPosition {
+  board: Board;
+  counting: CountingState | null;
+}
+
+export interface PuzzleDifficultyProfile {
+  candidateMoveCount: number;
+  tacticalVisibility: 'obvious' | 'moderate' | 'hidden';
+  countingAwareness: boolean;
+  deceptive: boolean;
+  moveNature: 'forcing' | 'quiet';
+}
+
+export type PuzzlePositionAuthority = 'explicit_piece_list' | 'replay_validated';
+export type PuzzleSolutionAuthority = 'engine_confirmed' | 'authoritative_line';
+export type PuzzleProgressionStage = 'early' | 'mid' | 'late';
+export type PuzzlePool = 'standard' | 'advanced_only';
 
 export interface Puzzle {
   id: number;
@@ -24,11 +82,80 @@ export interface Puzzle {
   tags: string[];
   difficultyScore: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficultyProfile: PuzzleDifficultyProfile;
+  progressionStage: PuzzleProgressionStage;
+  pool: PuzzlePool;
+  minimumStreakRequired: number;
   reviewStatus: 'ship' | 'quarantine';
   reviewChecklist: PuzzleReviewChecklist;
+  positionAuthority: PuzzlePositionAuthority;
+  solutionAuthority: PuzzleSolutionAuthority;
+  boardOrientation: PieceColor;
+  pieceList: PuzzlePiecePlacement[];
+  objective: string;
+  whyPositionMatters: string;
+  dependsOnCounting: boolean;
+  ruleImpact: string;
+  goal: PuzzleGoal;
+  acceptedMoves: PuzzleAcceptedMove[];
+  solutionLines: PuzzleSolutionLine[];
+  hint1: string;
+  hint2: string;
+  keyIdea: string;
+  commonWrongMove: PuzzleMoveReference | null;
+  wrongMoveExplanation: string;
+  takeaway: string;
+  boardPosition: PuzzleBoardPosition;
+  setupMoves?: PuzzleMoveReference[];
+  sideToMove: PieceColor;
   toMove: PieceColor;
   board: Board;
-  solution: { from: Position; to: Position }[];
+  counting: CountingState | null;
+  solution: PuzzleMoveReference[];
+}
+
+export interface PuzzlePoolDiagnostics {
+  totalCandidates: number;
+  validCandidates: number;
+  shippedCandidates: number;
+  rejectedCandidates: number;
+  rejectionReasons: Array<{ reason: string; count: number }>;
+  publishableByDifficulty?: Record<Puzzle['difficulty'], number>;
+  publishableBySource?: {
+    curated: number;
+    generated: number;
+  };
+}
+
+export interface PuzzlePublishAuditRow {
+  id: number;
+  title: string;
+  sourceType: 'curated' | 'generated';
+  objective: string;
+  motif: string;
+  dependsOnCounting: boolean;
+  legalityStatus: 'valid' | 'invalid';
+  validationErrors: string[];
+  validationWarnings: string[];
+  bestMove: PuzzleMoveReference | null;
+  acceptedMoves: PuzzleAcceptedMove[];
+  hint1: string;
+  hint2: string;
+  keyIdea: string;
+  commonWrongMove: PuzzleMoveReference | null;
+  wrongMoveExplanation: string;
+  takeaway: string;
+  publishable: boolean;
+  classification: 'Keep' | 'Rewrite' | 'Reject';
+  classificationReasons: string[];
+}
+
+export interface PuzzlePoolBreakdown {
+  publishableByDifficulty: Record<Puzzle['difficulty'], number>;
+  publishableBySource: {
+    curated: number;
+    generated: number;
+  };
 }
 
 type Placement = [square: string, type: PieceType, color: PieceColor];
@@ -63,14 +190,21 @@ function board(...placements: Placement[]): Board {
   return next;
 }
 
-function line(...steps: string[]): { from: Position; to: Position }[] {
+function move(from: string, to: string): PuzzleMoveReference {
+  return {
+    from: square(from),
+    to: square(to),
+  };
+}
+
+function line(...steps: string[]): PuzzleMoveReference[] {
   return steps.map(step => {
     const [from, to] = step.split('-');
     if (!from || !to) {
       throw new Error(`Invalid move step: ${step}`);
     }
 
-    return { from: square(from), to: square(to) };
+    return move(from, to);
   });
 }
 
@@ -80,19 +214,6 @@ function shippedReview(reviewNotes: string): PuzzleReviewChecklist {
     teachingValue: 'pass',
     duplicateRisk: 'clear',
     reviewNotes,
-  };
-}
-
-function quarantineReview(
-  reviewNotes: string,
-  overrides: Partial<Omit<PuzzleReviewChecklist, 'reviewNotes'>> = {},
-): PuzzleReviewChecklist {
-  return {
-    themeClarity: 'pass',
-    teachingValue: 'fail',
-    duplicateRisk: 'duplicate',
-    reviewNotes,
-    ...overrides,
   };
 }
 
@@ -106,381 +227,361 @@ export function isPuzzleReadyToShip(puzzle: Puzzle): boolean {
   return puzzle.reviewStatus === 'ship' && hasPassingReviewChecklist(puzzle);
 }
 
-const CATALOG_PUZZLES_RAW: RawPuzzle[] = [
+const MAKRUK_NATIVE_SAMPLE_PUZZLES_RAW: RawPuzzle[] = [
   {
-    id: 1,
-    title: 'Corner Clamp',
-    description: 'Mate in 1. Slide the Rua down to finish the trapped king.',
-    explanation: 'The rook lands on the mating rank while your Khon and king cover the last escape squares.',
-    source: 'Starter pack: mate in 1',
-    theme: 'SupportMate',
-    motif: 'Rook mate with khon support',
+    id: 7001,
+    title: 'Ma Fork Through the Shell',
+    description: 'White to move. Find the only Ma fork that checks the Khun and wins the trapped Ruea next.',
+    explanation: 'Nf6+ is forcing, and after the only king move the Ma lands on h7 to collect the Ruea.',
+    source: 'Makruk-native sample pack: tactical fork',
+    theme: 'Fork',
+    motif: 'Ma fork',
     difficulty: 'beginner',
     reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Clear beginner mate pattern with distinct Khon support.'),
+    reviewChecklist: shippedReview('Unique forcing Ma fork with one defender reply and a clean Ruea win.'),
+    objective: 'Win the black Ruea with the only forcing Ma fork.',
+    whyPositionMatters: 'The extra pawns and short-range pieces make this a practical Makruk middlegame shell, not an empty fork diagram. White must use a forcing jump before Black untangles the clustered defense.',
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: unpromoted Bia remain on c4, d4, c5, f6, g6, and h6, so neither Sak Mak nor Sak Kradan is active. This puzzle is judged purely by Makruk movement and tactical force.',
+    goal: {
+      kind: 'material-win',
+      result: 'white-win',
+      reason: 'material_win',
+      minMaterialSwing: 500,
+    },
+    acceptedMoves: [
+      {
+        move: move('e4', 'f6'),
+        lineId: 'main',
+        explanation: 'The Ma jump to f6 is the only move that checks the Khun and attacks the Ruea on h7 at the same time.',
+      },
+    ],
+    solutionLines: [
+      {
+        id: 'main',
+        label: 'Forced fork',
+        moves: line('e4-f6', 'e8-f8', 'f6-h7'),
+        outcome: {
+          result: 'white-win',
+          reason: 'material_win',
+          explanation: 'White wins the full Rua after a single forced king move.',
+        },
+      },
+    ],
+    hint1: 'Look for the Ma jump that gives check and creates a second threat at the same time.',
+    hint2: 'Do not settle for a quiet knight move. The right move must force the black Khun to answer while leaving the Rua hanging.',
+    keyIdea: 'The fork works because check removes Black’s choice. A forcing Ma jump is stronger than a loose attack on the rook.',
+    commonWrongMove: move('e4', 'g5'),
+    wrongMoveExplanation: 'Ng5 looks active, but it does not check the Khun and it does not attack the Ruea. Black keeps both the king and the rook coordinated, so the teaching idea never appears.',
+    takeaway: 'A Makruk Ma is strongest when one jump does two jobs at once. Here the right fork is forcing because the Khun is one of the targets.',
+    sideToMove: 'white',
     toMove: 'white',
     board: board(
-      ['a1', 'S', 'white'],
-      ['c1', 'K', 'black'],
-      ['f2', 'R', 'white'],
-      ['c3', 'K', 'white'],
+      ['c2', 'K', 'white'],
+      ['e4', 'N', 'white'],
+      ['f4', 'S', 'white'],
+      ['c4', 'P', 'white'],
+      ['d4', 'P', 'white'],
+      ['g3', 'P', 'white'],
+      ['e8', 'K', 'black'],
+      ['h7', 'R', 'black'],
+      ['d8', 'M', 'black'],
+      ['e7', 'N', 'black'],
+      ['f6', 'P', 'black'],
+      ['g6', 'P', 'black'],
+      ['h6', 'P', 'black'],
+      ['c5', 'P', 'black'],
     ),
-    solution: line('f2-f1'),
+    tags: ['fork', 'ma-fork', 'forcing-check', 'middlegame', 'makruk-native'],
   },
   {
-    id: 2,
-    title: 'Long File Finish',
-    description: 'Mate in 1. A long rook slide ends the game immediately.',
-    explanation: 'Open files are deadly in Makruk. Once the rook reaches the first rank, the black king has no safe square left.',
-    source: 'Starter pack: mate in 1',
-    theme: 'MateIn1',
-    motif: 'Long-file rook mate',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Fast rook mate that teaches how open files punish an exposed king.'),
+    id: 7002,
+    title: 'Met Net Saves The Draw',
+    description: 'White to move. Find the only move that saves the draw by stalemate before Black’s Ruea and pawns get moving.',
+    explanation: 'Mf7! freezes every black unit at once: the Khun, the Ruea, and both pawns are left with no legal move, so the game is drawn immediately by stalemate.',
+    source: 'Makruk-native sample pack: defensive stalemate',
+    theme: 'SaveTheDraw',
+    motif: 'Met stalemate net',
+    difficulty: 'advanced',
+    reviewStatus: 'quarantine',
+    reviewChecklist: {
+      themeClarity: 'fail',
+      teachingValue: 'fail',
+      duplicateRisk: 'clear',
+      reviewNotes: 'Rejected: illegal black bia placement leaves the sample outside legal Makruk promotion and pawn-rank rules.',
+    },
+    objective: 'Save the draw with the only stalemate resource.',
+    whyPositionMatters: 'White is materially worse against a black Rua and two pawns, so a generic “active move” is not enough. The only practical result left is a precise stalemate net built from Makruk short-range pieces.',
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: Black still has two unpromoted Bia on g7 and h6, so counted-endgame rules are off. The position is drawn only because stalemate is a legal Makruk result.',
+    goal: {
+      kind: 'draw',
+      result: 'draw',
+      reason: 'stalemate',
+    },
+    acceptedMoves: [
+      {
+        move: move('e6', 'f7'),
+        lineId: 'main',
+        explanation: 'The Met step to f7 covers g8 while the other Met and the Khun shut every remaining black move.',
+      },
+    ],
+    solutionLines: [
+      {
+        id: 'main',
+        label: 'Stalemate save',
+        moves: line('e6-f7'),
+        outcome: {
+          result: 'draw',
+          reason: 'stalemate',
+          explanation: 'Black has no legal move and is not in check, so the result is stalemate.',
+        },
+      },
+    ],
+    hint1: 'Search for the move that removes every legal black move without giving check.',
+    hint2: 'A draw is still possible, but only if White uses the short-range Met geometry to freeze the king, rook, and pawns together.',
+    keyIdea: 'This is a stalemate net, not a material save. White must eliminate all black moves while keeping the black Khun out of check.',
+    commonWrongMove: move('g6', 'h7'),
+    wrongMoveExplanation: 'Mh7? walks straight into Kxh7. Black keeps the Rua and the pawns alive, so White loses the only drawing net.',
+    takeaway: 'Makruk defense is often about exact geometry. Two Mets can save a game if they take away the last squares without giving check.',
+    sideToMove: 'white',
     toMove: 'white',
     board: board(
-      ['g1', 'K', 'black'],
-      ['g3', 'K', 'white'],
-      ['e7', 'R', 'white'],
-    ),
-    solution: line('e7-e1'),
-  },
-  {
-    id: 3,
-    title: 'Sidewall Mate',
-    description: 'Mate in 1. Check from the side and seal the edge.',
-    explanation: 'The rook checks across the third rank, and your king keeps the black king boxed in on the rim.',
-    source: 'Starter pack: mate in 1',
-    theme: 'MateIn1',
-    motif: 'Side-rank rook mate',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Simple edge mate that teaches side checks and king support.'),
-    toMove: 'white',
-    board: board(
-      ['g3', 'R', 'white'],
-      ['f8', 'K', 'white'],
+      ['h5', 'K', 'white'],
+      ['e6', 'M', 'white'],
+      ['g6', 'PM', 'white'],
       ['h8', 'K', 'black'],
+      ['h7', 'R', 'black'],
+      ['h6', 'P', 'black'],
+      ['g7', 'P', 'black'],
     ),
-    solution: line('g3-h3'),
+    tags: ['defense', 'save-the-draw', 'stalemate', 'met-net', 'makruk-native'],
   },
   {
-    id: 4,
-    title: 'Seventh-Rank Ladder',
-    description: 'Mate in 1. Lift the rook one square for mate.',
-    explanation: 'The rook climbs to the back rank, while the Khon and king close every reply around the cornered king.',
-    source: 'Starter pack: mate in 1',
-    theme: 'MateIn1',
-    motif: 'Rook lift mate',
-    difficulty: 'beginner',
+    id: 7003,
+    title: 'Mate Before Sak Mak Closes',
+    description: 'White to move. Sak Mak is already on 15 out of 16 counted moves. Find the only mate before the draw arrives.',
+    explanation: 'Rh8# ends the game immediately. Any quiet move lets Black spend the last counted move, after which White gets only one final attack before the engine declares a Sak Mak draw.',
+    source: 'Makruk-native sample pack: counting race',
+    theme: 'WinBeforeCountExpires',
+    motif: 'final attack before Sak Mak draw',
+    difficulty: 'intermediate',
     reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Clean ladder-style finish that reinforces rook lift geometry.'),
+    reviewChecklist: shippedReview('Rule-native counted ending where only immediate mate beats the Sak Mak draw.'),
+    objective: 'Checkmate now before Black reaches the last counted Sak Mak move.',
+    whyPositionMatters: 'A lone Rua against a bare Khun looks winning to chess players, but Makruk counting changes that judgment. The position teaches that material advantage is meaningless if the count is about to close.',
+    dependsOnCounting: true,
+    ruleImpact: 'Counting matters here. Sak Mak is active with Black as the counting side at 15 of the 16 allowed counted moves for a one-Rua chase. If White does not mate immediately, Black reaches count 16 and White gets only one final attack before the game is drawn by the counting rule.',
+    goal: {
+      kind: 'checkmate',
+      result: 'white-win',
+      reason: 'win_before_count',
+    },
+    acceptedMoves: [
+      {
+        move: move('h7', 'h8'),
+        lineId: 'main',
+        explanation: 'The rook lift to h8 is immediate mate, so Sak Mak never gets the chance to rescue Black.',
+      },
+    ],
+    solutionLines: [
+      {
+        id: 'main',
+        label: 'Mate before the count',
+        moves: line('h7-h8'),
+        outcome: {
+          result: 'white-win',
+          reason: 'win_before_count',
+          explanation: 'White mates before Black can spend the last counted Sak Mak move.',
+        },
+      },
+    ],
+    hint1: 'Count first. White does not have time for a waiting move.',
+    hint2: 'Any move that is not mate lets Black consume the last Sak Mak count and reach the final-attack phase.',
+    keyIdea: 'In Makruk, a winning ending can still be drawn by counting. The right move must finish the game before the count closes.',
+    commonWrongMove: move('f6', 'e6'),
+    wrongMoveExplanation: 'Ke6? wastes the only free moment. Black replies Kg8 or Ke8, reaches the last Sak Mak count, and White then gets just one final attack. Any non-mating final attack is scored as a draw by the engine.',
+    takeaway: 'In Makruk, a winning ending can turn into a draw if you spend the count carelessly. Always ask whether the count leaves time for the finish.',
+    sideToMove: 'white',
     toMove: 'white',
     board: board(
-      ['d5', 'S', 'white'],
       ['f6', 'K', 'white'],
       ['h7', 'R', 'white'],
       ['f8', 'K', 'black'],
     ),
-    solution: line('h7-h8'),
+    counting: {
+      active: true,
+      type: 'pieces_honor',
+      countingColor: 'black',
+      strongerColor: 'white',
+      currentCount: 15,
+      startCount: 3,
+      limit: 16,
+      finalAttackPending: false,
+    },
+    tags: ['counting', 'sak-mak', 'mate', 'win-before-count', 'makruk-native'],
   },
   {
-    id: 5,
-    title: 'Central Ladder',
-    description: 'Mate in 1. Use the central rook lift to end it.',
-    explanation: 'The rook invades the eighth rank and the supporting pieces take away the king squares around f8.',
-    source: 'Starter pack: mate in 1',
-    theme: 'MateIn1',
-    motif: 'Central rook lift mate',
-    difficulty: 'beginner',
+    id: 7004,
+    title: 'Capstone Mate Through d6',
+    description: 'White to move. Force mate in 3 with the exact d6 interference line.',
+    explanation: 'Ne4-d6+ is the key interference jump. Black has only Sxd6, which removes the e7 defender from the rook line. Only then does Rf3xf8+ become a one-reply forcing check, and Ne6-g7# finishes the mating net.',
+    source: 'Manual source-of-truth Makruk capstone: authoritative mate-in-3 line',
+    theme: 'MateIn3',
+    motif: 'forced mate',
+    difficulty: 'advanced',
     reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Compact central mate pattern that still reads clearly for newer players.'),
+    reviewChecklist: shippedReview('Explicit piece-list capstone puzzle with an authoritative mate-in-3 line and forced defender replies.'),
+    progressionStage: 'late',
+    pool: 'advanced_only',
+    minimumStreakRequired: 8,
+    positionAuthority: 'explicit_piece_list',
+    solutionAuthority: 'authoritative_line',
+    boardOrientation: 'white',
+    pieceList: [
+      { square: 'a7', type: 'R', color: 'white' },
+      { square: 'c6', type: 'PM', color: 'white' },
+      { square: 'e6', type: 'N', color: 'white' },
+      { square: 'e4', type: 'N', color: 'white' },
+      { square: 'c3', type: 'K', color: 'white' },
+      { square: 'f3', type: 'R', color: 'white' },
+      { square: 'b8', type: 'R', color: 'black' },
+      { square: 'd8', type: 'S', color: 'black' },
+      { square: 'e8', type: 'K', color: 'black' },
+      { square: 'e7', type: 'S', color: 'black' },
+      { square: 'f8', type: 'M', color: 'black' },
+      { square: 'g8', type: 'R', color: 'black' },
+    ],
+    objective: 'Checkmate Black in three moves with the only forcing first move.',
+    whyPositionMatters: 'This is a capstone Makruk attack. White must refuse small material and instead use a Ma interference check that drags the e7 Khon away from the king shell. Only after that deflection does the rook capture on f8 become a true forcing continuation.',
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue applies. The puzzle is decided entirely by legal Makruk movement, king safety, and a forced mating net.',
+    goal: {
+      kind: 'checkmate',
+      result: 'white-win',
+      reason: 'checkmate',
+    },
+    acceptedMoves: [
+      {
+        move: move('e4', 'd6'),
+        lineId: 'main',
+        explanation: 'Ne4-d6+ is the only accepted move because it forces Sxd6 and strips Black of the extra defense against the rook invasion on f8.',
+      },
+    ],
+    solutionLines: [
+      {
+        id: 'main',
+        label: 'Authoritative mate in 3',
+        moves: line('e4-d6', 'e7-d6', 'f3-f8', 'g8-f8', 'e6-g7'),
+        outcome: {
+          result: 'white-win',
+          reason: 'checkmate',
+          explanation: 'Black is dragged into the only recapture on d6, then White forces Rf8+ and finishes with Ng7#.',
+        },
+      },
+    ],
+    hint1: 'Start with the forcing check that interferes with the e7 Khon.',
+    hint2: 'Do not cash out for small material. White must drag the e7 defender to d6 before the rook capture on f8 becomes forcing.',
+    keyIdea: 'Ne4-d6+ is a Makruk interference check. It fixes the short-range defender on d6, so Rf3xf8+ becomes a one-reply check and Ne6-g7# ends the attack.',
+    commonWrongMove: move('e6', 'd8'),
+    wrongMoveExplanation: 'Ne6xd8 wins a Khon, but it is the wrong cash-out. White gives up the d6 interference, Black keeps the e7 Khon in place, and the rook capture on f8 no longer arrives with the same forcing power.',
+    takeaway: 'In Makruk capstone attacks, the correct move is often the one that removes a defender’s choice first. Here White mates only by forcing the e7 Khon onto d6 before invading on f8.',
+    sideToMove: 'white',
     toMove: 'white',
     board: board(
-      ['d4', 'S', 'white'],
-      ['f6', 'K', 'white'],
-      ['d7', 'R', 'white'],
-      ['f8', 'K', 'black'],
-    ),
-    solution: line('d7-d8'),
-  },
-  {
-    id: 6,
-    title: 'Met-Supported Sweep',
-    description: 'Mate in 1. Let the Met support a horizontal rook finish.',
-    explanation: 'The Met covers the key diagonals, so the rook can sweep across and deliver a clean mate on the sixth rank.',
-    source: 'Starter pack: mate in 1',
-    theme: 'SupportMate',
-    motif: 'Rook mate with met support',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Distinct mate because the Met support is the actual lesson.'),
-    toMove: 'white',
-    board: board(
-      ['f3', 'M', 'white'],
-      ['d6', 'R', 'white'],
-      ['f7', 'K', 'white'],
-      ['h8', 'K', 'black'],
-    ),
-    solution: line('d6-h6'),
-  },
-  {
-    id: 7,
-    title: 'Supported Promotion',
-    description: 'Promote the pawn safely with king support.',
-    explanation: 'A single quiet step is enough. Once the pawn reaches the sixth rank, it becomes a promoted Met.',
-    source: 'Starter pack: promotion',
-    theme: 'Promotion',
-    motif: 'Supported promotion',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Helpful first promotion puzzle because the supporting king plan is obvious after the idea clicks.'),
-    toMove: 'white',
-    board: board(
-      ['g4', 'S', 'black'],
-      ['c5', 'P', 'white'],
-      ['d7', 'K', 'black'],
-      ['g7', 'K', 'white'],
-    ),
-    solution: line('c5-c6'),
-  },
-  {
-    id: 8,
-    title: 'Quiet Promotion',
-    description: 'Promote with the simplest legal pawn push.',
-    explanation: 'This is the basic Makruk promotion pattern: step to the sixth rank and the Bia turns into a promoted Met.',
-    source: 'Starter pack: promotion',
-    theme: 'Promotion',
-    motif: 'Quiet promotion',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Cleanest basic promotion example in the set.'),
-    toMove: 'white',
-    board: board(
-      ['b2', 'K', 'white'],
-      ['e5', 'P', 'white'],
-      ['a7', 'K', 'black'],
-    ),
-    solution: line('e5-e6'),
-  },
-  {
-    id: 9,
-    title: 'Met Escort',
-    description: 'Promote while the Met guards the route.',
-    explanation: 'The Met and king keep the key squares under control, so the pawn can promote cleanly on the next step.',
-    source: 'Starter pack: promotion',
-    theme: 'Promotion',
-    motif: 'Promotion with met escort',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Adds one more promotion pattern by showing how the Met controls the promotion route.'),
-    toMove: 'white',
-    board: board(
-      ['f2', 'K', 'black'],
-      ['h3', 'K', 'white'],
-      ['b5', 'P', 'white'],
-      ['e7', 'M', 'white'],
-    ),
-    solution: line('b5-b6'),
-  },
-  {
-    id: 12,
-    title: 'Open File Pickup',
-    description: 'Use the open rank to win the opposing rook.',
-    explanation: 'Horizontal rook moves are powerful when the path is clear. Capture the black rook and keep the extra material.',
-    source: 'Starter pack: tactic',
-    theme: 'HangingPiece',
-    motif: 'Rook wins rook on open rank',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Clear major-piece pickup and better representative than weaker one-move captures.'),
-    toMove: 'white',
-    board: board(
-      ['a2', 'R', 'black'],
-      ['e2', 'R', 'white'],
-      ['g3', 'K', 'white'],
-      ['g6', 'K', 'black'],
-      ['h6', 'M', 'white'],
-      ['a7', 'P', 'black'],
-    ),
-    solution: line('e2-a2'),
-  },
-  {
-    id: 13,
-    title: 'Met Wins the Rua',
-    description: 'A short diagonal step wins a rook outright.',
-    explanation: 'Makruk Mets are small but sharp. The diagonal capture on d1 wins a full rook with no tactical drawback.',
-    source: 'Starter pack: tactic',
-    theme: 'HangingPiece',
-    motif: 'Met wins rook',
-    difficulty: 'beginner',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Distinct because the Met, not the rook, wins the material.'),
-    toMove: 'white',
-    board: board(
-      ['d1', 'R', 'black'],
-      ['e2', 'M', 'white'],
-      ['g5', 'K', 'white'],
-      ['d7', 'K', 'black'],
-    ),
-    solution: line('e2-d1'),
-  },
-  {
-    id: 14,
-    title: 'Sideways Pickup',
-    description: 'Slide the rook across the rank to collect the Met.',
-    explanation: 'When a high-value piece is loose on an open rank, the rook should not hesitate. This capture wins material cleanly.',
-    source: 'Starter pack: tactic',
-    theme: 'HangingPiece',
-    motif: 'Rook wins loose met',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Good intermediate pickup because the sideways rook move is there, but not instantly seen.'),
-    toMove: 'white',
-    board: board(
-      ['f2', 'K', 'black'],
-      ['g3', 'N', 'white'],
-      ['c4', 'R', 'white'],
-      ['h4', 'M', 'black'],
-      ['f5', 'K', 'white'],
-    ),
-    solution: line('c4-h4'),
-  },
-  {
-    id: 15,
-    title: 'Quiet Pivot, Then Mate',
-    description: 'Mate in 2. Pivot first, then crash down the file when the king runs out of squares.',
-    explanation: 'The rook pivot is still the point, but White’s pawn shell makes it feel practical instead of empty. Once the king is funneled to f1, the drop on d1 closes the mating net.',
-    source: 'Curated tactic: practical mating net',
-    theme: 'MateIn2',
-    motif: 'Rook pivot mate in 2',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Quiet first move and forced reply give this mate-in-2 real teaching value.'),
-    toMove: 'white',
-    board: board(
-      ['e1', 'K', 'black'],
-      ['f3', 'K', 'white'],
-      ['c5', 'R', 'white'],
-      ['d6', 'M', 'white'],
-      ['f8', 'S', 'white'],
-      ['a4', 'P', 'white'],
-      ['b3', 'P', 'white'],
-      ['c4', 'P', 'white'],
-      ['g3', 'P', 'white'],
-      ['h4', 'P', 'white'],
-    ),
-    solution: line('c5-d5', 'e1-f1', 'd5-d1'),
-  },
-  {
-    id: 16,
-    title: 'Break The File, Break The King',
-    description: 'Mate in 2. Switch files first, then break through on the back rank.',
-    explanation: 'The rook swing feels patient because White already owns space with the pawns. Black cannot untangle the back rank in time, so the invasion on d8 seals the mating net.',
-    source: 'Curated tactic: practical rook breakthrough',
-    theme: 'BackRank',
-    motif: 'Back-rank rook switch mate in 2',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Strong rook-file breakthrough lesson with a clean forced finish.'),
-    toMove: 'white',
-    board: board(
-      ['a2', 'R', 'white'],
-      ['a5', 'P', 'white'],
-      ['h5', 'N', 'white'],
-      ['f6', 'K', 'white'],
-      ['b4', 'P', 'white'],
-      ['c4', 'P', 'white'],
-      ['f4', 'P', 'white'],
-      ['g3', 'P', 'white'],
-      ['h4', 'P', 'white'],
+      ['a7', 'R', 'white'],
+      ['c6', 'PM', 'white'],
+      ['e6', 'N', 'white'],
+      ['e4', 'N', 'white'],
+      ['c3', 'K', 'white'],
+      ['f3', 'R', 'white'],
+      ['b8', 'R', 'black'],
+      ['d8', 'S', 'black'],
       ['e8', 'K', 'black'],
+      ['e7', 'S', 'black'],
+      ['f8', 'M', 'black'],
+      ['g8', 'R', 'black'],
     ),
-    solution: line('a2-d2', 'e8-f8', 'd2-d8'),
-  },
-  {
-    id: 17,
-    title: 'Build The Fence',
-    description: 'Mate in 2. Build the fence first, then drop the final rook blow.',
-    explanation: 'The rook shift to c5 is the hard move to spot in a normal-looking structure. Once the fence is built and the king is nudged toward a1, Rc1 closes the mating net.',
-    source: 'Curated tactic: practical mating net',
-    theme: 'MateIn2',
-    motif: 'Rook fence mate in 2',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Shows how a quiet restricting move can matter more than an immediate check.'),
-    toMove: 'white',
-    board: board(
-      ['b1', 'K', 'black'],
-      ['e1', 'N', 'white'],
-      ['a3', 'K', 'white'],
-      ['f5', 'R', 'white'],
-      ['d3', 'P', 'white'],
-      ['g3', 'P', 'white'],
-      ['h3', 'P', 'white'],
-    ),
-    solution: line('f5-c5', 'b1-a1', 'c5-c1'),
-  },
-  {
-    id: 18,
-    title: 'Sweep The Fifth Rank',
-    description: 'Mate in 2. Lift first, then sweep across once the king is pushed into place.',
-    explanation: 'The rook lift is a quiet setup move from a more believable middlegame shell. Once the king is pushed to a7, the fifth-rank sweep closes the mating net at once.',
-    source: 'Curated tactic: practical support mate',
-    theme: 'MateIn2',
-    motif: 'Fifth-rank rook sweep mate in 2',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Clean support-mate sequence with one setup move and one finishing sweep.'),
-    toMove: 'white',
-    board: board(
-      ['c1', 'M', 'white'],
-      ['f2', 'R', 'white'],
-      ['a6', 'K', 'black'],
-      ['c7', 'K', 'white'],
-      ['b2', 'P', 'white'],
-      ['c4', 'P', 'white'],
-      ['d4', 'P', 'white'],
-      ['g3', 'P', 'white'],
-      ['h4', 'P', 'white'],
-    ),
-    solution: line('f2-f5', 'a6-a7', 'f5-a5'),
-  },
-  {
-    id: 19,
-    title: 'Twin Rua Finale',
-    description: 'Mate in 2. One rook lures the king deeper, the other slams the back rank shut.',
-    explanation: 'The first rook move is only a setup, but White’s pawn shell makes the king’s shelter brittle. Once it is nudged to h8, the second rook lands the back-rank mate.',
-    source: 'Curated tactic: practical back-rank finish',
-    theme: 'BackRank',
-    motif: 'Double rook mate in 2',
-    difficulty: 'intermediate',
-    reviewStatus: 'ship',
-    reviewChecklist: shippedReview('Good coordination lesson for players learning how the two rooks force mating nets together.'),
-    toMove: 'white',
-    board: board(
-      ['f2', 'R', 'white'],
-      ['a6', 'R', 'white'],
-      ['c6', 'K', 'white'],
-      ['g8', 'K', 'black'],
-      ['b3', 'P', 'white'],
-      ['c4', 'P', 'white'],
-      ['d4', 'P', 'white'],
-      ['g3', 'P', 'white'],
-      ['h4', 'P', 'white'],
-    ),
-    solution: line('a6-a7', 'g8-h8', 'f2-f8'),
+    tags: ['mate', 'mate-in-3', 'forced-mate', 'authoritative-line', 'late-streak', 'makruk-native'],
   },
 ];
 
-const CATALOG_PUZZLES: Puzzle[] = CATALOG_PUZZLES_RAW.map(finalizePuzzle);
+const CATALOG_PUZZLES: Puzzle[] = MAKRUK_NATIVE_SAMPLE_PUZZLES_RAW.map(finalizePuzzle);
+export const CURATED_PUZZLES: Puzzle[] = CATALOG_PUZZLES;
+export const GENERATED_PUZZLES: Puzzle[] = IMPORTED_PUZZLE_CANDIDATES;
+export const ALL_PUZZLES: Puzzle[] = [...CURATED_PUZZLES, ...GENERATED_PUZZLES];
+export const PUZZLE_VALIDATION_RESULTS: PuzzleValidationResult[] = ALL_PUZZLES.map(validatePuzzle);
+export const PUZZLE_PUBLISH_AUDIT: PuzzlePublishAuditRow[] = buildPuzzlePublishAudit(ALL_PUZZLES, PUZZLE_VALIDATION_RESULTS);
 
-export const ALL_PUZZLES: Puzzle[] = [...CATALOG_PUZZLES, ...IMPORTED_PUZZLE_CANDIDATES];
+const VALIDATION_BY_ID = new Map(PUZZLE_VALIDATION_RESULTS.map(result => [result.puzzleId, result]));
+const PUBLISH_AUDIT_BY_ID = new Map(PUZZLE_PUBLISH_AUDIT.map(result => [result.id, result]));
 
-export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(isPuzzleReadyToShip);
+function isValidationClean(puzzle: Puzzle): boolean {
+  return (VALIDATION_BY_ID.get(puzzle.id)?.errors.length ?? 1) === 0;
+}
 
-export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle => !isPuzzleReadyToShip(puzzle));
+export function getPuzzlePublishAuditById(id: number): PuzzlePublishAuditRow | undefined {
+  return PUBLISH_AUDIT_BY_ID.get(id);
+}
+
+function summarizeRejectionReasons(results: PuzzleValidationResult[]): Array<{ reason: string; count: number }> {
+  const counts = new Map<string, number>();
+
+  for (const result of results) {
+    for (const reason of result.errors) {
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((left, right) => right.count - left.count || left.reason.localeCompare(right.reason));
+}
+
+export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle =>
+  isPuzzleReadyToShip(puzzle) &&
+  isValidationClean(puzzle) &&
+  isPuzzlePublishable(puzzle, VALIDATION_BY_ID.get(puzzle.id)),
+);
+
+export const PUBLISHABLE_CURATED_PUZZLES: Puzzle[] = PUZZLES.filter(puzzle => puzzle.origin !== 'engine-generated');
+export const PUBLISHABLE_GENERATED_PUZZLES: Puzzle[] = PUZZLES.filter(puzzle => puzzle.origin === 'engine-generated');
+
+export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle =>
+  !isPuzzleReadyToShip(puzzle) ||
+  !isValidationClean(puzzle) ||
+  !isPuzzlePublishable(puzzle, VALIDATION_BY_ID.get(puzzle.id)),
+);
+
+export const CURATED_PUBLISH_FAILURES: PuzzlePublishAuditRow[] = PUZZLE_PUBLISH_AUDIT.filter(row =>
+  row.sourceType === 'curated' && !row.publishable,
+);
+
+export const GENERATED_PUBLISH_FAILURES: PuzzlePublishAuditRow[] = PUZZLE_PUBLISH_AUDIT.filter(row =>
+  row.sourceType === 'generated' && !row.publishable,
+);
+
+export const PUZZLE_POOL_BREAKDOWN: PuzzlePoolBreakdown = {
+  publishableByDifficulty: {
+    beginner: PUZZLES.filter(puzzle => puzzle.difficulty === 'beginner').length,
+    intermediate: PUZZLES.filter(puzzle => puzzle.difficulty === 'intermediate').length,
+    advanced: PUZZLES.filter(puzzle => puzzle.difficulty === 'advanced').length,
+  },
+  publishableBySource: {
+    curated: PUBLISHABLE_CURATED_PUZZLES.length,
+    generated: PUBLISHABLE_GENERATED_PUZZLES.length,
+  },
+};
+
+export const PUZZLE_POOL_DIAGNOSTICS: PuzzlePoolDiagnostics = {
+  totalCandidates: ALL_PUZZLES.length,
+  validCandidates: PUZZLE_VALIDATION_RESULTS.filter(result => result.errors.length === 0).length,
+  shippedCandidates: PUZZLES.length,
+  rejectedCandidates: PUZZLE_VALIDATION_RESULTS.filter(result => result.errors.length > 0).length,
+  rejectionReasons: summarizeRejectionReasons(PUZZLE_VALIDATION_RESULTS.filter(result => result.errors.length > 0)),
+  publishableByDifficulty: PUZZLE_POOL_BREAKDOWN.publishableByDifficulty,
+  publishableBySource: PUZZLE_POOL_BREAKDOWN.publishableBySource,
+};
 
 export function getPuzzleById(id: number): Puzzle | undefined {
   return PUZZLES.find(p => p.id === id);

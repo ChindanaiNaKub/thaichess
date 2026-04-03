@@ -57,8 +57,20 @@ function getForwardDirection(color: PieceColor): number {
   return color === 'white' ? 1 : -1;
 }
 
-function getPromotionRank(color: PieceColor): number {
+export function getPromotionRank(color: PieceColor): number {
   return color === 'white' ? 5 : 2;
+}
+
+export function isPromotionSquare(color: PieceColor, row: number): boolean {
+  return row === getPromotionRank(color);
+}
+
+export function shouldPromotePawn(piece: Piece, to: Position): boolean {
+  return piece.type === 'P' && isPromotionSquare(piece.color, to.row);
+}
+
+export function createPromotedPawn(color: PieceColor): Piece {
+  return { type: 'PM', color };
 }
 
 function findKing(board: Board, color: PieceColor): Position | null {
@@ -390,8 +402,8 @@ export function getLegalMoves(board: Board, pos: Position): Position[] {
 
     // Handle promotion for testing
     const movedPiece = testBoard[target.row][target.col]!;
-    if (movedPiece.type === 'P' && target.row === getPromotionRank(movedPiece.color)) {
-      testBoard[target.row][target.col] = { type: 'PM', color: movedPiece.color };
+    if (shouldPromotePawn(movedPiece, target)) {
+      testBoard[target.row][target.col] = createPromotedPawn(movedPiece.color);
     }
 
     if (!isInCheck(testBoard, piece.color)) {
@@ -432,8 +444,8 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
 
   let promoted = false;
   const movedPiece = newBoard[to.row][to.col]!;
-  if (movedPiece.type === 'P' && to.row === getPromotionRank(movedPiece.color)) {
-    newBoard[to.row][to.col] = { type: 'PM', color: movedPiece.color };
+  if (shouldPromotePawn(movedPiece, to)) {
+    newBoard[to.row][to.col] = createPromotedPawn(movedPiece.color);
     promoted = true;
   }
 
@@ -554,7 +566,7 @@ export function getBoardAtMove(initialBoard: Board, moves: Move[], moveIndex: nu
     board[move.from.row][move.from.col] = null;
     if (move.promoted) {
       const piece = board[move.to.row][move.to.col]!;
-      board[move.to.row][move.to.col] = { type: 'PM', color: piece.color };
+      board[move.to.row][move.to.col] = createPromotedPawn(piece.color);
     }
   }
   return board;

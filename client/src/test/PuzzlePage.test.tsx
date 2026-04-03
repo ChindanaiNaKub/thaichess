@@ -40,7 +40,9 @@ const {
         tags: ['mate', 'starter-pack'],
         difficultyScore: 820,
         difficulty: 'beginner' as const,
+        sideToMove: 'white' as const,
         toMove: 'white' as const,
+        boardOrientation: 'white' as const,
         reviewStatus: 'ship' as const,
         reviewChecklist: {
           themeClarity: 'pass' as const,
@@ -50,6 +52,9 @@ const {
         },
         board,
         solution,
+        hint1: 'Look for the forcing move first.',
+        hint2: 'Use the rook check, not the quiet move.',
+        keyIdea: 'Keep the initiative with a forcing move.',
       },
       {
         id: 78,
@@ -65,7 +70,9 @@ const {
         tags: ['fork', 'tactic'],
         difficultyScore: 960,
         difficulty: 'beginner' as const,
+        sideToMove: 'white' as const,
         toMove: 'white' as const,
+        boardOrientation: 'white' as const,
         reviewStatus: 'ship' as const,
         reviewChecklist: {
           themeClarity: 'pass' as const,
@@ -75,6 +82,9 @@ const {
         },
         board,
         solution,
+        hint1: 'Check forcing threats first.',
+        hint2: 'The right move should attack two things at once.',
+        keyIdea: 'Use a fork, not a slow move.',
       },
       {
         id: 79,
@@ -90,7 +100,9 @@ const {
         tags: ['pin', 'tactic'],
         difficultyScore: 1180,
         difficulty: 'intermediate' as const,
+        sideToMove: 'white' as const,
         toMove: 'white' as const,
+        boardOrientation: 'white' as const,
         reviewStatus: 'ship' as const,
         reviewChecklist: {
           themeClarity: 'pass' as const,
@@ -100,6 +112,9 @@ const {
         },
         board,
         solution,
+        hint1: 'Find the move that restricts Black most.',
+        hint2: 'Do not release the pin too early.',
+        keyIdea: 'Preserve pressure before collecting.',
       },
       {
         id: 80,
@@ -115,7 +130,9 @@ const {
         tags: ['mate'],
         difficultyScore: 1480,
         difficulty: 'advanced' as const,
+        sideToMove: 'white' as const,
         toMove: 'white' as const,
+        boardOrientation: 'white' as const,
         reviewStatus: 'ship' as const,
         reviewChecklist: {
           themeClarity: 'pass' as const,
@@ -125,6 +142,9 @@ const {
         },
         board,
         solution,
+        hint1: 'Look for the direct finish.',
+        hint2: 'A check is stronger than a quiet improvement.',
+        keyIdea: 'Force mate immediately.',
       },
     ],
     markPuzzleCompletedMock: vi.fn(async () => {}),
@@ -161,6 +181,13 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@shared/puzzles', () => ({
   PUZZLES: puzzleListFixtures,
+  PUZZLE_POOL_DIAGNOSTICS: {
+    totalCandidates: puzzleListFixtures.length,
+    validCandidates: puzzleListFixtures.length,
+    shippedCandidates: puzzleListFixtures.length,
+    rejectedCandidates: 0,
+    rejectionReasons: [],
+  },
 }));
 
 vi.mock('@shared/puzzleSolver', async () => {
@@ -516,7 +543,57 @@ describe('Puzzle surfaces', () => {
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(78);
   });
 
-  it('ends the streak on a wrong move and offers retry or a fresh streak', () => {
+  it('shows textual hints in streak mode and highlights the hinted piece source square', () => {
+    renderStreakPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
+
+    expect(screen.getAllByText('Hint').length).toBeGreaterThan(0);
+    expect(screen.getByText('Look for the forcing move first.')).toBeInTheDocument();
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]?.selectedSquare).toEqual({ row: 6, col: 3 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
+    expect(screen.getByText('Use the rook check, not the quiet move.')).toBeInTheDocument();
+  });
+
+  it('renders lesson boards with the stored board orientation instead of flipping by side to move', () => {
+    const originalSideToMove = puzzleListFixtures[0].sideToMove;
+    const originalBoardOrientation = puzzleListFixtures[0].boardOrientation;
+
+    puzzleListFixtures[0].sideToMove = 'black' as const;
+    puzzleListFixtures[0].toMove = 'black' as const;
+    puzzleListFixtures[0].boardOrientation = 'white' as const;
+
+    renderLessonPlayer();
+
+    expect(boardPropsMock).toHaveBeenCalled();
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      playerColor: 'white',
+      isMyTurn: true,
+    });
+
+    puzzleListFixtures[0].sideToMove = originalSideToMove;
+    puzzleListFixtures[0].toMove = originalSideToMove;
+    puzzleListFixtures[0].boardOrientation = originalBoardOrientation;
+  });
+
+  it('shows the explicit sideToMove label even if the legacy toMove field disagrees', () => {
+    const originalSideToMove = puzzleListFixtures[0].sideToMove;
+    const originalToMove = puzzleListFixtures[0].toMove;
+
+    puzzleListFixtures[0].sideToMove = 'white' as const;
+    puzzleListFixtures[0].toMove = 'black' as const;
+
+    renderLessonPlayer();
+
+    expect(screen.getAllByText('White to move').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Black to move')).not.toBeInTheDocument();
+
+    puzzleListFixtures[0].sideToMove = originalSideToMove;
+    puzzleListFixtures[0].toMove = originalToMove;
+  });
+
+  it('shows the failure state briefly, then auto-restarts the streak after a wrong move', async () => {
     renderStreakPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'from' }));
@@ -527,6 +604,15 @@ describe('Puzzle surfaces', () => {
     expect(screen.getAllByText('Streak ended at 0').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Retry puzzle' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start a new streak' })).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.queryByText('Streak ended')).not.toBeInTheDocument();
+    expect(screen.getByText('Keep the streak alive')).toBeInTheDocument();
+    expect(screen.getByTestId('board-turn')).toHaveTextContent('true');
+    expect(screen.getByTestId('board-disabled')).toHaveTextContent('false');
   });
 
   it('keeps the categorized lesson tracks on a separate lessons page', () => {

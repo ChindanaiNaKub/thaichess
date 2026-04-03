@@ -1,26 +1,25 @@
 import { getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove, posToAlgebraic } from './engine';
-import type { Board, GameState, Move, Piece, PieceColor, Position } from './types';
-import type { Puzzle } from './puzzles';
+import type { Board, GameState, Move, PieceColor, Position } from './types';
+import type { Puzzle, PuzzleMoveReference, PuzzleSolutionLine } from './puzzles';
 import {
   createGameStateFromPuzzle,
-  getForcingMoves,
+  findObjectivePreservingFirstMoves,
+  findGoalSatisfyingFirstMoves,
   getMaterialSwing,
-  isTacticalTheme,
+  getPliesRemaining,
   isThemeSatisfied,
-  TACTICAL_WIN_SWING,
 } from './puzzleSolver';
 import {
   getPuzzleThemeDefinition,
+  isCountingTheme,
+  isDefensiveTheme,
   isFuturePuzzleTheme,
   isMateTheme,
   isPromotionTheme,
+  isTacticalTheme,
 } from './puzzleThemes';
-import {
-  countBoardActivePieces,
-  countBoardPawns,
-  countBoardPieces,
-  isMiddlegameRichBoard,
-} from './puzzleMetadata';
+import { validateMakrukPuzzlePosition, validateMakrukReplay } from './makrukPositionValidation';
+import { boardMatchesPieceList } from './puzzlePosition';
 
 export interface PuzzleValidationResult {
   puzzleId: number;
@@ -29,202 +28,370 @@ export interface PuzzleValidationResult {
   warnings: string[];
 }
 
-const CHECKMATE_DESCRIPTION_REGEX = /(?:mate|checkmate) in (\d+)/i;
-const CHECKMATE_COPY_REGEX = /\b(?:mate|checkmate|mating)\b/i;
-const CHECKMATE_EXPLANATION_REGEX = /\b(?:mate|checkmate|mating|boxed in|no safe square|no escape|mating net|close(?:s|d)?(?: the net| every reply)?|seal(?:s|ed)?|trap(?:s|ped)?|cut(?:s)? off|take(?:s)? away)\b/i;
-const PROMOTION_REGEX = /\bpromot(?:e|es|ed|ing|ion)\b/i;
-const PAWN_REGEX = /\b(?:pawn|bia)\b/i;
-const TACTICAL_ACTION_REGEX = /\b(?:win|wins|won|capture|captures|captured|capturing|grab|grabs|grabbing|collect|collects|collecting|pick(?:s)? up|harvest)\b/i;
-const TACTICAL_TARGET_REGEX = /\b(?:material|rook|rua|knight|ma|khon|met|pawn|bia)\b/i;
-
-function normalizeText(...parts: string[]): string {
-  return parts
-    .map(part => part.trim())
-    .filter(Boolean)
-    .join(' ');
+export interface PuzzleTurnValidationResult {
+  isValid: boolean;
+  errors: string[];
 }
 
-function countKings(board: Board, color: PieceColor): number {
-  let count = 0;
-  for (const row of board) {
-    for (const piece of row) {
-      if (piece?.type === 'K' && piece.color === color) count++;
-    }
-  }
-  return count;
-}
+const COUNTING_TEXT_REGEX = /\b(?:sak mak|sak kradan|count(?:ing|ed)?|final attack|draw|16|22|32|44|64|8)\b/i;
+const VAGUE_OBJECTIVE_REGEX = /\b(?:find the move|find a move|find the best move|play the best move|best move|keep the streak alive)\b/i;
 
 function isBoardShapeValid(board: Board): boolean {
   return board.length === 8 && board.every(row => row.length === 8);
 }
 
-function isPawnPlacementValid(board: Board): boolean {
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const piece = board[row][col];
-      if (!piece || piece.type !== 'P') continue;
-      if (piece.color === 'white' && row >= 5) return false;
-      if (piece.color === 'black' && row <= 2) return false;
-    }
-  }
-  return true;
+function moveEquals(left: PuzzleMoveReference | Move, right: PuzzleMoveReference | Move): boolean {
+  return left.from.row === right.from.row &&
+    left.from.col === right.from.col &&
+    left.to.row === right.to.row &&
+    left.to.col === right.to.col;
+}
+
+function formatMove(move: PuzzleMoveReference | Move): string {
+  return `${posToAlgebraic(move.from)}-${posToAlgebraic(move.to)}`;
 }
 
 function isLegalMove(board: Board, from: Position, to: Position): boolean {
   return getLegalMoves(board, from).some(move => move.row === to.row && move.col === to.col);
 }
 
-function validateThemeOutcome(puzzle: Puzzle, finalState: GameState, errors: string[]): void {
-  const lastMove = finalState.moveHistory[finalState.moveHistory.length - 1];
+function getAllLegalMovesForColor(board: Board, color: PieceColor): Move[] {
+  const moves: Move[] = [];
 
-  if (isMateTheme(puzzle.theme) && !finalState.isCheckmate) {
-    errors.push('Final position does not end in checkmate for a Checkmate puzzle.');
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      const piece = board[row]?.[col];
+      if (!piece || piece.color !== color) continue;
+
+      for (const target of getLegalMoves(board, { row, col })) {
+        moves.push({
+          from: { row, col },
+          to: { ...target },
+        });
+      }
+    }
   }
 
-  if (isPromotionTheme(puzzle.theme) && !lastMove?.promoted) {
-    errors.push('Final move does not promote a pawn for a Promotion puzzle.');
+  return moves;
+}
+
+function validateTeachingFields(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  if (puzzle.objective.trim().length < 12) {
+    errors.push('Puzzle objective must clearly state the exact task.');
   }
 
-  if (isTacticalTheme(puzzle.theme) && getMaterialSwing(puzzle, finalState) < TACTICAL_WIN_SWING) {
-    errors.push(`Final position does not win enough material for a ${puzzle.theme} puzzle.`);
+  if (puzzle.whyPositionMatters.trim().length < 24) {
+    errors.push('Puzzle must explain why the position matters.');
+  }
+
+  if (puzzle.explanation.trim().length < 24) {
+    errors.push('Puzzle must explain why the best move works.');
+  }
+
+  if (!puzzle.commonWrongMove) {
+    errors.push('Puzzle must record a common wrong move for feedback.');
+  }
+
+  if (puzzle.hint1.trim().length < 12) {
+    errors.push('Puzzle must include a short first hint.');
+  }
+
+  if (puzzle.hint2.trim().length < 18) {
+    errors.push('Puzzle must include a stronger second hint.');
+  }
+
+  if (puzzle.keyIdea.trim().length < 18) {
+    errors.push('Puzzle must include the key idea it teaches.');
+  }
+
+  if (puzzle.wrongMoveExplanation.trim().length < 24) {
+    errors.push('Puzzle must explain why the common wrong move fails.');
+  }
+
+  if (puzzle.takeaway.trim().length < 16) {
+    errors.push('Puzzle must include a short takeaway.');
+  }
+
+  if (puzzle.motif.trim().length < 4 || puzzle.motif.trim().toLowerCase() === puzzle.theme.trim().toLowerCase()) {
+    warnings.push('Puzzle motif should name a concrete Makruk teaching pattern, not just repeat the theme.');
+  }
+
+  if (puzzle.acceptedMoves.length > 1 && !puzzle.acceptedMoves.every(move => move.explanation.trim().length > 0)) {
+    errors.push('Equivalent accepted moves must explain why they are equivalent.');
   }
 }
 
-function formatMove(move: Move): string {
-  return `${posToAlgebraic(move.from)}-${posToAlgebraic(move.to)}`;
-}
+function detectObjectiveFamilies(objective: string): Set<'mate' | 'draw' | 'promotion' | 'material'> {
+  const text = objective.toLowerCase();
+  const families = new Set<'mate' | 'draw' | 'promotion' | 'material'>();
 
-function findWinningFirstMoves(puzzle: Puzzle, state: GameState): Move[] {
-  return getForcingMoves(state, puzzle);
-}
-
-function moveEquals(actual: Move, expected: { from: Position; to: Position }): boolean {
-  return actual.from.row === expected.from.row &&
-    actual.from.col === expected.from.col &&
-    actual.to.row === expected.to.row &&
-    actual.to.col === expected.to.col;
-}
-
-function positionEquals(left: Position, right: Position): boolean {
-  return left.row === right.row && left.col === right.col;
-}
-
-function pieceMatchesTarget(piece: Piece | null, target: Piece): boolean {
-  if (!piece) {
-    return false;
+  if (/\bmate|checkmate\b/.test(text)) families.add('mate');
+  if (/\bdraw\b/.test(text)) families.add('draw');
+  if (/\bpromot/.test(text)) families.add('promotion');
+  if (/\bwin\b|\bmaterial\b|\bfork\b|\btactic(?:al)?\b|\battack\b|\bconversion\b|\binitiative\b/.test(text)) {
+    families.add('material');
   }
 
-  return piece.type === target.type && piece.color === target.color;
+  return families;
 }
 
-interface TacticalTargetReference {
-  piece: Piece;
-  origin: Position;
+function validateObjectiveClarity(puzzle: Puzzle, errors: string[]): void {
+  const objective = puzzle.objective.trim();
+  const objectiveFamilies = [...detectObjectiveFamilies(objective)];
+  const expectedFamily = puzzle.goal.kind === 'checkmate'
+    ? 'mate'
+    : puzzle.goal.kind === 'draw'
+      ? 'draw'
+      : puzzle.goal.kind === 'promotion'
+        ? 'promotion'
+        : 'material';
+
+  if (VAGUE_OBJECTIVE_REGEX.test(objective)) {
+    errors.push('Puzzle objective is too vague. It must state the exact result to preserve.');
+  }
+
+  if (objectiveFamilies.length === 0) {
+    errors.push('Puzzle objective must name a concrete result such as mate, draw, promotion, or material/conversion.');
+  }
+
+  if (objectiveFamilies.length > 1) {
+    errors.push('Puzzle objective must declare exactly one primary result, not multiple unrelated goals.');
+  }
+
+  if (!objectiveFamilies.includes(expectedFamily)) {
+    errors.push(`Puzzle objective does not match the declared ${expectedFamily} goal.`);
+  }
 }
 
-function getTacticalTargetReference(puzzle: Puzzle, stateAfterFirstMove: GameState): TacticalTargetReference | null {
-  if (puzzle.solution.length !== 3) {
-    return null;
+function validateRuleImpact(puzzle: Puzzle, errors: string[]): void {
+  if (puzzle.ruleImpact.trim().length < 12) {
+    errors.push('Puzzle must explain the rule impact of the position.');
   }
 
-  const defenseMove = puzzle.solution[1];
-  const finalMove = puzzle.solution[2];
-  const stateBeforeFinalMove = makeMove(stateAfterFirstMove, defenseMove.from, defenseMove.to);
-  if (!stateBeforeFinalMove) {
-    return null;
+  if (puzzle.dependsOnCounting && !COUNTING_TEXT_REGEX.test(puzzle.ruleImpact)) {
+    errors.push('Counting-dependent puzzle must mention Sak Mak, Sak Kradan, the count, or the final attack in ruleImpact.');
   }
 
-  const capturedPiece = stateBeforeFinalMove.board[finalMove.to.row][finalMove.to.col];
-  if (!capturedPiece || capturedPiece.color === puzzle.toMove) {
-    return null;
+  if (puzzle.dependsOnCounting && !puzzle.counting) {
+    errors.push('Counting-dependent puzzle must include an explicit counting state.');
   }
-
-  const stationaryTarget = stateAfterFirstMove.board[finalMove.to.row][finalMove.to.col];
-  if (pieceMatchesTarget(stationaryTarget, capturedPiece)) {
-    return {
-      piece: capturedPiece,
-      origin: finalMove.to,
-    };
-  }
-
-  const movedTarget = stateAfterFirstMove.board[defenseMove.from.row][defenseMove.from.col];
-  if (positionEquals(defenseMove.to, finalMove.to) && pieceMatchesTarget(movedTarget, capturedPiece)) {
-    return {
-      piece: capturedPiece,
-      origin: defenseMove.from,
-    };
-  }
-
-  return null;
 }
 
-function validateTacticalTargetConsistency(puzzle: Puzzle, initialState: GameState, errors: string[]): void {
-  if (!isTacticalTheme(puzzle.theme) || puzzle.solution.length !== 3) {
+function validateThemeAndGoal(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  const themeDefinition = getPuzzleThemeDefinition(puzzle.theme);
+
+  if (!themeDefinition) {
+    warnings.push(`Puzzle theme "${puzzle.theme}" is not part of the Makruk theme catalog.`);
+  } else if (isFuturePuzzleTheme(puzzle.theme)) {
+    warnings.push(`Puzzle theme "${puzzle.theme}" is cataloged for future support but not fully validated yet.`);
+  }
+
+  if (isMateTheme(puzzle.theme) && puzzle.goal.kind !== 'checkmate') {
+    errors.push('Mate theme must use a checkmate goal.');
+  }
+
+  if (isPromotionTheme(puzzle.theme) && puzzle.goal.kind !== 'promotion') {
+    errors.push('Promotion theme must use a promotion goal.');
+  }
+
+  if (isTacticalTheme(puzzle.theme) && puzzle.goal.kind !== 'material-win') {
+    errors.push('Material theme must use a material-win goal.');
+  }
+
+  if (isDefensiveTheme(puzzle.theme) && puzzle.goal.result !== 'draw') {
+    errors.push('Defensive draw themes must end in a draw result.');
+  }
+
+  if (isCountingTheme(puzzle.theme) && !puzzle.dependsOnCounting) {
+    errors.push('Counting theme must set dependsOnCounting to true.');
+  }
+}
+
+function validateAcceptedMoves(puzzle: Puzzle, errors: string[]): void {
+  if (puzzle.acceptedMoves.length === 0) {
+    errors.push('Puzzle must define at least one accepted move.');
     return;
   }
 
-  const firstMove = puzzle.solution[0];
-  const stateAfterFirstMove = makeMove(initialState, firstMove.from, firstMove.to);
-  if (!stateAfterFirstMove) {
+  const firstMovesFromLines = puzzle.solutionLines
+    .map(line => line.moves[0])
+    .filter((move): move is PuzzleMoveReference => Boolean(move));
+
+  for (const accepted of puzzle.acceptedMoves) {
+    if (!isLegalMove(puzzle.board, accepted.move.from, accepted.move.to)) {
+      errors.push(`Accepted move ${formatMove(accepted.move)} is illegal in the starting position.`);
+    }
+
+    if (!firstMovesFromLines.some(move => moveEquals(move, accepted.move))) {
+      errors.push(`Accepted move ${formatMove(accepted.move)} does not start any solution line.`);
+    }
+  }
+}
+
+function validatePositionLock(puzzle: Puzzle, errors: string[]): void {
+  if (puzzle.positionAuthority !== 'explicit_piece_list') {
     return;
   }
 
-  const target = getTacticalTargetReference(puzzle, stateAfterFirstMove);
-  if (!target) {
-    errors.push('Three-ply tactical puzzles must finish by capturing a consistent target piece.');
+  if (puzzle.pieceList.length === 0) {
+    errors.push('Explicit-position puzzle must store a full piece list.');
     return;
   }
 
-  const defenderMoves = getForcingMoves(stateAfterFirstMove, puzzle);
+  const seenSquares = new Set<string>();
+  for (const piece of puzzle.pieceList) {
+    if (seenSquares.has(piece.square)) {
+      errors.push(`Explicit piece list contains a duplicate square: ${piece.square}.`);
+      return;
+    }
+    seenSquares.add(piece.square);
+  }
 
-  for (const defenderMove of defenderMoves) {
-    const nextState = makeMove(stateAfterFirstMove, defenderMove.from, defenderMove.to);
-    if (!nextState) {
+  if (!boardMatchesPieceList(puzzle.board, puzzle.pieceList)) {
+    errors.push('Puzzle board does not match its stored explicit piece list.');
+  }
+}
+
+function validateForkMotif(puzzle: Puzzle, errors: string[]): void {
+  if (puzzle.theme !== 'Fork' && !/\bfork\b/i.test(puzzle.motif)) {
+    return;
+  }
+
+  const linesById = new Map(puzzle.solutionLines.map(line => [line.id, line]));
+
+  for (const accepted of puzzle.acceptedMoves) {
+    const line = linesById.get(accepted.lineId) ??
+      puzzle.solutionLines.find(candidate => {
+        const firstMove = candidate.moves[0];
+        return firstMove ? moveEquals(firstMove, accepted.move) : false;
+      });
+
+    if (!line || line.moves.length < 3) {
+      errors.push(`Fork puzzle accepted move ${formatMove(accepted.move)} must lead to a line where the forking piece collects a target.`);
       continue;
     }
 
-    const targetSquare = positionEquals(defenderMove.from, target.origin) ? defenderMove.to : target.origin;
-    const solverMoves = getForcingMoves(nextState, puzzle);
-    const preservesTarget = solverMoves.some(move =>
-      positionEquals(move.to, targetSquare) &&
-      pieceMatchesTarget(nextState.board[move.to.row][move.to.col], target.piece),
-    );
+    let state = createGameStateFromPuzzle(puzzle);
+    let replayValid = true;
 
-    if (!preservesTarget) {
-      errors.push(
-        `Tactical puzzle target is not consistently forced after defender reply ${formatMove(defenderMove)}.`,
-      );
-      return;
+    for (let index = 0; index < 2; index += 1) {
+      const step = line.moves[index];
+      const nextState = step ? makeMove(state, step.from, step.to) : null;
+      if (!nextState) {
+        errors.push(`Fork puzzle line "${line.id}" could not be replayed far enough to validate the motif.`);
+        replayValid = false;
+        break;
+      }
+      state = nextState;
+    }
+
+    if (!replayValid) {
+      continue;
+    }
+
+    const collectionMove = line.moves[2];
+    if (!collectionMove) {
+      errors.push(`Fork puzzle line "${line.id}" is missing the collection move after the fork.`);
+      continue;
+    }
+
+    if (
+      collectionMove.from.row !== accepted.move.to.row ||
+      collectionMove.from.col !== accepted.move.to.col
+    ) {
+      errors.push(`Fork puzzle accepted move ${formatMove(accepted.move)} is not the same piece that collects the second target later in line "${line.id}".`);
+      continue;
+    }
+
+    const targetPiece = state.board[collectionMove.to.row]?.[collectionMove.to.col];
+    if (!targetPiece || targetPiece.color === puzzle.sideToMove) {
+      errors.push(`Fork puzzle line "${line.id}" does not show the forking piece winning an enemy target on its next turn.`);
     }
   }
 }
 
-function validateSolutionBranch(puzzle: Puzzle, initialState: GameState, errors: string[]): void {
-  validateTacticalTargetConsistency(puzzle, initialState, errors);
-  if (errors.length > 0) {
+export function validatePuzzleTurn(puzzle: Puzzle): PuzzleTurnValidationResult {
+  const errors: string[] = [];
+  const sideToMove = puzzle.sideToMove;
+
+  if (sideToMove !== 'white' && sideToMove !== 'black') {
+    errors.push('Puzzle sideToMove must be explicitly set to "white" or "black".');
+    return { isValid: false, errors };
+  }
+
+  if (puzzle.toMove !== sideToMove) {
+    errors.push('sideToMove does not match legacy toMove field.');
+  }
+
+  const state = createGameStateFromPuzzle(puzzle);
+  if (state.turn !== sideToMove) {
+    errors.push('sideToMove does not match solution line or board state');
+    return { isValid: false, errors };
+  }
+
+  const legalMoves = getAllLegalMovesForColor(state.board, sideToMove);
+  if (legalMoves.length === 0) {
+    errors.push('Side to move has no legal moves in the starting position.');
+    return { isValid: false, errors };
+  }
+
+  const firstLineMove = puzzle.solutionLines[0]?.moves[0] ?? puzzle.solution[0];
+  if (!firstLineMove) {
+    errors.push('Puzzle must contain at least one solution move.');
+    return { isValid: false, errors };
+  }
+
+  const firstPiece = state.board[firstLineMove.from.row]?.[firstLineMove.from.col];
+  if (!firstPiece || firstPiece.color !== sideToMove) {
+    errors.push('sideToMove does not match solution line or board state');
+    return { isValid: false, errors };
+  }
+
+  const firstMoveState = makeMove(state, firstLineMove.from, firstLineMove.to);
+  if (!firstMoveState) {
+    errors.push('sideToMove does not match solution line or board state');
+    return { isValid: false, errors };
+  }
+
+  if (isMateTheme(puzzle.theme) || puzzle.goal.kind === 'checkmate') {
+    const legalMoveExists = legalMoves.some(move => moveEquals(move, firstLineMove));
+    if (!legalMoveExists) {
+      errors.push('sideToMove does not match solution line or board state');
+    }
+  }
+
+  return { isValid: errors.length === 0, errors };
+}
+
+function validateSolutionLine(
+  puzzle: Puzzle,
+  line: PuzzleSolutionLine,
+  errors: string[],
+): void {
+  if (line.moves.length === 0) {
+    errors.push(`Solution line "${line.id}" is empty.`);
     return;
   }
 
-  let state = initialState;
+  if (line.moves.length % 2 === 0) {
+    errors.push(`Solution line "${line.id}" must end on the solving side.`);
+    return;
+  }
 
-  for (let index = 0; index < puzzle.solution.length; index++) {
-    const expectedMove = puzzle.solution[index];
-    const candidateMoves = getForcingMoves(state, puzzle);
+  let state = createGameStateFromPuzzle(puzzle);
 
-    if (!candidateMoves.length) {
-      errors.push(`Solution move ${index + 1} does not stay inside a forced puzzle branch.`);
+  for (let index = 0; index < line.moves.length; index += 1) {
+    const step = line.moves[index];
+    const role = state.turn === puzzle.sideToMove ? 'solver' : 'defender';
+
+    if (!isLegalMove(state.board, step.from, step.to)) {
+      errors.push(`Solution line "${line.id}" contains an illegal ${role} move at ply ${index + 1}: ${formatMove(step)}.`);
       return;
     }
 
-    if (!candidateMoves.some(move => moveEquals(move, expectedMove))) {
-      const role = state.turn === puzzle.toMove ? 'solver' : 'defender';
-      errors.push(`Solution move ${index + 1} is not a valid ${role} branch move.`);
-      return;
-    }
-
-    const nextState = makeMove(state, expectedMove.from, expectedMove.to);
+    const nextState = makeMove(state, step.from, step.to);
     if (!nextState) {
-      errors.push(`Solution move ${index + 1} could not be applied.`);
+      errors.push(`Solution line "${line.id}" could not apply move ${formatMove(step)}.`);
       return;
     }
 
@@ -232,101 +399,149 @@ function validateSolutionBranch(puzzle: Puzzle, initialState: GameState, errors:
   }
 
   if (!isThemeSatisfied(puzzle, state)) {
-    validateThemeOutcome(puzzle, state, errors);
-  }
-}
-
-function validateMetadata(puzzle: Puzzle, errors: string[], warnings: string[]): void {
-  const title = puzzle.title.trim();
-  const description = puzzle.description.trim();
-  const explanation = puzzle.explanation.trim();
-  const source = puzzle.source.trim();
-  const combinedCopy = normalizeText(title, description, explanation);
-
-  if (!title) errors.push('Puzzle title is required.');
-  if (!description) errors.push('Puzzle description is required.');
-  if (!explanation) errors.push('Puzzle explanation is required.');
-  if (!source) warnings.push('Puzzle source should be recorded for future audits.');
-
-  if (description.length < 20) {
-    warnings.push('Puzzle description is too short to set up the idea clearly.');
-  }
-
-  if (explanation.length < 20) {
-    warnings.push('Puzzle explanation is too short to teach the idea clearly.');
-  }
-
-  if (isMateTheme(puzzle.theme)) {
-    const mateCount = Math.floor((puzzle.solution.length + 1) / 2);
-    const match = description.match(CHECKMATE_DESCRIPTION_REGEX);
-
-    if (!match || Number.parseInt(match[1], 10) !== mateCount) {
-      errors.push(`Checkmate puzzle description must say "Mate in ${mateCount}".`);
+    switch (puzzle.goal.kind) {
+      case 'checkmate':
+        errors.push(`Solution line "${line.id}" does not end in checkmate.`);
+        break;
+      case 'promotion':
+        errors.push(`Solution line "${line.id}" does not end in promotion.`);
+        break;
+      case 'draw':
+        errors.push(`Solution line "${line.id}" does not end in a draw.`);
+        break;
+      case 'material-win':
+        errors.push(`Solution line "${line.id}" does not win the required material.`);
+        break;
     }
-
-    if (!CHECKMATE_COPY_REGEX.test(combinedCopy)) {
-      errors.push('Checkmate puzzle copy must mention mate or checkmate.');
-    }
-
-    if (!CHECKMATE_EXPLANATION_REGEX.test(explanation)) {
-      errors.push('Checkmate puzzle explanation must describe the mating idea.');
-    }
-  }
-
-  if (isPromotionTheme(puzzle.theme)) {
-    if (!PROMOTION_REGEX.test(combinedCopy)) {
-      errors.push('Promotion puzzle copy must mention promotion.');
-    }
-
-    if (!PAWN_REGEX.test(combinedCopy)) {
-      errors.push('Promotion puzzle copy must mention the pawn or bia.');
-    }
-  }
-
-  if (isTacticalTheme(puzzle.theme)) {
-    if (!TACTICAL_ACTION_REGEX.test(combinedCopy)) {
-      errors.push('Tactical puzzle copy must say that the line wins or captures something.');
-    }
-
-    if (!TACTICAL_TARGET_REGEX.test(combinedCopy)) {
-      errors.push('Tactical puzzle copy must name the material target or mention material gain.');
-    }
-  }
-
-  const themeDefinition = getPuzzleThemeDefinition(puzzle.theme);
-  if (!themeDefinition) {
-    warnings.push(`Puzzle theme "${puzzle.theme}" is not part of the Makruk theme catalog.`);
-  } else if (isFuturePuzzleTheme(puzzle.theme)) {
-    warnings.push(`Puzzle theme "${puzzle.theme}" is cataloged for future support but not fully validated yet.`);
-  }
-}
-
-function validateAdvancedTier(puzzle: Puzzle, errors: string[]): void {
-  if (puzzle.difficulty !== 'advanced') {
     return;
   }
 
-  if (puzzle.solution.length < 3) {
-    errors.push('Advanced puzzles must require at least 3 plies of calculation.');
+  if (puzzle.goal.kind === 'checkmate' && state.resultReason !== 'checkmate') {
+    errors.push(`Solution line "${line.id}" must finish with a checkmate result reason.`);
   }
 
-  if (isMateTheme(puzzle.theme) || isPromotionTheme(puzzle.theme)) {
-    errors.push('Advanced puzzles must focus on tactical advantage, not direct mate or promotion themes.');
+  if (puzzle.goal.kind === 'draw' && !state.isDraw) {
+    errors.push(`Solution line "${line.id}" must finish with a legal draw result.`);
   }
 
-  const firstMove = puzzle.solution[0];
-  const firstMoveIsCapture = firstMove
-    ? Boolean(puzzle.board[firstMove.to.row]?.[firstMove.to.col])
-    : false;
-
-  if (firstMoveIsCapture) {
-    errors.push('Advanced puzzles must not open with an immediate capture.');
+  if (puzzle.goal.kind === 'draw' && line.outcome.reason !== 'draw_saved' && state.resultReason !== line.outcome.reason) {
+    errors.push(`Solution line "${line.id}" outcome reason says "${line.outcome.reason}" but the engine resolved "${state.resultReason}".`);
   }
 
-  if (!isMiddlegameRichBoard(puzzle.board)) {
-    errors.push(
-      `Advanced puzzles must come from rich middlegame positions (found ${countBoardPieces(puzzle.board)} pieces, ${countBoardPawns(puzzle.board)} pawns, ${countBoardActivePieces(puzzle.board)} active non-pawn pieces).`,
-    );
+  if (puzzle.goal.kind === 'material-win') {
+    const minimumSwing = puzzle.goal.minMaterialSwing ?? 0;
+    if (getMaterialSwing(puzzle, state) < minimumSwing) {
+      errors.push(`Solution line "${line.id}" wins only ${getMaterialSwing(puzzle, state)} swing, below the required ${minimumSwing}.`);
+    }
+  }
+}
+
+function validateAuthoritativeSolutionLine(puzzle: Puzzle, errors: string[]): void {
+  if (puzzle.solutionAuthority !== 'authoritative_line') {
+    return;
+  }
+
+  if (puzzle.solutionLines.length !== 1) {
+    errors.push('Authoritative-line puzzle must publish exactly one canonical solution line.');
+    return;
+  }
+
+  let state = createGameStateFromPuzzle(puzzle);
+  const line = puzzle.solutionLines[0];
+
+  for (let index = 0; index < line.moves.length; index += 1) {
+    const step = line.moves[index];
+    const role = state.turn === puzzle.sideToMove ? 'solver' : 'defender';
+    const legalMoves = getAllLegalMovesForColor(state.board, state.turn);
+
+    if (role === 'defender') {
+      if (legalMoves.length !== 1) {
+        errors.push(`Authoritative line defender reply at ply ${index + 1} is not forced.`);
+        return;
+      }
+
+      if (!moveEquals(legalMoves[0], step)) {
+        errors.push(`Authoritative line defender reply at ply ${index + 1} does not match the only legal move.`);
+        return;
+      }
+    }
+
+    const nextState = makeMove(state, step.from, step.to);
+    if (!nextState) {
+      errors.push(`Authoritative line contains an illegal ${role} move at ply ${index + 1}: ${formatMove(step)}.`);
+      return;
+    }
+
+    if (role === 'solver' && puzzle.goal.kind === 'checkmate' && !nextState.isCheckmate && !nextState.isCheck) {
+      errors.push(`Authoritative mate line solver move at ply ${index + 1} must keep the attack forcing with check.`);
+      return;
+    }
+
+    state = nextState;
+  }
+}
+
+function validateCommonWrongMove(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  if (!puzzle.commonWrongMove) {
+    return;
+  }
+
+  const wrongMove = puzzle.commonWrongMove;
+
+  if (!isLegalMove(puzzle.board, wrongMove.from, wrongMove.to)) {
+    errors.push(`Common wrong move ${formatMove(wrongMove)} is illegal.`);
+    return;
+  }
+
+  if (puzzle.acceptedMoves.some(entry => moveEquals(entry.move, wrongMove))) {
+    errors.push(`Common wrong move ${formatMove(wrongMove)} is also listed as accepted.`);
+  }
+
+  const objectivePreservingMoves = findObjectivePreservingFirstMoves(puzzle);
+  if (objectivePreservingMoves.some(move => moveEquals(move, wrongMove))) {
+    errors.push(`Common wrong move ${formatMove(wrongMove)} accidentally preserves the puzzle objective.`);
+  }
+
+  const startState = createGameStateFromPuzzle(puzzle);
+  const nextState = makeMove(startState, wrongMove.from, wrongMove.to);
+  const targetPiece = puzzle.board[wrongMove.to.row]?.[wrongMove.to.col];
+
+  if ((isMateTheme(puzzle.theme) || puzzle.goal.kind === 'material-win') && !targetPiece && !nextState?.isCheck) {
+    warnings.push(`Common wrong move ${formatMove(wrongMove)} is neither a capture nor a check; consider using a more tempting material grab or forcing-looking move.`);
+  }
+
+  if (puzzle.wrongMoveExplanation.trim().length < 40) {
+    warnings.push('Wrong-move explanation is very short; consider making the failure mode more explicit.');
+  }
+}
+
+function validateExactAcceptedSet(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  const engineMoves = findObjectivePreservingFirstMoves(puzzle);
+  const allGoalMoves = findGoalSatisfyingFirstMoves(puzzle);
+  const acceptedMoves = puzzle.acceptedMoves.map(entry => entry.move);
+
+  const missingAccepted = acceptedMoves.filter(move =>
+    !engineMoves.some(candidate => moveEquals(candidate, move)),
+  );
+  const extraWinning = engineMoves.filter(move =>
+    !acceptedMoves.some(candidate => moveEquals(candidate, move)),
+  );
+
+  if (missingAccepted.length > 0) {
+    errors.push(`Accepted move set includes non-winning move(s): ${missingAccepted.map(formatMove).join(', ')}.`);
+  }
+
+  if (extraWinning.length > 0) {
+    errors.push(`Puzzle has additional objective-preserving first move(s): ${extraWinning.map(formatMove).join(', ')}.`);
+  }
+
+  const lowerQualityGoalMoves = allGoalMoves.filter(move =>
+    !engineMoves.some(candidate => moveEquals(candidate, move)) &&
+    !acceptedMoves.some(candidate => moveEquals(candidate, move)),
+  );
+
+  if (lowerQualityGoalMoves.length > 0 && acceptedMoves.length > 0) {
+    warnings.push(`Puzzle has lower-quality goal move(s) that reach the raw goal but do not preserve the main idea cleanly: ${lowerQualityGoalMoves.map(formatMove).join(', ')}.`);
   }
 }
 
@@ -339,29 +554,44 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
     return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
   }
 
-  if (countKings(puzzle.board, 'white') !== 1 || countKings(puzzle.board, 'black') !== 1) {
-    errors.push('Puzzle board must contain exactly one white king and one black king.');
+  const positionErrors = validateMakrukPuzzlePosition(puzzle.board).errors;
+  if (positionErrors.length > 0) {
+    errors.push(...positionErrors);
   }
 
-  if (!isPawnPlacementValid(puzzle.board)) {
-    errors.push('Puzzle board contains an unpromoted pawn on or beyond its promotion rank.');
+  const turnValidation = validatePuzzleTurn(puzzle);
+  if (!turnValidation.isValid) {
+    errors.push(...turnValidation.errors);
   }
 
-  if (!puzzle.solution.length) {
-    errors.push('Puzzle must contain at least one solution move.');
+  if (puzzle.setupMoves && puzzle.setupMoves.length > 0) {
+    const replay = validateMakrukReplay({
+      moves: puzzle.setupMoves,
+      expectedBoard: puzzle.board,
+      expectedTurn: puzzle.sideToMove,
+    });
+    if (!replay.valid) {
+      errors.push(...replay.errors.map(error => `Replay validation failed: ${error}`));
+    }
+  }
+
+  validateTeachingFields(puzzle, errors, warnings);
+  validateObjectiveClarity(puzzle, errors);
+  validateRuleImpact(puzzle, errors);
+  validateThemeAndGoal(puzzle, errors, warnings);
+  validatePositionLock(puzzle, errors);
+  validateAcceptedMoves(puzzle, errors);
+  validateForkMotif(puzzle, errors);
+  validateCommonWrongMove(puzzle, errors, warnings);
+
+  if (puzzle.solutionLines.length === 0) {
+    errors.push('Puzzle must contain at least one solution line.');
     return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
   }
 
-  if (puzzle.solution.length % 2 === 0) {
-    errors.push('Puzzle solution must end on the solving side, so solution length must be odd.');
-  }
-
-  validateMetadata(puzzle, errors, warnings);
-  validateAdvancedTier(puzzle, errors);
-
-  let state = createGameStateFromPuzzle(puzzle);
-  const defendingColor: PieceColor = puzzle.toMove === 'white' ? 'black' : 'white';
-  const solverInCheck = isInCheck(puzzle.board, puzzle.toMove);
+  const state = createGameStateFromPuzzle(puzzle);
+  const defendingColor: PieceColor = puzzle.sideToMove === 'white' ? 'black' : 'white';
+  const solverInCheck = isInCheck(puzzle.board, puzzle.sideToMove);
   const defenderInCheck = isInCheck(puzzle.board, defendingColor);
 
   if (solverInCheck && defenderInCheck) {
@@ -375,7 +605,7 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
   }
 
   if (isThemeSatisfied(puzzle, state)) {
-    errors.push('Puzzle theme is already satisfied in the starting position.');
+    errors.push('Puzzle goal is already satisfied in the starting position.');
     return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
   }
 
@@ -384,32 +614,20 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
     return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
   }
 
-  const firstMove = puzzle.solution[0];
-  if (!isLegalMove(state.board, firstMove.from, firstMove.to)) {
-    errors.push('First solution move is illegal in the starting position.');
-    return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
-  }
-
-  const winningFirstMoves = findWinningFirstMoves(puzzle, state);
-  const expectedFirstMove = winningFirstMoves.find(move =>
-    move.from.row === firstMove.from.row &&
-    move.from.col === firstMove.from.col &&
-    move.to.row === firstMove.to.row &&
-    move.to.col === firstMove.to.col,
-  );
-
-  if (!expectedFirstMove) {
-    errors.push('Listed first move does not force the puzzle theme within the solution length.');
-    return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
-  }
-
-  if (winningFirstMoves.length > 1) {
-    errors.push(`Puzzle has multiple winning first moves: ${winningFirstMoves.map(formatMove).join(', ')}.`);
-    return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
+  for (const line of puzzle.solutionLines) {
+    validateSolutionLine(puzzle, line, errors);
   }
 
   if (errors.length === 0) {
-    validateSolutionBranch(puzzle, state, errors);
+    validateAuthoritativeSolutionLine(puzzle, errors);
+  }
+
+  if (errors.length === 0) {
+    validateExactAcceptedSet(puzzle, errors, warnings);
+  }
+
+  if (puzzle.reviewStatus === 'ship' && getPliesRemaining(puzzle, state) === 0) {
+    errors.push('Shipped puzzle cannot have zero search depth.');
   }
 
   return { puzzleId: puzzle.id, title: puzzle.title, errors, warnings };
