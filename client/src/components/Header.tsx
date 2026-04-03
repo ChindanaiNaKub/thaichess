@@ -59,7 +59,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   );
 
   return (
-    <header className="bg-surface-alt/80 backdrop-blur-md border-b border-surface-hover/60 sticky top-0 z-40">
+    <header className="sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/80 sm:backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button

@@ -61,6 +61,7 @@ export default function HomePage() {
   const [showJoin, setShowJoin] = useState(false);
   const [showDeferredContent, setShowDeferredContent] = useState(false);
   const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
+  const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
@@ -119,6 +120,19 @@ export default function HomePage() {
     const timeoutId = globalThis.setTimeout(() => setShowPuzzleProgressCard(true), 250);
     return () => globalThis.clearTimeout(timeoutId);
   }, [showPuzzleProgressCard]);
+
+  useEffect(() => {
+    if (showHeroDecor || typeof window === 'undefined') return;
+
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      const idleId = requestIdle(() => setShowHeroDecor(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(() => setShowHeroDecor(true), 250);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [showHeroDecor]);
 
   useEffect(() => {
     if (showDeferredContent) return;
@@ -239,13 +253,13 @@ export default function HomePage() {
       <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
-            <div className="bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10 animate-slideUp">
-              <div className="flex items-center justify-center gap-1 mb-4 sm:mb-5">
-                {SHOWCASE_PIECES.map((p, i) => (
+            <div className="bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10">
+              <div className="mb-4 flex min-h-10 items-center justify-center gap-1 sm:mb-5">
+                {showHeroDecor ? SHOWCASE_PIECES.map((p, i) => (
                   <div key={i} className="opacity-80 hover:opacity-100 transition-opacity">
                     <PieceSVG type={p.type} color={p.color} size={40} />
                   </div>
-                ))}
+                )) : null}
               </div>
 
               <div className="mx-auto max-w-2xl text-center">

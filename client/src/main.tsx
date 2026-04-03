@@ -5,25 +5,36 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { initializeGlobalErrorReporting } from './lib/errorReporting';
-import { I18nProvider } from './lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from './lib/i18n';
 import { PieceStyleProvider } from './lib/pieceStyle';
 import './index.css';
 
 initializeGlobalErrorReporting();
-window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <I18nProvider>
-        <AuthProvider>
-          <PieceStyleProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
-          </PieceStyleProvider>
-        </AuthProvider>
-      </I18nProvider>
-    </ErrorBoundary>
-  </StrictMode>,
-);
+async function bootstrap() {
+  try {
+    await preloadDetectedTranslations();
+  } catch {
+    // Keep the app bootable even if a non-default catalog fails to load.
+  }
+
+  window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <I18nProvider>
+          <AuthProvider>
+            <PieceStyleProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </PieceStyleProvider>
+          </AuthProvider>
+        </I18nProvider>
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+}
+
+void bootstrap();

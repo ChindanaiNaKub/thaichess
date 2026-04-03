@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { LessonCoursePage } from '../components/LessonsPage';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 
 const lessonProgressState = vi.hoisted(() => ({
   completedLessonSet: new Set<string>(),
@@ -65,7 +65,9 @@ describe('LessonCoursePage i18n', () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
-  it('renders the course page chrome in Thai when Thai is selected', () => {
+  it('renders the course page chrome in Thai when Thai is selected', async () => {
+    await preloadDetectedTranslations();
+
     render(<LessonCoursePage />, { wrapper });
 
     expect(screen.getByText('บทเรียนแบบเป็นลำดับ')).toBeInTheDocument();

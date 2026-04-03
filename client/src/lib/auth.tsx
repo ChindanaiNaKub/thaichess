@@ -64,6 +64,41 @@ function writeCachedUser(user: AuthUser | null) {
   window.sessionStorage.removeItem(AUTH_CACHE_KEY);
 }
 
+function shouldDeferInitialAuthRefresh() {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname === '/';
+}
+
+function scheduleAfterPageLoad(task: () => void) {
+  if (typeof window === 'undefined') return () => {};
+
+  const runTask = () => {
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      const idleId = requestIdle(task, { timeout: 1500 });
+      return () => window.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = window.setTimeout(task, 350);
+    return () => window.clearTimeout(timeoutId);
+  };
+
+  if (document.readyState === 'complete') {
+    return runTask();
+  }
+
+  let cleanup = () => {};
+  const handleLoad = () => {
+    cleanup = runTask();
+  };
+
+  window.addEventListener('load', handleLoad, { once: true });
+  return () => {
+    window.removeEventListener('load', handleLoad);
+    cleanup();
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initialUser = readCachedUser();
   const [user, setUser] = useState<AuthUser | null>(initialUser);
@@ -78,13 +113,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!initialUser && shouldDeferInitialAuthRefresh()) {
+      return scheduleAfterPageLoad(() => {
+        refreshUser()
+          .catch(() => {
+            setUser(null);
+            writeCachedUser(null);
+          })
+          .finally(() => setLoading(false));
+      });
+    }
+
     refreshUser()
       .catch(() => {
         setUser(null);
         writeCachedUser(null);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialUser]);
 
   async function requestCode(email: string) {
     const response = await fetch('/api/auth/request-code', {

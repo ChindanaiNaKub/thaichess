@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LessonPlayerPage } from '../components/LessonsPage';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 
 vi.mock('../components/Header', () => ({
   default: ({ subtitle, right }: { subtitle?: string; right?: ReactNode }) => (
@@ -59,7 +59,9 @@ describe('LessonPlayerPage i18n', () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
-  it('renders lesson player chrome in Thai when Thai is selected', () => {
+  it('renders lesson player chrome in Thai when Thai is selected', async () => {
+    await preloadDetectedTranslations();
+
     render(
       <Routes>
         <Route path="/lessons/:id" element={<LessonPlayerPage />} />
