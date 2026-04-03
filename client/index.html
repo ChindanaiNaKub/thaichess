@@ -23,6 +23,339 @@
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Play ThaiChess Online Free | Makruk with Friends, Bot, and Puzzles" />
     <meta name="twitter:description" content="Play ThaiChess online for free. Challenge friends, practice against a bot, solve Makruk puzzles, and learn the traditional Thai chess game in your browser." />
+    <style>
+      :root {
+        --color-surface: oklch(0.16 0.015 65);
+        --color-surface-alt: oklch(0.19 0.015 65);
+        --color-surface-hover: oklch(0.24 0.015 65);
+        --color-primary: oklch(0.58 0.16 135);
+        --color-primary-light: oklch(0.66 0.18 135);
+        --color-accent: oklch(0.62 0.14 70);
+        --color-text: oklch(0.76 0.015 65);
+        --color-text-bright: oklch(0.9 0.01 65);
+        --color-text-dim: oklch(0.68 0.015 65);
+      }
+
+      html {
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: var(--color-surface);
+        color: var(--color-text);
+        font-family: 'Noto Sans Thai', 'Leelawadee UI', 'Segoe UI', 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+
+      .display {
+        letter-spacing: -0.02em;
+      }
+
+      .skip-to-content {
+        position: absolute;
+        top: -100%;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        background: var(--color-primary);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        border-bottom: 1px solid rgb(255 255 255 / 0.08);
+        background: rgb(42 36 31 / 0.95);
+      }
+
+      .site-header__inner {
+        display: flex;
+        height: 3.5rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 0 1rem;
+      }
+
+      .site-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+
+      .site-brand svg,
+      .home-cta-card svg,
+      .home-side-card svg {
+        color: var(--color-text-bright);
+      }
+
+      .site-brand__name {
+        color: var(--color-text-bright);
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .site-subtitle {
+        display: none;
+      }
+
+      .homepage-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: var(--color-surface);
+      }
+
+      .homepage-main {
+        flex: 1;
+        padding: 2rem 1rem;
+      }
+
+      .homepage-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        width: 100%;
+        max-width: 72rem;
+        margin: 0 auto;
+      }
+
+      .homepage-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .home-hero-card,
+      .home-side-card {
+        border-radius: 1rem;
+        border: 1px solid rgb(255 255 255 / 0.08);
+        background: var(--color-surface-alt);
+      }
+
+      .home-hero-card {
+        border-color: rgb(205 161 79 / 0.3);
+        padding: 1.5rem;
+      }
+
+      .home-hero-copy {
+        max-width: 42rem;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .home-hero-title {
+        margin: 0 0 0.75rem;
+        color: var(--color-text-bright);
+        font-size: 1.875rem;
+        line-height: 1.1;
+      }
+
+      .home-hero-desc,
+      .home-side-card__desc {
+        margin: 0;
+        color: var(--color-text-dim);
+        font-size: 1rem;
+      }
+
+      .home-cta-card {
+        margin-top: 2rem;
+        padding: 1.25rem;
+        border-radius: 1rem;
+        border: 1px solid rgb(205 161 79 / 0.2);
+        background: rgb(31 27 24 / 0.75);
+        box-shadow: 0 20px 50px rgb(0 0 0 / 0.16);
+      }
+
+      .home-cta-card__eyebrow,
+      .home-side-card__eyebrow {
+        margin: 0 0 0.5rem;
+        color: var(--color-accent);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .home-cta-card__title,
+      .home-side-card__title {
+        margin: 0;
+        color: var(--color-text-bright);
+        font-size: 1.875rem;
+        line-height: 1.1;
+      }
+
+      .home-cta-card__desc {
+        margin: 0.5rem 0 0;
+        max-width: 34rem;
+        color: var(--color-text-dim);
+        font-size: 0.95rem;
+      }
+
+      .home-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1.5rem 0;
+      }
+
+      .home-pill {
+        border: 1px solid rgb(255 255 255 / 0.08);
+        border-radius: 999px;
+        background: var(--color-surface);
+        color: var(--color-text-dim);
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .home-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .home-button-primary,
+      .home-button-secondary {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 3.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid transparent;
+        padding: 0.875rem 1.25rem;
+        font-size: 1rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .home-button-primary {
+        min-width: 16rem;
+        background: oklch(0.68 0.14 75);
+        color: var(--color-surface);
+      }
+
+      .home-button-secondary {
+        background: var(--color-surface);
+        border-color: rgb(255 255 255 / 0.08);
+        color: var(--color-text-bright);
+      }
+
+      .home-buttons-note {
+        margin: 0;
+        color: var(--color-text-dim);
+        font-size: 0.75rem;
+      }
+
+      .home-side-stack {
+        display: grid;
+        align-content: start;
+        gap: 0.625rem;
+      }
+
+      .home-side-card {
+        width: 100%;
+        padding: 1rem;
+        text-align: left;
+      }
+
+      .home-side-card--primary {
+        border-color: rgb(109 199 77 / 0.2);
+        background: rgb(109 199 77 / 0.1);
+      }
+
+      .home-side-card__row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .home-side-card__title {
+        font-size: 1rem;
+      }
+
+      .home-side-card__eyebrow {
+        color: var(--color-primary-light);
+        letter-spacing: 0.18em;
+      }
+
+      .home-side-card--primary svg {
+        color: var(--color-primary-light);
+      }
+
+      @media (min-width: 640px) {
+        .site-header__inner,
+        .homepage-main {
+          padding-left: 1.5rem;
+          padding-right: 1.5rem;
+        }
+
+        .site-subtitle {
+          display: inline-block;
+          margin-left: 0.5rem;
+          padding-left: 0.75rem;
+          border-left: 1px solid rgb(255 255 255 / 0.08);
+          color: var(--color-text-dim);
+          font-size: 0.875rem;
+        }
+
+        .home-hero-card {
+          padding: 2rem;
+        }
+
+        .home-buttons {
+          flex-direction: row;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .home-buttons-note {
+          font-size: 0.875rem;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .homepage-grid {
+          grid-template-columns: minmax(0, 1.4fr) 20rem;
+        }
+
+        .home-hero-card {
+          padding: 2.5rem;
+        }
+
+        .home-hero-title {
+          font-size: 3.35rem;
+        }
+      }
+
+      @media (min-width: 1280px) {
+        .homepage-grid {
+          grid-template-columns: minmax(0, 1.55fr) 21.25rem;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

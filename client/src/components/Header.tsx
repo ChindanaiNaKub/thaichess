@@ -59,20 +59,20 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/80 sm:backdrop-blur-md">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <header className="site-header sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/80 sm:backdrop-blur-md">
+      <div className="site-header__inner max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => handleNavigate('/')}
-            className="flex items-center gap-2 transition-opacity duration-150 hover:opacity-80 active:opacity-60"
+            className="site-brand flex items-center gap-2 transition-opacity duration-150 hover:opacity-80 active:opacity-60"
           >
             <PieceSVG type="K" color="white" size={28} />
-            <span className="text-base font-bold text-text-bright tracking-tight leading-none">
+            <span className="site-brand__name text-base font-bold text-text-bright tracking-tight leading-none">
               {t('app.name')}
             </span>
           </button>
           {subtitle && (
-            <span className="text-text-dim text-sm hidden sm:inline border-l border-surface-hover pl-3 ml-1">
+            <span className="site-subtitle text-text-dim text-sm hidden sm:inline border-l border-surface-hover pl-3 ml-1">
               {subtitle}
             </span>
           )}
