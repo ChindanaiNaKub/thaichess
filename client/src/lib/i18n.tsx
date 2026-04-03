@@ -34,7 +34,7 @@ export function translate(
   return text;
 }
 
-const EN: Record<string, string> = {
+export const EN_TRANSLATIONS: Record<string, string> = {
   // Common
   'app.name': 'ThaiChess',
   'app.tagline': 'The Ancient Art of Chess',
@@ -912,7 +912,7 @@ const EN: Record<string, string> = {
   'lang.switch': 'TH',
 };
 
-const TH: Record<string, string> = {
+export const TH_TRANSLATIONS: Record<string, string> = {
   // Common
   'app.name': 'หมากรุก',
   'app.tagline': 'หมากรุกไทยออนไลน์',
@@ -1790,7 +1790,10 @@ const TH: Record<string, string> = {
   'lang.switch': 'EN',
 };
 
-const TRANSLATIONS: Record<Language, Record<string, string>> = { en: EN, th: TH };
+export const TRANSLATIONS: Record<Language, Record<string, string>> = {
+  en: EN_TRANSLATIONS,
+  th: TH_TRANSLATIONS,
+};
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>(detectLanguage);
