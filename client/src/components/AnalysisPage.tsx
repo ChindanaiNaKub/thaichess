@@ -118,7 +118,7 @@ export default function AnalysisPage() {
         });
         setLoading(false);
       } catch {
-        setError('Failed to parse game data');
+        setError(t('analysis.parse_failed'));
         setLoading(false);
       }
       return;
@@ -128,7 +128,7 @@ export default function AnalysisPage() {
       setMode('game');
       fetch(`/api/game/${gameId}`)
         .then(r => {
-          if (!r.ok) throw new Error('Game not found');
+          if (!r.ok) throw new Error(t('analysis.game_not_found'));
           return r.json();
         })
         .then(data => {
@@ -141,19 +141,19 @@ export default function AnalysisPage() {
               moveCount: data.moveCount || data.moves.length,
             });
           } else {
-            setError('Game has no moves to analyze');
+            setError(t('analysis.no_moves'));
           }
           setLoading(false);
         })
         .catch(() => {
-          setError('Game not found');
+          setError(t('analysis.game_not_found'));
           setLoading(false);
         });
     } else {
       setMode('editor');
       setLoading(false);
     }
-  }, [gameId, searchParams]);
+  }, [gameId, searchParams, t]);
 
   useEffect(() => {
     return () => {
@@ -207,7 +207,7 @@ export default function AnalysisPage() {
         return;
       }
 
-      setError(message.message || 'Analysis failed');
+      setError(message.message || t('analysis.failed'));
       setAnalyzing(false);
       setProgress(null);
       setAnalysisStartedAt(null);
@@ -221,7 +221,7 @@ export default function AnalysisPage() {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [analysis, gameData, mode]);
+  }, [analysis, gameData, mode, t]);
 
   useEffect(() => {
     if (!analyzing || analysisStartedAt === null) {
