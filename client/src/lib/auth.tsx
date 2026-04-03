@@ -66,9 +66,8 @@ function writeCachedUser(user: AuthUser | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initialUser = readCachedUser();
-  const onHomeRoute = typeof window !== 'undefined' && window.location.pathname === '/';
   const [user, setUser] = useState<AuthUser | null>(initialUser);
-  const [loading, setLoading] = useState(initialUser ? false : !onHomeRoute);
+  const [loading, setLoading] = useState(!initialUser);
 
   async function refreshUser() {
     const response = await fetch('/api/auth/me');
@@ -79,45 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const deferredDelay = import.meta.env.MODE === 'test' ? 0 : 1800;
-    let timeoutId: number | null = null;
-    let idleHandle: number | null = null;
-
-    const runRefresh = () => {
-      refreshUser()
-        .catch(() => {
-          setUser(null);
-          writeCachedUser(null);
-        })
-        .finally(() => setLoading(false));
-    };
-
-    if (onHomeRoute) {
-      const schedule = () => {
-        timeoutId = window.setTimeout(() => {
-          const idle = window.requestIdleCallback;
-          if (typeof idle === 'function') {
-            idleHandle = idle(runRefresh, { timeout: 2000 });
-            return;
-          }
-          void runRefresh();
-        }, deferredDelay);
-      };
-
-      if (document.readyState === 'complete') {
-        schedule();
-      } else {
-        window.addEventListener('load', schedule, { once: true });
-      }
-
-      return () => {
-        window.removeEventListener('load', schedule);
-        if (timeoutId !== null) window.clearTimeout(timeoutId);
-        if (idleHandle !== null) window.cancelIdleCallback?.(idleHandle);
-      };
-    }
-
-    void runRefresh();
+    refreshUser()
+      .catch(() => {
+        setUser(null);
+        writeCachedUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   async function requestCode(email: string) {

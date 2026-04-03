@@ -4,7 +4,6 @@ import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
-import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 
 import PieceSVG from './PieceSVG';
 
@@ -18,6 +17,7 @@ import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
+const DeferredHomePuzzleProgressCard = lazy(() => import('./HomePuzzleProgressCard'));
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
@@ -48,19 +48,9 @@ interface HomeStats {
 type SocketModule = typeof import('../lib/socket');
 type SocketLike = SocketModule['socket'];
 
-function getPublicPuzzleTitle(title: string): string {
-  return title
-    .replace(/\s*\([0-9a-f]{8}\s*@\s*ply\s*\d+\)$/i, '')
-    .replace(/^Real-Game\s+/i, '')
-    .trim();
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
-  const puzzleProgress = usePuzzleProgressSummary();
-  const latestSolvedPuzzle = puzzleProgress.recentCompleted[0]?.puzzle ?? null;
-  const lastPlayedPuzzle = puzzleProgress.lastPlayed?.puzzle ?? null;
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -70,12 +60,14 @@ export default function HomePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showDeferredContent, setShowDeferredContent] = useState(false);
+  const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
   const socketRef = useRef<SocketLike | null>(null);
+  const deferredContentRef = useRef<HTMLDivElement | null>(null);
 
   const cleanupCreateHandlers = () => {
     const activeSocket = socketRef.current;
@@ -116,33 +108,43 @@ export default function HomePage() {
   }, [showDeferredContent]);
 
   useEffect(() => {
-    const deferredDelay = import.meta.env.MODE === 'test' ? 0 : 1600;
-    let timeoutId: number | null = null;
-    let idleHandle: number | null = null;
+    if (showPuzzleProgressCard || typeof window === 'undefined') return;
 
-    const schedule = () => {
-      timeoutId = window.setTimeout(() => {
-        const idle = window.requestIdleCallback;
-        if (typeof idle === 'function') {
-          idleHandle = idle(() => setShowDeferredContent(true), { timeout: 1500 });
-          return;
-        }
-        setShowDeferredContent(true);
-      }, deferredDelay);
-    };
-
-    if (document.readyState === 'complete') {
-      schedule();
-    } else {
-      window.addEventListener('load', schedule, { once: true });
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      const idleId = requestIdle(() => setShowPuzzleProgressCard(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(idleId);
     }
 
+    const timeoutId = globalThis.setTimeout(() => setShowPuzzleProgressCard(true), 250);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [showPuzzleProgressCard]);
+
+  useEffect(() => {
+    if (showDeferredContent) return;
+
+    if (import.meta.env.MODE === 'test') {
+      setShowDeferredContent(true);
+      return;
+    }
+
+    const target = deferredContentRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setShowDeferredContent(true);
+      observer.disconnect();
+    }, {
+      rootMargin: '320px 0px',
+    });
+
+    observer.observe(target);
+
     return () => {
-      window.removeEventListener('load', schedule);
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-      if (idleHandle !== null) window.cancelIdleCallback?.(idleHandle);
+      observer.disconnect();
     };
-  }, []);
+  }, [showDeferredContent]);
 
   const handleCreateGame = async () => {
     setIsCreating(true);
@@ -292,11 +294,12 @@ export default function HomePage() {
                   <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
                     {t('home.free_to_play')}
                   </span>
-                  {stats && stats.totalGames > 0 && (
-                    <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
-                      {t('home.games_played', { count: stats.totalGames })}
-                    </span>
-                  )}
+                  <span
+                    aria-hidden={stats === null}
+                    className={`rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    {stats && stats.totalGames > 0 ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
+                  </span>
                 </div>
 
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
@@ -320,45 +323,27 @@ export default function HomePage() {
             </div>
 
             <aside className="grid gap-2.5 content-start">
-              <button
-                type="button"
-                onClick={() => navigate(routes.puzzles)}
-                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
-              >
-                <div className="flex items-start gap-3">
-                  <PuzzleSVG size={24} className="text-primary-light flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {puzzleProgress.attemptCount > 0 ? t('home.streak_continue') : t('home.streak_start')}
-                    </div>
-                    <div className="mt-1 text-text-bright text-[1rem] font-semibold">
-                      {t('home.streak_title')}
-                    </div>
-                    <div className="mt-1 text-text-dim text-xs sm:text-sm">
-                      {t('home.streak_progress', {
-                        done: puzzleProgress.completedCount,
-                        total: puzzleProgress.totalCount,
-                      })}
-                    </div>
-                    {puzzleProgress.favoriteTheme && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_focus', { theme: t(`theme.${puzzleProgress.favoriteTheme}`) })}
+              {showPuzzleProgressCard ? (
+                <Suspense
+                  fallback={(
+                    <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-6 w-6 rounded-full bg-primary/20" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3 w-28 rounded-full bg-primary/20" />
+                          <div className="h-5 w-36 rounded-full bg-primary/20" />
+                          <div className="h-3 w-full rounded-full bg-primary/15" />
+                          <div className="h-3 w-4/5 rounded-full bg-primary/15" />
+                        </div>
                       </div>
-                    )}
-                    {lastPlayedPuzzle && puzzleProgress.lastPlayed?.completedAt === null && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_resume', { title: getPublicPuzzleTitle(lastPlayedPuzzle.title) })}
-                      </div>
-                    )}
-                    {latestSolvedPuzzle && (
-                      <div className="mt-2 text-text-dim text-xs sm:text-sm">
-                        {t('home.streak_recent', { title: getPublicPuzzleTitle(latestSolvedPuzzle.title) })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
+                    </div>
+                  )}
+                >
+                  <DeferredHomePuzzleProgressCard />
+                </Suspense>
+              ) : (
+                <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4" />
+              )}
 
               {!showCreate ? (
                 <button
@@ -552,22 +537,35 @@ export default function HomePage() {
             </aside>
           </section>
 
-          {showDeferredContent && (
-            <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
-              <DeferredLiveGamesPanel
-                games={liveGames}
-                loading={liveGamesLoading}
-                title={t('home.live_now_title')}
-                description={t('home.live_now_desc')}
-                emptyTitle={t('home.no_live_games')}
-                emptyDesc={t('home.no_live_games_desc')}
-                compact
-                showViewAll
-                viewAllLabel={t('home.view_all_live')}
-                onViewAll={() => navigate(routes.watch)}
-              />
-            </Suspense>
-          )}
+          <div ref={deferredContentRef}>
+            {showDeferredContent ? (
+              <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
+                <DeferredLiveGamesPanel
+                  games={liveGames}
+                  loading={liveGamesLoading}
+                  title={t('home.live_now_title')}
+                  description={t('home.live_now_desc')}
+                  emptyTitle={t('home.no_live_games')}
+                  emptyDesc={t('home.no_live_games_desc')}
+                  compact
+                  showViewAll
+                  viewAllLabel={t('home.view_all_live')}
+                  onViewAll={() => navigate(routes.watch)}
+                />
+              </Suspense>
+            ) : (
+              <section aria-hidden="true" className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="space-y-3">
+                    <div className="h-4 w-24 rounded-full bg-surface" />
+                    <div className="h-4 w-56 rounded-full bg-surface" />
+                  </div>
+                  <div className="h-10 w-36 rounded-lg bg-surface" />
+                </div>
+                <div className="mt-5 h-[10.5rem] rounded-2xl border border-dashed border-surface-hover bg-surface/55" />
+              </section>
+            )}
+          </div>
 
           <section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
