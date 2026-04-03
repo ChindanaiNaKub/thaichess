@@ -10,16 +10,21 @@ function deferStylesheets() {
     transformIndexHtml: {
       order: 'post' as const,
       handler(html: string) {
-        return html.replace(/<link rel="stylesheet"([^>]*?)href="([^"]+)"([^>]*)>/g, (_match, beforeHref, href, afterHref) => {
+        const stylesheetHtml = html.replace(/<link rel="stylesheet"([^>]*?)href="([^"]+)"([^>]*)>/g, (_match, beforeHref, href, afterHref) => {
           const attrs = `${beforeHref}${afterHref}`.trim();
           const serializedAttrs = attrs ? ` ${attrs}` : '';
 
           return [
             `<link rel="preload" as="style" href="${href}"${serializedAttrs}>`,
-            `<link rel="stylesheet" href="${href}" media="print" onload="this.media='all'"${serializedAttrs}>`,
+            `<link rel="stylesheet" href="${href}" media="print" onload="this.media='all';this.onload=null;window.__thaichessResolveStylesReady&&window.__thaichessResolveStylesReady()"${serializedAttrs}>`,
             `<noscript><link rel="stylesheet" href="${href}"${serializedAttrs}></noscript>`,
           ].join('');
         });
+
+        return stylesheetHtml.replace(
+          /(<script type="module"[^>]*><\/script>)(\s*)(<link rel="preload" as="style"[\s\S]*?<\/noscript>)/,
+          '$3$2$1',
+        );
       },
     },
   };
