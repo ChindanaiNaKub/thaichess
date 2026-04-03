@@ -35,7 +35,7 @@ describe('AuthProvider', () => {
 
     expect(screen.getByText('guest')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.pointerDown(window);
+    fireEvent.click(window);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/me');

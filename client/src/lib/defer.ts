@@ -16,9 +16,8 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
   };
 
   const cleanup = () => {
-    window.removeEventListener('pointerdown', finish);
-    window.removeEventListener('keydown', finish);
-    window.removeEventListener('touchstart', finish);
+    window.removeEventListener('click', finish);
+    window.removeEventListener('keyup', finish);
     window.removeEventListener('scroll', finish);
     window.removeEventListener('focus', finish);
     if (timeoutId !== undefined) {
@@ -26,9 +25,8 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
     }
   };
 
-  window.addEventListener('pointerdown', finish, { once: true, passive: true });
-  window.addEventListener('keydown', finish, { once: true });
-  window.addEventListener('touchstart', finish, { once: true, passive: true });
+  window.addEventListener('click', finish, { once: true, passive: true });
+  window.addEventListener('keyup', finish, { once: true });
   window.addEventListener('scroll', finish, { once: true, passive: true });
   window.addEventListener('focus', finish, { once: true });
 
