@@ -37,6 +37,7 @@ export interface PuzzleCandidateDraft extends Omit<
   | 'commonWrongMove'
   | 'wrongMoveExplanation'
   | 'takeaway'
+  | 'sideToMove'
 > {
   origin?: PuzzleOrigin;
   sourceGameId?: string | null;

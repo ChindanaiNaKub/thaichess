@@ -83,8 +83,7 @@ function getTraditionalAsset(type: PieceType, palette: TraditionalPiecePalette, 
     };
   }
 
-  const renderType = type === 'PM' ? 'M' : type;
-  const asset = parsedTraditionalAssets[renderType];
+  const asset = parsedTraditionalAssets[type];
   return {
     viewBox: asset.viewBox,
     markup: colorizeTraditionalMarkup(asset.markup, palette, fillId),

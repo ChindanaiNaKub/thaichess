@@ -713,7 +713,6 @@ function getGeneratedDifficulty(
     source,
     motif,
     board,
-    sideToMove: toMove,
     toMove,
     solution,
     tags,
@@ -918,6 +917,7 @@ function scoreCandidate(
 }
 
 function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boolean {
+  const solution = draft.solution ?? [];
   const legalMoveCount = (() => {
     let total = 0;
     for (let row = 0; row < 8; row += 1) {
@@ -929,7 +929,7 @@ function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boole
     }
     return total;
   })();
-  const firstMove = draft.solution[0];
+  const firstMove = solution[0];
   const firstMoveCapture = firstMove
     ? Boolean(state.board[firstMove.to.row]?.[firstMove.to.col])
     : false;
@@ -943,11 +943,11 @@ function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boole
     draft.theme === 'HangingPiece' ||
     draft.theme === 'TrappedPiece';
 
-  if (draft.solution.length < 3 && !shortFormAllowed) {
+  if (solution.length < 3 && !shortFormAllowed) {
     return false;
   }
 
-  if (legalMoveCount < (draft.solution.length < 3 ? 2 : 4)) {
+  if (legalMoveCount < (solution.length < 3 ? 2 : 4)) {
     return false;
   }
 
