@@ -181,6 +181,7 @@ export function createGameStateFromPuzzle(puzzle: Puzzle): GameState {
     board,
     turn,
     moveHistory: [],
+    lastMove: null,
     isCheck: isInCheck(board, turn),
     isCheckmate: false,
     isStalemate: false,

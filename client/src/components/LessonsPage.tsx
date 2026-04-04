@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { getLegalMoves, isInCheck, makeMove } from '@shared/engine';
+import { getLastMoveForView, getLegalMoves, isInCheck, makeMove } from '@shared/engine';
 import type { GameState, Position } from '@shared/types';
 import { useNavigate, useParams } from 'react-router-dom';
 import { lessonRoute, puzzleRoute, routes } from '../lib/routes';
@@ -74,6 +74,7 @@ function createLessonGameState(scene: LessonScene): GameState {
     board,
     turn: scene.toMove,
     moveHistory: [],
+    lastMove: null,
     isCheck: isInCheck(board, scene.toMove),
     isCheckmate: false,
     isStalemate: false,
@@ -638,7 +639,7 @@ function StructuredLessonPlayer() {
                         isMyTurn={expectsMove && !resolved}
                         legalMoves={legalMoves}
                         selectedSquare={selectedSquare}
-                        lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                        lastMove={getLastMoveForView(gameState)}
                         isCheck={gameState.isCheck}
                         checkSquare={null}
                         onSquareClick={handleSquareClick}

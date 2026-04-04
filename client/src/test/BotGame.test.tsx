@@ -221,6 +221,10 @@ describe('BotGame', () => {
     await waitFor(() => {
       const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
       expect(lastBoardProps?.isMyTurn).toBe(true);
+      expect(lastBoardProps?.lastMove).toMatchObject({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      });
     }, { timeout: 2000 });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);

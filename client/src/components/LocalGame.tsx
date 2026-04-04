@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
-  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove,
+  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove, getLastMoveForView,
   startCounting, stopCounting,
 } from '@shared/engine';
 import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
@@ -209,10 +209,7 @@ export default function LocalGame() {
   };
 
   const getLastMove = (): Move | null => {
-    if (gameState.moveHistory.length === 0) return null;
-    const idx = viewMoveIndex ?? gameState.moveHistory.length - 1;
-    if (idx < 0) return null;
-    return gameState.moveHistory[idx];
+    return getLastMoveForView(gameState, viewMoveIndex);
   };
 
   const getCheckSquare = (): Position | null => {

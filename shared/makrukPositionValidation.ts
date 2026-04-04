@@ -53,6 +53,7 @@ function createState(board: Board, turn: PieceColor): GameState {
     board: cloneBoard(board),
     turn,
     moveHistory: [],
+    lastMove: null,
     isCheck: isInCheck(board, turn),
     isCheckmate: false,
     isStalemate: false,

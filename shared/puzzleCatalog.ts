@@ -136,6 +136,7 @@ function createState(board: Board, toMove: PieceColor, counting: CountingState |
     board: cloneBoard(board),
     turn: toMove,
     moveHistory: [],
+    lastMove: null,
     isCheck: isInCheck(board, toMove),
     isCheckmate: false,
     isStalemate: false,

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
-import { getLegalMoves, makeMove } from '@shared/engine';
+import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
 import { PUZZLES, type Puzzle } from '@shared/puzzles';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import {
@@ -942,8 +942,7 @@ function PuzzleStreakPage() {
   }, [currentPuzzle, hintStage, status]);
 
   const getLastMove = (): Move | null => {
-    if (!gameState || gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+    return getLastMoveForView(gameState);
   };
 
   const getCheckSquare = (): Position | null => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Position, PieceColor, Move, Board as BoardType } from '@shared/types';
-import { createInitialBoard, getBoardAtMove, isInCheck, posToAlgebraic } from '@shared/engine';
+import { createInitialBoard, getBoardAtMove, getMoveAtIndex, isInCheck, posToAlgebraic } from '@shared/engine';
 import {
   GameAnalysis, AnalyzedMove, MoveClassification,
   getClassificationColor, getClassificationSymbol, getClassificationIcon, formatEval,
@@ -755,7 +755,7 @@ export default function AnalysisPage() {
                   isMyTurn={false}
                   legalMoves={[]}
                   selectedSquare={null}
-                  lastMove={null}
+                  lastMove={getMoveAtIndex(gameData.moves, viewMoveIndex)}
                   isCheck={!!getCheckSquare()}
                   checkSquare={getCheckSquare()}
                   onSquareClick={() => {}}

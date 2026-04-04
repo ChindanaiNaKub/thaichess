@@ -99,6 +99,13 @@ export default memo(function Board({
            (lastMove.to.row === row && lastMove.to.col === col);
   }, [lastMove]);
 
+  const getLastMoveRole = useCallback((row: number, col: number): 'from' | 'to' | null => {
+    if (!lastMove) return null;
+    if (lastMove.from.row === row && lastMove.from.col === col) return 'from';
+    if (lastMove.to.row === row && lastMove.to.col === col) return 'to';
+    return null;
+  }, [lastMove]);
+
   const isSelected = useCallback((row: number, col: number) => {
     return selectedSquare?.row === row && selectedSquare?.col === col;
   }, [selectedSquare]);
@@ -425,6 +432,7 @@ export default memo(function Board({
         const isDragging = dragPiece?.row === boardRow && dragPiece?.col === boardCol;
         const legal = isLegalMove(boardRow, boardCol);
         const hasCapture = legal && piece !== null;
+        const lastMoveRole = getLastMoveRole(boardRow, boardCol);
 
         const annotation = getSquareAnnotation(boardRow, boardCol);
         const customStyle = getSquareStyle(boardRow, boardCol);
@@ -458,12 +466,19 @@ export default memo(function Board({
               </span>
             )}
 
+            {lastMoveRole && (
+              <div
+                className={`board-lastmove-overlay board-lastmove-overlay-${lastMoveRole}`}
+                data-testid={`board-lastmove-overlay-${lastMoveRole}-${boardRow}-${boardCol}`}
+              />
+            )}
+
             {legal && !hasCapture && <div className="legal-dot" />}
             {legal && hasCapture && <div className="legal-capture" />}
 
             {piece && !isDragging && (
               <div
-                className={`absolute inset-[4.5%] flex items-center justify-center piece ${isSelected(boardRow, boardCol) ? 'piece-selected' : ''} ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
+                className={`absolute inset-[4.5%] z-[2] flex items-center justify-center piece ${isSelected(boardRow, boardCol) ? 'piece-selected' : ''} ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
                 data-testid={`board-piece-${boardRow}-${boardCol}`}
               >
                 <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />

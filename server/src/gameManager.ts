@@ -705,6 +705,7 @@ export class GameManager {
       board: room.gameState.board,
       turn: room.gameState.turn,
       moveHistory: room.gameState.moveHistory,
+      lastMove: room.gameState.lastMove,
       isCheck: room.gameState.isCheck,
       isCheckmate: room.gameState.isCheckmate,
       isStalemate: room.gameState.isStalemate,
