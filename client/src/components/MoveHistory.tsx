@@ -58,13 +58,17 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
   }, [activeIndex]);
 
   return (
-    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden flex flex-col">
+    <div
+      className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden flex flex-col"
+      style={{ overflowAnchor: 'none' }}
+    >
       <div className="px-3 py-2 border-b border-surface-hover">
         <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
       </div>
       <div
         ref={scrollRef}
         className="h-[240px] min-h-[240px] max-h-[240px] overflow-y-auto p-1 lg:h-[168px] lg:min-h-[168px] lg:max-h-[168px]"
+        style={{ overflowAnchor: 'none' }}
       >
         {movePairs.length === 0 ? (
           <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
