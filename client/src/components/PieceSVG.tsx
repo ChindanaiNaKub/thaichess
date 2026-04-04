@@ -4,6 +4,7 @@ import { useBoardAppearance } from '../lib/pieceStyle';
 import type { PieceThemeId, TraditionalPiecePalette } from '../themes/pieces';
 import { getPieceThemeById } from '../themes/pieces';
 import biaBlackSvg from '../assets/pieces/traditional/Bia_black.svg?raw';
+import biangaiBlackSvg from '../assets/pieces/traditional/Biangai_black.svg?raw';
 import khonBlackSvg from '../assets/pieces/traditional/Khon_black.svg?raw';
 import khunBlackSvg from '../assets/pieces/traditional/Khun_black.svg?raw';
 import maBlackSvg from '../assets/pieces/traditional/Ma_black.svg?raw';
@@ -53,7 +54,7 @@ const parsedTraditionalAssets: Record<PieceType, TraditionalAsset> = {
   R: parseTraditionalAsset(rueaBlackSvg),
   N: parseTraditionalAsset(maBlackSvg),
   P: parseTraditionalAsset(biaBlackSvg),
-  PM: parseTraditionalAsset(metBlackSvg),
+  PM: parseTraditionalAsset(biangaiBlackSvg),
 };
 
 function colorizeTraditionalMarkup(markup: string, palette: TraditionalPiecePalette, fillId: string) {
@@ -76,7 +77,7 @@ function buildTraditionalPawnMarkup(palette: TraditionalPiecePalette, fillId: st
 }
 
 function getTraditionalAsset(type: PieceType, palette: TraditionalPiecePalette, fillId: string): TraditionalAsset {
-  if (type === 'P' || type === 'PM') {
+  if (type === 'P') {
     return {
       viewBox: parsedTraditionalAssets.P.viewBox,
       markup: buildTraditionalPawnMarkup(palette, fillId),

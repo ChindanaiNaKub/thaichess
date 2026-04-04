@@ -369,7 +369,7 @@ describe('Game Engine', () => {
       expect(newState?.board[5][5]?.color).toBe('white');
     });
 
-    it('should promote a white pawn into a white Met (PM)', () => {
+    it('should promote a white pawn into a white promoted pawn (PM), not a normal Met', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
 
       // White pawn at row 4, promoting to row 5 (promotion rank for white)
@@ -383,6 +383,7 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 4, col: 4 }, { row: 5, col: 4 });
 
       expect(newState?.board[5][4]?.type).toBe('PM'); // Promoted
+      expect(newState?.board[5][4]?.type).not.toBe('M');
       expect(newState?.board[5][4]?.color).toBe('white');
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
     });
@@ -402,7 +403,7 @@ describe('Game Engine', () => {
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(false);
     });
 
-    it('should promote a black pawn into a black Met (PM) on the third rank from blacks perspective', () => {
+    it('should promote a black pawn into a black promoted pawn (PM) on the third rank from blacks perspective', () => {
       const board: Board = Array(8).fill(null).map(() => Array(8).fill(null));
       board[3][3] = { type: 'P', color: 'black' };
       board[0][0] = { type: 'K', color: 'white' };
@@ -415,8 +416,25 @@ describe('Game Engine', () => {
       const newState = makeMove(state, { row: 3, col: 3 }, { row: 2, col: 3 });
 
       expect(newState?.board[2][3]?.type).toBe('PM');
+      expect(newState?.board[2][3]?.type).not.toBe('M');
       expect(newState?.board[2][3]?.color).toBe('black');
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
+    });
+
+    it('should give promoted pawns exactly the same legal moves as a Met', () => {
+      const metBoard: Board = Array(8).fill(null).map(() => Array(8).fill(null));
+      metBoard[0][0] = { type: 'K', color: 'white' };
+      metBoard[7][7] = { type: 'K', color: 'black' };
+      metBoard[4][4] = { type: 'M', color: 'white' };
+      metBoard[5][5] = { type: 'P', color: 'white' };
+      metBoard[3][5] = { type: 'P', color: 'black' };
+
+      const promotedBoard: Board = metBoard.map(row => row.map(cell => cell ? { ...cell } : null));
+      promotedBoard[4][4] = { type: 'PM', color: 'white' };
+
+      expect(getLegalMoves(promotedBoard, { row: 4, col: 4 })).toEqual(
+        getLegalMoves(metBoard, { row: 4, col: 4 }),
+      );
     });
 
     it('should start Sak Mak automatically against a bare king', () => {

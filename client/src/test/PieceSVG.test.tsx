@@ -19,6 +19,9 @@ vi.mock('../lib/pieceStyle', async () => {
 vi.mock('../assets/pieces/traditional/Bia_black.svg?raw', () => ({
   default: '<svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="100" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="60" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="20" fill="#14110F" /></svg>',
 }));
+vi.mock('../assets/pieces/traditional/Biangai_black.svg?raw', () => ({
+  default: '<svg viewBox="0 0 360 360"><circle cx="180" cy="180" r="100" stroke="#14110F" stroke-width="20" fill="none" /><circle cx="180" cy="180" r="60" fill="#14110F" /></svg>',
+}));
 vi.mock('../assets/pieces/traditional/Khon_black.svg?raw', () => ({
   default: '<svg viewBox="0 0 480 480"><g fill="#000000" stroke="none"><path d="M10 10 L470 10 L470 470 L10 470 Z" /></g></svg>',
 }));
@@ -81,34 +84,40 @@ describe('PieceSVG', () => {
     expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
   });
 
-  it('renders promoted pawns as the configured round med silhouette without a badge marker', () => {
+  it('renders promoted pawns with a dedicated promoted-pawn silhouette', () => {
     pieceStyleState.pieceThemeId = 'classic-ivory-ink';
 
     const { container } = render(<PieceSVG type="PM" color="white" />);
 
+    const circles = container.querySelectorAll('circle');
     expect(container.querySelector('path')).not.toBeInTheDocument();
-    expect(container.querySelectorAll('circle').length).toBeGreaterThan(0);
+    expect(circles).toHaveLength(2);
+    expect(circles[0]?.getAttribute('r')).toBe('100');
+    expect(circles[1]?.getAttribute('r')).toBe('60');
     expect(container.querySelector('[data-promoted-bia-marker="true"]')).not.toBeInTheDocument();
     expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
     expect(container.innerHTML.toLowerCase()).toContain('#5f5245');
   });
 
-  it('keeps promoted bia on the original round med silhouette and plain Mets on the met silhouette', () => {
+  it('renders promoted bia differently from both normal pawns and normal Mets', () => {
     pieceStyleState.pieceThemeId = 'classic-ivory-ink';
 
-    const { container: metContainer } = render(<PieceSVG type="M" color="white" />);
-    const { container: promotedContainer } = render(<PieceSVG type="PM" color="white" />);
-    const { container: pawnContainer } = render(<PieceSVG type="P" color="white" />);
-    const promotedCircles = promotedContainer.querySelectorAll('circle');
-    const pawnCircles = pawnContainer.querySelectorAll('circle');
+    for (const color of ['white', 'black'] as const) {
+      const { container: metContainer } = render(<PieceSVG type="M" color={color} />);
+      const { container: promotedContainer } = render(<PieceSVG type="PM" color={color} />);
+      const { container: pawnContainer } = render(<PieceSVG type="P" color={color} />);
+      const promotedCircles = promotedContainer.querySelectorAll('circle');
+      const pawnCircles = pawnContainer.querySelectorAll('circle');
 
-    expect(metContainer.querySelector('path')).toBeInTheDocument();
-    expect(promotedContainer.querySelector('path')).not.toBeInTheDocument();
-    expect(promotedContainer.querySelectorAll('circle').length).toBeGreaterThan(0);
-    expect(promotedCircles).toHaveLength(pawnCircles.length);
-    expect(promotedCircles[1]?.getAttribute('r')).toBe('100');
-    expect(promotedCircles[2]?.getAttribute('r')).toBe('60');
-    expect(promotedCircles[3]?.getAttribute('r')).toBe('20');
+      expect(metContainer.querySelector('path')).toBeInTheDocument();
+      expect(promotedContainer.querySelector('path')).not.toBeInTheDocument();
+      expect(promotedCircles).toHaveLength(2);
+      expect(pawnCircles).toHaveLength(4);
+      expect(promotedCircles[0]?.getAttribute('r')).toBe('100');
+      expect(promotedCircles[1]?.getAttribute('r')).toBe('60');
+      expect(pawnCircles[2]?.getAttribute('r')).toBe('60');
+      expect(pawnCircles[3]?.getAttribute('r')).toBe('20');
+    }
   });
 
   it('renders alternative readable color themes on the same Makruk silhouette', () => {

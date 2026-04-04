@@ -564,6 +564,25 @@ describe('Puzzle surfaces', () => {
     expect(screen.getByText('Use the rook check, not the quiet move.')).toBeInTheDocument();
   });
 
+  it('passes promoted Makruk pawns through the puzzle board state as promoted Mets', () => {
+    const originalBoard = puzzleListFixtures[0].board;
+    const promotedBoard: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
+    promotedBoard[0][0] = { type: 'K', color: 'white' };
+    promotedBoard[7][7] = { type: 'K', color: 'black' };
+    promotedBoard[5][2] = { type: 'PM', color: 'white' };
+    promotedBoard[2][5] = { type: 'PM', color: 'black' };
+    puzzleListFixtures[0].board = promotedBoard;
+    try {
+      renderLessonPlayer();
+
+      expect(boardPropsMock).toHaveBeenCalled();
+      expect(boardPropsMock.mock.calls.at(-1)?.[0]?.board[5][2]).toEqual({ type: 'PM', color: 'white' });
+      expect(boardPropsMock.mock.calls.at(-1)?.[0]?.board[2][5]).toEqual({ type: 'PM', color: 'black' });
+    } finally {
+      puzzleListFixtures[0].board = originalBoard;
+    }
+  });
+
   it('renders lesson boards with the stored board orientation instead of flipping by side to move', () => {
     const originalSideToMove = puzzleListFixtures[0].sideToMove;
     const originalBoardOrientation = puzzleListFixtures[0].boardOrientation;
