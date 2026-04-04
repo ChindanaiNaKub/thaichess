@@ -1,9 +1,15 @@
 import { createInitialBoard, createInitialGameState, getLegalMoves, isInCheck, makeMove } from './engine';
+import {
+  validateMakrukGeneratedPosition,
+  validateMakrukPosition,
+  validateMakrukReplay,
+} from './makrukPositionValidation';
 import { TACTICAL_WIN_SWING, getMaterialSwing } from './puzzleSolver';
 import type { Board, GameState, Move, Piece, PieceColor, PieceType, Position } from './types';
 import type { Puzzle } from './puzzles';
 import type { PuzzleCandidateDraft } from './puzzleImportQueue';
 import { validatePuzzle } from './puzzleValidation';
+import { finalizePuzzle } from './puzzleCatalog';
 import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
 import { derivePuzzleTags, estimatePuzzleDifficultyScore, isMiddlegameRichBoard } from './puzzleMetadata';
 
@@ -13,6 +19,8 @@ export interface PuzzleGenerationSource {
   moves: Move[];
   initialBoard?: Board;
   startingTurn?: PieceColor;
+  setupMoves?: Move[];
+  positionSourceType?: 'real-game' | 'engine-generated' | 'constructed';
   startingPlyNumber?: number;
   moveCount?: number;
   result?: string;
@@ -85,6 +93,25 @@ function cloneBoard(board: Board): Board {
   return board.map(row => row.map(cell => (cell ? { ...cell } : null)));
 }
 
+function boardsEqual(left: Board, right: Board): boolean {
+  if (left.length !== right.length) return false;
+
+  for (let row = 0; row < left.length; row += 1) {
+    if (left[row]?.length !== right[row]?.length) return false;
+
+    for (let col = 0; col < left[row].length; col += 1) {
+      const a = left[row][col];
+      const b = right[row][col];
+
+      if (!a && !b) continue;
+      if (!a || !b) return false;
+      if (a.color !== b.color || a.type !== b.type) return false;
+    }
+  }
+
+  return true;
+}
+
 function createGameState(board: Board, turn: PieceColor): GameState {
   return {
     board: cloneBoard(board),
@@ -103,6 +130,37 @@ function createGameState(board: Board, turn: PieceColor): GameState {
     lastMoveTime: 0,
     moveCount: 0,
   };
+}
+
+function resolveGenerationStartState(input: PuzzleGenerationSource): GameState | null {
+  const defaultBoard = createInitialBoard();
+  const providedBoard = input.initialBoard ? cloneBoard(input.initialBoard) : defaultBoard;
+  const providedTurn = input.startingTurn ?? 'white';
+  const setupMoves = input.setupMoves ?? [];
+  const hasCustomBoard = !boardsEqual(providedBoard, defaultBoard);
+  const hasCustomTurn = providedTurn !== 'white';
+
+  if (setupMoves.length > 0) {
+    const replay = validateMakrukReplay({
+      moves: setupMoves,
+      expectedBoard: input.initialBoard ? providedBoard : undefined,
+      expectedTurn: input.startingTurn,
+    });
+
+    return replay.valid && replay.finalState
+      ? createGameState(replay.finalState.board, replay.finalState.turn)
+      : null;
+  }
+
+  if (hasCustomBoard || hasCustomTurn) {
+    return null;
+  }
+
+  if (!validateMakrukPosition(providedBoard)) {
+    return null;
+  }
+
+  return createInitialGameState(0, 0);
 }
 
 function createPlaceholderPuzzle(
@@ -127,15 +185,12 @@ function createPlaceholderPuzzle(
     solution,
   });
 
-  return {
+  return finalizePuzzle({
     id: 0,
     title,
     description,
     explanation,
     source,
-    origin: source.toLowerCase().startsWith('starter pack:') ? 'starter-pack' : 'review-batch',
-    sourceGameId: null,
-    sourcePly: null,
     theme,
     motif,
     tags,
@@ -157,13 +212,21 @@ function createPlaceholderPuzzle(
       duplicateRisk: 'unreviewed',
       reviewNotes: '',
     },
+    sideToMove: toMove,
     toMove,
     board: cloneBoard(board),
     solution: solution.map(move => ({
       from: { ...move.from },
       to: { ...move.to },
     })),
-  };
+    objective: description,
+    whyPositionMatters: description,
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue: generated candidate is validated as an ordinary move puzzle unless a counted state is supplied.',
+    commonWrongMove: null,
+    wrongMoveExplanation: 'This move misses the generated puzzle objective.',
+    takeaway: explanation,
+  });
 }
 
 function playMoveSequence(state: GameState, moves: Move[]): GameState | null {
@@ -610,7 +673,7 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
   }
 
   const theme = classifyMaterialTheme(board, toMove, solution);
-  if (solution.length < 3) {
+  if (solution.length < 3 && !(theme === 'Fork' || theme === 'DoubleAttack' || theme === 'Pin' || theme === 'Discovery' || theme === 'HangingPiece' || theme === 'TrappedPiece')) {
     return null;
   }
 
@@ -667,6 +730,8 @@ function getGeneratedDifficulty(
 }
 
 function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, solution: Move[]) {
+  const solverMoves = Math.max(1, Math.ceil(solution.length / 2));
+  const winInLabel = solverMoves === 1 ? 'in 1' : `in ${solverMoves}`;
 
   if (isMateTheme(theme)) {
     const mateCount = Math.floor((solution.length + 1) / 2);
@@ -691,7 +756,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'Fork') {
     return {
       title: `Real-Game Fork (${sourceId} @ ply ${plyLabel})`,
-      description: `Win material in 2. Start with the fork that attacks the king and the ${target}.`,
+      description: `Win material ${winInLabel}. Start with the fork that attacks the king and the ${target}.`,
       explanation: `The first move creates a double attack, and the follow-up wins the ${target} cleanly.`,
       motif: `Real-game fork candidate: wins ${target}`,
     };
@@ -700,7 +765,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'DoubleAttack') {
     return {
       title: `Real-Game Double Attack (${sourceId} @ ply ${plyLabel})`,
-      description: `Win material in 2. Start with the double attack that overloads the defense.`,
+      description: `Win material ${winInLabel}. Start with the double attack that overloads the defense.`,
       explanation: `The first move creates two threats at once, so the defender cannot save everything and the ${target} falls.`,
       motif: `Real-game double attack candidate: wins ${target}`,
     };
@@ -709,7 +774,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'Discovery') {
     return {
       title: `Real-Game Discovery (${sourceId} @ ply ${plyLabel})`,
-      description: `Win material in 2. Find the discovered attack that reveals the winning line.`,
+      description: `Win material ${winInLabel}. Find the discovered attack that reveals the winning line.`,
       explanation: `A quiet move opens a hidden line of attack, forcing the defense to react while the ${target} remains loose.`,
       motif: `Real-game discovery candidate: wins ${target}`,
     };
@@ -718,7 +783,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'Pin') {
     return {
       title: `Real-Game Pin (${sourceId} @ ply ${plyLabel})`,
-      description: `Win material in 2. Start with the pin that leaves the ${target} stuck.`,
+      description: `Win material ${winInLabel}. Start with the pin that leaves the ${target} stuck.`,
       explanation: `The first move pins the defender in place, and the follow-up wins the ${target}.`,
       motif: `Real-game pin candidate: wins ${target}`,
     };
@@ -727,7 +792,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'HangingPiece') {
     return {
       title: `Real-Game Hanging Piece (${sourceId} @ ply ${plyLabel})`,
-      description: `Win material in 2. Start by taking the loose ${target}.`,
+      description: `Win material ${winInLabel}. Start by taking the loose ${target}.`,
       explanation: `The target is insufficiently defended, so the forcing line wins the ${target} cleanly.`,
       motif: `Real-game hanging piece candidate: wins ${target}`,
     };
@@ -736,7 +801,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'TrappedPiece') {
     return {
       title: `Real-Game Trapped Piece (${sourceId} @ ply ${plyLabel})`,
-      description: 'Win material in 2. Start with the move that traps the piece before collecting it.',
+      description: `Win material ${winInLabel}. Start with the move that traps the piece before collecting it.`,
       explanation: 'The first move cuts off the escape squares. Black can shuffle, but the trapped piece still falls on the next move.',
       motif: 'Real-game trapped piece candidate',
     };
@@ -745,7 +810,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
   if (theme === 'Endgame') {
     return {
       title: `Real-Game Endgame Tactic (${sourceId} @ ply ${plyLabel})`,
-      description: `Convert the endgame in 2. Find the forcing move that wins the ${target}.`,
+      description: `Convert the endgame ${winInLabel}. Find the forcing move that wins the ${target}.`,
       explanation: `With fewer pieces on the board, a single forcing move decides the ending and wins the ${target}.`,
       motif: `Real-game endgame tactic candidate: wins ${target}`,
     };
@@ -753,7 +818,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
 
   return {
     title: `Real-Game Tactic (${sourceId} @ ply ${plyLabel})`,
-    description: `Win material in 2. Start with the forcing move that wins the ${target}.`,
+    description: `Win material ${winInLabel}. Start with the forcing move that wins the ${target}.`,
     explanation: `The first move forces the reply, and the follow-up wins the ${target} cleanly.`,
     motif: `Real-game tactic candidate: wins ${target}`,
   };
@@ -762,6 +827,7 @@ function buildCopy(theme: GeneratedTheme, sourceId: string, plyLabel: number, so
 function toDraft(
   board: Board,
   toMove: PieceColor,
+  setupMoves: Move[],
   solution: Move[],
   sourceId: string,
   sourceLabel: string,
@@ -811,6 +877,10 @@ function toDraft(
     difficulty,
     toMove,
     board: cloneBoard(board),
+    setupMoves: setupMoves.map(move => ({
+      from: { ...move.from },
+      to: { ...move.to },
+    })),
     solution: solution.map(move => ({
       from: { ...move.from },
       to: { ...move.to },
@@ -847,6 +917,7 @@ function scoreCandidate(
 }
 
 function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boolean {
+  const solution = draft.solution ?? [];
   const legalMoveCount = (() => {
     let total = 0;
     for (let row = 0; row < 8; row += 1) {
@@ -858,16 +929,25 @@ function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boole
     }
     return total;
   })();
-  const firstMove = draft.solution[0];
+  const firstMove = solution[0];
   const firstMoveCapture = firstMove
     ? Boolean(state.board[firstMove.to.row]?.[firstMove.to.col])
     : false;
 
-  if (draft.solution.length < 3) {
+  const shortFormAllowed = draft.theme === 'MateIn1' ||
+    draft.theme === 'Promotion' ||
+    draft.theme === 'Fork' ||
+    draft.theme === 'DoubleAttack' ||
+    draft.theme === 'Pin' ||
+    draft.theme === 'Discovery' ||
+    draft.theme === 'HangingPiece' ||
+    draft.theme === 'TrappedPiece';
+
+  if (solution.length < 3 && !shortFormAllowed) {
     return false;
   }
 
-  if (legalMoveCount < 4) {
+  if (legalMoveCount < (solution.length < 3 ? 2 : 4)) {
     return false;
   }
 
@@ -906,11 +986,23 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
     return generated;
   }
 
-  let state = input.initialBoard
-    ? createGameState(input.initialBoard, input.startingTurn ?? 'white')
-    : createInitialGameState(0, 0);
+  let state = resolveGenerationStartState(input);
+  if (!state) {
+    return generated;
+  }
 
   for (let index = 0; index < input.moves.length; index++) {
+    const positionValidation = validateMakrukGeneratedPosition({
+      board: state.board,
+      turn: state.turn,
+      startingBoard: input.initialBoard,
+      startingTurn: input.startingTurn,
+      replayMoves: input.moves.slice(0, index),
+    });
+    if (!positionValidation.valid) {
+      break;
+    }
+
     for (let plies = minPlies; plies <= maxPlies; plies += 2) {
       const solution = input.moves.slice(index, index + plies);
       if (solution.length !== plies) continue;
@@ -918,6 +1010,7 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
       const draft = toDraft(
         state.board,
         state.turn,
+        input.moves.slice(0, index),
         solution,
         input.id,
         input.source,
@@ -988,7 +1081,10 @@ export function createDefaultGenerationSource(
   moves: Move[],
   initialBoard?: Board,
   startingTurn: PieceColor = 'white',
-  metadata: Pick<PuzzleGenerationSource, 'moveCount' | 'result' | 'resultReason' | 'startingPlyNumber'> = {},
+  metadata: Pick<
+    PuzzleGenerationSource,
+    'moveCount' | 'result' | 'resultReason' | 'startingPlyNumber' | 'setupMoves' | 'positionSourceType'
+  > = {},
 ): PuzzleGenerationSource {
   return {
     id,
@@ -996,6 +1092,8 @@ export function createDefaultGenerationSource(
     moves,
     initialBoard: initialBoard ?? createInitialBoard(),
     startingTurn,
+    setupMoves: metadata.setupMoves,
+    positionSourceType: metadata.positionSourceType ?? 'constructed',
     startingPlyNumber: metadata.startingPlyNumber ?? 1,
     ...metadata,
   };
