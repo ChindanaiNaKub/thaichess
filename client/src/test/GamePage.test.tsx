@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createInitialGameState } from '@shared/engine';
-import type { ClientGameState, Move, PieceColor } from '@shared/types';
+import type { ClientGameState, LastMove, Move, PieceColor } from '@shared/types';
 import GamePage from '../components/GamePage';
 
 const {
@@ -466,7 +466,7 @@ describe('GamePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set arrows' }));
 
     await act(async () => {
-      const stateLastMove = {
+      const stateLastMove: LastMove = {
         from: { row: 6, col: 4 },
         to: { row: 5, col: 4 },
         movedPiece: { type: 'P', color: 'white' },
@@ -629,7 +629,7 @@ describe('GamePage', () => {
       { from: { row: 6, col: 4 }, to: { row: 5, col: 4 } } as Move,
       { from: { row: 1, col: 4 }, to: { row: 2, col: 4 } } as Move,
     ];
-    const latestLastMove = {
+    const latestLastMove: LastMove = {
       from: { row: 1, col: 4 },
       to: { row: 2, col: 4 },
       movedPiece: { type: 'P', color: 'black' },
