@@ -58,11 +58,14 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
   }, [activeIndex]);
 
   return (
-    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
+    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden flex flex-col">
       <div className="px-3 py-2 border-b border-surface-hover">
         <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
       </div>
-      <div ref={scrollRef} className="max-h-[240px] overflow-y-auto p-1 lg:max-h-[168px]">
+      <div
+        ref={scrollRef}
+        className="h-[240px] min-h-[240px] max-h-[240px] overflow-y-auto p-1 lg:h-[168px] lg:min-h-[168px] lg:max-h-[168px]"
+      >
         {movePairs.length === 0 ? (
           <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
         ) : (
@@ -98,36 +101,42 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
         )}
       </div>
 
-      {onMoveClick && moves.length > 0 && (
-        <div className="flex items-center justify-center gap-1 px-3 py-2 border-t border-surface-hover lg:py-1.5">
-          <button
-            onClick={() => onMoveClick(-1)}
-            className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title={t('moves.first_position')}
-          >
-            ⏮
-          </button>
-          <button
-            onClick={() => onMoveClick(Math.max(-1, activeIndex - 1))}
-            className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title={t('moves.previous_move')}
-          >
-            ◀
-          </button>
-          <button
-            onClick={() => onMoveClick(Math.min(moves.length - 1, activeIndex + 1))}
-            className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title={t('moves.next_move')}
-          >
-            ▶
-          </button>
-          <button
-            onClick={() => onMoveClick(moves.length - 1)}
-            className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-            title={t('moves.last_move')}
-          >
-            ⏭
-          </button>
+      {onMoveClick && (
+        <div className="flex min-h-[45px] items-center justify-center gap-1 px-3 py-2 border-t border-surface-hover lg:min-h-[38px] lg:py-1.5">
+          {moves.length > 0 ? (
+            <>
+              <button
+                onClick={() => onMoveClick(-1)}
+                className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+                title={t('moves.first_position')}
+              >
+                ⏮
+              </button>
+              <button
+                onClick={() => onMoveClick(Math.max(-1, activeIndex - 1))}
+                className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+                title={t('moves.previous_move')}
+              >
+                ◀
+              </button>
+              <button
+                onClick={() => onMoveClick(Math.min(moves.length - 1, activeIndex + 1))}
+                className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+                title={t('moves.next_move')}
+              >
+                ▶
+              </button>
+              <button
+                onClick={() => onMoveClick(moves.length - 1)}
+                className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+                title={t('moves.last_move')}
+              >
+                ⏭
+              </button>
+            </>
+          ) : (
+            <div aria-hidden="true" className="h-6 w-full" />
+          )}
         </div>
       )}
     </div>
