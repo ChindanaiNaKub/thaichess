@@ -57,7 +57,10 @@ export default function GameScreenLayout({
           {bottomPanel}
         </div>
 
-        <aside className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1">
+        <aside
+          className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1"
+          style={{ overflowAnchor: 'none' }}
+        >
           {sidePanel}
         </aside>
       </div>

@@ -541,6 +541,11 @@ describe('Puzzle surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'from' }));
     fireEvent.click(screen.getByRole('button', { name: 'to' }));
 
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]?.lastMove).toMatchObject({
+      from: { row: 6, col: 3 },
+      to: { row: 7, col: 3 },
+    });
+
     await act(async () => {
       vi.advanceTimersByTime(750);
     });

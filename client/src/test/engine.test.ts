@@ -3,7 +3,9 @@ import type { Board, Piece, Move } from '@shared/types';
 import {
   createInitialBoard,
   createInitialGameState,
+  getLastMoveForView,
   getLegalMoves,
+  getMoveAtIndex,
   isInCheck,
   makeMove,
   startCounting,
@@ -342,6 +344,13 @@ describe('Game Engine', () => {
       expect(newState?.board[2][4]).toBeNull();
       expect(newState?.board[3][4]?.type).toBe('P');
       expect(newState?.turn).toBe('black');
+      expect(newState?.lastMove).toMatchObject({
+        from: { row: 2, col: 4 },
+        to: { row: 3, col: 4 },
+        movedPiece: { type: 'P', color: 'white' },
+        capturedPiece: null,
+        promotion: null,
+      });
     });
 
     it('should return null for illegal move', () => {
@@ -367,6 +376,13 @@ describe('Game Engine', () => {
       // Pawn promotes to PM when reaching row 5 (white's promotion rank)
       expect(newState?.board[5][5]?.type).toBe('PM');
       expect(newState?.board[5][5]?.color).toBe('white');
+      expect(newState?.lastMove).toMatchObject({
+        from: { row: 4, col: 4 },
+        to: { row: 5, col: 5 },
+        movedPiece: { type: 'P', color: 'white' },
+        capturedPiece: { type: 'P', color: 'black' },
+        promotion: 'PM',
+      });
     });
 
     it('should promote a white pawn into a white promoted pawn (PM), not a normal Met', () => {
@@ -386,6 +402,10 @@ describe('Game Engine', () => {
       expect(newState?.board[5][4]?.type).not.toBe('M');
       expect(newState?.board[5][4]?.color).toBe('white');
       expect(newState?.moveHistory.at(-1)?.promoted).toBe(true);
+      expect(newState?.lastMove).toMatchObject({
+        movedPiece: { type: 'P', color: 'white' },
+        promotion: 'PM',
+      });
     });
 
     it('should not promote a white pawn before the sixth rank', () => {
@@ -720,6 +740,27 @@ describe('Game Engine', () => {
       expect(newState?.isDraw).toBe(true);
       expect(newState?.winner).toBeNull();
       expect(newState?.resultReason).toBe('stalemate');
+    });
+
+    it('should expose the selected move for replay navigation and restored states', () => {
+      const state = createInitialGameState(300000, 300000);
+      const afterWhite = makeMove(state, { row: 2, col: 4 }, { row: 3, col: 4 });
+      const afterBlack = afterWhite ? makeMove(afterWhite, { row: 5, col: 4 }, { row: 4, col: 4 }) : null;
+
+      expect(afterWhite).not.toBeNull();
+      expect(afterBlack).not.toBeNull();
+      expect(getLastMoveForView(afterBlack, 0)).toEqual(getMoveAtIndex(afterBlack!.moveHistory, 0));
+      expect(getLastMoveForView(afterBlack)).toEqual(afterBlack!.lastMove);
+
+      const undoneState = {
+        ...afterBlack!,
+        board: afterWhite!.board,
+        turn: afterWhite!.turn,
+        moveHistory: afterBlack!.moveHistory.slice(0, -1),
+        lastMove: getMoveAtIndex(afterBlack!.moveHistory, afterBlack!.moveHistory.length - 2),
+      };
+
+      expect(getLastMoveForView(undoneState)).toMatchObject(afterWhite!.lastMove!);
     });
   });
 

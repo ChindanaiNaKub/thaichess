@@ -1,4 +1,4 @@
-import { Board, Piece, PieceColor, PieceType, Position, Move, GameState, CountingState, ResultReason } from './types';
+import { Board, Piece, PieceColor, PieceType, Position, Move, GameState, CountingState, ResultReason, LastMove } from './types';
 import {
   getMakrukCountingState,
   hasBareKingsOnly,
@@ -30,6 +30,7 @@ export function createInitialGameState(whiteTime: number, blackTime: number): Ga
     board: createInitialBoard(),
     turn: 'white',
     moveHistory: [],
+    lastMove: null,
     isCheck: false,
     isCheckmate: false,
     isStalemate: false,
@@ -442,14 +443,33 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
   newBoard[to.row][to.col] = newBoard[from.row][from.col];
   newBoard[from.row][from.col] = null;
 
+  const movedPiece = { ...piece };
+  const capturedPiece = captured ? { ...captured } : null;
   let promoted = false;
-  const movedPiece = newBoard[to.row][to.col]!;
-  if (shouldPromotePawn(movedPiece, to)) {
-    newBoard[to.row][to.col] = createPromotedPawn(movedPiece.color);
+  let promotion: PieceType | null = null;
+  const movedBoardPiece = newBoard[to.row][to.col]!;
+  if (shouldPromotePawn(movedBoardPiece, to)) {
+    newBoard[to.row][to.col] = createPromotedPawn(movedBoardPiece.color);
     promoted = true;
+    promotion = 'PM';
   }
 
-  const move: Move = { from, to, captured, promoted };
+  const move: Move = {
+    from,
+    to,
+    movedPiece,
+    captured: capturedPiece,
+    capturedPiece,
+    promoted,
+    promotion,
+  };
+  const lastMove: LastMove = {
+    from,
+    to,
+    movedPiece,
+    capturedPiece,
+    promotion,
+  };
   const nextTurn: PieceColor = state.turn === 'white' ? 'black' : 'white';
 
   const check = isInCheck(newBoard, nextTurn);
@@ -528,6 +548,7 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
     board: newBoard,
     turn: nextTurn,
     moveHistory: [...state.moveHistory, move],
+    lastMove,
     isCheck: check,
     isCheckmate,
     isStalemate,
@@ -570,6 +591,30 @@ export function getBoardAtMove(initialBoard: Board, moves: Move[], moveIndex: nu
     }
   }
   return board;
+}
+
+export function getMoveAtIndex(moves: Move[], moveIndex: number): Move | null {
+  if (moveIndex < 0 || moveIndex >= moves.length) {
+    return null;
+  }
+
+  return moves[moveIndex] ?? null;
+}
+
+export function getLastMoveForView(
+  state: { moveHistory: Move[]; lastMove?: Move | LastMove | null } | null,
+  viewMoveIndex: number | null | undefined = null,
+): Move | LastMove | null {
+  if (!state || state.moveHistory.length === 0) {
+    return null;
+  }
+
+  const latestMoveIndex = state.moveHistory.length - 1;
+  if (viewMoveIndex === null || viewMoveIndex === undefined || viewMoveIndex === latestMoveIndex) {
+    return state.lastMove ?? getMoveAtIndex(state.moveHistory, latestMoveIndex);
+  }
+
+  return getMoveAtIndex(state.moveHistory, viewMoveIndex);
 }
 
 export function getAllPieces(board: Board, color: PieceColor): { piece: Piece; pos: Position }[] {

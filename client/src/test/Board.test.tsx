@@ -130,6 +130,8 @@ describe('Board Component', () => {
       );
       const lastMoveSquares = container.querySelectorAll('[class*="board-square-lastmove"]');
       expect(lastMoveSquares.length).toBe(2);
+      expect(container.querySelector('[data-testid="board-lastmove-overlay-from-2-4"]')).toBeInTheDocument();
+      expect(container.querySelector('[data-testid="board-lastmove-overlay-to-3-4"]')).toBeInTheDocument();
     });
 
     it('should highlight check square', () => {

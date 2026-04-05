@@ -10,6 +10,7 @@ function createLessonState(board: Board, turn: PieceColor = 'white'): GameState 
     board,
     turn,
     moveHistory: [],
+    lastMove: null,
     isCheck: false,
     isCheckmate: false,
     isStalemate: false,
