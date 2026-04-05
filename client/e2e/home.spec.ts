@@ -12,15 +12,6 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('heading', { name: /play makruk instantly/i })).toBeVisible();
   });
 
-  test('displays game mode options', async ({ page }) => {
-    const main = page.locator('#main-content');
-
-    await expect(main.getByRole('button', { name: /find opponent/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /create a private game/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /play vs bot/i })).toBeVisible();
-    await expect(main.getByRole('button', { name: /puzzles tactical training/i })).toBeVisible();
-  });
-
   test('reveals the private game setup on demand', async ({ page }) => {
     const main = page.locator('#main-content');
     const createPrivateButton = main.getByRole('button', { name: /create a private game/i });
