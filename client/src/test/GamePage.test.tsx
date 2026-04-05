@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createInitialGameState } from '@shared/engine';
-import type { ClientGameState, Move, PieceColor } from '@shared/types';
+import type { ClientGameState, LastMove, Move, PieceColor } from '@shared/types';
 import GamePage from '../components/GamePage';
 
 const {
@@ -466,15 +466,30 @@ describe('GamePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set arrows' }));
 
     await act(async () => {
+      const stateLastMove: LastMove = {
+        from: { row: 6, col: 4 },
+        to: { row: 5, col: 4 },
+        movedPiece: { type: 'P', color: 'white' },
+        capturedPiece: null,
+        promotion: null,
+      };
       emitSocketEvent('move_made', {
         move: { from: { row: 6, col: 4 }, to: { row: 5, col: 4 }, captured: false },
-        gameState: makeGameState({ moveHistory: [{ from: { row: 6, col: 4 }, to: { row: 5, col: 4 } } as Move] }),
+        gameState: makeGameState({
+          moveHistory: [{ from: { row: 6, col: 4 }, to: { row: 5, col: 4 } } as Move],
+          lastMove: stateLastMove,
+        }),
       });
     });
 
     expect(playMoveSoundMock).toHaveBeenCalledTimes(1);
     expect(interactionState.clearSelection).toHaveBeenCalledTimes(1);
     expect(boardPropsMock.mock.lastCall?.[0].arrows).toEqual([]);
+    expect(boardPropsMock.mock.lastCall?.[0].lastMove).toMatchObject({
+      from: { row: 6, col: 4 },
+      to: { row: 5, col: 4 },
+      movedPiece: { type: 'P', color: 'white' },
+    });
 
     await act(async () => {
       emitSocketEvent('move_made', {
@@ -614,6 +629,13 @@ describe('GamePage', () => {
       { from: { row: 6, col: 4 }, to: { row: 5, col: 4 } } as Move,
       { from: { row: 1, col: 4 }, to: { row: 2, col: 4 } } as Move,
     ];
+    const latestLastMove: LastMove = {
+      from: { row: 1, col: 4 },
+      to: { row: 2, col: 4 },
+      movedPiece: { type: 'P', color: 'black' },
+      capturedPiece: null,
+      promotion: null,
+    };
 
     renderGamePage('/game/endgame-room');
 
@@ -621,6 +643,7 @@ describe('GamePage', () => {
       emitSocketEvent('game_joined', joinPayload({
         moveHistory,
         gameOver: true,
+        lastMove: latestLastMove,
       }));
     });
 
@@ -639,6 +662,7 @@ describe('GamePage', () => {
         gameState: makeGameState({
           moveHistory,
           gameOver: true,
+          lastMove: latestLastMove,
         }),
       });
     });
@@ -661,6 +685,7 @@ describe('GamePage', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(boardPropsMock.mock.lastCall?.[0].disabled).toBe(true);
     expect(boardPropsMock.mock.lastCall?.[0].isCheck).toBe(false);
+    expect(boardPropsMock.mock.lastCall?.[0].lastMove).toEqual(moveHistory[0]);
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     fireEvent.keyDown(window, { key: 'Home' });
@@ -668,9 +693,11 @@ describe('GamePage', () => {
 
     fireEvent.keyDown(window, { key: 'End' });
     expect(moveHistoryPropsMock.mock.lastCall?.[0].currentMoveIndex).toBe(1);
+    expect(boardPropsMock.mock.lastCall?.[0].lastMove).toEqual(latestLastMove);
 
     fireEvent.click(screen.getByText('jump-first-move'));
     expect(moveHistoryPropsMock.mock.lastCall?.[0].currentMoveIndex).toBe(0);
+    expect(boardPropsMock.mock.lastCall?.[0].lastMove).toEqual(moveHistory[0]);
 
     fireEvent.click(screen.getByText('panel-analyze'));
     expect(navigateMock).toHaveBeenCalledWith('/analysis/endgame-room');

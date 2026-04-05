@@ -1,4 +1,4 @@
-export type PuzzleThemeFamily = 'mate' | 'promotion' | 'material' | 'future';
+export type PuzzleThemeFamily = 'mate' | 'promotion' | 'material' | 'defense' | 'counting' | 'future';
 
 export interface PuzzleThemeDefinition {
   key: string;
@@ -26,6 +26,7 @@ const THEME_DEFINITIONS: PuzzleThemeDefinition[] = [
   { key: 'DoubleCheck', family: 'material', note: 'Two pieces give check on the same move.' },
   { key: 'HangingPiece', family: 'material', note: 'The tactic wins a loose or undefended piece.' },
   { key: 'TrappedPiece', family: 'material', note: 'The line leaves a piece with no safe escape.' },
+  { key: 'TacticalWin', family: 'material', note: 'A Makruk-native tactical sequence that wins concrete material or conversion value.' },
   { key: 'Interference', family: 'material', note: 'A move blocks a defending line or coordination link.' },
   { key: 'Overloading', family: 'material', note: 'A defender is forced to guard too many things at once.' },
   { key: 'RemovalOfDefender', family: 'material', note: 'A key defensive piece is eliminated to win material or mate.' },
@@ -40,6 +41,12 @@ const THEME_DEFINITIONS: PuzzleThemeDefinition[] = [
   { key: 'XRay', family: 'material', note: 'A long-range line attacks through an occupied square.' },
   { key: 'Windmill', family: 'material', note: 'Repeated discovered attacks let one piece keep harvesting material.' },
   { key: 'Zwischenzug', family: 'material', note: 'An in-between move changes the expected sequence.' },
+  { key: 'BestDefense', family: 'defense', note: 'The only move that keeps the game alive or avoids a direct tactical loss.' },
+  { key: 'SaveTheDraw', family: 'defense', note: 'A defensive resource that forces a draw, often by stalemate or a rule-specific hold.' },
+  { key: 'OnlyMove', family: 'defense', note: 'A single move preserves the intended Makruk result when every other move fails.' },
+  { key: 'WinBeforeCountExpires', family: 'counting', note: 'The winning move must land before Sak Mak or Sak Kradan closes the game.' },
+  { key: 'CountingDraw', family: 'counting', note: 'The right answer is that Makruk counting makes the position drawn.' },
+  { key: 'CountDefense', family: 'counting', note: 'A defensive move or decision that survives because of Makruk counting rules.' },
   { key: 'VulnerableKing', family: 'future', note: 'Makruk replacement for castled-king and f7/f2 style king-shelter themes.' },
   { key: 'Defense', family: 'future', note: 'Defensive or prophylactic tactics need draw/hold validation support first.' },
   { key: 'PerpetualCheck', family: 'future', note: 'Perpetual check is a draw outcome, not a material or mate outcome.' },
@@ -65,6 +72,14 @@ export function isPromotionTheme(theme: string): boolean {
 
 export function isTacticalTheme(theme: string): boolean {
   return getPuzzleThemeDefinition(theme)?.family === 'material';
+}
+
+export function isDefensiveTheme(theme: string): boolean {
+  return getPuzzleThemeDefinition(theme)?.family === 'defense';
+}
+
+export function isCountingTheme(theme: string): boolean {
+  return getPuzzleThemeDefinition(theme)?.family === 'counting';
 }
 
 export function isFuturePuzzleTheme(theme: string): boolean {

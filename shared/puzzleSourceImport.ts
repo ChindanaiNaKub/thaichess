@@ -1,6 +1,7 @@
 import { createInitialBoard } from './engine';
 import type { Board, Move, PieceColor } from './types';
 import type { PuzzleGenerationSource } from './puzzleGeneration';
+import { validateMakrukReplay } from './makrukPositionValidation';
 
 interface ParsedHeaders {
   id?: string;
@@ -38,6 +39,7 @@ function buildSource(headers: ParsedHeaders, moves: Move[], index: number): Puzz
     moves,
     initialBoard: createInitialBoard(),
     startingTurn: headers.startingTurn ?? 'white',
+    positionSourceType: 'real-game',
     moveCount: headers.moveCount ?? moves.length,
     result: headers.result,
     resultReason: headers.resultReason,
@@ -128,10 +130,59 @@ export function createSeedPuzzleSource(
     startingTurn?: PieceColor;
   },
 ): PuzzleGenerationSource {
+  if (source.setupMoves && source.setupMoves.length > 0) {
+    const replay = validateMakrukReplay({
+      moves: source.setupMoves,
+      expectedBoard: source.initialBoard,
+      expectedTurn: source.startingTurn,
+    });
+
+    if (!replay.valid || !replay.finalState) {
+      throw new Error(`Seed puzzle source "${source.id}" must provide a legal replayable setup.`);
+    }
+
+    return {
+      ...source,
+      initialBoard: replay.finalState.board,
+      startingTurn: replay.finalState.turn,
+      positionSourceType: source.positionSourceType ?? 'constructed',
+      startingPlyNumber: source.startingPlyNumber ?? 1,
+    };
+  }
+
+  const defaultBoard = createInitialBoard();
+  const initialBoard = source.initialBoard ?? defaultBoard;
+  const startingTurn = source.startingTurn ?? 'white';
+  const usesCustomStart = startingTurn !== 'white' ||
+    JSON.stringify(initialBoard) !== JSON.stringify(defaultBoard);
+
+  if (usesCustomStart) {
+    throw new Error(`Seed puzzle source "${source.id}" must use setupMoves instead of an arbitrary start board.`);
+  }
+
   return {
     ...source,
-    initialBoard: source.initialBoard ?? createInitialBoard(),
-    startingTurn: source.startingTurn ?? 'white',
+    initialBoard,
+    startingTurn,
+    positionSourceType: source.positionSourceType ?? 'constructed',
     startingPlyNumber: source.startingPlyNumber ?? 1,
   };
+}
+
+export function createConstructedPuzzleSource(
+  source: Omit<PuzzleGenerationSource, 'positionSourceType'>,
+): PuzzleGenerationSource {
+  return createSeedPuzzleSource({
+    ...source,
+    positionSourceType: 'constructed',
+  });
+}
+
+export function createEnginePuzzleSource(
+  source: Omit<PuzzleGenerationSource, 'positionSourceType'>,
+): PuzzleGenerationSource {
+  return createSeedPuzzleSource({
+    ...source,
+    positionSourceType: 'engine-generated',
+  });
 }

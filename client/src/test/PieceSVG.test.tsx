@@ -84,6 +84,42 @@ describe('PieceSVG', () => {
     expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
   });
 
+  it('renders promoted pawns with a dedicated promoted-pawn silhouette', () => {
+    pieceStyleState.pieceThemeId = 'classic-ivory-ink';
+
+    const { container } = render(<PieceSVG type="PM" color="white" />);
+
+    const circles = container.querySelectorAll('circle');
+    expect(container.querySelector('path')).not.toBeInTheDocument();
+    expect(circles).toHaveLength(2);
+    expect(circles[0]?.getAttribute('r')).toBe('100');
+    expect(circles[1]?.getAttribute('r')).toBe('60');
+    expect(container.querySelector('[data-promoted-bia-marker="true"]')).not.toBeInTheDocument();
+    expect(container.innerHTML.toLowerCase()).toContain('#f2eadb');
+    expect(container.innerHTML.toLowerCase()).toContain('#5f5245');
+  });
+
+  it('renders promoted bia differently from both normal pawns and normal Mets', () => {
+    pieceStyleState.pieceThemeId = 'classic-ivory-ink';
+
+    for (const color of ['white', 'black'] as const) {
+      const { container: metContainer } = render(<PieceSVG type="M" color={color} />);
+      const { container: promotedContainer } = render(<PieceSVG type="PM" color={color} />);
+      const { container: pawnContainer } = render(<PieceSVG type="P" color={color} />);
+      const promotedCircles = promotedContainer.querySelectorAll('circle');
+      const pawnCircles = pawnContainer.querySelectorAll('circle');
+
+      expect(metContainer.querySelector('path')).toBeInTheDocument();
+      expect(promotedContainer.querySelector('path')).not.toBeInTheDocument();
+      expect(promotedCircles).toHaveLength(2);
+      expect(pawnCircles).toHaveLength(4);
+      expect(promotedCircles[0]?.getAttribute('r')).toBe('100');
+      expect(promotedCircles[1]?.getAttribute('r')).toBe('60');
+      expect(pawnCircles[2]?.getAttribute('r')).toBe('60');
+      expect(pawnCircles[3]?.getAttribute('r')).toBe('20');
+    }
+  });
+
   it('renders alternative readable color themes on the same Makruk silhouette', () => {
     pieceStyleState.pieceThemeId = 'gold-ebony';
 

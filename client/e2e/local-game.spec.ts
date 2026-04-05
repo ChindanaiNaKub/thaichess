@@ -74,8 +74,12 @@ test.describe('Local Game', () => {
 
     for (let cycle = 0; cycle < 8; cycle += 1) {
       for (const move of repeatableMoves) {
-        await page.getByTestId(move.from).click();
-        await page.getByTestId(move.to).click();
+        const fromSquare = page.getByTestId(move.from);
+        const toSquare = page.getByTestId(move.to);
+
+        await fromSquare.click();
+        await expect(fromSquare).toHaveClass(/board-square-selected/);
+        await toSquare.click();
         await expect(page.getByTestId(move.piece)).toBeVisible();
       }
     }

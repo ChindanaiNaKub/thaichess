@@ -6,7 +6,7 @@ import { formatBotEstimatedEloRange } from '@shared/botEstimatedElo';
 import { getBotDialoguePack } from '@shared/botDialogueCatalog';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
-  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove,
+  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove, getLastMoveForView,
   startCounting, stopCounting, hasAnyLegalMoves, isInCheck,
 } from '@shared/engine';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
@@ -717,10 +717,7 @@ export default function BotGame() {
   };
 
   const getLastMove = (): Move | null => {
-    if (gameState.moveHistory.length === 0) return null;
-    const idx = viewMoveIndex ?? gameState.moveHistory.length - 1;
-    if (idx < 0) return null;
-    return gameState.moveHistory[idx];
+    return getLastMoveForView(gameState, viewMoveIndex);
   };
 
   const getCheckSquare = (): Position | null => {

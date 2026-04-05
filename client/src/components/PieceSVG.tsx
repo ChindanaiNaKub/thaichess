@@ -67,15 +67,7 @@ function colorizeTraditionalMarkup(markup: string, palette: TraditionalPiecePale
     .replace(/stroke="(#000000|#14110F|black|#333333|#2B2B2B|#111111|#5F5245)"/gi, `stroke="${palette.stroke}"`);
 }
 
-function buildTraditionalPawnMarkup(type: 'P' | 'PM', palette: TraditionalPiecePalette, fillId: string) {
-  if (type === 'PM') {
-    return `
-      <circle cx="180" cy="180" r="112" fill="url(#${fillId})" />
-      <circle cx="180" cy="180" r="100" fill="none" stroke="${palette.stroke}" stroke-width="16" stroke-opacity="0.88" />
-      <circle cx="180" cy="180" r="60" fill="${palette.promotedDot}" />
-    `;
-  }
-
+function buildTraditionalPawnMarkup(palette: TraditionalPiecePalette, fillId: string) {
   return `
     <circle cx="180" cy="180" r="112" fill="url(#${fillId})" />
     <circle cx="180" cy="180" r="100" fill="none" stroke="${palette.stroke}" stroke-width="16" stroke-opacity="0.88" />
@@ -85,10 +77,10 @@ function buildTraditionalPawnMarkup(type: 'P' | 'PM', palette: TraditionalPieceP
 }
 
 function getTraditionalAsset(type: PieceType, palette: TraditionalPiecePalette, fillId: string): TraditionalAsset {
-  if (type === 'P' || type === 'PM') {
+  if (type === 'P') {
     return {
-      viewBox: parsedTraditionalAssets[type].viewBox,
-      markup: buildTraditionalPawnMarkup(type, palette, fillId),
+      viewBox: parsedTraditionalAssets.P.viewBox,
+      markup: buildTraditionalPawnMarkup(palette, fillId),
     };
   }
 
