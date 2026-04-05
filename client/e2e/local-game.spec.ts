@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Local Game', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/local');
+    await page.goto('/local', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('board')).toBeVisible();
   });
 
   test('renders the board with 64 squares', async ({ page }) => {
