@@ -118,7 +118,6 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 ## Documentation
 
 - [ADR: realtime identity and rated-game persistence](docs/adr-2026-03-26-realtime-identity-and-rated-game-persistence.md)
-- [Deployment note: Render + Turso](docs/deployment-render-turso.md)
 
 ## Contributing
 
