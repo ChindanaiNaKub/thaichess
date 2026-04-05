@@ -22,6 +22,8 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    environment:
+      name: production
 
     steps:
       - name: Deploy over SSH
