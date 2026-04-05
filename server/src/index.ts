@@ -158,6 +158,8 @@ const matchmaking = new MatchmakingQueue();
 const socketRateLimiter = new SocketRateLimiter();
 const ipRateLimiter = new SocketRateLimiter();
 const monitoring = new MonitoringStore();
+let startupState: 'starting' | 'ready' | 'error' = 'starting';
+let startupError: string | null = null;
 
 // Cleanup old games every 30 minutes
 setInterval(() => gameManager.cleanupOldGames(), 1800000);
@@ -902,8 +904,9 @@ app.get('/api/health', (_req, res) => {
   const connectedPlayers = io.engine.clientsCount;
   const gameCounts = gameManager.getGameCounts();
   const queueSize = matchmaking.getQueueSize();
-  res.json({
-    status: 'ok',
+  const statusCode = startupState === 'ready' ? 200 : startupState === 'starting' ? 503 : 500;
+  res.status(statusCode).json({
+    status: startupState === 'ready' ? 'ok' : startupState,
     uptime,
     connectedPlayers,
     activeGames: gameCounts.playing,
@@ -912,6 +915,7 @@ app.get('/api/health', (_req, res) => {
     counters: monitoring.snapshot(),
     version: process.env.npm_package_version || '1.0.0',
     timestamp: new Date().toISOString(),
+    startupError,
   });
 });
 
@@ -1049,14 +1053,26 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function startServer() {
-  await initDatabase();
-
   httpServer.listen(PORT, () => {
     logInfo('server_started', {
       port: Number(PORT),
       environment: process.env.NODE_ENV || 'development',
     });
   });
+
+  try {
+    await initDatabase();
+    startupState = 'ready';
+    startupError = null;
+    logInfo('server_ready', {
+      port: Number(PORT),
+      environment: process.env.NODE_ENV || 'development',
+    });
+  } catch (error) {
+    startupState = 'error';
+    startupError = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
 }
 
 void startServer().catch((error) => {
