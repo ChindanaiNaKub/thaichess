@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../lib/routes';
 import { useTranslation } from '../lib/i18n';
@@ -63,7 +63,7 @@ function HomePuzzleProgressCardContent() {
 }
 
 export default function HomePuzzleProgressCard() {
-  let Provider: typeof Fragment | ((props: { children: React.ReactNode }) => React.ReactNode) = Fragment;
+  let Provider: typeof Fragment | ((props: { children: ReactNode }) => ReactNode) = Fragment;
 
   try {
     Provider = puzzleProgress.PuzzleProgressProvider ?? Fragment;

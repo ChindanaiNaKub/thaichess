@@ -1,6 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scheduleOnUserIntent } from '../lib/defer';
+import {
+  loadBotGameRoute,
+  loadLocalGameRoute,
+  loadQuickPlayRoute,
+  prefetchPrimaryPlayRoutes,
+} from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
@@ -146,6 +152,29 @@ export default function HomePage() {
       }
     };
   }, [deferredContentReady, showHeroDecor]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    const requestIdle = window.requestIdleCallback;
+
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(() => prefetchPrimaryPlayRoutes(), { timeout: 2_000 });
+    } else {
+      timeoutId = window.setTimeout(() => prefetchPrimaryPlayRoutes(), 1_500);
+    }
+
+    return () => {
+      if (idleId !== undefined) {
+        window.cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
@@ -320,6 +349,8 @@ export default function HomePage() {
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
+                    onMouseEnter={() => void loadQuickPlayRoute()}
+                    onFocus={() => void loadQuickPlayRoute()}
                     className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
                     {t('home.find_opponent')}
@@ -516,6 +547,8 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate(routes.bot)}
+                onMouseEnter={() => void loadBotGameRoute()}
+                onFocus={() => void loadBotGameRoute()}
                 className="rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(92,160,26,0.10),rgba(39,30,24,0.92)_45%,rgba(39,30,24,0.98))] px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -564,6 +597,8 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate(routes.local)}
+                onMouseEnter={() => void loadLocalGameRoute()}
+                onFocus={() => void loadLocalGameRoute()}
                 className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_local')}</div>

@@ -240,8 +240,7 @@
       transform 0.14s cubic-bezier(0.25, 0.46, 0.45, 0.94),
       filter 0.16s ease,
       opacity 0.16s ease;
-    filter: drop-shadow(0 1px 1px oklch(0.18 0.02 65 / 0.18));
-    will-change: transform, filter;
+    filter: drop-shadow(0 1px 1px oklch(0.18 0.02 65 / 0.12));
   }
 
   .piece svg {
@@ -252,7 +251,7 @@
   @media (hover: hover) and (pointer: fine) {
     .piece:hover {
       transform: translateY(-1px) scale(1.035);
-      filter: drop-shadow(0 5px 10px oklch(0.12 0.02 65 / 0.22));
+      filter: drop-shadow(0 3px 8px oklch(0.12 0.02 65 / 0.18));
     }
   }
 
@@ -263,16 +262,13 @@
 
   .piece-selected {
     transform: translateY(-1px) scale(1.045);
-    filter:
-      drop-shadow(0 0 0.45rem oklch(0.84 0.1 92 / 0.24))
-      drop-shadow(0 5px 10px oklch(0.10 0.02 65 / 0.22));
+    filter: drop-shadow(0 0 0.35rem oklch(0.84 0.1 92 / 0.18));
   }
 
   .piece-dragging {
     z-index: 100;
     transform: scale(1.13);
-    filter: drop-shadow(0 10px 18px oklch(0.10 0.02 65 / 0.38));
-    will-change: transform, filter;
+    filter: drop-shadow(0 8px 14px oklch(0.10 0.02 65 / 0.28));
   }
 
   .piece-lift {
