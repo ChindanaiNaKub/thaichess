@@ -5,7 +5,6 @@ import {
   loadBotGameRoute,
   loadLocalGameRoute,
   loadQuickPlayRoute,
-  prefetchPrimaryPlayRoutes,
 } from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
 
@@ -152,29 +151,6 @@ export default function HomePage() {
       }
     };
   }, [deferredContentReady, showHeroDecor]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let idleId: number | undefined;
-    let timeoutId: number | undefined;
-    const requestIdle = window.requestIdleCallback;
-
-    if (typeof requestIdle === 'function') {
-      idleId = requestIdle(() => prefetchPrimaryPlayRoutes(), { timeout: 2_000 });
-    } else {
-      timeoutId = window.setTimeout(() => prefetchPrimaryPlayRoutes(), 1_500);
-    }
-
-    return () => {
-      if (idleId !== undefined) {
-        window.cancelIdleCallback?.(idleId);
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
