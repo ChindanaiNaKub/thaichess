@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Local Game', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/local', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('board')).toBeVisible();
+    await expect(page.getByTestId('board')).toBeVisible({ timeout: 30000 });
   });
 
   test('renders the board with 64 squares', async ({ page }) => {

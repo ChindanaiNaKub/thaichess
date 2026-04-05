@@ -34,10 +34,8 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
   };
 
   const cleanup = () => {
-    window.removeEventListener('click', finish);
     window.removeEventListener('keyup', finish);
     window.removeEventListener('scroll', finish);
-    window.removeEventListener('focus', finish);
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId);
       timeoutId = undefined;
@@ -48,10 +46,8 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
     }
   };
 
-  window.addEventListener('click', finish, { once: true, passive: true });
   window.addEventListener('keyup', finish, { once: true });
   window.addEventListener('scroll', finish, { once: true, passive: true });
-  window.addEventListener('focus', finish, { once: true });
 
   timeoutId = window.setTimeout(finish, timeoutMs);
   return cleanup;

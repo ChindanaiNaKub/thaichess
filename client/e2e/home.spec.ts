@@ -5,6 +5,7 @@ test.describe('Homepage', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#main-content')).toBeVisible();
     await expect(page.locator('#main-content').getByRole('button', { name: /find opponent/i })).toBeVisible();
+    await page.waitForTimeout(1000);
   });
 
   test('has correct title and heading', async ({ page }) => {
