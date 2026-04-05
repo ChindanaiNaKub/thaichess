@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Local Game', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/local', { waitUntil: 'networkidle' });
+    await page.goto('/local', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('board')).toBeVisible();
   });
 
