@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Local Game', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/local');
+    await page.goto('/local', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('board')).toBeVisible();
   });
 
   test('renders the board with 64 squares', async ({ page }) => {
@@ -83,6 +84,7 @@ test.describe('Local Game', () => {
         await expect(toSquare.locator('.legal-dot, .legal-capture')).toHaveCount(1);
         await toSquare.click();
         await expect(page.getByTestId(move.piece)).toBeVisible();
+        await expect(fromSquare).not.toHaveClass(/board-square-selected/);
       }
     }
 
