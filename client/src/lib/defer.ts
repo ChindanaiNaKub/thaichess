@@ -7,12 +7,30 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
 
   let done = false;
   let timeoutId: number | undefined;
+  let idleId: number | undefined;
+
+  const runTask = () => {
+    const requestIdle = window.requestIdleCallback;
+
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(() => {
+        idleId = undefined;
+        task();
+      }, { timeout: 1_500 });
+      return;
+    }
+
+    timeoutId = window.setTimeout(() => {
+      timeoutId = undefined;
+      task();
+    }, 0);
+  };
 
   const finish = () => {
     if (done) return;
     done = true;
     cleanup();
-    task();
+    runTask();
   };
 
   const cleanup = () => {
@@ -22,6 +40,11 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
     window.removeEventListener('focus', finish);
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId);
+      timeoutId = undefined;
+    }
+    if (idleId !== undefined) {
+      window.cancelIdleCallback?.(idleId);
+      idleId = undefined;
     }
   };
 
