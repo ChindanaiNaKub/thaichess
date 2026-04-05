@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Homepage', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.locator('#main-content')).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('button', { name: /find opponent/i })).toBeVisible();
   });
 
   test('has correct title and heading', async ({ page }) => {
