@@ -1,8 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
-import LocalGame from './components/LocalGame';
-import QuickPlay from './components/QuickPlay';
 import { scheduleOnUserIntent } from './lib/defer';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
@@ -11,6 +9,8 @@ import { SeoHeadManager } from './lib/seo';
 const GamePage = lazy(() => import('./components/GamePage'));
 const SpectatorPage = lazy(() => import('./components/SpectatorPage'));
 const LiveGamesPage = lazy(() => import('./components/LiveGamesPage'));
+const LocalGame = lazy(() => import('./components/LocalGame'));
+const QuickPlay = lazy(() => import('./components/QuickPlay'));
 const BotGame = lazy(() => import('./components/BotGame'));
 const PuzzleStreakPage = lazy(() => import('./routes/PuzzleRoutes').then(m => ({ default: m.PuzzleStreakRoute })));
 const LessonCoursePage = lazy(() => import('./routes/LessonsRoutes').then(m => ({ default: m.LessonCourseRoute })));
