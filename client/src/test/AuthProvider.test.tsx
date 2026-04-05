@@ -18,7 +18,7 @@ describe('AuthProvider', () => {
     window.history.pushState({}, '', '/');
   });
 
-  it('defers the initial auth refresh on the homepage until user intent', async () => {
+  it('defers the initial auth refresh on the homepage until non-click user intent', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ user: null }),
@@ -35,7 +35,7 @@ describe('AuthProvider', () => {
 
     expect(screen.getByText('guest')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.click(window);
+    fireEvent.keyUp(window, { key: 'Tab' });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/me');
