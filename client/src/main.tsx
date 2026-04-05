@@ -11,13 +11,7 @@ import './index.css';
 
 initializeGlobalErrorReporting();
 
-async function bootstrap() {
-  try {
-    await preloadDetectedTranslations();
-  } catch {
-    // Keep the app bootable even if a non-default catalog fails to load.
-  }
-
+function bootstrap() {
   window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
 
   createRoot(document.getElementById('root')!).render(
@@ -35,6 +29,10 @@ async function bootstrap() {
       </ErrorBoundary>
     </StrictMode>,
   );
+
+  void preloadDetectedTranslations().catch(() => {
+    // Keep the app bootable even if a non-default catalog fails to load.
+  });
 }
 
 void bootstrap();
