@@ -21,11 +21,14 @@ test.describe('Homepage', () => {
 
   test('reveals the private game setup on demand', async ({ page }) => {
     const main = page.locator('#main-content');
+    const createPrivateButton = main.getByRole('button', { name: /create a private game/i });
 
-    await main.getByRole('button', { name: /create a private game/i }).click();
+    await expect(createPrivateButton).toBeVisible();
+    await createPrivateButton.click();
 
+    await expect(main.getByRole('heading', { name: /create a private game/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();
-    await expect(main.getByText(/choose a time control/i)).toBeVisible();
+    await expect(main.getByText(/^time control$/i)).toBeVisible();
   });
 
   test('navigates to quick play', async ({ page }) => {

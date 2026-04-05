@@ -79,8 +79,10 @@ test.describe('Local Game', () => {
 
         await fromSquare.click();
         await expect(fromSquare).toHaveClass(/board-square-selected/);
+        await expect(toSquare.locator('.legal-dot, .legal-capture')).toHaveCount(1);
         await toSquare.click();
         await expect(page.getByTestId(move.piece)).toBeVisible();
+        await expect(fromSquare).not.toHaveClass(/board-square-selected/);
       }
     }
 
