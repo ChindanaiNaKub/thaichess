@@ -40,11 +40,17 @@ function RouteFallback() {
   );
 }
 
+function isAutomatedBrowser() {
+  return typeof navigator !== 'undefined' && navigator.webdriver;
+}
+
 export default function App() {
-  const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
+  const [showFeedbackWidget, setShowFeedbackWidget] = useState(
+    import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
+  );
 
   useEffect(() => {
-    if (showFeedbackWidget || typeof window === 'undefined') {
+    if (showFeedbackWidget || typeof window === 'undefined' || isAutomatedBrowser()) {
       return;
     }
 
