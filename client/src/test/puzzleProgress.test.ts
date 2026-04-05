@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { getPuzzleProgressSummary } from '../lib/puzzleProgress';
+import { PUZZLES } from '@shared/puzzles';
 
 describe('puzzleProgress summary', () => {
   it('computes success rate and adaptive difficulty from attempts', () => {
+    expect(PUZZLES.length).toBeGreaterThanOrEqual(2);
+    const [completedPuzzle, failedPuzzle] = PUZZLES;
+
     const summary = getPuzzleProgressSummary([
       {
-        puzzleId: 6,
+        puzzleId: completedPuzzle.id,
         lastPlayedAt: 1711660000,
         completedAt: 1711660000,
         attempts: 1,
@@ -14,7 +18,7 @@ describe('puzzleProgress summary', () => {
         failures: 0,
       },
       {
-        puzzleId: 5001,
+        puzzleId: failedPuzzle.id,
         lastPlayedAt: 1711660100,
         completedAt: null,
         attempts: 2,

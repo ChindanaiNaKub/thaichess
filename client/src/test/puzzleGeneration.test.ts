@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { createInitialGameState, makeMove } from '@shared/engine';
 
-import { ALL_PUZZLES } from '@shared/puzzles';
-import { createImportedPuzzleCandidate } from '@shared/puzzleImportQueue';
-import { classifyMaterialTheme, generatePuzzleCandidateDraftsFromMoveSequence } from '@shared/puzzleGeneration';
-import { parsePgnLikePuzzleSources } from '@shared/puzzleSourceImport';
-import { SEED_PUZZLE_SOURCES } from '@shared/puzzleSeedSources';
-import { validatePuzzle } from '@shared/puzzleValidation';
+import {
+  classifyMaterialTheme,
+  createDefaultGenerationSource,
+  generatePuzzleCandidateDraftsFromMoveSequence,
+} from '@shared/puzzleGeneration';
+import {
+  createConstructedPuzzleSource,
+  parsePgnLikePuzzleSources,
+} from '@shared/puzzleSourceImport';
 import type { Board, Piece, PieceColor, PieceType, Position } from '@shared/types';
 
 function p(type: PieceType, color: PieceColor): Piece {
@@ -13,7 +17,7 @@ function p(type: PieceType, color: PieceColor): Piece {
 }
 
 function emptyBoard(): Board {
-  return Array(8).fill(null).map(() => Array(8).fill(null));
+  return Array.from({ length: 8 }, () => Array(8).fill(null));
 }
 
 function square(name: string): Position {
@@ -24,51 +28,89 @@ function square(name: string): Position {
 }
 
 describe('puzzleGeneration', () => {
-  it('mines a valid multi-ply candidate from a solved puzzle move sequence', () => {
-    const basePuzzle = ALL_PUZZLES.find(candidate => candidate.id === 15);
-    expect(basePuzzle).toBeDefined();
-
+  it('rejects arbitrary custom start boards without a replay-backed setup', () => {
     const generated = generatePuzzleCandidateDraftsFromMoveSequence({
-      id: 'fixture-game',
+      id: 'fixture-arbitrary-board',
       source: 'fixture import',
-      moves: basePuzzle!.solution,
-      initialBoard: basePuzzle!.board,
-      startingTurn: basePuzzle!.toMove,
+      moves: [
+        { from: square('a2'), to: square('a8') },
+      ],
+      initialBoard: emptyBoard(),
+      startingTurn: 'white',
     }, {
-      startingId: 7000,
-      minPlies: 3,
-      maxPlies: 3,
-      maxCandidates: 1,
-      minSourceMoves: 1,
-    });
-
-    expect(generated).toHaveLength(1);
-    expect(generated[0].draft.id).toBe(7000);
-    expect(generated[0].draft.theme).toBe('MateIn2');
-    expect(generated[0].draft.description).toContain('Mate in 2');
-
-    const candidate = createImportedPuzzleCandidate(generated[0].draft);
-    const result = validatePuzzle(candidate);
-
-    expect(result.errors).toEqual([]);
-  });
-
-  it('rejects trivial one-ply loose-piece pickups from the real-game mining pipeline', () => {
-    const basePuzzle = ALL_PUZZLES.find(candidate => candidate.id === 12);
-    expect(basePuzzle).toBeDefined();
-
-    const generated = generatePuzzleCandidateDraftsFromMoveSequence({
-      id: 'fixture-hanging-piece',
-      source: 'fixture import',
-      moves: basePuzzle!.solution,
-      initialBoard: basePuzzle!.board,
-      startingTurn: basePuzzle!.toMove,
-    }, {
-      startingId: 7100,
+      startingId: 9000,
       minPlies: 1,
       maxPlies: 1,
       maxCandidates: 1,
       minSourceMoves: 1,
+    });
+
+    expect(generated).toHaveLength(0);
+  });
+
+  it('derives constructed source positions from legal setup moves', () => {
+    const source = createConstructedPuzzleSource({
+      id: 'constructed-shell',
+      source: 'Constructed shell',
+      setupMoves: [
+        { from: square('a3'), to: square('a4') },
+        { from: square('a6'), to: square('a5') },
+      ],
+      moves: [
+        { from: square('b1'), to: square('c3') },
+        { from: square('b8'), to: square('c6') },
+        { from: square('c3'), to: square('b5') },
+      ],
+    });
+
+    expect(source.positionSourceType).toBe('constructed');
+    expect(source.startingTurn).toBe('white');
+    expect(source.initialBoard?.[3]?.[0]).toMatchObject({ type: 'P', color: 'white' });
+    expect(source.initialBoard?.[4]?.[0]).toMatchObject({ type: 'P', color: 'black' });
+  });
+
+  it('rejects replay-backed setup boards that flip a promoted pawn to the wrong side', () => {
+    const setupMoves = [
+      { from: square('g3'), to: square('g4') },
+      { from: square('h6'), to: square('h5') },
+      { from: square('g4'), to: square('h5') },
+      { from: square('a6'), to: square('a5') },
+      { from: square('h5'), to: square('h6') },
+    ];
+
+    let state = createInitialGameState(0, 0);
+    for (const move of setupMoves) {
+      const nextState = makeMove(state, move.from, move.to);
+      expect(nextState).not.toBeNull();
+      state = nextState!;
+    }
+
+    const mismatchedBoard = state.board.map(row => row.map(cell => (cell ? { ...cell } : null)));
+    mismatchedBoard[5][7] = { type: 'PM', color: 'black' };
+
+    expect(() => createConstructedPuzzleSource({
+      id: 'bad-promotion-owner',
+      source: 'Constructed promotion mismatch',
+      setupMoves,
+      initialBoard: mismatchedBoard,
+      moves: [],
+    })).toThrow(/legal replayable setup/i);
+  });
+
+  it('respects the minimum source move cutoff', () => {
+    const source = createDefaultGenerationSource(
+      'too-short',
+      'fixture import',
+      [
+        { from: square('a3'), to: square('a4') },
+        { from: square('h6'), to: square('h5') },
+      ],
+    );
+
+    const generated = generatePuzzleCandidateDraftsFromMoveSequence(source, {
+      minSourceMoves: 3,
+      minPlies: 3,
+      maxPlies: 3,
     });
 
     expect(generated).toHaveLength(0);
@@ -116,22 +158,6 @@ describe('puzzleGeneration', () => {
     ]);
 
     expect(theme).toBe('DoubleAttack');
-  });
-
-  it('mines candidates from the bundled seed game corpus', () => {
-    const generated = generatePuzzleCandidateDraftsFromMoveSequence(SEED_PUZZLE_SOURCES[1], {
-      startingId: 9100,
-      minPlies: 3,
-      maxPlies: 3,
-      maxCandidates: 1,
-      minSourceMoves: 1,
-    });
-
-    expect(generated).toHaveLength(1);
-    expect(generated[0]?.draft.source).toContain('ply 17');
-    expect(generated[0]?.draft.tags).toContain('seed-game');
-    expect(generated[0]?.draft.tags).toContain('trap');
-    expect(generated[0]?.draft.difficultyScore).toBeGreaterThan(0);
   });
 
   it('parses PGN-like coordinate imports into puzzle sources', () => {

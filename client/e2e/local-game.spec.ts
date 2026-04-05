@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Local Game', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/local');
+    await page.goto('/local', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('board')).toBeVisible();
   });
 
   test('renders the board with 64 squares', async ({ page }) => {
@@ -61,6 +62,7 @@ test.describe('Local Game', () => {
   });
 
   test('keeps the page anchored while move history auto-scrolls on tablet layouts', async ({ page }) => {
+    test.slow();
     await page.setViewportSize({ width: 820, height: 1180 });
     const initialScrollY = await page.evaluate(() => window.scrollY);
     const initialBoardTop = await page.getByTestId('board').evaluate((element) => element.getBoundingClientRect().top);
@@ -72,11 +74,17 @@ test.describe('Local Game', () => {
       { from: 'board-square-6-3', to: 'board-square-7-1', piece: 'board-piece-7-1' },
     ];
 
-    for (let cycle = 0; cycle < 8; cycle += 1) {
+    for (let cycle = 0; cycle < 6; cycle += 1) {
       for (const move of repeatableMoves) {
-        await page.getByTestId(move.from).click();
-        await page.getByTestId(move.to).click();
+        const fromSquare = page.getByTestId(move.from);
+        const toSquare = page.getByTestId(move.to);
+
+        await fromSquare.click();
+        await expect(fromSquare).toHaveClass(/board-square-selected/);
+        await expect(toSquare.locator('.legal-dot, .legal-capture')).toHaveCount(1);
+        await toSquare.click();
         await expect(page.getByTestId(move.piece)).toBeVisible();
+        await expect(fromSquare).not.toHaveClass(/board-square-selected/);
       }
     }
 

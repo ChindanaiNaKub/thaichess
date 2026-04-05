@@ -1,0 +1,71 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy To DigitalOcean
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          DEPLOY_PATH: /var/www/thaichess
+          DEPLOY_SERVICE: thaichess
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          envs: DEPLOY_PATH,DEPLOY_SERVICE
+          script_stop: true
+          script: |
+            set -eu
+
+            cd "$DEPLOY_PATH"
+            git fetch origin
+            git switch main
+            git pull --ff-only origin main
+            npm ci
+            npm run build
+            sudo systemctl restart "$DEPLOY_SERVICE"
+
+            echo "Waiting for health check to report ready..."
+            attempt=0
+            until [ "$attempt" -ge 36 ]; do
+              status_code="$(curl -sS -o /tmp/thaichess-health.json -w '%{http_code}' http://127.0.0.1:3000/api/health || true)"
+
+              if [ "$status_code" = "200" ] && grep -q '"status":"ok"' /tmp/thaichess-health.json; then
+                cat /tmp/thaichess-health.json
+                exit 0
+              fi
+
+              attempt=$((attempt + 1))
+              sleep 10
+            done
+
+            echo "Deploy finished, but the app never became healthy."
+            if [ -f /tmp/thaichess-health.json ]; then
+              cat /tmp/thaichess-health.json
+            fi
+            sudo systemctl status "$DEPLOY_SERVICE" --no-pager -l || true
+            exit 1

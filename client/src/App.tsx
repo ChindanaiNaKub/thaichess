@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
+import LocalGame from './components/LocalGame';
+import QuickPlay from './components/QuickPlay';
 import { scheduleOnUserIntent } from './lib/defer';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
@@ -9,13 +11,11 @@ import { SeoHeadManager } from './lib/seo';
 const GamePage = lazy(() => import('./components/GamePage'));
 const SpectatorPage = lazy(() => import('./components/SpectatorPage'));
 const LiveGamesPage = lazy(() => import('./components/LiveGamesPage'));
-const LocalGame = lazy(() => import('./components/LocalGame'));
 const BotGame = lazy(() => import('./components/BotGame'));
 const PuzzleStreakPage = lazy(() => import('./routes/PuzzleRoutes').then(m => ({ default: m.PuzzleStreakRoute })));
 const LessonCoursePage = lazy(() => import('./routes/LessonsRoutes').then(m => ({ default: m.LessonCourseRoute })));
 const LessonPlayerPage = lazy(() => import('./routes/LessonsRoutes').then(m => ({ default: m.LessonPlayerRoute })));
 const PuzzlePlayer = lazy(() => import('./routes/PuzzleRoutes').then(m => ({ default: m.PuzzlePlayerRoute })));
-const QuickPlay = lazy(() => import('./components/QuickPlay'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const GamesPage = lazy(() => import('./components/GamesPage'));
 const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
@@ -40,11 +40,17 @@ function RouteFallback() {
   );
 }
 
+function isAutomatedBrowser() {
+  return typeof navigator !== 'undefined' && navigator.webdriver;
+}
+
 export default function App() {
-  const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
+  const [showFeedbackWidget, setShowFeedbackWidget] = useState(
+    import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
+  );
 
   useEffect(() => {
-    if (showFeedbackWidget || typeof window === 'undefined') {
+    if (showFeedbackWidget || typeof window === 'undefined' || isAutomatedBrowser()) {
       return;
     }
 

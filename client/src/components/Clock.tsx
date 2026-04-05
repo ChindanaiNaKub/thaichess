@@ -3,7 +3,7 @@ import type { BotAvatarDefinition } from '@shared/botPersonas';
 import type { PieceColor, PieceType } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
 import BotAvatar from './BotAvatar';
-import PieceSVG from './PieceSVG';
+import InlineCapturedSummary from './InlineCapturedSummary';
 
 interface ClockProps {
   time: number;
@@ -45,10 +45,6 @@ function getInitials(name: string, color: PieceColor) {
     .map((word) => word[0]?.toUpperCase() ?? '')
     .join('')
     .slice(0, 2);
-}
-
-function formatMaterial(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 export default function Clock({
@@ -142,7 +138,7 @@ export default function Clock({
         : 'border-surface-hover/70 bg-[linear-gradient(180deg,rgba(51,42,32,0.46),rgba(30,26,22,0.96))] shadow-[0_10px_24px_rgba(0,0,0,0.16)]'
       }
     `}>
-      <div className={`flex gap-3 ${showTimer ? 'items-center justify-between' : 'items-start justify-between'}`}>
+      <div className={`flex w-full min-w-0 gap-3 ${showTimer ? 'items-center justify-between' : 'items-start justify-between'}`}>
         <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-2">
           {botAvatar ? (
             <div className="relative shrink-0 lg:origin-left lg:scale-[0.92]">
@@ -176,14 +172,18 @@ export default function Clock({
             </div>
           )}
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 lg:gap-1.5">
-              {flag && <span className="text-sm leading-none">{flag}</span>}
-              <div className="truncate text-sm font-semibold text-text-bright sm:text-[15px] lg:text-[13px]">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2 lg:gap-1.5">
+              {flag && <span className="shrink-0 text-sm leading-none">{flag}</span>}
+              <div className="min-w-0 truncate text-sm font-semibold text-text-bright sm:text-[15px] lg:text-[13px]">
                 {displayName}
               </div>
+              <InlineCapturedSummary
+                capturedPieces={capturedPieces}
+                materialDelta={materialDelta}
+              />
               {isActive && showTimer && (
-                <span className="hidden rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex lg:px-1.5">
+                <span className="hidden shrink-0 rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex lg:px-1.5">
                   {t('game.to_move')}
                 </span>
               )}
@@ -211,30 +211,12 @@ export default function Clock({
                 {pingLabel ?? t('game.ping_short')}
               </span>
             </div>
-            {(capturedPieces.length > 0 || materialDelta) && (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 lg:mt-0.5 lg:gap-1">
-                {capturedPieces.map(({ type, count, capturedColor }) => (
-                  <span
-                    key={`${type}-${capturedColor}`}
-                    className="inline-flex items-center gap-1 rounded-md border border-surface-hover/70 bg-surface/55 px-1.5 py-0.5"
-                  >
-                    <PieceSVG type={type} color={capturedColor} size={12} />
-                    {count > 1 && <span className="text-[10px] font-semibold text-text-bright">x{count}</span>}
-                  </span>
-                ))}
-                {materialDelta && (
-                  <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary-light">
-                    +{formatMaterial(materialDelta)}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
         {showTimer && (
           <div className={`
-            min-w-[104px] rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
+            min-w-[104px] shrink-0 rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
             ${isCritical
               ? 'border-danger/30 bg-danger/10'
               : isActive

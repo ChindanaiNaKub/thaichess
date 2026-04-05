@@ -31,8 +31,19 @@ export interface Position {
 export interface Move {
   from: Position;
   to: Position;
+  movedPiece?: Piece;
   captured?: Piece | null;
+  capturedPiece?: Piece | null;
   promoted?: boolean;
+  promotion?: PieceType | null;
+}
+
+export interface LastMove {
+  from: Position;
+  to: Position;
+  movedPiece: Piece;
+  capturedPiece?: Piece | null;
+  promotion?: PieceType | null;
 }
 
 export type Board = (Piece | null)[][];
@@ -52,6 +63,7 @@ export interface GameState {
   board: Board;
   turn: PieceColor;
   moveHistory: Move[];
+  lastMove: LastMove | null;
   isCheck: boolean;
   isCheckmate: boolean;
   isStalemate: boolean;
@@ -106,6 +118,7 @@ export interface ClientGameState {
   board: Board;
   turn: PieceColor;
   moveHistory: Move[];
+  lastMove: LastMove | null;
   isCheck: boolean;
   isCheckmate: boolean;
   isStalemate: boolean;

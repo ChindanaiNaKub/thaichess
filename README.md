@@ -118,7 +118,33 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 ## Documentation
 
 - [ADR: realtime identity and rated-game persistence](docs/adr-2026-03-26-realtime-identity-and-rated-game-persistence.md)
-- [Deployment note: Render + Turso](docs/deployment-render-turso.md)
+
+## Automatic Deploys
+
+GitHub Actions can deploy `main` to the DigitalOcean VPS after CI passes.
+
+Required GitHub repository secrets:
+
+- `DEPLOY_HOST` — droplet public IP or hostname
+- `DEPLOY_USER` — SSH user on the server
+- `DEPLOY_SSH_KEY` — private key for that user
+- `DEPLOY_PORT` — SSH port, usually `22`
+
+Server prerequisites:
+
+- the app lives at `/var/www/thaichess`
+- the systemd service is named `thaichess`
+- the deploy user can run `sudo systemctl restart thaichess` without a password
+
+Example sudoers entry:
+
+```bash
+sudo visudo -f /etc/sudoers.d/thaichess-deploy
+```
+
+```text
+prab ALL=(root) NOPASSWD:/bin/systemctl restart thaichess,/bin/systemctl status thaichess
+```
 
 ## Contributing
 

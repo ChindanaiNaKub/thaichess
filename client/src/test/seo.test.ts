@@ -71,11 +71,14 @@ describe('shared SEO routes', () => {
     expect(lesson.title).toContain('Lesson');
   });
 
-  it('uses cleaned public titles for puzzle metadata', () => {
-    const seo = getPublicSeoRoute('/puzzle/5001', 'https://thaichess.dev');
+  it('uses the published puzzle catalog for puzzle metadata', () => {
+    const puzzle = PUZZLES.find((entry) => entry.id === 7001);
+    expect(puzzle).toBeDefined();
 
-    expect(seo.title).toBe('Trap The Knight Before It Escapes | ThaiChess Puzzle 5001');
-    expect(seo.description).toContain('Win material in 2.');
+    const seo = getPublicSeoRoute('/puzzle/7001', 'https://thaichess.dev');
+
+    expect(seo.title).toBe('Ma Fork Through the Shell | ThaiChess Puzzle 7001');
+    expect(seo.description).toContain(puzzle?.description ?? '');
   });
 
   it('marks non-public app routes as noindex', () => {

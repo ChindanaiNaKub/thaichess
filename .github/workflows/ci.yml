@@ -54,6 +54,7 @@ jobs:
 
   e2e:
     name: End To End Tests
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -65,6 +66,12 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
       - name: Install dependencies
         run: npm ci

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, ClientGameState, Move } from '@shared/types';
-import { createInitialBoard, getBoardAtMove } from '@shared/engine';
+import { createInitialBoard, getBoardAtMove, getLastMoveForView } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
@@ -218,10 +218,7 @@ export default function SpectatorPage() {
   }, [gameState]);
 
   const getLastMove = (): Move | null => {
-    if (!gameState || gameState.moveHistory.length === 0) return null;
-    const idx = viewMoveIndex ?? gameState.moveHistory.length - 1;
-    if (idx < 0) return null;
-    return gameState.moveHistory[idx];
+    return getLastMoveForView(gameState, viewMoveIndex);
   };
 
   const getCheckSquare = (): Position | null => {

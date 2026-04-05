@@ -1,4 +1,4 @@
-import { Board, Piece, PieceColor, PieceType, Position, Move, GameState, CountingState, ResultReason } from './types';
+import { Board, Piece, PieceColor, PieceType, Position, Move, GameState, CountingState, ResultReason, LastMove } from './types';
 import {
   getMakrukCountingState,
   hasBareKingsOnly,
@@ -30,6 +30,7 @@ export function createInitialGameState(whiteTime: number, blackTime: number): Ga
     board: createInitialBoard(),
     turn: 'white',
     moveHistory: [],
+    lastMove: null,
     isCheck: false,
     isCheckmate: false,
     isStalemate: false,
@@ -57,8 +58,20 @@ function getForwardDirection(color: PieceColor): number {
   return color === 'white' ? 1 : -1;
 }
 
-function getPromotionRank(color: PieceColor): number {
+export function getPromotionRank(color: PieceColor): number {
   return color === 'white' ? 5 : 2;
+}
+
+export function isPromotionSquare(color: PieceColor, row: number): boolean {
+  return row === getPromotionRank(color);
+}
+
+export function shouldPromotePawn(piece: Piece, to: Position): boolean {
+  return piece.type === 'P' && isPromotionSquare(piece.color, to.row);
+}
+
+export function createPromotedPawn(color: PieceColor): Piece {
+  return { type: 'PM', color };
 }
 
 function findKing(board: Board, color: PieceColor): Position | null {
@@ -390,8 +403,8 @@ export function getLegalMoves(board: Board, pos: Position): Position[] {
 
     // Handle promotion for testing
     const movedPiece = testBoard[target.row][target.col]!;
-    if (movedPiece.type === 'P' && target.row === getPromotionRank(movedPiece.color)) {
-      testBoard[target.row][target.col] = { type: 'PM', color: movedPiece.color };
+    if (shouldPromotePawn(movedPiece, target)) {
+      testBoard[target.row][target.col] = createPromotedPawn(movedPiece.color);
     }
 
     if (!isInCheck(testBoard, piece.color)) {
@@ -430,14 +443,33 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
   newBoard[to.row][to.col] = newBoard[from.row][from.col];
   newBoard[from.row][from.col] = null;
 
+  const movedPiece = { ...piece };
+  const capturedPiece = captured ? { ...captured } : null;
   let promoted = false;
-  const movedPiece = newBoard[to.row][to.col]!;
-  if (movedPiece.type === 'P' && to.row === getPromotionRank(movedPiece.color)) {
-    newBoard[to.row][to.col] = { type: 'PM', color: movedPiece.color };
+  let promotion: PieceType | null = null;
+  const movedBoardPiece = newBoard[to.row][to.col]!;
+  if (shouldPromotePawn(movedBoardPiece, to)) {
+    newBoard[to.row][to.col] = createPromotedPawn(movedBoardPiece.color);
     promoted = true;
+    promotion = 'PM';
   }
 
-  const move: Move = { from, to, captured, promoted };
+  const move: Move = {
+    from,
+    to,
+    movedPiece,
+    captured: capturedPiece,
+    capturedPiece,
+    promoted,
+    promotion,
+  };
+  const lastMove: LastMove = {
+    from,
+    to,
+    movedPiece,
+    capturedPiece,
+    promotion,
+  };
   const nextTurn: PieceColor = state.turn === 'white' ? 'black' : 'white';
 
   const check = isInCheck(newBoard, nextTurn);
@@ -516,6 +548,7 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
     board: newBoard,
     turn: nextTurn,
     moveHistory: [...state.moveHistory, move],
+    lastMove,
     isCheck: check,
     isCheckmate,
     isStalemate,
@@ -554,10 +587,34 @@ export function getBoardAtMove(initialBoard: Board, moves: Move[], moveIndex: nu
     board[move.from.row][move.from.col] = null;
     if (move.promoted) {
       const piece = board[move.to.row][move.to.col]!;
-      board[move.to.row][move.to.col] = { type: 'PM', color: piece.color };
+      board[move.to.row][move.to.col] = createPromotedPawn(piece.color);
     }
   }
   return board;
+}
+
+export function getMoveAtIndex(moves: Move[], moveIndex: number): Move | null {
+  if (moveIndex < 0 || moveIndex >= moves.length) {
+    return null;
+  }
+
+  return moves[moveIndex] ?? null;
+}
+
+export function getLastMoveForView(
+  state: { moveHistory: Move[]; lastMove?: Move | LastMove | null } | null,
+  viewMoveIndex: number | null | undefined = null,
+): Move | LastMove | null {
+  if (!state || state.moveHistory.length === 0) {
+    return null;
+  }
+
+  const latestMoveIndex = state.moveHistory.length - 1;
+  if (viewMoveIndex === null || viewMoveIndex === undefined || viewMoveIndex === latestMoveIndex) {
+    return state.lastMove ?? getMoveAtIndex(state.moveHistory, latestMoveIndex);
+  }
+
+  return getMoveAtIndex(state.moveHistory, viewMoveIndex);
 }
 
 export function getAllPieces(board: Board, color: PieceColor): { piece: Piece; pos: Position }[] {

@@ -2,7 +2,13 @@ import { getLegalMoves } from './engine';
 import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
 import type { Board, PieceColor, Position } from './types';
 
-export type PuzzleOrigin = 'starter-pack' | 'real-game' | 'seed-game' | 'review-batch';
+export type PuzzleOrigin =
+  | 'starter-pack'
+  | 'real-game'
+  | 'seed-game'
+  | 'review-batch'
+  | 'curated-manual'
+  | 'engine-generated';
 
 export interface PuzzleSourceReference {
   sourceGameId: string | null;
@@ -18,6 +24,7 @@ export interface PuzzleMetadataInput {
   toMove: PieceColor;
   solution: { from: Position; to: Position }[];
   tags?: string[];
+  dependsOnCounting?: boolean;
 }
 
 function normalizeTag(tag: string): string {
@@ -94,8 +101,11 @@ function addTag(tags: string[], tag: string | null | undefined): void {
 export function derivePuzzleOrigin(source: string): PuzzleOrigin {
   const normalized = source.trim().toLowerCase();
 
+  if (normalized.startsWith('manual source-of-truth') || normalized.startsWith('curated manual:')) return 'curated-manual';
+  if (normalized.startsWith('makruk-native sample pack:')) return 'curated-manual';
   if (normalized.startsWith('starter pack:')) return 'starter-pack';
   if (normalized.startsWith('imported candidate batch:')) return 'review-batch';
+  if (normalized.startsWith('offline self-play') || normalized.startsWith('generated real-game candidate')) return 'engine-generated';
   if (normalized.startsWith('seed game corpus:') || normalized.startsWith('seed review game')) return 'seed-game';
   if (normalized.startsWith('exported ') || normalized.includes('real-game')) return 'real-game';
 
@@ -134,6 +144,10 @@ export function derivePuzzleTags(input: PuzzleMetadataInput): string[] {
     addTag(tags, 'material-gain');
   }
 
+  if (input.dependsOnCounting) {
+    addTag(tags, 'counting');
+  }
+
   switch (input.theme) {
     case 'Fork':
       addTag(tags, 'fork');
@@ -153,6 +167,21 @@ export function derivePuzzleTags(input: PuzzleMetadataInput): string[] {
     case 'Endgame':
       addTag(tags, 'endgame');
       break;
+    case 'BestDefense':
+      addTag(tags, 'defense');
+      break;
+    case 'SaveTheDraw':
+      addTag(tags, 'save-the-draw');
+      addTag(tags, 'stalemate');
+      break;
+    case 'WinBeforeCountExpires':
+      addTag(tags, 'win-before-count');
+      addTag(tags, 'sak-mak');
+      break;
+    case 'CountingDraw':
+      addTag(tags, 'counting-draw');
+      addTag(tags, 'sak-mak');
+      break;
     case 'BackRank':
       addTag(tags, 'back-rank');
       break;
@@ -167,6 +196,8 @@ export function derivePuzzleTags(input: PuzzleMetadataInput): string[] {
   if (origin === 'real-game') addTag(tags, 'real-game');
   if (origin === 'seed-game') addTag(tags, 'seed-game');
   if (origin === 'starter-pack') addTag(tags, 'starter-pack');
+  if (origin === 'curated-manual') addTag(tags, 'curated');
+  if (origin === 'engine-generated') addTag(tags, 'generated');
   if (isMiddlegameRichBoard(input.board)) addTag(tags, 'middlegame');
   if (isSparseEndgameBoard(input.board)) addTag(tags, 'endgame');
 

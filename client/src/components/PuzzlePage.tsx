@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
-import { getLegalMoves, makeMove } from '@shared/engine';
+import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
 import { PUZZLES, type Puzzle } from '@shared/puzzles';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import {
@@ -28,6 +28,26 @@ interface StreakFeedback {
   tone: 'neutral' | 'success' | 'failed';
   title: string;
   detail: string;
+}
+
+function movesMatch(
+  left: Pick<Move, 'from' | 'to'> | null,
+  right: Pick<Move, 'from' | 'to'> | null,
+): boolean {
+  if (!left || !right) return false;
+
+  return left.from.row === right.from.row &&
+    left.from.col === right.from.col &&
+    left.to.row === right.to.row &&
+    left.to.col === right.to.col;
+}
+
+function getPuzzleFailureDetail(puzzle: Puzzle, attemptedMove: Pick<Move, 'from' | 'to'> | null): string {
+  if (movesMatch(attemptedMove, puzzle.commonWrongMove)) {
+    return puzzle.wrongMoveExplanation;
+  }
+
+  return `${puzzle.wrongMoveExplanation} ${puzzle.takeaway}`;
 }
 
 const PUZZLE_FILTERS: PuzzleListFilter[] = ['all', 'beginner', 'intermediate', 'advanced'];
@@ -478,7 +498,7 @@ function PuzzleLessonsPage() {
                       {getPuzzleSourceLabel(puzzle.source, t)}
                     </span>
                     <span className="text-xs text-text-dim ml-auto">
-                      {t('puzzle.to_move', { color: puzzle.toMove === 'white' ? t('common.white') : t('common.black') })}
+                      {t('puzzle.to_move', { color: puzzle.sideToMove === 'white' ? t('common.white') : t('common.black') })}
                     </span>
                   </div>
                 </button>
@@ -539,6 +559,9 @@ function PuzzleStreakPage() {
   const [milestoneTone, setMilestoneTone] = useState<StreakMilestoneTone>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStreakPulsing, setIsStreakPulsing] = useState(false);
+  const [hintUsed, setHintUsed] = useState(false);
+  const [hintStage, setHintStage] = useState(0);
+  const [showHint, setShowHint] = useState(false);
 
   const clearAutoReplyTimeout = useCallback(() => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -578,6 +601,9 @@ function PuzzleStreakPage() {
     setLegalMoves([]);
     setStatus('playing');
     setIsTransitioning(false);
+    setHintUsed(false);
+    setHintStage(0);
+    setShowHint(false);
     setFeedback({
       tone: 'neutral',
       title: t('puzzle.streak_prompt_title'),
@@ -636,7 +662,25 @@ function PuzzleStreakPage() {
     }, 520);
   }, []);
 
-  const endStreak = useCallback(() => {
+  const restartStreakState = useCallback(() => {
+    clearAutoReplyTimeout();
+    clearAdvanceTimeout();
+    clearTransientTimeouts();
+
+    const nextStart = createStartingPuzzle();
+    setScore(0);
+    setStreak(0);
+    setSolvedCount(0);
+    setSessionBestStreak(0);
+    setRecentPuzzleIds([]);
+    setAdaptiveDifficultyScore(nextStart.startingDifficultyScore);
+    setScoreFlash(null);
+    setMilestoneTone(null);
+    setIsStreakPulsing(false);
+    loadPuzzle(nextStart.puzzle);
+  }, [clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, createStartingPuzzle, loadPuzzle]);
+
+  const endStreak = useCallback((attemptedMove: Pick<Move, 'from' | 'to'> | null = null) => {
     if (!currentPuzzle) return;
 
     clearAutoReplyTimeout();
@@ -649,11 +693,16 @@ function PuzzleStreakPage() {
     setIsTransitioning(false);
     setFeedback({
       tone: 'failed',
-      title: t('puzzle.streak_end_title'),
-      detail: t('puzzle.streak_ended_at', { streak }),
+      title: t('puzzle.wrong'),
+      detail: getPuzzleFailureDetail(currentPuzzle, attemptedMove),
     });
     void recordPuzzleFailed(currentPuzzle.id);
-  }, [adaptiveDifficultyScore, clearAdvanceTimeout, clearAutoReplyTimeout, currentPuzzle, recordPuzzleFailed, streak, t]);
+
+    advanceTimeoutRef.current = window.setTimeout(() => {
+      restartStreakState();
+      advanceTimeoutRef.current = null;
+    }, 1200);
+  }, [adaptiveDifficultyScore, clearAdvanceTimeout, clearAutoReplyTimeout, currentPuzzle, recordPuzzleFailed, restartStreakState, streak, t]);
 
   const finishStreakPuzzle = useCallback(() => {
     if (!currentPuzzle) return;
@@ -766,10 +815,10 @@ function PuzzleStreakPage() {
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (!gameState || !currentPuzzle || status !== 'playing') return;
-    if (gameState.turn !== currentPuzzle.toMove) return;
+    if (gameState.turn !== currentPuzzle.sideToMove) return;
 
     const piece = gameState.board[pos.row][pos.col];
-    const playerColor = currentPuzzle.toMove;
+    const playerColor = currentPuzzle.sideToMove;
 
     if (selectedSquare) {
       const isLegal = legalMoves.some(m => m.row === pos.row && m.col === pos.col);
@@ -799,7 +848,7 @@ function PuzzleStreakPage() {
         } else {
           setSelectedSquare(null);
           setLegalMoves([]);
-          endStreak();
+          endStreak({ from: selectedSquare, to: pos });
         }
         return;
       }
@@ -816,9 +865,9 @@ function PuzzleStreakPage() {
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
     if (!gameState || !currentPuzzle || status !== 'playing') return;
-    if (gameState.turn !== currentPuzzle.toMove) return;
+    if (gameState.turn !== currentPuzzle.sideToMove) return;
     const piece = gameState.board[from.row][from.col];
-    if (!piece || piece.color !== currentPuzzle.toMove) return;
+    if (!piece || piece.color !== currentPuzzle.sideToMove) return;
 
     const legal = getLegalMoves(gameState.board, from);
     if (!legal.some(m => m.row === to.row && m.col === to.col)) return;
@@ -848,27 +897,13 @@ function PuzzleStreakPage() {
     } else {
       setSelectedSquare(null);
       setLegalMoves([]);
-      endStreak();
+      endStreak({ from, to });
     }
   }, [currentPuzzle, endStreak, gameState, queueOpponentReply, status]);
 
   const handleRestartStreak = useCallback(() => {
-    clearAutoReplyTimeout();
-    clearAdvanceTimeout();
-    clearTransientTimeouts();
-
-    const nextStart = createStartingPuzzle();
-    setScore(0);
-    setStreak(0);
-    setSolvedCount(0);
-    setSessionBestStreak(0);
-    setRecentPuzzleIds([]);
-    setAdaptiveDifficultyScore(nextStart.startingDifficultyScore);
-    setScoreFlash(null);
-    setMilestoneTone(null);
-    setIsStreakPulsing(false);
-    loadPuzzle(nextStart.puzzle);
-  }, [clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, createStartingPuzzle, loadPuzzle]);
+    restartStreakState();
+  }, [restartStreakState]);
 
   const handleRetryPuzzle = useCallback(() => {
     if (!currentPuzzle) return;
@@ -884,6 +919,9 @@ function PuzzleStreakPage() {
     setScoreFlash(null);
     setMilestoneTone(null);
     setIsStreakPulsing(false);
+    setHintUsed(false);
+    setHintStage(0);
+    setShowHint(false);
     setStatus('playing');
     setIsTransitioning(false);
     setFeedback({
@@ -893,9 +931,18 @@ function PuzzleStreakPage() {
     });
   }, [clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, currentPuzzle, t]);
 
+  const handleStreakHint = useCallback(() => {
+    if (!currentPuzzle || status !== 'playing') return;
+
+    const nextHintStage = Math.min(3, hintStage + 1);
+    setHintUsed(true);
+    setHintStage(nextHintStage);
+    setShowHint(true);
+    window.setTimeout(() => setShowHint(false), 3000);
+  }, [currentPuzzle, hintStage, status]);
+
   const getLastMove = (): Move | null => {
-    if (!gameState || gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+    return getLastMoveForView(gameState);
   };
 
   const getCheckSquare = (): Position | null => {
@@ -911,10 +958,16 @@ function PuzzleStreakPage() {
     return null;
   };
 
-  const currentTurnLabel = (currentPuzzle?.toMove ?? 'white') === 'white' ? t('common.white') : t('common.black');
-  const boardTurnLabel = (gameState?.turn ?? currentPuzzle?.toMove ?? 'white') === 'white'
-    ? t('common.white')
-    : t('common.black');
+  const currentTurnLabel = (currentPuzzle?.sideToMove ?? 'white') === 'white' ? t('common.white') : t('common.black');
+  const hintMove = currentPuzzle && gameState && gameState.turn === currentPuzzle.sideToMove
+    ? getForcingMoves(gameState, currentPuzzle)[0]
+    : undefined;
+  const hintSquare = showHint && hintMove ? hintMove.from : null;
+  const revealedHints = currentPuzzle ? [
+    hintStage >= 1 ? { label: 'Hint 1', text: currentPuzzle.hint1 } : null,
+    hintStage >= 2 ? { label: 'Hint 2', text: currentPuzzle.hint2 } : null,
+    hintStage >= 3 ? { label: 'Key idea', text: currentPuzzle.keyIdea } : null,
+  ].filter((entry): entry is { label: string; text: string } => Boolean(entry && (entry.text ?? '').trim().length > 0)) : [];
   const checkpointProgress = ((solvedCount % STREAK_CHECKPOINT_INTERVAL) / STREAK_CHECKPOINT_INTERVAL) * 100;
   const adaptiveProgress = Math.max(10, Math.min(100, ((adaptiveDifficultyScore - 780) / (2200 - 780)) * 100));
   const milestoneMessage = milestoneTone === 'harder'
@@ -1014,16 +1067,16 @@ function PuzzleStreakPage() {
                     key={currentPuzzle.id}
                     board={gameState.board}
                     className="max-w-full lg:h-full lg:w-auto lg:max-h-full lg:max-w-full"
-                    playerColor={currentPuzzle.toMove}
-                    isMyTurn={status === 'playing' && gameState.turn === currentPuzzle.toMove}
+                    playerColor={currentPuzzle.boardOrientation ?? 'white'}
+                    isMyTurn={status === 'playing' && gameState.turn === currentPuzzle.sideToMove}
                     legalMoves={legalMoves}
-                    selectedSquare={selectedSquare}
+                    selectedSquare={selectedSquare || hintSquare}
                     lastMove={getLastMove()}
                     isCheck={gameState.isCheck}
                     checkSquare={getCheckSquare()}
                     onSquareClick={handleSquareClick}
                     onPieceDrop={handlePieceDrop}
-                    disabled={status !== 'playing' || gameState.turn !== currentPuzzle.toMove}
+                    disabled={status !== 'playing' || gameState.turn !== currentPuzzle.sideToMove}
                   />
                 </BoardErrorBoundary>
               )}
@@ -1037,10 +1090,28 @@ function PuzzleStreakPage() {
                     <h3 className="mt-1 text-base font-semibold text-text-bright">{feedback.title}</h3>
                   </div>
                   <span className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim">
-                    {t('puzzle.to_move', { color: status === 'playing' ? currentTurnLabel : boardTurnLabel })}
+                    {t('puzzle.to_move', { color: currentTurnLabel })}
                   </span>
                 </div>
                 <p className="mt-1.5 text-sm text-text-dim">{feedback.detail}</p>
+                {status === 'playing' && currentPuzzle && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-surface-hover/70 pt-3">
+                    <button
+                      onClick={handleStreakHint}
+                      disabled={showHint}
+                      className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {t('puzzle.hint')}
+                    </button>
+                    <p className="text-xs leading-5 text-text-dim">
+                      {hintStage === 0
+                        ? currentPuzzle.hint1
+                        : hintStage === 1
+                          ? currentPuzzle.hint2
+                          : currentPuzzle.keyIdea}
+                    </p>
+                  </div>
+                )}
                 <div className="mt-3 border-t border-surface-hover/70 pt-3">
                   <p className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/80">{t('puzzle.streak_focus_title')}</p>
                   <p className="text-sm text-text-bright">
@@ -1051,6 +1122,20 @@ function PuzzleStreakPage() {
                   <p className="mt-1.5 text-xs leading-5 text-text-dim">{t('puzzle.streak_focus_desc')}</p>
                 </div>
               </div>
+
+              {revealedHints.length > 0 && (
+                <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 animate-slideUp">
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-accent/90">{t('puzzle.hint')}</p>
+                  <div className="space-y-2">
+                    {revealedHints.map((entry) => (
+                      <div key={entry.label}>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent/80">{entry.label}</div>
+                        <p className="text-sm leading-5 text-text">{entry.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-xl border border-surface-hover bg-surface-alt p-3">
                 <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-primary/80">{t('puzzle.streak_session_title')}</p>
@@ -1132,7 +1217,9 @@ function PuzzlePlayer() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [status, setStatus] = useState<PuzzleStatus>('playing');
   const [hintUsed, setHintUsed] = useState(false);
+  const [hintStage, setHintStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [failureDetail, setFailureDetail] = useState<string | null>(null);
 
   useEffect(() => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1146,7 +1233,9 @@ function PuzzlePlayer() {
       setLegalMoves([]);
       setStatus('playing');
       setHintUsed(false);
+      setHintStage(0);
       setShowHint(false);
+      setFailureDetail(null);
     }
 
     return () => {
@@ -1168,9 +1257,18 @@ function PuzzlePlayer() {
 
   const finishPuzzle = useCallback(() => {
     setStatus('success');
+    setFailureDetail(null);
     markCompleted();
     playGameOverSound();
   }, [markCompleted]);
+
+  const failPuzzle = useCallback((attemptedMove: Pick<Move, 'from' | 'to'> | null = null) => {
+    if (!puzzle) return;
+
+    void recordPuzzleFailed(puzzleId);
+    setFailureDetail(getPuzzleFailureDetail(puzzle, attemptedMove));
+    setStatus('failed');
+  }, [puzzle, puzzleId, recordPuzzleFailed]);
 
   const queueOpponentReply = useCallback((stateAfterPlayerMove: GameState) => {
     if (!puzzle) return;
@@ -1182,8 +1280,7 @@ function PuzzlePlayer() {
 
     const replyMoves = getForcingMoves(stateAfterPlayerMove, puzzle);
     if (!replyMoves.length) {
-      void recordPuzzleFailed(puzzleId);
-      setStatus('failed');
+      failPuzzle();
       return;
     }
 
@@ -1202,8 +1299,7 @@ function PuzzlePlayer() {
       autoReplyTimeoutRef.current = null;
 
       if (!replyState) {
-        void recordPuzzleFailed(puzzleId);
-        setStatus('failed');
+        failPuzzle();
         return;
       }
 
@@ -1219,19 +1315,18 @@ function PuzzlePlayer() {
       } else {
         const nextSolverMoves = getForcingMoves(replyState, puzzle);
         if (!nextSolverMoves.length && getPliesRemaining(puzzle, replyState) > 0) {
-          void recordPuzzleFailed(puzzleId);
-          setStatus('failed');
+          failPuzzle();
         }
       }
     }, 450);
-  }, [finishPuzzle, puzzle, puzzleId, recordPuzzleFailed]);
+  }, [failPuzzle, finishPuzzle, puzzle]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (!gameState || !puzzle || status !== 'playing') return;
-    if (gameState.turn !== puzzle.toMove) return;
+    if (gameState.turn !== puzzle.sideToMove) return;
 
     const piece = gameState.board[pos.row][pos.col];
-    const playerColor = puzzle.toMove;
+    const playerColor = puzzle.sideToMove;
 
     if (selectedSquare) {
       const isLegal = legalMoves.some(m => m.row === pos.row && m.col === pos.col);
@@ -1259,8 +1354,7 @@ function PuzzlePlayer() {
             queueOpponentReply(newState);
           }
         } else {
-          void recordPuzzleFailed(puzzleId);
-          setStatus('failed');
+          failPuzzle({ from: selectedSquare, to: pos });
           setSelectedSquare(null);
           setLegalMoves([]);
         }
@@ -1275,13 +1369,13 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [gameState, legalMoves, puzzle, puzzleId, queueOpponentReply, recordPuzzleFailed, selectedSquare, status]);
+  }, [failPuzzle, gameState, legalMoves, puzzle, queueOpponentReply, selectedSquare, status]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
     if (!gameState || !puzzle || status !== 'playing') return;
-    if (gameState.turn !== puzzle.toMove) return;
+    if (gameState.turn !== puzzle.sideToMove) return;
     const piece = gameState.board[from.row][from.col];
-    if (!piece || piece.color !== puzzle.toMove) return;
+    if (!piece || piece.color !== puzzle.sideToMove) return;
 
     const legal = getLegalMoves(gameState.board, from);
     if (!legal.some(m => m.row === to.row && m.col === to.col)) return;
@@ -1309,12 +1403,11 @@ function PuzzlePlayer() {
         queueOpponentReply(newState);
       }
     } else {
-      void recordPuzzleFailed(puzzleId);
-      setStatus('failed');
+      failPuzzle({ from, to });
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [gameState, puzzle, puzzleId, queueOpponentReply, recordPuzzleFailed, status]);
+  }, [failPuzzle, gameState, puzzle, queueOpponentReply, status]);
 
   const handleRetry = () => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1326,13 +1419,17 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
       setStatus('playing');
+      setHintStage(0);
       setShowHint(false);
+      setFailureDetail(null);
     }
   };
 
   const handleHint = () => {
     if (!puzzle || status !== 'playing') return;
+    const nextHintStage = Math.min(3, hintStage + 1);
     setHintUsed(true);
+    setHintStage(nextHintStage);
     setShowHint(true);
     window.setTimeout(() => setShowHint(false), 3000);
   };
@@ -1383,16 +1480,15 @@ function PuzzlePlayer() {
     );
   }
 
-  const hintMove = gameState && gameState.turn === puzzle.toMove
+  const hintMove = gameState && gameState.turn === puzzle.sideToMove
     ? getForcingMoves(gameState, puzzle)[0]
     : undefined;
   const hintSquare = showHint && hintMove ? hintMove.from : null;
   const nextPuzzle = getNextPuzzle();
   const prevPuzzle = getPrevPuzzle();
-  const solverColorLabel = puzzle.toMove === 'white' ? t('common.white') : t('common.black');
-  const currentTurn = gameState?.turn ?? puzzle.toMove;
-  const currentTurnLabel = currentTurn === 'white' ? t('common.white') : t('common.black');
-  const isSolverTurn = status === 'playing' && gameState?.turn === puzzle.toMove;
+  const solverColorLabel = puzzle.sideToMove === 'white' ? t('common.white') : t('common.black');
+  const currentTurnLabel = puzzle.sideToMove === 'white' ? t('common.white') : t('common.black');
+  const isSolverTurn = status === 'playing' && gameState?.turn === puzzle.sideToMove;
   const currentStep = gameState ? Math.min(gameState.moveHistory.length + 1, puzzle.solution.length) : 1;
   const progressRecord = progressRecords.find(record => record.puzzleId === puzzleId) ?? null;
   const completedTimestamp = progressRecord?.completedAt ?? (status === 'success' ? Math.floor(Date.now() / 1000) : null);
@@ -1413,6 +1509,11 @@ function PuzzlePlayer() {
       return a.id - b.id;
     })
     .slice(0, 3);
+  const revealedHints = [
+    hintStage >= 1 ? { label: 'Hint 1', text: puzzle.hint1 } : null,
+    hintStage >= 2 ? { label: 'Hint 2', text: puzzle.hint2 } : null,
+    hintStage >= 3 ? { label: 'Key idea', text: puzzle.keyIdea } : null,
+  ].filter((entry): entry is { label: string; text: string } => Boolean(entry && (entry.text ?? '').trim().length > 0));
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -1444,8 +1545,8 @@ function PuzzlePlayer() {
               <BoardErrorBoundary onRetry={handleRetry}>
                 <Board
                   board={gameState.board}
-                  playerColor={puzzle.toMove}
-                  isMyTurn={status === 'playing' && gameState.turn === puzzle.toMove}
+                  playerColor={puzzle.boardOrientation ?? 'white'}
+                  isMyTurn={status === 'playing' && gameState.turn === puzzle.sideToMove}
                   legalMoves={legalMoves}
                   selectedSquare={selectedSquare || hintSquare}
                   lastMove={getLastMove()}
@@ -1453,7 +1554,7 @@ function PuzzlePlayer() {
                   checkSquare={getCheckSquare()}
                   onSquareClick={handleSquareClick}
                   onPieceDrop={handlePieceDrop}
-                  disabled={status !== 'playing' || gameState.turn !== puzzle.toMove}
+                  disabled={status !== 'playing' || gameState.turn !== puzzle.sideToMove}
                 />
               </BoardErrorBoundary>
             )}
@@ -1508,7 +1609,7 @@ function PuzzlePlayer() {
                   {hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean')}
                 </p>
                 <p className="mt-3 text-left text-sm text-text leading-relaxed">
-                  <span className="font-semibold text-text-bright">{t('puzzle.lesson')}:</span> {puzzle.explanation}
+                  <span className="font-semibold text-text-bright">{t('puzzle.lesson')}:</span> {puzzle.takeaway}
                 </p>
               </div>
             )}
@@ -1517,7 +1618,21 @@ function PuzzlePlayer() {
               <div className="bg-danger/20 border border-danger/30 rounded-lg px-4 py-4 text-center animate-slideUp">
                 <div className="text-3xl mb-2">✗</div>
                 <p className="text-danger font-bold text-lg">{t('puzzle.wrong')}</p>
-                <p className="text-text-dim text-sm">{t('puzzle.wrong_desc')}</p>
+                <p className="text-text-dim text-sm">{failureDetail ?? t('puzzle.wrong_desc')}</p>
+              </div>
+            )}
+
+            {revealedHints.length > 0 && (
+              <div className="rounded-xl border border-accent/30 bg-accent/10 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-accent/90 mb-2">{t('puzzle.hint')}</p>
+                <div className="space-y-2">
+                  {revealedHints.map((entry) => (
+                    <div key={entry.label}>
+                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-accent/80">{entry.label}</div>
+                      <p className="text-sm leading-relaxed text-text">{entry.text}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
