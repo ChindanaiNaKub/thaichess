@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { createElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { getIndexablePaths, getPublicSeoRoute } from '@shared/seo';
-import { PUZZLES } from '@shared/puzzles';
+import { SEO_PUZZLES } from '@shared/seoPuzzleManifest';
 import { routes } from '../lib/routes';
 import { render, waitFor } from '@testing-library/react';
 import { SeoHeadManager } from '../lib/seo';
@@ -31,7 +31,7 @@ describe('shared SEO routes', () => {
       routes.quickPlay,
       routes.bot,
       routes.local,
-      ...PUZZLES.map((puzzle) => `/puzzle/${puzzle.id}`),
+      ...SEO_PUZZLES.map((puzzle) => `/puzzle/${puzzle.id}`),
     ]);
   });
 
@@ -72,7 +72,7 @@ describe('shared SEO routes', () => {
   });
 
   it('uses the published puzzle catalog for puzzle metadata', () => {
-    const puzzle = PUZZLES.find((entry) => entry.id === 7001);
+    const puzzle = SEO_PUZZLES.find((entry) => entry.id === 7001);
     expect(puzzle).toBeDefined();
 
     const seo = getPublicSeoRoute('/puzzle/7001', 'https://thaichess.dev');

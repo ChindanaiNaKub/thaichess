@@ -87,6 +87,7 @@ vi.mock('../lib/socket', () => ({
 }));
 
 vi.mock('../lib/puzzleProgress', () => ({
+  PuzzleProgressProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   usePuzzleProgressSummary: () => puzzleProgressSummaryState,
 }));
 

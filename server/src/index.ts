@@ -60,6 +60,7 @@ import { renderSeoHtml } from './seoHtml';
 const app = express();
 const httpServer = createServer(app);
 const startTime = Date.now();
+const moduleInitUptimeMs = Math.round(process.uptime() * 1000);
 const allowedCorsOrigins = getAllowedCorsOrigins(process.env);
 
 const corsOptions: CorsOptions = {
@@ -1042,6 +1043,18 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST?.trim() || undefined;
+const normalizedPort = Number(PORT);
+
+function getProcessUptimeMs() {
+  return Math.round(process.uptime() * 1000);
+}
+
+logInfo('server_bootstrap_ready', {
+  environment: process.env.NODE_ENV || 'development',
+  moduleInitUptimeMs,
+});
+
 process.on('uncaughtException', (error) => {
   monitoring.increment('uncaughtExceptions');
   logError('uncaught_exception', error);
@@ -1053,20 +1066,48 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function startServer() {
-  httpServer.listen(PORT, () => {
-    logInfo('server_started', {
-      port: Number(PORT),
-      environment: process.env.NODE_ENV || 'development',
-    });
+  const databaseInitStartedAt = Date.now();
+  logInfo('server_bootstrap_start', {
+    port: normalizedPort,
+    host: HOST || '0.0.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptimeMs: getProcessUptimeMs(),
+    moduleInitUptimeMs,
   });
 
+  const onStarted = () => {
+    logInfo('server_started', {
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+      moduleInitUptimeMs,
+    });
+  };
+
+  if (HOST) {
+    httpServer.listen(normalizedPort, HOST, onStarted);
+  } else {
+    httpServer.listen(normalizedPort, onStarted);
+  }
+
   try {
+    logInfo('database_initializing', {
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+    });
     await initDatabase();
     startupState = 'ready';
     startupError = null;
     logInfo('server_ready', {
-      port: Number(PORT),
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
       environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+      databaseInitDurationMs: Date.now() - databaseInitStartedAt,
+      moduleInitUptimeMs,
     });
   } catch (error) {
     startupState = 'error';
@@ -1077,7 +1118,8 @@ async function startServer() {
 
 void startServer().catch((error) => {
   logError('server_start_failed', error, {
-    port: Number(PORT),
+    port: normalizedPort,
+    host: HOST || '0.0.0.0',
     environment: process.env.NODE_ENV || 'development',
   });
   process.exit(1);

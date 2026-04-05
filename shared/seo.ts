@@ -1,4 +1,4 @@
-import { PUZZLES } from './puzzles';
+import { findSeoPuzzleById, getSeoPuzzlePaths } from './seoPuzzleManifest';
 
 export interface SeoRouteData {
   title: string;
@@ -453,7 +453,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
 
   if (cleanPath.startsWith('/puzzle/')) {
     const id = Number(cleanPath.split('/')[2]);
-    const puzzle = PUZZLES.find((entry) => entry.id === id);
+    const puzzle = findSeoPuzzleById(id);
     const puzzleTitle = puzzle ? getPublicPuzzleSeoTitle(puzzle.title) : `Puzzle ${id}`;
     const puzzleDescription = puzzle?.description ?? 'Interactive ThaiChess puzzle.';
 
@@ -566,6 +566,6 @@ export function getIndexablePaths(): string[] {
     '/quick-play',
     '/bot',
     '/local',
-    ...PUZZLES.map((puzzle) => `/puzzle/${puzzle.id}`),
+    ...getSeoPuzzlePaths(),
   ];
 }

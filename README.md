@@ -121,7 +121,7 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 
 ## Automatic Deploys
 
-GitHub Actions can deploy `main` to the DigitalOcean VPS after CI passes.
+GitHub Actions can deploy `main` to the DigitalOcean VPS after the push build and unit/integration suite pass.
 
 Required GitHub repository secrets:
 
@@ -135,6 +135,13 @@ Server prerequisites:
 - the app lives at `/var/www/thaichess`
 - the systemd service is named `thaichess`
 - the deploy user can run `sudo systemctl restart thaichess` without a password
+- the server checkout is on the `main` branch
+
+Deploy behavior:
+
+- GitHub builds the release bundle in Actions
+- the VPS only receives built `client/dist` and `server/dist`
+- runtime dependencies are reinstalled on the server only when `package-lock.json` changes
 
 Example sudoers entry:
 
