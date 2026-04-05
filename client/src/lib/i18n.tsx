@@ -1704,6 +1704,7 @@ export function translate(
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>(detectLanguage);
+  const [, setCatalogVersion] = useState(0);
 
   const setLang = useCallback((newLang: Language) => {
     const applyLanguage = () => {
@@ -1724,6 +1725,23 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = lang;
+  }, [lang]);
+
+  useEffect(() => {
+    if (lang === 'en' || loadedTranslations[lang]) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void ensureTranslations(lang).then(() => {
+      if (cancelled) return;
+      setCatalogVersion((version) => version + 1);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [lang]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
