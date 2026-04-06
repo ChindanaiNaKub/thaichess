@@ -87,10 +87,12 @@ export const PuzzlePiecePlacementSchema = z.object({
 });
 
 export const PuzzleOriginSchema = z.enum([
-  'lichess-import',
-  'manual-curation',
+  'starter-pack',
+  'real-game',
+  'seed-game',
+  'review-batch',
+  'curated-manual',
   'engine-generated',
-  'community-submission',
 ]);
 
 export const PuzzleSchema = z.object({
