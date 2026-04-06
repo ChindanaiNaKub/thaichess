@@ -147,6 +147,46 @@ export const PuzzleSchema = z.object({
 export type Puzzle = z.infer<typeof PuzzleSchema>;
 
 /**
+ * Puzzle Generation Source Schema
+ * 
+ * Validates puzzle generation sources at import/generation time.
+ * This is a lighter-weight schema for sources before they become full puzzles.
+ */
+export const PuzzleGenerationSourceSchema = z.object({
+  id: z.string().min(1),
+  source: z.string().min(1),
+  moves: z.array(z.object({
+    from: z.object({
+      row: z.number().int().min(0).max(7),
+      col: z.number().int().min(0).max(7),
+    }),
+    to: z.object({
+      row: z.number().int().min(0).max(7),
+      col: z.number().int().min(0).max(7),
+    }),
+  })),
+  initialBoard: BoardSchema.optional(),
+  startingTurn: PieceColorSchema.optional(),
+  setupMoves: z.array(z.object({
+    from: z.object({
+      row: z.number().int().min(0).max(7),
+      col: z.number().int().min(0).max(7),
+    }),
+    to: z.object({
+      row: z.number().int().min(0).max(7),
+      col: z.number().int().min(0).max(7),
+    }),
+  })).optional(),
+  positionSourceType: z.enum(['real-game', 'engine-generated', 'constructed']).optional(),
+  startingPlyNumber: z.number().int().min(1).optional(),
+  moveCount: z.number().int().min(0).optional(),
+  result: z.string().optional(),
+  resultReason: z.string().optional(),
+});
+
+export type PuzzleGenerationSource = z.infer<typeof PuzzleGenerationSourceSchema>;
+
+/**
  * Validates a puzzle object at runtime.
  * Returns the validated puzzle or throws a ZodError with detailed messages.
  */
