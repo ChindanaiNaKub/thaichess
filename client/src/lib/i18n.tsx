@@ -236,19 +236,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (lang !== 'th') {
-      if (lang === 'en' && shouldEagerlyLoadEnglish && !fullEnglishLoaded) {
-        let cancelled = false;
-
-        void ensureTranslations('en').then(() => {
-          if (cancelled) return;
-          setCatalogVersion((version) => version + 1);
-        });
-
-        return () => {
-          cancelled = true;
-        };
-      }
-
       return;
     }
 
@@ -265,6 +252,50 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+    };
+  }, [lang]);
+
+  useEffect(() => {
+    if (lang !== 'en' || fullEnglishLoaded) {
+      return;
+    }
+
+    let cancelled = false;
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+
+    const loadEnglish = () => {
+      void ensureTranslations('en').then(() => {
+        if (cancelled) return;
+        setCatalogVersion((version) => version + 1);
+      });
+    };
+
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const shouldLoadImmediately = shouldEagerlyLoadEnglish || pathname !== '/';
+
+    if (shouldLoadImmediately || typeof window === 'undefined') {
+      loadEnglish();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      idleId = requestIdle(loadEnglish, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(loadEnglish, 300);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined) {
+        window.cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [lang]);
 
