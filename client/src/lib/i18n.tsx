@@ -16,7 +16,9 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'app.tagline': 'The Ancient Art of Chess',
   'appearance.open': 'Board & Pieces',
   'appearance.open_short': 'Theme',
+  'common.back_home': 'Back to Home',
   'common.close': 'Close',
+  'common.sending': 'Sending...',
   'error.connection_body': 'Something went wrong while connecting. Please try again.',
   'feedback.button': 'Feedback',
   'footer.community': 'Community',
@@ -90,6 +92,14 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'nav.puzzles': 'Puzzles',
   'nav.watch': 'Watch',
   'puzzle.title': 'Puzzle Streak',
+  'quick.casual_only': 'Casual Only',
+  'quick.desc': 'Find an opponent instantly. No link sharing needed!',
+  'quick.find': 'Find Opponent',
+  'quick.rated_restricted': 'This account can still quick-play casually, but rated pairings are disabled.',
+  'quick.rated_sign_in': 'Sign in to unlock rated games.',
+  'quick.rated_signed_in': 'Rated if your opponent is also signed in.',
+  'quick.rated_unavailable': 'Rated Disabled',
+  'quick.title': 'Quick Play',
   'quick.rated_available': 'Rated Available',
   'time.blitz': 'Blitz',
   'time.bullet': 'Bullet',
@@ -222,9 +232,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
 
     if (newLang === 'en') {
-      void ensureTranslations(newLang).catch(() => {
-        // Keep bootstrap translations active even if the full catalog fails to load.
-      });
+      void ensureTranslations(newLang)
+        .then(() => {
+          setCatalogVersion((version) => version + 1);
+        })
+        .catch(() => {
+          // Keep bootstrap translations active even if the full catalog fails to load.
+        });
     }
 
     applyLanguage();

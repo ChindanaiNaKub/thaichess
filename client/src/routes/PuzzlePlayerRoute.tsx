@@ -1,9 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { PuzzleProgressProvider } from '../lib/puzzleProgress';
 
-const PuzzlePlayerPage = lazy(() => import('../components/PuzzlePage').then((module) => ({
-  default: module.PuzzlePlayer,
-})));
+const PuzzlePlayerRouteContent = lazy(() => import('./PuzzlePlayerRouteContent'));
 
 function PuzzleRouteFallback() {
   return (
@@ -18,11 +15,9 @@ function PuzzleRouteFallback() {
 
 export function PuzzlePlayerRoute() {
   return (
-    <PuzzleProgressProvider>
-      <Suspense fallback={<PuzzleRouteFallback />}>
-        <PuzzlePlayerPage />
-      </Suspense>
-    </PuzzleProgressProvider>
+    <Suspense fallback={<PuzzleRouteFallback />}>
+      <PuzzlePlayerRouteContent />
+    </Suspense>
   );
 }
 
