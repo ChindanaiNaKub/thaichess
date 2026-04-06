@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BoardSchema, CountingStateSchema, PieceColorSchema } from './types';
+import { BoardSchema, CountingStateSchema, PieceColorSchema, PositionSchema } from './types';
 
 /**
  * Puzzle Validation Schemas
@@ -7,6 +7,8 @@ import { BoardSchema, CountingStateSchema, PieceColorSchema } from './types';
  * These schemas provide runtime validation for puzzle data.
  * They complement the manual validation in puzzleValidation.ts
  * by ensuring data structure integrity before business logic validation.
+ * 
+ * Uses shared PositionSchema from ./types for consistency across the codebase.
  */
 
 export const PuzzleReviewChecklistSchema = z.object({
@@ -33,14 +35,8 @@ export const PuzzleOutcomeReasonSchema = z.enum([
 ]);
 
 export const PuzzleMoveReferenceSchema = z.object({
-  from: z.object({
-    row: z.number().int().min(0).max(7),
-    col: z.number().int().min(0).max(7),
-  }),
-  to: z.object({
-    row: z.number().int().min(0).max(7),
-    col: z.number().int().min(0).max(7),
-  }),
+  from: PositionSchema,
+  to: PositionSchema,
 });
 
 export const PuzzleGoalSchema = z.object({
@@ -156,26 +152,14 @@ export const PuzzleGenerationSourceSchema = z.object({
   id: z.string().min(1),
   source: z.string().min(1),
   moves: z.array(z.object({
-    from: z.object({
-      row: z.number().int().min(0).max(7),
-      col: z.number().int().min(0).max(7),
-    }),
-    to: z.object({
-      row: z.number().int().min(0).max(7),
-      col: z.number().int().min(0).max(7),
-    }),
+    from: PositionSchema,
+    to: PositionSchema,
   })),
   initialBoard: BoardSchema.optional(),
   startingTurn: PieceColorSchema.optional(),
   setupMoves: z.array(z.object({
-    from: z.object({
-      row: z.number().int().min(0).max(7),
-      col: z.number().int().min(0).max(7),
-    }),
-    to: z.object({
-      row: z.number().int().min(0).max(7),
-      col: z.number().int().min(0).max(7),
-    }),
+    from: PositionSchema,
+    to: PositionSchema,
   })).optional(),
   positionSourceType: z.enum(['real-game', 'engine-generated', 'constructed']).optional(),
   startingPlyNumber: z.number().int().min(1).optional(),
