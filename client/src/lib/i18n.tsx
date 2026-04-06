@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+export { EN_TRANSLATIONS } from './i18n.full';
 
 export type Language = 'en' | 'th';
 type TranslationCatalog = Record<string, string>;
