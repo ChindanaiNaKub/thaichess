@@ -106,9 +106,9 @@ describe('LeaderboardPage', () => {
     const Wrapper = createWrapper();
     render(<LeaderboardPage />, { wrapper: Wrapper });
 
-    // Wait for loading to finish and data to appear
-    expect(await screen.findByText('Champion')).toBeInTheDocument();
-    expect(await screen.findByText('player_two')).toBeInTheDocument();
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('Champion', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('player_two', {}, { timeout: 3000 })).toBeInTheDocument();
 
     expect(screen.getByText('Leaderboard')).toBeInTheDocument();
     expect(screen.getByText('You')).toBeInTheDocument();

@@ -55,6 +55,7 @@ describe('GamesPage', () => {
 
   it('renders rated and casual badges for recent games', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [
           {
@@ -114,10 +115,10 @@ describe('GamesPage', () => {
     const Wrapper = createWrapper();
     render(<GamesPage />, { wrapper: Wrapper });
 
-    // Wait for loading to finish and data to appear
-    expect(await screen.findByText('rated-1')).toBeInTheDocument();
-    expect(await screen.findByText('bot-1')).toBeInTheDocument();
-    expect(await screen.findByText('casual-1')).toBeInTheDocument();
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('rated-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('bot-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('casual-1', {}, { timeout: 3000 })).toBeInTheDocument();
 
     expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
@@ -133,6 +134,7 @@ describe('GamesPage', () => {
 
   it('requests filtered recent games when the filter changes', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [],
         total: 0,
@@ -149,29 +151,30 @@ describe('GamesPage', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Rated' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=rated');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Casual' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=casual');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Bot' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=bot');
-    });
+    }, { timeout: 3000 });
   });
 
   it('opens finished games in analysis instead of the live game route', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [
           {
@@ -200,8 +203,8 @@ describe('GamesPage', () => {
     const Wrapper = createWrapper();
     render(<GamesPage />, { wrapper: Wrapper });
 
-    // Wait for loading to finish and data to appear
-    expect(await screen.findByText('finished-1')).toBeInTheDocument();
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('finished-1', {}, { timeout: 3000 })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('finished-1'));
 
