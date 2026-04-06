@@ -9,6 +9,7 @@ const {
   boardPropsMock,
   clockPropsMock,
   requestBotMoveMock,
+  requestPositionAnalysisMock,
   requestLocalBotMoveMock,
   fetchMock,
 } = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const {
   boardPropsMock: vi.fn(),
   clockPropsMock: vi.fn(),
   requestBotMoveMock: vi.fn(),
+  requestPositionAnalysisMock: vi.fn(),
   requestLocalBotMoveMock: vi.fn(),
   fetchMock: vi.fn(),
 }));
@@ -86,6 +88,7 @@ vi.mock('../lib/sounds', () => ({
 vi.mock('../lib/analysis', () => ({
   buildInlineAnalysisRoute: vi.fn(() => '/analysis/bot'),
   requestBotMove: (...args: unknown[]) => requestBotMoveMock(...args),
+  requestPositionAnalysis: (...args: unknown[]) => requestPositionAnalysisMock(...args),
 }));
 
 vi.mock('../lib/localBot', () => ({
@@ -149,6 +152,7 @@ describe('BotGame', () => {
     boardPropsMock.mockReset();
     clockPropsMock.mockReset();
     requestBotMoveMock.mockReset();
+    requestPositionAnalysisMock.mockReset();
     requestLocalBotMoveMock.mockReset();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
@@ -163,6 +167,15 @@ describe('BotGame', () => {
       principalVariation: [],
       stats: {
         source: 'service',
+        depth: 1,
+      },
+    });
+    requestPositionAnalysisMock.mockResolvedValue({
+      evaluation: 0,
+      bestMove: null,
+      principalVariation: [],
+      stats: {
+        source: 'local',
         depth: 1,
       },
     });

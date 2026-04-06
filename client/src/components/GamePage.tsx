@@ -5,10 +5,13 @@ import { createInitialBoard, getBoardAtMove, getLastMoveForView, getLegalMoves }
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 import { useAuth } from '../lib/auth';
 import { liveGameRoute, routes, savedGameAnalysisRoute, spectatorGameRoute } from '../lib/routes';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { useGameInteraction } from '../hooks/useGameInteraction';
+import { usePostGameReview } from '../hooks/usePostGameReview';
+import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -21,10 +24,12 @@ import ConnectionStatus from './ConnectionStatus';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import Header from './Header';
 import InGameShell from './InGameShell';
+import PostGameReviewPanel from './PostGameReviewPanel';
 
 const HEARTBEAT_INTERVAL_MS = 4_000;
 const IDLE_THRESHOLD_MS = 12_000;
 const HEARTBEAT_BURST_GUARD_MS = 1_000;
+const EMPTY_MOVE_HISTORY: Move[] = [];
 const DEFAULT_PRESENCE: PlayerPresence = {
   status: 'disconnected',
   latencyMs: null,
@@ -64,6 +69,7 @@ export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const reviewT = useReviewCopy();
   const { user } = useAuth();
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
@@ -117,6 +123,21 @@ export default function GamePage() {
     gameState,
     playerColor,
     isMyTurn,
+  });
+  const review = usePostGameReview({
+    enabled: Boolean(gameState?.gameOver),
+    mainLine: gameState?.moveHistory ?? EMPTY_MOVE_HISTORY,
+    finalState: gameState ?? null,
+  });
+  const reviewEngine = useReviewEngineAnalysis({
+    enabled: Boolean(gameState?.gameOver),
+    snapshot: gameState?.gameOver
+      ? {
+          board: review.currentState.board,
+          turn: review.currentState.turn,
+          counting: review.currentState.counting,
+        }
+      : null,
   });
 
   useEffect(() => {
@@ -396,27 +417,24 @@ export default function GamePage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!gameState.gameOver) return;
 
-      const moveCount = gameState.moveHistory.length;
-      const current = viewMoveIndex ?? moveCount - 1;
-
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
-        setViewMoveIndex(Math.max(-1, current - 1));
+        review.stepBackward();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setViewMoveIndex(Math.min(moveCount - 1, current + 1));
+        review.stepForward();
       } else if (e.key === 'Home') {
         e.preventDefault();
-        setViewMoveIndex(-1);
+        review.jumpToStart();
       } else if (e.key === 'End') {
         e.preventDefault();
-        setViewMoveIndex(moveCount - 1);
+        review.jumpToEnd();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, viewMoveIndex]);
+  }, [gameState, review]);
 
   const handleResign = () => {
     if (window.confirm(t('game.resign_confirm'))) {
@@ -644,8 +662,14 @@ export default function GamePage() {
   }
 
   const opponentColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
+  const reviewActive = gameState.gameOver;
+  const reviewMode = review.mode;
+  const reviewIsViewingHistory = reviewMode === 'analysis'
+    || review.selectedMainLineMoveIndex !== gameState.moveHistory.length - 1;
   const canReportOpponent = Boolean(user && playerColor && gameState.gameOver && gameState.rated && gameId);
-  const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+  const isViewingHistory = reviewActive
+    ? reviewIsViewingHistory
+    : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
   const whitePlayerName = gameState.whitePlayerName?.trim() || '';
   const blackPlayerName = gameState.blackPlayerName?.trim() || '';
   const whiteRating = gameState.whiteRating
@@ -708,12 +732,14 @@ export default function GamePage() {
     playerColor === gameState.counting.countingColor &&
     gameState.turn === playerColor,
   );
-  const moveCount = gameState.moveHistory.length;
-  const visibleMoves = getVisibleMoves();
+  const moveCount = reviewActive ? review.currentMoveHistory.length : gameState.moveHistory.length;
+  const visibleMoves = reviewActive ? review.currentMoveHistory : getVisibleMoves();
   const playerCaptureSummary = getCapturedSummary(visibleMoves, playerColor || 'white');
   const opponentCaptureSummary = getCapturedSummary(visibleMoves, opponentColor);
-  const statusText = gameState.gameOver
-    ? t('game.reviewing_position')
+  const statusText = reviewActive
+    ? reviewMode === 'analysis'
+      ? reviewT('review.analysis_status')
+      : reviewT('review.main_status')
     : isMyTurn
       ? t('game.your_turn')
       : t('game.opponent_turn');
@@ -804,18 +830,19 @@ export default function GamePage() {
         board={
           <BoardErrorBoundary onRetry={() => window.location.reload()}>
             <Board
-              board={getDisplayBoard()}
+              board={reviewActive ? review.currentState.board : getDisplayBoard()}
               playerColor={playerColor}
-              isMyTurn={isMyTurn}
-              legalMoves={isViewingHistory ? [] : legalMoves}
-              selectedSquare={isViewingHistory ? null : selectedSquare}
-              lastMove={getLastMove()}
-              isCheck={isViewingHistory ? false : gameState.isCheck}
-              checkSquare={getCheckSquare()}
-              onSquareClick={handleSquareClick}
-              onPieceDrop={handlePieceDrop}
-              disabled={isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-              premove={premove}
+              draggableColor={reviewActive && reviewMode === 'analysis' ? review.currentState.turn : undefined}
+              isMyTurn={reviewActive ? reviewMode === 'analysis' : isMyTurn}
+              legalMoves={reviewActive ? review.legalMoves : isViewingHistory ? [] : legalMoves}
+              selectedSquare={reviewActive ? review.selectedSquare : isViewingHistory ? null : selectedSquare}
+              lastMove={reviewActive ? review.currentLastMove : getLastMove()}
+              isCheck={reviewActive ? review.currentState.isCheck : isViewingHistory ? false : gameState.isCheck}
+              checkSquare={reviewActive ? review.currentCheckSquare : getCheckSquare()}
+              onSquareClick={reviewActive ? review.handleSquareClick : handleSquareClick}
+              onPieceDrop={reviewActive ? review.handlePieceDrop : handlePieceDrop}
+              disabled={reviewActive ? reviewMode !== 'analysis' : isViewingHistory || (gameState.gameOver && !isViewingHistory)}
+              premove={reviewActive ? null : premove}
               arrows={arrows}
               onArrowsChange={setArrows}
             />
@@ -838,9 +865,9 @@ export default function GamePage() {
         statusText={statusText}
         moveCount={moveCount}
         isViewingHistory={isViewingHistory}
-        showCheckBadge={gameState.isCheck}
+        showCheckBadge={reviewActive ? review.currentState.isCheck : gameState.isCheck}
         toolbar={
-          premove ? (
+          !reviewActive && premove ? (
             <>
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
                 {t('game.premove_set')}
@@ -920,11 +947,34 @@ export default function GamePage() {
               />
             )}
 
+            {reviewActive && (
+              <PostGameReviewPanel
+                mode={review.mode}
+                selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
+                analysisRootMoveIndex={review.analysisRootMoveIndex}
+                analysisLine={review.analysisLine}
+                canEnterAnalysis={review.canEnterAnalysis}
+                canResetAnalysis={review.canResetAnalysis}
+                canStepBackward={review.canStepBackward}
+                canStepForward={review.canStepForward}
+                onEnterAnalysis={review.enterAnalysis}
+                onReturnToMainLine={review.returnToMainLine}
+                onResetAnalysis={review.resetAnalysis}
+                onStepBackward={review.stepBackward}
+                onStepForward={review.stepForward}
+                onJumpToStart={review.jumpToStart}
+                onJumpToEnd={review.jumpToEnd}
+                engineAnalysis={reviewEngine.analysis}
+                engineAnalyzing={reviewEngine.analyzing}
+                engineError={reviewEngine.error}
+              />
+            )}
+
             <MoveHistory
               moves={gameState.moveHistory}
               initialBoard={createInitialBoard()}
-              currentMoveIndex={viewMoveIndex ?? undefined}
-              onMoveClick={gameState.gameOver ? handleMoveClick : undefined}
+              currentMoveIndex={gameState.gameOver ? review.selectedMainLineMoveIndex : viewMoveIndex ?? undefined}
+              onMoveClick={gameState.gameOver ? review.jumpToMainLine : undefined}
             />
 
             {gameState.gameOver && gameState.moveHistory.length > 0 && (

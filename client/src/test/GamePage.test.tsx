@@ -9,6 +9,7 @@ import GamePage from '../components/GamePage';
 const {
   navigateMock,
   connectSocketMock,
+  requestPositionAnalysisMock,
   playMoveSoundMock,
   playCaptureSoundMock,
   playCheckSoundMock,
@@ -27,6 +28,7 @@ const {
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
+  requestPositionAnalysisMock: vi.fn(),
   playMoveSoundMock: vi.fn(),
   playCaptureSoundMock: vi.fn(),
   playCheckSoundMock: vi.fn(),
@@ -99,6 +101,10 @@ vi.mock('@shared/engine', async () => {
 vi.mock('../lib/socket', () => ({
   socket: socketMock,
   connectSocket: connectSocketMock,
+}));
+
+vi.mock('../lib/analysis', () => ({
+  requestPositionAnalysis: (...args: unknown[]) => requestPositionAnalysisMock(...args),
 }));
 
 vi.mock('../lib/sounds', () => ({
@@ -291,6 +297,7 @@ describe('GamePage', () => {
     listeners.clear();
     navigateMock.mockReset();
     connectSocketMock.mockReset();
+    requestPositionAnalysisMock.mockReset();
     playMoveSoundMock.mockReset();
     playCaptureSoundMock.mockReset();
     playCheckSoundMock.mockReset();
@@ -323,6 +330,15 @@ describe('GamePage', () => {
       return socketMock;
     });
     getLegalMovesMock.mockReturnValue([]);
+    requestPositionAnalysisMock.mockResolvedValue({
+      evaluation: 0,
+      bestMove: null,
+      principalVariation: [],
+      stats: {
+        source: 'local',
+        depth: 1,
+      },
+    });
     vi.stubGlobal('confirm', vi.fn(() => true));
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
