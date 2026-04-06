@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { PUZZLES, type Puzzle } from '@shared/puzzles';
+import { PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import { useAuth } from './auth';
 
 const LEGACY_COMPLETED_PUZZLES_KEY = 'completedPuzzles';

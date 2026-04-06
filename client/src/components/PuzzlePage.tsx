@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
-import { PUZZLES, type Puzzle } from '@shared/puzzles';
+import { PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import {
   getCheckpointFeedbackTone,
