@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LeaderboardPage from '../components/LeaderboardPage';
 import { I18nProvider } from '../lib/i18n';
 
@@ -46,12 +47,25 @@ vi.mock('../lib/auth', () => ({
   useAuth: () => authState,
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
-  return (
-    <MemoryRouter>
-      <I18nProvider>{children}</I18nProvider>
-    </MemoryRouter>
-  );
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>{children}</I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
 describe('LeaderboardPage', () => {
@@ -89,12 +103,12 @@ describe('LeaderboardPage', () => {
       }),
     });
 
-    render(<LeaderboardPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<LeaderboardPage />, { wrapper: Wrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('Champion')).toBeInTheDocument();
-      expect(screen.getByText('player_two')).toBeInTheDocument();
-    });
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('Champion', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('player_two', {}, { timeout: 3000 })).toBeInTheDocument();
 
     expect(screen.getByText('Leaderboard')).toBeInTheDocument();
     expect(screen.getByText('You')).toBeInTheDocument();
