@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { validateServerEnv } from '../../shared/validation';
 
 let loaded = false;
 
@@ -57,3 +58,13 @@ export function loadProjectEnv(): void {
 }
 
 loadProjectEnv();
+
+/**
+ * Validate environment variables at startup
+ * This ensures all required env vars are present and valid
+ * Fails fast with clear error messages if configuration is invalid
+ */
+const env = validateServerEnv(process.env);
+
+// Export validated environment for use throughout the application
+export { env };
