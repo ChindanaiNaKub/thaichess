@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EN_TRANSLATIONS } from '../lib/i18n';
+import { EN_TRANSLATIONS } from '../lib/i18n.full';
 import { TH_TRANSLATIONS } from '../lib/i18n.th';
 
 function findMissingKeys(
@@ -27,7 +27,7 @@ describe('i18n catalogs', () => {
       { missingInThai, missingInEnglish },
       [
         'Translation catalogs drifted.',
-        'When you add a new UI string, add both English and Thai entries in client/src/lib/i18n.tsx and client/src/lib/i18n.th.ts.',
+        'When you add a new UI string, add both English and Thai entries in client/src/lib/i18n.full.tsx and client/src/lib/i18n.th.ts.',
         `Missing in Thai: ${missingInThai.join(', ') || 'none'}`,
         `Missing in English: ${missingInEnglish.join(', ') || 'none'}`,
       ].join('\n'),
