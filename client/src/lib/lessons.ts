@@ -863,6 +863,12 @@ export function validateLessonCatalog(modules: LessonModule[]): LessonValidation
   return issues;
 }
 
+export function shouldValidateLessonCatalogAtRuntime(
+  env: Pick<ImportMetaEnv, 'DEV' | 'MODE'>,
+): boolean {
+  return env.DEV || env.MODE === 'test';
+}
+
 const centerHighlights = [
   highlight('d4', 'rgba(129, 196, 84, 0.35)'),
   highlight('e4', 'rgba(129, 196, 84, 0.35)'),
@@ -2763,9 +2769,11 @@ const MODULES: LessonModule[] = MODULE_DRAFTS.map(module => ({
   lessons: module.lessons.map(withRuleContext),
 }));
 
-const lessonValidationIssues = validateLessonCatalog(MODULES);
-if (lessonValidationIssues.length > 0) {
-  throw new Error(`Invalid lesson catalog:\n${lessonValidationIssues.map(issue => `- ${issue.scope}: ${issue.message}`).join('\n')}`);
+if (shouldValidateLessonCatalogAtRuntime(import.meta.env)) {
+  const lessonValidationIssues = validateLessonCatalog(MODULES);
+  if (lessonValidationIssues.length > 0) {
+    throw new Error(`Invalid lesson catalog:\n${lessonValidationIssues.map(issue => `- ${issue.scope}: ${issue.message}`).join('\n')}`);
+  }
 }
 
 export const LESSON_MODULES = MODULES;
