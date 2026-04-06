@@ -121,7 +121,7 @@ describe('socket entry handlers', () => {
 
     socket.trigger('find_game', { timeControl: { initial: 5, increment: 0 } });
 
-    expect(socket.emit).toHaveBeenCalledWith('error', { message: expect.stringContaining('Invalid time control:') });
+    expect(socket.emit).toHaveBeenCalledWith('error', { message: expect.stringContaining('Invalid fields:') });
   });
 
   it('creates private games with a reserved color preference and lets waiting rooms be left', () => {
