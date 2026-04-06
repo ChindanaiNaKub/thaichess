@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from '../components/HomePage';
 import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 import { PieceStyleProvider } from '../lib/pieceStyle';
@@ -100,11 +101,22 @@ vi.mock('../components/Header', () => ({
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
   return (
     <MemoryRouter>
-      <I18nProvider>
-        <PieceStyleProvider>{children}</PieceStyleProvider>
-      </I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <PieceStyleProvider>{children}</PieceStyleProvider>
+        </I18nProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
