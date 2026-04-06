@@ -108,6 +108,8 @@ const REVIEW_COPY: Record<Language, ReviewCopyCatalog> = {
   },
 };
 
+export const REVIEW_COPY_CATALOGS = REVIEW_COPY;
+
 function applyParams(text: string, params?: Record<string, string | number>): string {
   if (params) {
     for (const [key, value] of Object.entries(params)) {
