@@ -28,7 +28,8 @@ test.describe('Homepage', () => {
   test('navigates to quick play', async ({ page }) => {
     await page.locator('#main-content').getByRole('button', { name: /find opponent/i }).click();
     await expect(page).toHaveURL('/quick-play');
-    await expect(page.getByRole('heading', { name: /quick play/i })).toBeVisible();
+    await expect(page.getByText(/^time control$/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible();
   });
 
   test('navigates to local game', async ({ page }) => {
