@@ -69,7 +69,10 @@ export default function App() {
       return;
     }
 
-    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), 12_000);
+    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), {
+      allowTimeout: false,
+      label: 'feedback_widget',
+    });
   }, [showFeedbackWidget]);
 
   return (

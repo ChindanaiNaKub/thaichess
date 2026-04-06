@@ -1,6 +1,16 @@
 type Cleanup = () => void;
+import { logClientPerfEvent } from './perfDebug';
 
-export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Cleanup {
+interface ScheduleOnUserIntentOptions {
+  timeoutMs?: number;
+  allowTimeout?: boolean;
+  label?: string;
+}
+
+export function scheduleOnUserIntent(
+  task: () => void,
+  { timeoutMs = 10_000, allowTimeout = true, label }: ScheduleOnUserIntentOptions = {},
+): Cleanup {
   if (typeof window === 'undefined') {
     return () => {};
   }
@@ -9,12 +19,26 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
   let timeoutId: number | undefined;
   let idleId: number | undefined;
 
-  const runTask = () => {
+  const runTask = (trigger: 'keyup' | 'scroll' | 'timeout') => {
+    if (label) {
+      logClientPerfEvent('deferred_task_triggered', {
+        label,
+        trigger,
+      });
+    }
+
     const requestIdle = window.requestIdleCallback;
 
     if (typeof requestIdle === 'function') {
       idleId = requestIdle(() => {
         idleId = undefined;
+        if (label) {
+          logClientPerfEvent('deferred_task_running', {
+            label,
+            trigger,
+            scheduler: 'idle',
+          });
+        }
         task();
       }, { timeout: 1_500 });
       return;
@@ -22,20 +46,27 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
 
     timeoutId = window.setTimeout(() => {
       timeoutId = undefined;
+      if (label) {
+        logClientPerfEvent('deferred_task_running', {
+          label,
+          trigger,
+          scheduler: 'timeout',
+        });
+      }
       task();
     }, 0);
   };
 
-  const finish = () => {
+  const finish = (trigger: 'keyup' | 'scroll' | 'timeout') => {
     if (done) return;
     done = true;
     cleanup();
-    runTask();
+    runTask(trigger);
   };
 
   const cleanup = () => {
-    window.removeEventListener('keyup', finish);
-    window.removeEventListener('scroll', finish);
+    window.removeEventListener('keyup', handleKeyup);
+    window.removeEventListener('scroll', handleScroll);
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId);
       timeoutId = undefined;
@@ -46,9 +77,14 @@ export function scheduleOnUserIntent(task: () => void, timeoutMs = 10_000): Clea
     }
   };
 
-  window.addEventListener('keyup', finish, { once: true });
-  window.addEventListener('scroll', finish, { once: true, passive: true });
+  const handleKeyup = () => finish('keyup');
+  const handleScroll = () => finish('scroll');
 
-  timeoutId = window.setTimeout(finish, timeoutMs);
+  window.addEventListener('keyup', handleKeyup, { once: true });
+  window.addEventListener('scroll', handleScroll, { once: true, passive: true });
+
+  if (allowTimeout) {
+    timeoutId = window.setTimeout(() => finish('timeout'), timeoutMs);
+  }
   return cleanup;
 }
