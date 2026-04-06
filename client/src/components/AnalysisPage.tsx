@@ -1245,6 +1245,7 @@ function CurrentPositionCard({
   analyzing,
   error,
   t,
+  reviewT,
 }: {
   currentPlyIndex: number;
   moveCount: number;

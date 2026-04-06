@@ -121,8 +121,9 @@ function applyParams(text: string, params?: Record<string, string | number>): st
 export function useReviewCopy() {
   const { lang } = useTranslation();
 
-  return useCallback((key: ReviewCopyKey, params?: Record<string, string | number>) => {
-    const template = REVIEW_COPY[lang][key] ?? REVIEW_COPY.en[key];
+  return useCallback((key: string, params?: Record<string, string | number>) => {
+    const typedKey = key as ReviewCopyKey;
+    const template = REVIEW_COPY[lang][typedKey] ?? REVIEW_COPY.en[typedKey] ?? key;
     return applyParams(template, params);
   }, [lang]);
 }
