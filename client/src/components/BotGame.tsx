@@ -26,6 +26,7 @@ import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import BotAvatar from './BotAvatar';
@@ -86,6 +87,7 @@ function buildNoMoveGameOverState(state: GameState): GameState | null {
 export default function BotGame() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
+  const reviewT = useReviewCopy();
   const { user } = useAuth();
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedBotId, setSelectedBotId] = useState(DEFAULT_BOT_PERSONA_ID);
@@ -1030,8 +1032,8 @@ export default function BotGame() {
   const botCaptureSummary = getCapturedSummary(visibleMoves, botColor);
   const statusText = reviewActive
     ? reviewMode === 'analysis'
-      ? t('review.analysis_status')
-      : t('review.main_status')
+      ? reviewT('review.analysis_status')
+      : reviewT('review.main_status')
     : isPlayerTurn
       ? t('bot.your_turn')
       : t('bot.bot_thinking');

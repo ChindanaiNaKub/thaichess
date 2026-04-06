@@ -8,6 +8,7 @@ import {
 import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 import { buildInlineAnalysisRoute } from '../lib/analysis';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { usePostGameReview } from '../hooks/usePostGameReview';
@@ -29,6 +30,7 @@ const LOCAL_CLOCK_TICK_MS = 500;
 export default function LocalGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const reviewT = useReviewCopy();
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
@@ -323,8 +325,8 @@ export default function LocalGame() {
   const bottomCaptureSummary = getCapturedSummary(visibleMoves, viewAs);
   const statusText = reviewActive
     ? reviewMode === 'analysis'
-      ? t('review.analysis_status')
-      : t('review.main_status')
+      ? reviewT('review.analysis_status')
+      : reviewT('review.main_status')
     : t('local.turn', { color: colorName(gameState.turn) });
 
   const handleStartCounting = () => {

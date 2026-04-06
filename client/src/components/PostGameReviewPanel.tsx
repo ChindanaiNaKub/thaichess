@@ -3,6 +3,7 @@ import { posToAlgebraic } from '@shared/engine';
 import { formatEval } from '@shared/analysis';
 import type { PositionAnalysisResult } from '@shared/engineAdapter';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 
 type ReviewMode = 'mainLine' | 'analysis';
 
@@ -63,27 +64,28 @@ export default function PostGameReviewPanel({
   engineError,
 }: PostGameReviewPanelProps) {
   const { t } = useTranslation();
-  const branchAnchor = formatBranchAnchor(analysisRootMoveIndex, t);
+  const reviewT = useReviewCopy();
+  const branchAnchor = formatBranchAnchor(analysisRootMoveIndex, reviewT);
   const bestMoveText = engineAnalysis?.bestMove
     ? `${posToAlgebraic(engineAnalysis.bestMove.from)}-${posToAlgebraic(engineAnalysis.bestMove.to)}`
-    : t('review.no_best_move');
+    : reviewT('review.no_best_move');
 
   return (
     <div className="rounded-xl border border-surface-hover bg-surface-alt/90 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {t('review.title')}
+            {reviewT('review.title')}
           </div>
           <div className="mt-1 text-sm font-semibold text-text-bright">
-            {mode === 'analysis' ? t('review.analysis_branch') : t('review.main_line')}
+            {mode === 'analysis' ? reviewT('review.analysis_branch') : reviewT('review.main_line')}
           </div>
           <div className="mt-1 text-xs text-text-dim">
             {mode === 'analysis'
               ? branchAnchor
               : selectedMainLineMoveIndex < 0
-                ? t('review.official_start')
-                : t('review.official_move', { move: selectedMainLineMoveIndex + 1 })}
+                ? reviewT('review.official_start')
+                : reviewT('review.official_move', { move: selectedMainLineMoveIndex + 1 })}
           </div>
         </div>
         <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
@@ -91,7 +93,7 @@ export default function PostGameReviewPanel({
             ? 'bg-primary/15 text-primary-light'
             : 'bg-surface text-text-dim border border-surface-hover'
         }`}>
-          {mode === 'analysis' ? t('review.analysis_branch') : t('review.main_line')}
+          {mode === 'analysis' ? reviewT('review.analysis_branch') : reviewT('review.main_line')}
         </span>
       </div>
 
@@ -102,14 +104,14 @@ export default function PostGameReviewPanel({
               onClick={onReturnToMainLine}
               className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
             >
-              {t('review.return_to_game')}
+              {reviewT('review.return_to_game')}
             </button>
             <button
               onClick={onResetAnalysis}
               disabled={!canResetAnalysis}
               className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
             >
-              {t('review.reset_variation')}
+              {reviewT('review.reset_variation')}
             </button>
           </>
         ) : (
@@ -118,7 +120,7 @@ export default function PostGameReviewPanel({
             disabled={!canEnterAnalysis}
             className="sm:col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-50"
           >
-            {t('review.enter_analysis')}
+            {reviewT('review.enter_analysis')}
           </button>
         )}
       </div>
@@ -126,13 +128,13 @@ export default function PostGameReviewPanel({
       {mode === 'analysis' && (
         <>
           <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {t('review.branch_navigation')}
+            {reviewT('review.branch_navigation')}
           </div>
           <div className="mt-2 flex items-center justify-center gap-1">
             <button
               onClick={onJumpToStart}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-              title={t('review.branch_root')}
+              title={reviewT('review.branch_root')}
             >
               ⏮
             </button>
@@ -140,7 +142,7 @@ export default function PostGameReviewPanel({
               onClick={onStepBackward}
               disabled={!canStepBackward}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
-              title={t('review.branch_prev')}
+              title={reviewT('review.branch_prev')}
             >
               ◀
             </button>
@@ -148,36 +150,36 @@ export default function PostGameReviewPanel({
               onClick={onStepForward}
               disabled={!canStepForward}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
-              title={t('review.branch_next')}
+              title={reviewT('review.branch_next')}
             >
               ▶
             </button>
             <button
               onClick={onJumpToEnd}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
-              title={t('review.branch_leaf')}
+              title={reviewT('review.branch_leaf')}
             >
               ⏭
             </button>
           </div>
 
           <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {t('review.current_variation')}
+            {reviewT('review.current_variation')}
           </div>
           <div className="mt-2 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-xs text-text">
-            {analysisLine.length > 0 ? analysisLine.map(formatMove).join(' ') : t('review.variation_empty')}
+            {analysisLine.length > 0 ? analysisLine.map(formatMove).join(' ') : reviewT('review.variation_empty')}
           </div>
         </>
       )}
 
       <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-        {t('review.engine')}
+        {reviewT('review.engine')}
       </div>
       <div className="mt-2 rounded-lg border border-surface-hover bg-surface px-3 py-3">
         {engineAnalyzing ? (
-          <div className="text-sm text-text-dim">{t('review.engine_loading')}</div>
+          <div className="text-sm text-text-dim">{reviewT('review.engine_loading')}</div>
         ) : engineError ? (
-          <div className="text-sm text-danger">{t('review.engine_error')}</div>
+          <div className="text-sm text-danger">{reviewT('review.engine_error')}</div>
         ) : engineAnalysis ? (
           <div className="space-y-2 text-sm text-text">
             <div className="flex items-center justify-between gap-3">
@@ -210,7 +212,7 @@ export default function PostGameReviewPanel({
             )}
           </div>
         ) : (
-          <div className="text-sm text-text-dim">{t('review.engine_idle')}</div>
+          <div className="text-sm text-text-dim">{reviewT('review.engine_idle')}</div>
         )}
       </div>
     </div>

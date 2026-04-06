@@ -18,6 +18,7 @@ import {
 } from '@shared/engineAdapter';
 import { buildEditorAnalysisRoute, readInlineAnalysisPayload, requestPositionAnalysis } from '../lib/analysis';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -49,6 +50,7 @@ export default function AnalysisPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const reviewT = useReviewCopy();
 
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [mode, setMode] = useState<AnalysisMode>('game');
@@ -857,7 +859,7 @@ export default function AnalysisPage() {
                           ref={setActiveMoveElement}
                           rootMoveIndex={review.analysisRootMoveIndex}
                           analysisLine={review.analysisLine}
-                          t={t}
+                          t={reviewT}
                         />
                       </div>
                     )}
@@ -908,7 +910,7 @@ export default function AnalysisPage() {
                                 ref={setActiveMoveElement}
                                 rootMoveIndex={review.analysisRootMoveIndex}
                                 analysisLine={review.analysisLine}
-                                t={t}
+                                t={reviewT}
                               />
                             </div>
                         )}
@@ -951,6 +953,7 @@ export default function AnalysisPage() {
               analyzing={currentPositionAnalyzing}
               error={currentPositionError}
               t={t}
+              reviewT={reviewT}
             />
 
             {/* Analysis Status / Progress */}
@@ -1052,6 +1055,7 @@ export default function AnalysisPage() {
                 currentPositionError={currentPositionError}
                 winningChances={currentWinningChances}
                 t={t}
+                reviewT={reviewT}
                 onNext={review.stepForward}
                 onPrev={review.stepBackward}
                 hasNext={review.canStepForward}
@@ -1252,15 +1256,16 @@ function CurrentPositionCard({
   analyzing: boolean;
   error: string | null;
   t: (key: string, params?: Record<string, string | number>) => string;
+  reviewT: (key: 'analysis.current_position' | 'analysis.position_before_start' | 'analysis.position_after_move' | 'analysis.turn_to_move' | 'analysis.win_chances' | 'analysis.best_continuation' | 'review.engine_loading' | 'review.engine_error', params?: Record<string, string | number>) => string;
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-text-bright">{t('analysis.current_position')}</h3>
+        <h3 className="text-sm font-semibold text-text-bright">{reviewT('analysis.current_position')}</h3>
         <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 text-[11px] font-semibold text-text">
           {currentPlyIndex < 0
-            ? t('analysis.position_before_start')
-            : t('analysis.position_after_move', { move: currentPlyIndex + 1, total: moveCount })}
+            ? reviewT('analysis.position_before_start')
+            : reviewT('analysis.position_after_move', { move: currentPlyIndex + 1, total: moveCount })}
         </span>
       </div>
 
@@ -1270,17 +1275,17 @@ function CurrentPositionCard({
           <div className="font-mono font-semibold text-text-bright">{formatEval(currentEval)}</div>
         </div>
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{t('analysis.turn_to_move')}</div>
+          <div className="text-text-dim">{reviewT('analysis.turn_to_move')}</div>
           <div className="font-semibold text-text-bright">{t(turn === 'white' ? 'common.white' : 'common.black')}</div>
         </div>
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{t('analysis.win_chances')}</div>
+          <div className="text-text-dim">{reviewT('analysis.win_chances')}</div>
           <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
         </div>
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
           <div className="text-text-dim">{t('analysis.editor.best_move')}</div>
           <div className="font-mono font-semibold text-text-bright">
-            {analyzing ? t('review.engine_loading') : error ? t('review.engine_error') : bestMoveText}
+            {analyzing ? reviewT('review.engine_loading') : error ? reviewT('review.engine_error') : bestMoveText}
           </div>
         </div>
       </div>
@@ -1288,7 +1293,7 @@ function CurrentPositionCard({
       {principalVariation.length > 0 && (
         <div className="mt-3 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
           <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {t('analysis.best_continuation')}
+            {reviewT('analysis.best_continuation')}
           </div>
           <div className="font-mono text-xs text-text-bright">{principalVariation.join(' ')}</div>
         </div>
@@ -1297,13 +1302,14 @@ function CurrentPositionCard({
   );
 }
 
-function ReviewCard({ analyzed, currentPositionAnalysis, currentPositionAnalyzing, currentPositionError, winningChances, t, onNext, onPrev, hasNext, hasPrev }: {
+function ReviewCard({ analyzed, currentPositionAnalysis, currentPositionAnalyzing, currentPositionError, winningChances, t, reviewT, onNext, onPrev, hasNext, hasPrev }: {
   analyzed: AnalyzedMove;
   currentPositionAnalysis: PositionAnalysisResult | null;
   currentPositionAnalyzing: boolean;
   currentPositionError: string | null;
   winningChances: { white: number; black: number };
   t: (key: string, params?: Record<string, string | number>) => string;
+  reviewT: (key: 'analysis.win_chances' | 'analysis.eval_swing' | 'analysis.expected_score' | 'review.engine_loading' | 'review.engine_error', params?: Record<string, string | number>) => string;
   onNext: () => void;
   onPrev: () => void;
   hasNext: boolean;
@@ -1376,25 +1382,25 @@ function ReviewCard({ analyzed, currentPositionAnalysis, currentPositionAnalyzin
                 <div className="font-mono font-semibold text-text-bright">{formatEval(analyzed.evalAfter)}</div>
               </div>
               <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{t('analysis.win_chances')}</div>
+                <div className="text-text-dim">{reviewT('analysis.win_chances')}</div>
                 <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
               </div>
               <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{t('analysis.eval_swing')}</div>
+                <div className="text-text-dim">{reviewT('analysis.eval_swing')}</div>
                 <div className={`font-mono font-semibold ${swing >= 0 ? 'text-primary-light' : 'text-danger'}`}>{swingLabel}</div>
               </div>
             </div>
             <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2 text-[11px] text-text">
-              <div className="text-text-dim">{t('analysis.expected_score')}</div>
+              <div className="text-text-dim">{reviewT('analysis.expected_score')}</div>
               <div className="font-semibold text-text-bright">{Math.round(analyzed.winPercentBefore)}% {'->'} {Math.round(analyzed.winPercentAfter)}%</div>
             </div>
             <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2 text-[11px] text-text">
               <div className="text-text-dim">{t('analysis.editor.best_move')}</div>
               <div className="font-mono font-semibold text-text-bright">
                 {currentPositionAnalyzing
-                  ? t('review.engine_loading')
+                  ? reviewT('review.engine_loading')
                   : currentPositionError
-                    ? t('review.engine_error')
+                    ? reviewT('review.engine_error')
                     : currentBestMoveText}
               </div>
             </div>

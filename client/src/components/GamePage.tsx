@@ -5,6 +5,7 @@ import { createInitialBoard, getBoardAtMove, getLastMoveForView, getLegalMoves }
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
+import { useReviewCopy } from '../lib/reviewCopy';
 import { useAuth } from '../lib/auth';
 import { liveGameRoute, routes, savedGameAnalysisRoute, spectatorGameRoute } from '../lib/routes';
 import { getCapturedSummary } from '../lib/capturedSummary';
@@ -68,6 +69,7 @@ export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const reviewT = useReviewCopy();
   const { user } = useAuth();
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
@@ -736,8 +738,8 @@ export default function GamePage() {
   const opponentCaptureSummary = getCapturedSummary(visibleMoves, opponentColor);
   const statusText = reviewActive
     ? reviewMode === 'analysis'
-      ? t('review.analysis_status')
-      : t('review.main_status')
+      ? reviewT('review.analysis_status')
+      : reviewT('review.main_status')
     : isMyTurn
       ? t('game.your_turn')
       : t('game.opponent_turn');

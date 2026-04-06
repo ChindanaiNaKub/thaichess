@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { REVIEW_EN_TRANSLATIONS } from './i18n.review';
 
 export type Language = 'en' | 'th';
 type TranslationCatalog = Record<string, string>;
@@ -128,11 +127,8 @@ export function detectLanguage(): Language {
 async function loadEnglishTranslations(): Promise<TranslationCatalog> {
   englishTranslationsPromise ??= import('./i18n.full').then((module) => {
     fullEnglishLoaded = true;
-    loadedTranslations.en = {
-      ...module.EN_TRANSLATIONS,
-      ...REVIEW_EN_TRANSLATIONS,
-    };
-    return loadedTranslations.en;
+    loadedTranslations.en = module.EN_TRANSLATIONS;
+    return module.EN_TRANSLATIONS;
   });
 
   return englishTranslationsPromise;
@@ -165,10 +161,7 @@ function getDefaultTranslations(lang: Language): TranslationCatalog {
       };
   }
 
-  return loadedTranslations.en ?? {
-    ...BOOTSTRAP_TRANSLATIONS,
-    ...REVIEW_EN_TRANSLATIONS,
-  };
+  return loadedTranslations.en ?? BOOTSTRAP_TRANSLATIONS;
 }
 
 export async function ensureTranslations(lang: Language): Promise<TranslationCatalog> {
