@@ -12,6 +12,8 @@ import { validatePuzzle } from './puzzleValidation';
 import { finalizePuzzle } from './puzzleCatalog';
 import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
 import { derivePuzzleTags, estimatePuzzleDifficultyScore, isMiddlegameRichBoard } from './puzzleMetadata';
+import { PuzzleSchema } from './validation/puzzle';
+import { isValidPuzzle } from './puzzlePipelineValidation';
 
 export interface PuzzleGenerationSource {
   id: string;
@@ -1039,6 +1041,13 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
       );
       puzzle.id = draft.id;
 
+      // Stage 1: Zod schema validation (structure and types)
+      if (!isValidPuzzle(puzzle)) {
+        console.warn(`[PuzzleGeneration] Puzzle ${draft.id} failed schema validation`);
+        continue;
+      }
+
+      // Stage 2: Business logic validation (mate detection, legal moves, etc.)
       const result = validatePuzzle(puzzle);
       if (result.errors.length > 0) continue;
 
