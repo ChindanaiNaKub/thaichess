@@ -2,6 +2,7 @@ import { createInitialBoard } from './engine';
 import type { Board, Move, PieceColor } from './types';
 import type { PuzzleGenerationSource } from './puzzleGeneration';
 import { validateMakrukReplay } from './makrukPositionValidation';
+import { PuzzleGenerationSourceSchema } from './validation/puzzle';
 
 interface ParsedHeaders {
   id?: string;
@@ -47,6 +48,26 @@ function buildSource(headers: ParsedHeaders, moves: Move[], index: number): Puzz
   };
 }
 
+/**
+ * Validates a puzzle generation source using Zod schema.
+ * Returns null if validation fails, logging errors for debugging.
+ */
+function validateSource(source: PuzzleGenerationSource, index: number): PuzzleGenerationSource | null {
+  const result = PuzzleGenerationSourceSchema.safeParse(source);
+  
+  if (!result.success) {
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.join('.');
+      return path ? `${path}: ${issue.message}` : issue.message;
+    });
+    
+    console.warn(`[PuzzleImport] Source ${source.id ?? index} validation failed:`, errors.join(', '));
+    return null;
+  }
+  
+  return result.data;
+}
+
 export function parsePgnLikePuzzleSources(raw: string): PuzzleGenerationSource[] {
   const sources: PuzzleGenerationSource[] = [];
   const lines = raw.split(/\r?\n/);
@@ -60,7 +81,12 @@ export function parsePgnLikePuzzleSources(raw: string): PuzzleGenerationSource[]
       .filter((move): move is Move => move !== null);
 
     if (parsedMoves.length > 0) {
-      sources.push(buildSource(headers, parsedMoves, sources.length));
+      const source = buildSource(headers, parsedMoves, sources.length);
+      const validatedSource = validateSource(source, sources.length);
+      
+      if (validatedSource) {
+        sources.push(validatedSource);
+      }
     }
 
     headers = {};
