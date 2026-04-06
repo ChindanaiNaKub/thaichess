@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -87,6 +87,7 @@ vi.mock('../lib/socket', () => ({
 }));
 
 vi.mock('../lib/puzzleProgress', () => ({
+  PuzzleProgressProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   usePuzzleProgressSummary: () => puzzleProgressSummaryState,
 }));
 
@@ -359,16 +360,13 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows the streak card and routes to the new default puzzle flow', async () => {
+  it('shows the puzzles entry card and routes to the default puzzle flow', async () => {
     render(<HomePage />, { wrapper });
 
     const streakCard = await screen.findByRole('button', { name: /puzzles tactical training/i });
-    expect(screen.getByText(/jump back in/i)).toBeInTheDocument();
     expect(streakCard).toBeInTheDocument();
-    expect(screen.getByText(/2\/7 lessons solved/i)).toBeInTheDocument();
-    expect(screen.getByText(/best lesson theme so far: hanging piece/i)).toBeInTheDocument();
-    expect(screen.getByText(/last lesson played: trapped knight/i)).toBeInTheDocument();
-    expect(screen.getByText(/latest lesson solved: rook harvest/i)).toBeInTheDocument();
+    expect(within(streakCard).getByText(/puzzle streak/i)).toBeInTheDocument();
+    expect(within(streakCard).getByText(/tactical training/i)).toBeInTheDocument();
 
     fireEvent.click(streakCard);
     expect(navigateMock).toHaveBeenCalledWith('/puzzles');

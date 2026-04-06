@@ -1,6 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { scheduleOnUserIntent } from '../lib/defer';
+import {
+  loadBotGameRoute,
+  loadLocalGameRoute,
+  loadQuickPlayRoute,
+} from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
 
 import { useTranslation } from '../lib/i18n';
@@ -18,7 +22,6 @@ import PuzzleSVG from './PuzzleSVG';
 
 import QuickPlaySVG from './QuickPlaySVG';
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
-const DeferredHomePuzzleProgressCard = lazy(() => import('./HomePuzzleProgressCard'));
 
 import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
 
@@ -62,7 +65,6 @@ export default function HomePage() {
   const [showJoin, setShowJoin] = useState(false);
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
-  const [showPuzzleProgressCard, setShowPuzzleProgressCard] = useState(import.meta.env.MODE === 'test');
   const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
   const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
@@ -146,12 +148,6 @@ export default function HomePage() {
       }
     };
   }, [deferredContentReady, showHeroDecor]);
-
-  useEffect(() => {
-    if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
-
-    return scheduleOnUserIntent(() => setShowPuzzleProgressCard(true), 12_000);
-  }, [deferredContentReady, showPuzzleProgressCard]);
 
   useEffect(() => {
     if (showDeferredContent || !deferredContentReady) return;
@@ -320,6 +316,8 @@ export default function HomePage() {
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
+                    onMouseEnter={() => void loadQuickPlayRoute()}
+                    onFocus={() => void loadQuickPlayRoute()}
                     className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
                     {t('home.find_opponent')}
@@ -338,47 +336,27 @@ export default function HomePage() {
             </div>
 
             <aside className="grid gap-2.5 content-start">
-              {showPuzzleProgressCard ? (
-                <Suspense
-                  fallback={(
-                    <div aria-hidden="true" className="min-h-[10.5rem] rounded-xl border border-primary/20 bg-primary/10 px-4 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 h-6 w-6 rounded-full bg-primary/20" />
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="h-3 w-28 rounded-full bg-primary/20" />
-                          <div className="h-5 w-36 rounded-full bg-primary/20" />
-                          <div className="h-3 w-full rounded-full bg-primary/15" />
-                          <div className="h-3 w-4/5 rounded-full bg-primary/15" />
-                        </div>
-                      </div>
+              <button
+                type="button"
+                onClick={() => navigate(routes.puzzles)}
+                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
+              >
+                <div className="flex items-start gap-3">
+                  <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                      {t('home.streak_start')}
                     </div>
-                  )}
-                >
-                  <DeferredHomePuzzleProgressCard />
-                </Suspense>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => navigate(routes.puzzles)}
-                  aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                  className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
-                >
-                  <div className="flex items-start gap-3">
-                    <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                        {t('home.streak_start')}
-                      </div>
-                      <div className="mt-1 text-[1rem] font-semibold text-text-bright">
-                        {t('home.streak_title')}
-                      </div>
-                      <div className="mt-1 text-xs text-text-dim sm:text-sm">
-                        {t('home.puzzles_desc')}
-                      </div>
+                    <div className="mt-1 text-[1rem] font-semibold text-text-bright">
+                      {t('home.streak_title')}
+                    </div>
+                    <div className="mt-1 text-xs text-text-dim sm:text-sm">
+                      {t('home.puzzles_desc')}
                     </div>
                   </div>
-                </button>
-              )}
+                </div>
+              </button>
 
               {!showCreate ? (
                 <button
@@ -516,6 +494,8 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate(routes.bot)}
+                onMouseEnter={() => void loadBotGameRoute()}
+                onFocus={() => void loadBotGameRoute()}
                 className="rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(92,160,26,0.10),rgba(39,30,24,0.92)_45%,rgba(39,30,24,0.98))] px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -564,6 +544,8 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate(routes.local)}
+                onMouseEnter={() => void loadLocalGameRoute()}
+                onFocus={() => void loadLocalGameRoute()}
                 className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
               >
                 <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_local')}</div>

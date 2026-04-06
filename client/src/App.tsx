@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import HomePage from './components/HomePage';
-import LocalGame from './components/LocalGame';
-import QuickPlay from './components/QuickPlay';
 import { scheduleOnUserIntent } from './lib/defer';
+import { useTranslation } from './lib/i18n';
+import { logClientPerfEvent } from './lib/perfDebug';
+import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
 
@@ -11,11 +12,13 @@ import { SeoHeadManager } from './lib/seo';
 const GamePage = lazy(() => import('./components/GamePage'));
 const SpectatorPage = lazy(() => import('./components/SpectatorPage'));
 const LiveGamesPage = lazy(() => import('./components/LiveGamesPage'));
-const BotGame = lazy(() => import('./components/BotGame'));
-const PuzzleStreakPage = lazy(() => import('./routes/PuzzleRoutes').then(m => ({ default: m.PuzzleStreakRoute })));
-const LessonCoursePage = lazy(() => import('./routes/LessonsRoutes').then(m => ({ default: m.LessonCourseRoute })));
-const LessonPlayerPage = lazy(() => import('./routes/LessonsRoutes').then(m => ({ default: m.LessonPlayerRoute })));
-const PuzzlePlayer = lazy(() => import('./routes/PuzzleRoutes').then(m => ({ default: m.PuzzlePlayerRoute })));
+const LocalGame = lazy(loadLocalGameRoute);
+const QuickPlay = lazy(loadQuickPlayRoute);
+const BotGame = lazy(loadBotGameRoute);
+const PuzzleStreakPage = lazy(() => import('./routes/PuzzleStreakRoute'));
+const LessonCoursePage = lazy(() => import('./routes/LessonCourseRoute'));
+const LessonPlayerPage = lazy(() => import('./routes/LessonPlayerRoute'));
+const PuzzlePlayer = lazy(() => import('./routes/PuzzlePlayerRoute'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const GamesPage = lazy(() => import('./components/GamesPage'));
 const LeaderboardPage = lazy(() => import('./components/LeaderboardPage'));
@@ -28,7 +31,6 @@ const AccountPage = lazy(() => import('./routes/AccountRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
-// Shared loading fallback component
 function RouteFallback() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -40,15 +42,50 @@ function RouteFallback() {
   );
 }
 
-export default function App() {
-  const [showFeedbackWidget, setShowFeedbackWidget] = useState(import.meta.env.MODE === 'test');
+function isAutomatedBrowser() {
+  return typeof navigator !== 'undefined' && navigator.webdriver;
+}
+
+function RouteTranslationLoader() {
+  const location = useLocation();
+  const { lang, setLang } = useTranslation();
 
   useEffect(() => {
-    if (showFeedbackWidget || typeof window === 'undefined') {
+    if (lang === 'en' && location.pathname !== routes.home) {
+      setLang('en');
+    }
+  }, [lang, location.pathname, setLang]);
+
+  return null;
+}
+
+function PerfRouteLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    logClientPerfEvent('route_change', {
+      pathname: location.pathname,
+      search: location.search,
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
+export default function App() {
+  const [showFeedbackWidget, setShowFeedbackWidget] = useState(
+    import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
+  );
+
+  useEffect(() => {
+    if (showFeedbackWidget || typeof window === 'undefined' || isAutomatedBrowser()) {
       return;
     }
 
-    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), 12_000);
+    return scheduleOnUserIntent(() => setShowFeedbackWidget(true), {
+      allowTimeout: false,
+      label: 'feedback_widget',
+    });
   }, [showFeedbackWidget]);
 
   return (
@@ -58,6 +95,8 @@ export default function App() {
         Skip to main content
       </a>
       <Suspense fallback={<RouteFallback />}>
+        <RouteTranslationLoader />
+        <PerfRouteLogger />
         <Routes>
           <Route path={routes.home} element={<HomePage />} />
           <Route path={routes.liveGamePattern} element={<GamePage />} />

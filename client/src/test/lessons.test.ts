@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { getLegalMoves, isInCheck, makeMove } from '@shared/engine';
 import { evaluatePosition } from '@shared/analysis';
 import type { Board, GameState, Piece, PieceColor, Position } from '@shared/types';
-import { LESSON_MODULES, MAKRUK_LESSONS, getLessonById, validateLessonCatalog } from '../lib/lessons';
+import {
+  LESSON_MODULES,
+  MAKRUK_LESSONS,
+  getLessonById,
+  shouldValidateLessonCatalogAtRuntime,
+  validateLessonCatalog,
+} from '../lib/lessons';
 import { isLessonUnlocked } from '../lib/lessonProgress';
 
 function createLessonState(board: Board, turn: PieceColor = 'white'): GameState {
@@ -161,6 +167,12 @@ describe('Makruk lessons curriculum', () => {
     expect(LESSON_MODULES.map(module => module.level)).toEqual(['beginner', 'intermediate', 'advanced']);
     expect(MAKRUK_LESSONS).toHaveLength(20);
     expect(MAKRUK_LESSONS.map(lesson => lesson.order)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
+  });
+
+  it('skips lesson catalog validation during production client runtime', () => {
+    expect(shouldValidateLessonCatalogAtRuntime({ DEV: false, MODE: 'production' })).toBe(false);
+    expect(shouldValidateLessonCatalogAtRuntime({ DEV: true, MODE: 'development' })).toBe(true);
+    expect(shouldValidateLessonCatalogAtRuntime({ DEV: false, MODE: 'test' })).toBe(true);
   });
 
   it('keeps every lesson scene legal and gives the move to the correct side', () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PUZZLES } from '@shared/puzzles';
+import { PUZZLES } from '@shared/puzzlesRuntime';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';

@@ -93,7 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             writeCachedUser(null);
           })
           .finally(() => {});
-      }, 12_000);
+      }, {
+        timeoutMs: 12_000,
+        label: 'auth_refresh',
+      });
     }
 
     refreshUser()

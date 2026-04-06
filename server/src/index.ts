@@ -60,6 +60,7 @@ import { renderSeoHtml } from './seoHtml';
 const app = express();
 const httpServer = createServer(app);
 const startTime = Date.now();
+const moduleInitUptimeMs = Math.round(process.uptime() * 1000);
 const allowedCorsOrigins = getAllowedCorsOrigins(process.env);
 
 const corsOptions: CorsOptions = {
@@ -158,6 +159,8 @@ const matchmaking = new MatchmakingQueue();
 const socketRateLimiter = new SocketRateLimiter();
 const ipRateLimiter = new SocketRateLimiter();
 const monitoring = new MonitoringStore();
+let startupState: 'starting' | 'ready' | 'error' = 'starting';
+let startupError: string | null = null;
 
 // Cleanup old games every 30 minutes
 setInterval(() => gameManager.cleanupOldGames(), 1800000);
@@ -896,14 +899,45 @@ app.post('/api/client-errors', (req, res) => {
   res.status(204).end();
 });
 
+app.post('/api/client-debug', (req, res) => {
+  const { entries, url, userAgent } = req.body ?? {};
+
+  if (!Array.isArray(entries) || entries.length === 0) {
+    res.status(400).json({ error: 'Invalid client debug payload' });
+    return;
+  }
+
+  for (const entry of entries.slice(0, 25)) {
+    if (!entry || typeof entry !== 'object') continue;
+
+    const eventName = typeof entry.event === 'string' ? entry.event : 'unknown';
+    const clientTs = typeof entry.ts === 'number' ? entry.ts : undefined;
+    const path = typeof entry.path === 'string' ? entry.path : undefined;
+    const detail = entry.detail && typeof entry.detail === 'object' ? entry.detail : undefined;
+
+    logInfo('client_debug', {
+      eventName,
+      clientTs,
+      path,
+      detail,
+      url: typeof url === 'string' ? url : undefined,
+      userAgent: typeof userAgent === 'string' ? userAgent : req.headers['user-agent'],
+      ip: req.ip,
+    });
+  }
+
+  res.status(204).end();
+});
+
 // Health check — used by hosting platforms to know the server is alive
 app.get('/api/health', (_req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
   const connectedPlayers = io.engine.clientsCount;
   const gameCounts = gameManager.getGameCounts();
   const queueSize = matchmaking.getQueueSize();
-  res.json({
-    status: 'ok',
+  const statusCode = startupState === 'ready' ? 200 : startupState === 'starting' ? 503 : 500;
+  res.status(statusCode).json({
+    status: startupState === 'ready' ? 'ok' : startupState,
     uptime,
     connectedPlayers,
     activeGames: gameCounts.playing,
@@ -912,6 +946,7 @@ app.get('/api/health', (_req, res) => {
     counters: monitoring.snapshot(),
     version: process.env.npm_package_version || '1.0.0',
     timestamp: new Date().toISOString(),
+    startupError,
   });
 });
 
@@ -1038,6 +1073,18 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST?.trim() || undefined;
+const normalizedPort = Number(PORT);
+
+function getProcessUptimeMs() {
+  return Math.round(process.uptime() * 1000);
+}
+
+logInfo('server_bootstrap_ready', {
+  environment: process.env.NODE_ENV || 'development',
+  moduleInitUptimeMs,
+});
+
 process.on('uncaughtException', (error) => {
   monitoring.increment('uncaughtExceptions');
   logError('uncaught_exception', error);
@@ -1049,19 +1096,60 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function startServer() {
-  await initDatabase();
-
-  httpServer.listen(PORT, () => {
-    logInfo('server_started', {
-      port: Number(PORT),
-      environment: process.env.NODE_ENV || 'development',
-    });
+  const databaseInitStartedAt = Date.now();
+  logInfo('server_bootstrap_start', {
+    port: normalizedPort,
+    host: HOST || '0.0.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptimeMs: getProcessUptimeMs(),
+    moduleInitUptimeMs,
   });
+
+  const onStarted = () => {
+    logInfo('server_started', {
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+      moduleInitUptimeMs,
+    });
+  };
+
+  if (HOST) {
+    httpServer.listen(normalizedPort, HOST, onStarted);
+  } else {
+    httpServer.listen(normalizedPort, onStarted);
+  }
+
+  try {
+    logInfo('database_initializing', {
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+    });
+    await initDatabase();
+    startupState = 'ready';
+    startupError = null;
+    logInfo('server_ready', {
+      port: normalizedPort,
+      host: HOST || '0.0.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      uptimeMs: getProcessUptimeMs(),
+      databaseInitDurationMs: Date.now() - databaseInitStartedAt,
+      moduleInitUptimeMs,
+    });
+  } catch (error) {
+    startupState = 'error';
+    startupError = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
 }
 
 void startServer().catch((error) => {
   logError('server_start_failed', error, {
-    port: Number(PORT),
+    port: normalizedPort,
+    host: HOST || '0.0.0.0',
     environment: process.env.NODE_ENV || 'development',
   });
   process.exit(1);

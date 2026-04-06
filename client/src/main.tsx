@@ -6,17 +6,17 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { initializeGlobalErrorReporting } from './lib/errorReporting';
 import { I18nProvider, preloadDetectedTranslations } from './lib/i18n';
+import { initializeClientPerfDebug, logClientPerfEvent } from './lib/perfDebug';
 import { PieceStyleProvider } from './lib/pieceStyle';
 import './index.css';
 
 initializeGlobalErrorReporting();
+initializeClientPerfDebug();
 
-async function bootstrap() {
-  try {
-    await preloadDetectedTranslations();
-  } catch {
-    // Keep the app bootable even if a non-default catalog fails to load.
-  }
+function bootstrap() {
+  logClientPerfEvent('bootstrap_start', {
+    readyState: document.readyState,
+  });
 
   window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
 
@@ -35,6 +35,18 @@ async function bootstrap() {
       </ErrorBoundary>
     </StrictMode>,
   );
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      logClientPerfEvent('bootstrap_rendered', {
+        readyState: document.readyState,
+      });
+    });
+  });
+
+  void preloadDetectedTranslations().catch(() => {
+    // Keep the app bootable even if a non-default catalog fails to load.
+  });
 }
 
 void bootstrap();

@@ -6,6 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/server/src/index.js",
+    "smoke:start": "node dist/server/src/scripts/smokeStart.js",
     "test": "vitest run --config vitest.config.ts",
     "audit:puzzles": "tsx src/scripts/auditPuzzles.ts",
     "audit:puzzle-candidates": "tsx src/scripts/auditPuzzleCandidates.ts",
