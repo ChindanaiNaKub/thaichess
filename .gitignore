@@ -37,6 +37,9 @@ Thumbs.db
 *.swo
 *~
 
+# OpenAgent/OpenCoder context files
+.opencode/
+
 # Temporary files
 *.tmp
 *.temp
