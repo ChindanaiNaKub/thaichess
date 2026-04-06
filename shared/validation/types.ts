@@ -110,8 +110,8 @@ export const GameStateSchema = z.object({
 export type GameState = z.infer<typeof GameStateSchema>;
 
 export const TimeControlSchema = z.object({
-  initial: z.number().int().min(0),
-  increment: z.number().int().min(0),
+  initial: z.number().int().min(10).max(7200),
+  increment: z.number().int().min(0).max(60),
 });
 export type TimeControl = z.infer<typeof TimeControlSchema>;
 
