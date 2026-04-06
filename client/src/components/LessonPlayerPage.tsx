@@ -550,7 +550,7 @@ function StructuredLessonPlayer() {
                             </span>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {puzzle.tags.slice(0, 3).map((tag) => (
+                            {puzzle.tags.slice(0, 3).map((tag: string) => (
                               <span key={tag} className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-xs text-text-dim">
                                 {formatConceptLabel(tag)}
                               </span>
