@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import GamesPage from '../components/GamesPage';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 
 const { navigateMock, fetchMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -32,7 +32,8 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('GamesPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await preloadDetectedTranslations();
     navigateMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
