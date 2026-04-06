@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
+import { useTranslation } from './lib/i18n';
 
 // Lazy load route components for code splitting
 const GamePage = lazy(() => import('./components/GamePage'));
@@ -45,6 +46,19 @@ function isAutomatedBrowser() {
   return typeof navigator !== 'undefined' && navigator.webdriver;
 }
 
+function RouteTranslationLoader() {
+  const location = useLocation();
+  const { lang, setLang } = useTranslation();
+
+  useEffect(() => {
+    if (lang === 'en' && location.pathname !== routes.home) {
+      setLang('en');
+    }
+  }, [lang, location.pathname, setLang]);
+
+  return null;
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(
     import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
@@ -65,6 +79,7 @@ export default function App() {
         Skip to main content
       </a>
       <Suspense fallback={<RouteFallback />}>
+        <RouteTranslationLoader />
         <Routes>
           <Route path={routes.home} element={<HomePage />} />
           <Route path={routes.liveGamePattern} element={<GamePage />} />
