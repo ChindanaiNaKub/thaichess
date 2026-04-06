@@ -100,7 +100,7 @@ vi.mock('../components/Header', () => ({
   default: () => <div data-testid="header" />,
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
+function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -110,15 +110,17 @@ function wrapper({ children }: { children: ReactNode }) {
     },
   });
 
-  return (
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>
-        <I18nProvider>
-          <PieceStyleProvider>{children}</PieceStyleProvider>
-        </I18nProvider>
-      </QueryClientProvider>
-    </MemoryRouter>
-  );
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>
+            <PieceStyleProvider>{children}</PieceStyleProvider>
+          </I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
 describe('HomePage', () => {
@@ -146,7 +148,8 @@ describe('HomePage', () => {
   });
 
   it('does not render the home-page rules section', () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
   });
@@ -155,7 +158,8 @@ describe('HomePage', () => {
     window.localStorage.setItem('thaichess-lang', 'th');
     await preloadDetectedTranslations();
 
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     expect(screen.getByText('คู่มือเริ่มต้น')).toBeInTheDocument();
     expect(screen.getByText('เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง')).toBeInTheDocument();
@@ -169,7 +173,8 @@ describe('HomePage', () => {
   }
 
   it('cleans up create-game socket listeners on unmount', async () => {
-    const { unmount } = render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    const { unmount } = render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
@@ -194,7 +199,8 @@ describe('HomePage', () => {
   it('emits create_game immediately when the socket is already connected', async () => {
     socketMock.connected = true;
 
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
@@ -211,7 +217,8 @@ describe('HomePage', () => {
   });
 
   it('recovers from create_game errors by re-enabling the button and showing the message', async () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
@@ -234,7 +241,8 @@ describe('HomePage', () => {
   it('uses the selected time preset when creating a private game', async () => {
     socketMock.connected = true;
 
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
@@ -251,7 +259,8 @@ describe('HomePage', () => {
   it('sends the selected color preference when creating a private game', async () => {
     socketMock.connected = true;
 
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /^white$/i }));
@@ -266,7 +275,8 @@ describe('HomePage', () => {
   });
 
   it('navigates to the created game when the server returns a game id', async () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
@@ -287,7 +297,8 @@ describe('HomePage', () => {
   });
 
   it('reveals the join form and navigates with a trimmed game id from button click or enter key', () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
 
@@ -305,7 +316,8 @@ describe('HomePage', () => {
   });
 
   it('ignores blank join ids and routes the other main actions', async () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
     const input = screen.getByPlaceholderText(/enter game code/i);
@@ -362,7 +374,8 @@ describe('HomePage', () => {
       throw new Error(`Unhandled fetch for ${url}`);
     });
 
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     expect(await screen.findByText('Live Now')).toBeInTheDocument();
     expect(await screen.findByText('Rated White (1812)')).toBeInTheDocument();
@@ -373,7 +386,8 @@ describe('HomePage', () => {
   });
 
   it('shows the puzzles entry card and routes to the default puzzle flow', async () => {
-    render(<HomePage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
 
     const streakCard = await screen.findByRole('button', { name: /puzzles tactical training/i });
     expect(streakCard).toBeInTheDocument();

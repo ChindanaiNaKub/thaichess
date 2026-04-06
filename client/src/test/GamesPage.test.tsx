@@ -24,7 +24,7 @@ vi.mock('../components/Header', () => ({
   default: ({ children }: { children?: ReactNode }) => <div data-testid="header">{children}</div>,
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
+function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -34,13 +34,15 @@ function wrapper({ children }: { children: ReactNode }) {
     },
   });
 
-  return (
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>
-        <I18nProvider>{children}</I18nProvider>
-      </QueryClientProvider>
-    </MemoryRouter>
-  );
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>{children}</I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
 describe('GamesPage', () => {
@@ -109,7 +111,8 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(screen.getByText('rated-1')).toBeInTheDocument();
@@ -142,7 +145,8 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
@@ -194,7 +198,8 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(screen.getByText('finished-1')).toBeInTheDocument();

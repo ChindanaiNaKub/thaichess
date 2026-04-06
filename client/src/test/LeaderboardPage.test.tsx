@@ -47,7 +47,7 @@ vi.mock('../lib/auth', () => ({
   useAuth: () => authState,
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
+function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -57,13 +57,15 @@ function wrapper({ children }: { children: ReactNode }) {
     },
   });
 
-  return (
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>
-        <I18nProvider>{children}</I18nProvider>
-      </QueryClientProvider>
-    </MemoryRouter>
-  );
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>{children}</I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
 describe('LeaderboardPage', () => {
@@ -101,7 +103,8 @@ describe('LeaderboardPage', () => {
       }),
     });
 
-    render(<LeaderboardPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<LeaderboardPage />, { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(screen.getByText('Champion')).toBeInTheDocument();
