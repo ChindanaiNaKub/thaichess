@@ -114,11 +114,10 @@ describe('GamesPage', () => {
     const Wrapper = createWrapper();
     render(<GamesPage />, { wrapper: Wrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('rated-1')).toBeInTheDocument();
-      expect(screen.getByText('bot-1')).toBeInTheDocument();
-      expect(screen.getByText('casual-1')).toBeInTheDocument();
-    });
+    // Wait for loading to finish and data to appear
+    expect(await screen.findByText('rated-1')).toBeInTheDocument();
+    expect(await screen.findByText('bot-1')).toBeInTheDocument();
+    expect(await screen.findByText('casual-1')).toBeInTheDocument();
 
     expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
@@ -201,9 +200,8 @@ describe('GamesPage', () => {
     const Wrapper = createWrapper();
     render(<GamesPage />, { wrapper: Wrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('finished-1')).toBeInTheDocument();
-    });
+    // Wait for loading to finish and data to appear
+    expect(await screen.findByText('finished-1')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('finished-1'));
 
