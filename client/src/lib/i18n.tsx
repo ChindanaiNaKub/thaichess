@@ -85,6 +85,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'home.watch_live_desc': 'See active public Makruk games and jump straight into spectator mode.',
   'lang.switch': 'TH',
   'leaderboard.title': 'Leaderboard',
+  'leaderboard.you': 'You',
   'nav.about': 'About',
   'nav.games': 'Games',
   'nav.lessons': 'Lessons',
