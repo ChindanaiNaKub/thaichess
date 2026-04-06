@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { EN_TRANSLATIONS } from '../lib/i18n';
+import { EN_TRANSLATIONS } from '../lib/i18n.full';
+import { REVIEW_EN_TRANSLATIONS } from '../lib/i18n.review';
 import { TH_TRANSLATIONS } from '../lib/i18n.th';
+
+const ALL_EN_TRANSLATIONS = {
+  ...EN_TRANSLATIONS,
+  ...REVIEW_EN_TRANSLATIONS,
+};
 
 function findMissingKeys(
   source: Record<string, string>,
@@ -20,14 +26,14 @@ function findBlankValues(catalog: Record<string, string>): string[] {
 
 describe('i18n catalogs', () => {
   it('keeps English and Thai translation keys in sync', () => {
-    const missingInThai = findMissingKeys(EN_TRANSLATIONS, TH_TRANSLATIONS);
-    const missingInEnglish = findMissingKeys(TH_TRANSLATIONS, EN_TRANSLATIONS);
+    const missingInThai = findMissingKeys(ALL_EN_TRANSLATIONS, TH_TRANSLATIONS);
+    const missingInEnglish = findMissingKeys(TH_TRANSLATIONS, ALL_EN_TRANSLATIONS);
 
     expect(
       { missingInThai, missingInEnglish },
       [
         'Translation catalogs drifted.',
-        'When you add a new UI string, add both English and Thai entries in client/src/lib/i18n.tsx and client/src/lib/i18n.th.ts.',
+        'When you add a new UI string, add both English and Thai entries in client/src/lib/i18n.full.tsx and client/src/lib/i18n.th.ts.',
         `Missing in Thai: ${missingInThai.join(', ') || 'none'}`,
         `Missing in English: ${missingInEnglish.join(', ') || 'none'}`,
       ].join('\n'),
@@ -38,7 +44,7 @@ describe('i18n catalogs', () => {
   });
 
   it('does not allow blank translation values', () => {
-    const blankEnglish = findBlankValues(EN_TRANSLATIONS);
+    const blankEnglish = findBlankValues(ALL_EN_TRANSLATIONS);
     const blankThai = findBlankValues(TH_TRANSLATIONS);
 
     expect(

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-export { EN_TRANSLATIONS } from './i18n.full';
+import { REVIEW_EN_TRANSLATIONS } from './i18n.review';
 
 export type Language = 'en' | 'th';
 type TranslationCatalog = Record<string, string>;
@@ -76,15 +76,6 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'home.puzzles_desc': 'Tactical training',
   'home.quick_play': 'Play Now',
   'home.quick_play_desc': 'Get paired instantly for casual or rated Makruk.',
-  'review.analysis_branch': 'Analysis Branch',
-  'review.current_variation': 'Current variation',
-  'review.engine_loading': 'Analyzing current position...',
-  'review.enter_analysis': 'Enter Analysis',
-  'review.main_line': 'Main Line',
-  'review.no_best_move': 'none',
-  'review.reset_variation': 'Reset variation',
-  'review.return_to_game': 'Return to official game',
-  'review.title': 'Review',
   'home.streak_start': 'Start streak',
   'home.streak_title': 'Puzzle streak',
   'home.time_control': 'Time Control',
@@ -99,16 +90,6 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'nav.play': 'Play',
   'nav.puzzles': 'Puzzles',
   'nav.watch': 'Watch',
-  'analysis.best_continuation': 'Best continuation',
-  'analysis.current_position': 'Current position',
-  'analysis.eval_after': 'After',
-  'analysis.eval_before': 'Before',
-  'analysis.eval_swing': 'Eval swing',
-  'analysis.expected_score': 'Expected score',
-  'analysis.position_after_move': 'After move {move} of {total}',
-  'analysis.position_before_start': 'Before move 1',
-  'analysis.turn_to_move': 'Turn',
-  'analysis.win_chances': 'Winning chances',
   'puzzle.title': 'Puzzle Streak',
   'quick.rated_available': 'Rated Available',
   'time.blitz': 'Blitz',
@@ -147,8 +128,11 @@ export function detectLanguage(): Language {
 async function loadEnglishTranslations(): Promise<TranslationCatalog> {
   englishTranslationsPromise ??= import('./i18n.full').then((module) => {
     fullEnglishLoaded = true;
-    loadedTranslations.en = module.EN_TRANSLATIONS;
-    return module.EN_TRANSLATIONS;
+    loadedTranslations.en = {
+      ...module.EN_TRANSLATIONS,
+      ...REVIEW_EN_TRANSLATIONS,
+    };
+    return loadedTranslations.en;
   });
 
   return englishTranslationsPromise;
@@ -181,7 +165,10 @@ function getDefaultTranslations(lang: Language): TranslationCatalog {
       };
   }
 
-  return loadedTranslations.en ?? BOOTSTRAP_TRANSLATIONS;
+  return loadedTranslations.en ?? {
+    ...BOOTSTRAP_TRANSLATIONS,
+    ...REVIEW_EN_TRANSLATIONS,
+  };
 }
 
 export async function ensureTranslations(lang: Language): Promise<TranslationCatalog> {
