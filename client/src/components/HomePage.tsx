@@ -155,7 +155,10 @@ export default function HomePage() {
   useEffect(() => {
     if (showPuzzleProgressCard || !deferredContentReady || typeof window === 'undefined') return;
 
-    return scheduleOnUserIntent(() => setShowPuzzleProgressCard(true), 12_000);
+    return scheduleOnUserIntent(() => setShowPuzzleProgressCard(true), {
+      allowTimeout: false,
+      label: 'home_puzzle_progress',
+    });
   }, [deferredContentReady, showPuzzleProgressCard]);
 
   useEffect(() => {
