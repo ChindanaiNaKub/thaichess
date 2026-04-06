@@ -21,6 +21,43 @@ export interface InlineAnalysisPayload {
   reason?: string;
 }
 
+const INLINE_ANALYSIS_STORAGE_PREFIX = 'inline-analysis:';
+
+function canUseSessionStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
+}
+
+function createInlineAnalysisStorageKey(): string {
+  const id = globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${INLINE_ANALYSIS_STORAGE_PREFIX}${id}`;
+}
+
+export function readInlineAnalysisPayload(storageKey: string): InlineAnalysisPayload | null {
+  if (!canUseSessionStorage()) return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    if (!raw) return null;
+    return JSON.parse(raw) as InlineAnalysisPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function writeInlineAnalysisPayload(payload: InlineAnalysisPayload): string | null {
+  if (!canUseSessionStorage()) return null;
+
+  const storageKey = createInlineAnalysisStorageKey();
+
+  try {
+    window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
+    return storageKey;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestGameAnalysis({ moves, depth, movetimeMs }: AnalyzeGameRequest): Promise<GameAnalysis> {
   const response = await fetch('/api/analysis/game', {
     method: 'POST',
@@ -38,16 +75,20 @@ export async function requestGameAnalysis({ moves, depth, movetimeMs }: AnalyzeG
 
 export async function requestPositionAnalysis(
   snapshot: AnalysisPositionSnapshot,
-  options?: { depth?: number; movetimeMs?: number; nodes?: number; multipv?: number },
+  options?: { depth?: number; movetimeMs?: number; nodes?: number; multipv?: number; signal?: AbortSignal },
 ): Promise<PositionAnalysisResult> {
   const serialized = serializeAnalysisPosition(snapshot);
   const response = await fetch('/api/analysis/position', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: options?.signal,
     body: JSON.stringify({
       position: serialized.position,
       counting: serialized.counting,
-      ...options,
+      depth: options?.depth,
+      movetimeMs: options?.movetimeMs,
+      nodes: options?.nodes,
+      multipv: options?.multipv,
     }),
   });
 
@@ -91,7 +132,12 @@ export async function requestBotMove(
 export function buildInlineAnalysisRoute(payload: InlineAnalysisPayload): string {
   const params = new URLSearchParams();
   params.set('source', payload.source);
-  params.set('moves', JSON.stringify(payload.moves));
+  const storageKey = writeInlineAnalysisPayload(payload);
+  if (storageKey) {
+    params.set('payload', storageKey);
+  } else {
+    params.set('moves', JSON.stringify(payload.moves));
+  }
   if (payload.result) params.set('result', payload.result);
   if (payload.reason) params.set('reason', payload.reason);
   return `/analysis/${payload.source}?${params.toString()}`;

@@ -10,6 +10,8 @@ import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } fr
 import { useTranslation } from '../lib/i18n';
 import { buildInlineAnalysisRoute } from '../lib/analysis';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { usePostGameReview } from '../hooks/usePostGameReview';
+import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -19,6 +21,7 @@ import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
 import Clock from './Clock';
 import InGameShell from './InGameShell';
+import PostGameReviewPanel from './PostGameReviewPanel';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
@@ -35,11 +38,43 @@ export default function LocalGame() {
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
   const moveCountRef = useRef(gameState.moveHistory.length);
+  const review = usePostGameReview({
+    enabled: gameState.gameOver,
+    mainLine: gameState.moveHistory,
+    finalState: gameState,
+  });
+  const reviewEngine = useReviewEngineAnalysis({
+    enabled: gameState.gameOver,
+    snapshot: gameState.gameOver
+      ? {
+          board: review.currentState.board,
+          turn: review.currentState.turn,
+          counting: review.currentState.counting,
+        }
+      : null,
+  });
 
   useEffect(() => {
     if (gameState.moveHistory.length === 0) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState.gameOver) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          review.stepBackward();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          review.stepForward();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          review.jumpToStart();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          review.jumpToEnd();
+        }
+        return;
+      }
+
       const moveCount = gameState.moveHistory.length;
       const current = viewMoveIndex ?? moveCount - 1;
 
@@ -61,7 +96,7 @@ export default function LocalGame() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, viewMoveIndex]);
+  }, [gameState, review, viewMoveIndex]);
 
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
@@ -253,7 +288,15 @@ export default function LocalGame() {
 
   const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
 
-  const isViewingHistory = viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+  const reviewActive = gameState.gameOver;
+  const reviewMoveHistory = review.currentMoveHistory;
+  const reviewMode = review.mode;
+  const reviewSelectedMainLineMoveIndex = review.selectedMainLineMoveIndex;
+  const reviewIsViewingHistory = reviewMode === 'analysis'
+    || reviewSelectedMainLineMoveIndex !== gameState.moveHistory.length - 1;
+  const isViewingHistory = reviewActive
+    ? reviewIsViewingHistory
+    : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
   const topColor: PieceColor = viewAs === 'white' ? 'black' : 'white';
   const countingLabel = gameState.counting
     ? !gameState.counting.active
@@ -274,12 +317,14 @@ export default function LocalGame() {
     : null;
   const canStartLocalCounting = Boolean(gameState.counting && !gameState.gameOver && !gameState.counting.active && gameState.turn === gameState.counting.countingColor);
   const canStopLocalCounting = Boolean(gameState.counting && !gameState.gameOver && gameState.counting.active && gameState.turn === gameState.counting.countingColor);
-  const moveCount = gameState.moveHistory.length;
-  const visibleMoves = getVisibleMoves();
+  const moveCount = reviewActive ? reviewMoveHistory.length : gameState.moveHistory.length;
+  const visibleMoves = reviewActive ? reviewMoveHistory : getVisibleMoves();
   const topCaptureSummary = getCapturedSummary(visibleMoves, topColor);
   const bottomCaptureSummary = getCapturedSummary(visibleMoves, viewAs);
-  const statusText = gameState.gameOver
-    ? t('game.reviewing_position')
+  const statusText = reviewActive
+    ? reviewMode === 'analysis'
+      ? t('review.analysis_status')
+      : t('review.main_status')
     : t('local.turn', { color: colorName(gameState.turn) });
 
   const handleStartCounting = () => {
@@ -319,18 +364,18 @@ export default function LocalGame() {
         board={
           <BoardErrorBoundary onRetry={() => window.location.reload()}>
             <Board
-              board={getDisplayBoard()}
+              board={reviewActive ? review.currentState.board : getDisplayBoard()}
               playerColor={viewAs}
-              draggableColor={gameState.turn}
-              isMyTurn={!isViewingHistory}
-              legalMoves={isViewingHistory ? [] : legalMoves}
-              selectedSquare={isViewingHistory ? null : selectedSquare}
-              lastMove={getLastMove()}
-              isCheck={isViewingHistory ? false : gameState.isCheck}
-              checkSquare={getCheckSquare()}
-              onSquareClick={handleSquareClick}
-              onPieceDrop={handlePieceDrop}
-              disabled={gameState.gameOver || isViewingHistory}
+              draggableColor={reviewActive && reviewMode === 'analysis' ? review.currentState.turn : gameState.turn}
+              isMyTurn={reviewActive ? reviewMode === 'analysis' : !isViewingHistory}
+              legalMoves={reviewActive ? review.legalMoves : isViewingHistory ? [] : legalMoves}
+              selectedSquare={reviewActive ? review.selectedSquare : isViewingHistory ? null : selectedSquare}
+              lastMove={reviewActive ? review.currentLastMove : getLastMove()}
+              isCheck={reviewActive ? review.currentState.isCheck : isViewingHistory ? false : gameState.isCheck}
+              checkSquare={reviewActive ? review.currentCheckSquare : getCheckSquare()}
+              onSquareClick={reviewActive ? review.handleSquareClick : handleSquareClick}
+              onPieceDrop={reviewActive ? review.handlePieceDrop : handlePieceDrop}
+              disabled={reviewActive ? reviewMode !== 'analysis' : gameState.gameOver || isViewingHistory}
               arrows={arrows}
               onArrowsChange={setArrows}
             />
@@ -352,7 +397,7 @@ export default function LocalGame() {
         isViewingHistory={isViewingHistory}
         showCheckBadge={gameState.isCheck}
         toolbar={
-          isViewingHistory ? (
+          reviewActive ? null : isViewingHistory ? (
             <button
               onClick={() => setViewMoveIndex(null)}
               className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
@@ -441,11 +486,34 @@ export default function LocalGame() {
               />
             )}
 
+            {reviewActive && (
+              <PostGameReviewPanel
+                mode={review.mode}
+                selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
+                analysisRootMoveIndex={review.analysisRootMoveIndex}
+                analysisLine={review.analysisLine}
+                canEnterAnalysis={review.canEnterAnalysis}
+                canResetAnalysis={review.canResetAnalysis}
+                canStepBackward={review.canStepBackward}
+                canStepForward={review.canStepForward}
+                onEnterAnalysis={review.enterAnalysis}
+                onReturnToMainLine={review.returnToMainLine}
+                onResetAnalysis={review.resetAnalysis}
+                onStepBackward={review.stepBackward}
+                onStepForward={review.stepForward}
+                onJumpToStart={review.jumpToStart}
+                onJumpToEnd={review.jumpToEnd}
+                engineAnalysis={reviewEngine.analysis}
+                engineAnalyzing={reviewEngine.analyzing}
+                engineError={reviewEngine.error}
+              />
+            )}
+
             <MoveHistory
               moves={gameState.moveHistory}
               initialBoard={createInitialBoard()}
-              currentMoveIndex={viewMoveIndex ?? undefined}
-              onMoveClick={handleMoveClick}
+              currentMoveIndex={reviewActive ? review.selectedMainLineMoveIndex : viewMoveIndex ?? undefined}
+              onMoveClick={reviewActive ? review.jumpToMainLine : handleMoveClick}
             />
 
             {gameState.moveHistory.length > 0 && (

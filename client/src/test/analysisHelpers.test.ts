@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { createInitialBoard } from '@shared/engine';
 import { deserializeAnalysisPosition, serializeAnalysisPosition, uciToMove } from '@shared/engineAdapter';
-import { buildEditorAnalysisRoute, buildInlineAnalysisRoute } from '../lib/analysis';
+import { buildEditorAnalysisRoute, buildInlineAnalysisRoute, readInlineAnalysisPayload } from '../lib/analysis';
 
 describe('analysis helpers', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it('round-trips the serialized editor position', () => {
     const serialized = serializeAnalysisPosition({
       board: createInitialBoard(),
@@ -18,17 +22,31 @@ describe('analysis helpers', () => {
     expect(parsed?.board[7][4]?.type).toBe('K');
   });
 
-  it('builds inline analysis routes with source and moves', () => {
+  it('builds inline analysis routes with a short payload key instead of embedding moves', () => {
     const route = buildInlineAnalysisRoute({
       source: 'bot',
-      moves: [],
+      moves: [
+        { from: { row: 2, col: 0 }, to: { row: 3, col: 0 } },
+      ],
       result: 'draw',
       reason: 'stalemate',
     });
+    const params = new URLSearchParams(route.split('?')[1]);
+    const payloadKey = params.get('payload');
 
     expect(route).toContain('/analysis/bot?');
     expect(route).toContain('source=bot');
+    expect(route).not.toContain('moves=');
     expect(route).toContain('result=draw');
+    expect(payloadKey).toBeTruthy();
+    expect(readInlineAnalysisPayload(payloadKey!)).toMatchObject({
+      source: 'bot',
+      result: 'draw',
+      reason: 'stalemate',
+      moves: [
+        { from: { row: 2, col: 0 }, to: { row: 3, col: 0 } },
+      ],
+    });
   });
 
   it('builds editor routes with a serialized position', () => {

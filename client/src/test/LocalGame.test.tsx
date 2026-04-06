@@ -8,10 +8,12 @@ const {
   navigateMock,
   boardPropsMock,
   shellPropsMock,
+  requestPositionAnalysisMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
   shellPropsMock: vi.fn(),
+  requestPositionAnalysisMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -27,6 +29,11 @@ vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
+}));
+
+vi.mock('../lib/analysis', () => ({
+  buildInlineAnalysisRoute: () => '/analysis/local',
+  requestPositionAnalysis: (...args: unknown[]) => requestPositionAnalysisMock(...args),
 }));
 
 vi.mock('../lib/pieceStyle', async () => {
@@ -103,6 +110,16 @@ describe('LocalGame', () => {
     navigateMock.mockReset();
     boardPropsMock.mockReset();
     shellPropsMock.mockReset();
+    requestPositionAnalysisMock.mockReset();
+    requestPositionAnalysisMock.mockResolvedValue({
+      evaluation: 0,
+      bestMove: null,
+      principalVariation: [],
+      stats: {
+        source: 'local',
+        depth: 1,
+      },
+    });
   });
 
   it('uses the shared in-game shell and keeps view controls in the side panel', () => {

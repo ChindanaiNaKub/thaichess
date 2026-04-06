@@ -561,6 +561,61 @@ export function makeMove(state: GameState, from: Position, to: Position): GameSt
   };
 }
 
+function inferReplayMovedPiece(move: Move, state: GameState): Piece {
+  const boardPiece = state.board[move.from.row][move.from.col];
+  if (boardPiece) return { ...boardPiece };
+  if (move.movedPiece) return { ...move.movedPiece };
+  return {
+    type: move.promoted || move.promotion === 'PM' ? 'PM' : 'P',
+    color: state.turn,
+  };
+}
+
+function applyRecordedMoveForReplay(state: GameState, move: Move): GameState {
+  const strictReplay = makeMove(state, move.from, move.to);
+  if (strictReplay) {
+    return strictReplay;
+  }
+
+  const board = cloneBoard(state.board);
+  const movedPiece = inferReplayMovedPiece(move, state);
+  board[move.from.row][move.from.col] = null;
+  board[move.to.row][move.to.col] = move.promoted || move.promotion === 'PM'
+    ? createPromotedPawn(movedPiece.color)
+    : { ...movedPiece };
+
+  const nextTurn: PieceColor = state.turn === 'white' ? 'black' : 'white';
+  const check = isInCheck(board, nextTurn);
+  const hasLegal = hasAnyLegalMoves(board, nextTurn);
+  const isCheckmate = check && !hasLegal;
+  const isStalemate = !check && !hasLegal;
+  const winner: PieceColor | null = isCheckmate ? state.turn : null;
+  const resultReason: ResultReason = isCheckmate ? 'checkmate' : isStalemate ? 'stalemate' : null;
+
+  return {
+    ...state,
+    board,
+    turn: nextTurn,
+    moveHistory: [...state.moveHistory, move],
+    lastMove: {
+      from: move.from,
+      to: move.to,
+      movedPiece,
+      capturedPiece: move.capturedPiece ?? move.captured ?? null,
+      promotion: move.promotion ?? (move.promoted ? 'PM' : null),
+    },
+    isCheck: check,
+    isCheckmate,
+    isStalemate,
+    isDraw: isStalemate,
+    gameOver: isCheckmate || isStalemate,
+    winner,
+    resultReason,
+    counting: null,
+    moveCount: state.moveCount + 1,
+  };
+}
+
 export function posToAlgebraic(pos: Position): string {
   const file = String.fromCharCode(97 + pos.col); // a-h
   const rank = (pos.row + 1).toString(); // 1-8
@@ -591,6 +646,31 @@ export function getBoardAtMove(initialBoard: Board, moves: Move[], moveIndex: nu
     }
   }
   return board;
+}
+
+export function getPositionAtPly(moves: Move[], plyIndex: number, initialState?: GameState): GameState {
+  const targetIndex = Math.max(-1, Math.min(moves.length - 1, plyIndex));
+  let state = initialState
+    ? {
+        ...initialState,
+        board: cloneBoard(initialState.board),
+        moveHistory: [],
+        lastMove: initialState.lastMove
+          ? {
+              ...initialState.lastMove,
+              movedPiece: { ...initialState.lastMove.movedPiece },
+              capturedPiece: initialState.lastMove.capturedPiece ? { ...initialState.lastMove.capturedPiece } : null,
+            }
+          : null,
+        counting: initialState.counting ? { ...initialState.counting } : null,
+      }
+    : createInitialGameState(0, 0);
+
+  for (let i = 0; i <= targetIndex; i += 1) {
+    state = applyRecordedMoveForReplay(state, moves[i]);
+  }
+
+  return state;
 }
 
 export function getMoveAtIndex(moves: Move[], moveIndex: number): Move | null {
