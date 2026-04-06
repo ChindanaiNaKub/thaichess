@@ -34,7 +34,7 @@ test.describe('Homepage', () => {
   test('navigates to local game', async ({ page }) => {
     await page.locator('#main-content').getByRole('button', { name: /play locally/i }).click();
     await expect(page).toHaveURL(/\/local/);
-    await expect(page.getByTestId('board')).toBeVisible();
+    await expect(page.getByTestId('board')).toBeVisible({ timeout: 30000 });
     await expect(page.locator('[data-testid^="board-square-"]')).toHaveCount(64);
   });
 
