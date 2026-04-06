@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io';
+import type { ZodError } from 'zod';
 import { logInfo, logWarn } from './logger';
 import type { ServerToClientEvents, ClientToServerEvents, GameRoom, RatingChangeSummary } from '../../shared/types';
 import type { GameManager } from './gameManager';
@@ -19,6 +20,44 @@ import {
   isValidGameId,
   SocketRateLimiter,
 } from './security';
+
+/**
+ * Formats Zod validation errors into user-friendly messages.
+ * 
+ * @param error - ZodError from safeParse
+ * @returns Human-readable error message
+ * 
+ * @example
+ * Input: ZodError with issues on timeControl.initial and colorPreference
+ * Output: "Invalid fields: timeControl.initial (must be >= 10), colorPreference (required)"
+ */
+function formatZodError(error: ZodError): string {
+  const flattened = error.flatten();
+  
+  // Collect field errors
+  const fieldErrors: string[] = [];
+  const fieldErrorsMap = flattened.fieldErrors as Record<string, string[] | undefined>;
+  for (const [field, messages] of Object.entries(fieldErrorsMap)) {
+    if (messages && messages.length > 0) {
+      // Take the first error message for each field
+      fieldErrors.push(`${field} (${messages[0]})`);
+    }
+  }
+  
+  // Collect form errors (non-field errors)
+  const formErrors = flattened.formErrors as string[];
+  
+  // Build the message
+  const parts: string[] = [];
+  if (fieldErrors.length > 0) {
+    parts.push(`Invalid fields: ${fieldErrors.join(', ')}`);
+  }
+  if (formErrors.length > 0) {
+    parts.push(formErrors.join(', '));
+  }
+  
+  return parts.join('. ') || 'Invalid input data';
+}
 
 export interface AuthenticatedSocketData {
   authUser: AuthUser | null;
@@ -258,11 +297,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('create_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'create_game', deps, ['socket', 'ip'])) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = CreateGamePayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'create_game', `Invalid game settings: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'create_game', formatZodError(parseResult.error));
         return;
       }
       
@@ -310,11 +349,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('join_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = JoinGamePayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'join_game', `Invalid game ID: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'join_game', formatZodError(parseResult.error));
         return;
       }
 
@@ -377,11 +416,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('spectate_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = SpectateGamePayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', `Invalid game ID: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', formatZodError(parseResult.error));
         return;
       }
       
@@ -406,11 +445,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('presence_heartbeat', (payload) => {
       if (!enforceSocketRateLimit(socket, 'presence_heartbeat', deps)) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = PresenceHeartbeatPayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', `Invalid heartbeat: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', formatZodError(parseResult.error));
         return;
       }
       
@@ -436,11 +475,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('make_move', (payload) => {
       if (!enforceSocketRateLimit(socket, 'make_move', deps)) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = MakeMovePayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'make_move', `Invalid move: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'make_move', formatZodError(parseResult.error));
         return;
       }
 
@@ -523,11 +562,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('respond_draw', (payload) => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = RespondDrawPayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'respond_draw', `Invalid draw response: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'respond_draw', formatZodError(parseResult.error));
         return;
       }
       
@@ -584,11 +623,11 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     socket.on('find_game', (payload) => {
       if (!enforceFindGameRateLimit(socket, deps)) return;
       
-      // Zod validation with detailed error messages
+      // Zod validation with user-friendly error messages
       const parseResult = FindGamePayloadSchema.safeParse(payload);
       if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'find_game', `Invalid time control: ${parseResult.error.message}`);
+        rejectSocketEvent(deps.monitoring, socket, 'find_game', formatZodError(parseResult.error));
         return;
       }
       
