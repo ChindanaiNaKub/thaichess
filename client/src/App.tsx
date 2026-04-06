@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
+import { useTranslation } from './lib/i18n';
+import { logClientPerfEvent } from './lib/perfDebug';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
-import { useTranslation } from './lib/i18n';
 
 // Lazy load route components for code splitting
 const GamePage = lazy(() => import('./components/GamePage'));
@@ -30,7 +31,6 @@ const AccountPage = lazy(() => import('./routes/AccountRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
-// Shared loading fallback component
 function RouteFallback() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -59,6 +59,19 @@ function RouteTranslationLoader() {
   return null;
 }
 
+function PerfRouteLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    logClientPerfEvent('route_change', {
+      pathname: location.pathname,
+      search: location.search,
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(
     import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
@@ -80,6 +93,7 @@ export default function App() {
       </a>
       <Suspense fallback={<RouteFallback />}>
         <RouteTranslationLoader />
+        <PerfRouteLogger />
         <Routes>
           <Route path={routes.home} element={<HomePage />} />
           <Route path={routes.liveGamePattern} element={<GamePage />} />
