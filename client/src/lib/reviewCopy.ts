@@ -125,7 +125,8 @@ export function useReviewCopy() {
 
   return useCallback((key: string, params?: Record<string, string | number>) => {
     const typedKey = key as ReviewCopyKey;
-    const template = REVIEW_COPY[lang][typedKey] ?? REVIEW_COPY.en[typedKey] ?? key;
+    const catalog = REVIEW_COPY[lang] ?? REVIEW_COPY.en;
+    const template = catalog[typedKey] ?? REVIEW_COPY.en[typedKey] ?? key;
     return applyParams(template, params);
   }, [lang]);
 }
