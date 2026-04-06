@@ -899,6 +899,36 @@ app.post('/api/client-errors', (req, res) => {
   res.status(204).end();
 });
 
+app.post('/api/client-debug', (req, res) => {
+  const { entries, url, userAgent } = req.body ?? {};
+
+  if (!Array.isArray(entries) || entries.length === 0) {
+    res.status(400).json({ error: 'Invalid client debug payload' });
+    return;
+  }
+
+  for (const entry of entries.slice(0, 25)) {
+    if (!entry || typeof entry !== 'object') continue;
+
+    const eventName = typeof entry.event === 'string' ? entry.event : 'unknown';
+    const clientTs = typeof entry.ts === 'number' ? entry.ts : undefined;
+    const path = typeof entry.path === 'string' ? entry.path : undefined;
+    const detail = entry.detail && typeof entry.detail === 'object' ? entry.detail : undefined;
+
+    logInfo('client_debug', {
+      eventName,
+      clientTs,
+      path,
+      detail,
+      url: typeof url === 'string' ? url : undefined,
+      userAgent: typeof userAgent === 'string' ? userAgent : req.headers['user-agent'],
+      ip: req.ip,
+    });
+  }
+
+  res.status(204).end();
+});
+
 // Health check — used by hosting platforms to know the server is alive
 app.get('/api/health', (_req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);

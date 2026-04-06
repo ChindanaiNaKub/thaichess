@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
 import { routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
+import { logClientPerfEvent } from './lib/perfDebug';
 
 // Lazy load route components for code splitting
 const GamePage = lazy(() => import('./components/GamePage'));
@@ -45,6 +46,19 @@ function isAutomatedBrowser() {
   return typeof navigator !== 'undefined' && navigator.webdriver;
 }
 
+function PerfRouteLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    logClientPerfEvent('route_change', {
+      pathname: location.pathname,
+      search: location.search,
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(
     import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
@@ -65,6 +79,7 @@ export default function App() {
         Skip to main content
       </a>
       <Suspense fallback={<RouteFallback />}>
+        <PerfRouteLogger />
         <Routes>
           <Route path={routes.home} element={<HomePage />} />
           <Route path={routes.liveGamePattern} element={<GamePage />} />
