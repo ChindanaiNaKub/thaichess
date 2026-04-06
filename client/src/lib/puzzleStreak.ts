@@ -1,4 +1,4 @@
-import { PUZZLE_POOL_DIAGNOSTICS, PUZZLES, type Puzzle } from '@shared/puzzles';
+import { PUZZLE_POOL_DIAGNOSTICS, PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 
 export const STREAK_CHECKPOINT_INTERVAL = 5;
 export const STREAK_RECENT_WINDOW = 8;

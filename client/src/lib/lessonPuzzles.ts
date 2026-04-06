@@ -1,4 +1,4 @@
-import { PUZZLES, type Puzzle } from '@shared/puzzles';
+import { PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import type { MakrukLesson } from './lessons';
 
 const CONCEPT_TAG_MAP: Record<string, string[]> = {

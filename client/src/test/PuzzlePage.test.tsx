@@ -187,7 +187,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@shared/puzzles', () => ({
+vi.mock('@shared/puzzlesRuntime', () => ({
   PUZZLES: puzzleListFixtures,
   PUZZLE_POOL_DIAGNOSTICS: {
     totalCandidates: puzzleListFixtures.length,
