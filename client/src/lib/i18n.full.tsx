@@ -918,6 +918,11 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.links_label': 'Site footer links',
   'footer.what_is_makruk': 'What Is Makruk?',
   'footer.how_to_play_makruk': 'How to Play Makruk',
+  'footer.support': 'Support ThaiChess',
+  'footer.support_desc': 'ThaiChess is free and has no ads. Running it costs $20/month. If you enjoy playing, consider supporting the project!',
+  'footer.donate_thai': 'Donate via QR',
+  'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
+  'footer.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
 
   // Language
   'lang.switch': 'TH',
@@ -951,6 +956,11 @@ const TH: Record<string, string> = {
   'footer.community': 'ชุมชน',
   'footer.github': 'GitHub',
   'footer.star_github': 'ติดดาวบน GitHub',
+  'footer.support': 'สนับสนุน ThaiChess',
+  'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา ค่าใช้จ่ายในการดำเนินการ $20/เดือน หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
+  'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
+  'footer.thanks': 'ขอบคุณที่ช่วยให้ ThaiChess อยู่ต่อไป! 🙏',
+  'footer.bank_info': 'ไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
 
   // Appearance
   'appearance.title': 'กระดานและตัวหมาก',

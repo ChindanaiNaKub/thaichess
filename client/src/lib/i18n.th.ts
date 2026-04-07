@@ -879,6 +879,11 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'footer.links_label': 'ลิงก์ส่วนท้ายเว็บไซต์',
   'footer.what_is_makruk': 'หมากรุกไทยคืออะไร',
   'footer.how_to_play_makruk': 'วิธีเล่นหมากรุกไทย',
+  'footer.support': 'สนับสนุน ThaiChess',
+  'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา ค่าใช้จ่ายในการดำเนินการ $20/เดือน หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
+  'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
+  'footer.thanks': 'ขอบคุณที่ช่วยให้ ThaiChess อยู่ต่อไป! 🙏',
+  'footer.bank_info': 'ไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
 
   // Language
   'lang.switch': 'EN',
