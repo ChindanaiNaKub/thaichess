@@ -10,6 +10,7 @@ import { initializeGlobalErrorReporting } from './lib/errorReporting';
 import { I18nProvider, preloadDetectedTranslations } from './lib/i18n';
 import { initializeClientPerfDebug, logClientPerfEvent } from './lib/perfDebug';
 import { PieceStyleProvider } from './lib/pieceStyle';
+import { ToastProvider } from './lib/toast';
 import { queryClient } from './lib/queryClient';
 import './index.css';
 
@@ -30,9 +31,11 @@ function bootstrap() {
           <I18nProvider>
             <AuthProvider>
               <PieceStyleProvider>
-                <BrowserRouter>
-                  <App />
-                </BrowserRouter>
+                <ToastProvider>
+                  <BrowserRouter>
+                    <App />
+                  </BrowserRouter>
+                </ToastProvider>
               </PieceStyleProvider>
             </AuthProvider>
           </I18nProvider>
