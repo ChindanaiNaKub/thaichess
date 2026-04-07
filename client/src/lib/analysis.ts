@@ -93,7 +93,17 @@ export async function requestPositionAnalysis(
   });
 
   if (!response.ok) {
-    throw new Error('Position analysis request failed');
+    // Provide specific error messages for common HTTP errors
+    if (response.status === 429) {
+      throw new Error('429 Too Many Requests: Analysis rate limit exceeded. Please wait a moment.');
+    }
+    if (response.status === 503) {
+      throw new Error('503 Service Unavailable: Analysis engine is temporarily unavailable.');
+    }
+    if (response.status >= 500) {
+      throw new Error(`Server error (${response.status}): Position analysis request failed`);
+    }
+    throw new Error(`Position analysis request failed (${response.status})`);
   }
 
   return await response.json() as PositionAnalysisResult;
