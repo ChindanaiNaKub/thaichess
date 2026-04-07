@@ -639,7 +639,7 @@ export default function HomePage() {
                 <p className="text-text-dim text-xs mt-1 max-w-md">{t('footer.support_desc')}</p>
               </div>
               <a
-                href="/donate-qr.png"
+                href="/donate-qr.jpg"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#4B0082] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#4B0082]/85 hover:scale-105 whitespace-nowrap"
