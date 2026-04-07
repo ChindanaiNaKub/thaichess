@@ -77,6 +77,10 @@ export function renderSeoHtml(template: string, pathname: string, baseUrl: strin
   html = upsertHeadTag(html, /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(seo.title)}" />`);
   html = upsertHeadTag(html, /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(seo.description)}" />`);
 
+  // Add hreflang tags for bilingual SEO (Thai/English)
+  const thaiUrl = new URL(seo.path, `${baseUrl}/`).toString();
+  html = upsertHeadTag(html, /<link\s+rel="alternate"\s+hreflang="[^"]*"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="en" href="${escapeHtml(thaiUrl)}" />\n  <link rel="alternate" hreflang="th" href="${escapeHtml(thaiUrl)}" />\n  <link rel="alternate" hreflang="x-default" href="${escapeHtml(thaiUrl)}" />`);
+
   html = html.replace(/\s*<script[^>]*data-seo-server="true"[^>]*>.*?<\/script>/gs, '');
   if (structuredData) {
     html = html.replace('</head>', `  <script type="application/ld+json" data-seo-server="true">${structuredData}</script>\n  </head>`);
