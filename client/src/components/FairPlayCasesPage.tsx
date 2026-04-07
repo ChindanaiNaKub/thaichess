@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import { useToast } from '../lib/toast';
 import { fairPlayCasesQueryOptions, useCaseActionMutation, type FairPlayCase, type FilterStatus } from '../queries/fairPlay';
 
 const STATUS_STYLES: Record<FilterStatus | FairPlayCase['status'], string> = {
@@ -21,6 +22,7 @@ function getDisplayName(item: FairPlayCase) {
 export default function FairPlayCasesPage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
+  const { showToast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<FilterStatus>('open');
@@ -60,15 +62,36 @@ export default function FairPlayCasesPage() {
   // Optimistic updates: cases disappear immediately when action is clicked
   // The mutation handles rollback on error
   async function handleRestrict(item: FairPlayCase) {
-    caseActionMutation.mutate({ action: 'restrict', caseId: item.id });
+    caseActionMutation.mutate(
+      { action: 'restrict', caseId: item.id },
+      {
+        onError: (err) => {
+          showToast(err instanceof Error ? err.message : t('fair_play.admin_action_failed'), 'error');
+        },
+      }
+    );
   }
 
   async function handleDismiss(item: FairPlayCase) {
-    caseActionMutation.mutate({ action: 'dismiss', caseId: item.id });
+    caseActionMutation.mutate(
+      { action: 'dismiss', caseId: item.id },
+      {
+        onError: (err) => {
+          showToast(err instanceof Error ? err.message : t('fair_play.admin_action_failed'), 'error');
+        },
+      }
+    );
   }
 
   async function handleClear(item: FairPlayCase) {
-    caseActionMutation.mutate({ action: 'clear', caseId: item.id, userId: item.user_id });
+    caseActionMutation.mutate(
+      { action: 'clear', caseId: item.id, userId: item.user_id },
+      {
+        onError: (err) => {
+          showToast(err instanceof Error ? err.message : t('fair_play.admin_action_failed'), 'error');
+        },
+      }
+    );
   }
 
   if (authLoading || user?.role !== 'admin') {
