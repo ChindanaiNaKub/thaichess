@@ -920,8 +920,10 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.how_to_play_makruk': 'How to Play Makruk',
   'footer.support': 'Support ThaiChess',
   'footer.support_desc': 'ThaiChess is free and has no ads. Running it costs $20/month. If you enjoy playing, consider supporting the project!',
-  'footer.donate': 'Buy Me a Coffee ☕',
+  'footer.donate': 'Donate ☕',
+  'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
   'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
+  'footer.bank_info': 'Bank: Kasikorn (KBank) | Account: 123-4-56789-0 | Name: Chindanai N.',
 
   // Language
   'lang.switch': 'TH',
@@ -957,8 +959,10 @@ const TH: Record<string, string> = {
   'footer.star_github': 'ติดดาวบน GitHub',
   'footer.support': 'สนับสนุน ThaiChess',
   'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา ค่าใช้จ่ายในการดำเนินการ $20/เดือน หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
-  'footer.donate': 'สนับสนุนค่ากาแฟ ☕',
+  'footer.donate': 'สนับสนุน ☕',
+  'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
   'footer.thanks': 'ขอบคุณที่ช่วยให้ ThaiChess อยู่ต่อไป! 🙏',
+  'footer.bank_info': 'ธนาคารกสิกร (KBank) | บัญชี: 123-4-56789-0 | ชื่อ: ชินดนัย เอ็น.',
 
   // Appearance
   'appearance.title': 'กระดานและตัวหมาก',
