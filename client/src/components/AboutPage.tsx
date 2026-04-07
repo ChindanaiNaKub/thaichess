@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from '../lib/i18n';
 import { routes } from '../lib/routes';
+import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import PieceSVG from './PieceSVG';
-
-interface Stats {
-  totalGames: number;
-  totalMoves: number;
-  whiteWins: number;
-  blackWins: number;
-  draws: number;
-}
+import { aboutStatsQueryOptions } from '../queries/stats';
 
 export default function AboutPage() {
   const { t } = useTranslation();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { data: stats } = useQuery(aboutStatsQueryOptions());
   const differenceKeys = ['about.diff1', 'about.diff2', 'about.diff3', 'about.diff4'] as const;
   const pieceCards = [
     { type: 'K' as const, title: t('guide.king'), desc: t('guide.king_move') },
@@ -24,13 +17,6 @@ export default function AboutPage() {
     { type: 'N' as const, title: t('guide.knight'), desc: t('guide.knight_move') },
     { type: 'P' as const, title: t('guide.pawn'), desc: t('guide.pawn_move') },
   ];
-
-  useEffect(() => {
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {});
-  }, []);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">

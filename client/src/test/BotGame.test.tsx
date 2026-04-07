@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BotGame from '../components/BotGame';
 
 const {
@@ -85,6 +86,12 @@ vi.mock('../lib/sounds', () => ({
   playGameOverSound: vi.fn(),
 }));
 
+vi.mock('../lib/toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
 vi.mock('../lib/analysis', () => ({
   buildInlineAnalysisRoute: vi.fn(() => '/analysis/bot'),
   requestBotMove: (...args: unknown[]) => requestBotMoveMock(...args),
@@ -137,12 +144,30 @@ vi.mock('../components/PieceSVG', () => ({
   default: () => <div data-testid="piece-svg" />,
 }));
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
+}
+
 function renderBotGame() {
-  return render(
-    <MemoryRouter>
-      <BotGame />
-    </MemoryRouter>
-  );
+  const Wrapper = createWrapper();
+  return render(<BotGame />, { wrapper: Wrapper });
 }
 
 describe('BotGame', () => {

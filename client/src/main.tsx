@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
@@ -8,6 +10,8 @@ import { initializeGlobalErrorReporting } from './lib/errorReporting';
 import { I18nProvider, preloadDetectedTranslations } from './lib/i18n';
 import { initializeClientPerfDebug, logClientPerfEvent } from './lib/perfDebug';
 import { PieceStyleProvider } from './lib/pieceStyle';
+import { ToastProvider } from './lib/toast';
+import { queryClient } from './lib/queryClient';
 import './index.css';
 
 initializeGlobalErrorReporting();
@@ -23,15 +27,20 @@ function bootstrap() {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <ErrorBoundary>
-        <I18nProvider>
-          <AuthProvider>
-            <PieceStyleProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
-            </PieceStyleProvider>
-          </AuthProvider>
-        </I18nProvider>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>
+            <AuthProvider>
+              <PieceStyleProvider>
+                <ToastProvider>
+                  <BrowserRouter>
+                    <App />
+                  </BrowserRouter>
+                </ToastProvider>
+              </PieceStyleProvider>
+            </AuthProvider>
+          </I18nProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </ErrorBoundary>
     </StrictMode>,
   );

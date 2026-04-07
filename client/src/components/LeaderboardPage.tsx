@@ -1,19 +1,10 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { routes } from '../lib/routes';
-
-interface LeaderboardEntry {
-  id: string;
-  display_name: string;
-  rating: number;
-  rated_games: number;
-  wins: number;
-  losses: number;
-  draws: number;
-}
+import { leaderboardQueryOptions, type LeaderboardEntry } from '../queries/leaderboard';
 
 function formatRecord(player: LeaderboardEntry): string {
   return `${player.wins}-${player.losses}-${player.draws}`;
@@ -28,27 +19,16 @@ export default function LeaderboardPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [players, setPlayers] = useState<LeaderboardEntry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    fetch('/api/leaderboard?limit=50')
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(t('leaderboard.load_failed', { status: response.status }));
-        }
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+  } = useQuery(leaderboardQueryOptions(50));
 
-        return response.json();
-      })
-      .then((data) => {
-        setPlayers(data.players || []);
-        setTotal(data.total || 0);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [t]);
+  const players = data?.players ?? [];
+  const total = data?.total ?? 0;
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -74,9 +54,19 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : isError ? (
+          <div className="text-center py-16 rounded-2xl border border-danger/30 bg-danger/10 px-6">
+            <p className="text-danger">{error?.message || t('error.generic')}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
+            >
+              {t('common.retry')}
+            </button>
           </div>
         ) : players.length === 0 ? (
           <div className="text-center py-16 rounded-2xl border border-surface-hover bg-surface-alt px-6">
@@ -111,7 +101,7 @@ export default function LeaderboardPage() {
             </div>
 
             <div className="divide-y divide-surface-hover/70">
-              {players.map((player, index) => {
+              {players.map((player: LeaderboardEntry, index: number) => {
                 const isCurrentUser = user?.id === player.id;
                 const podiumClass = index === 0
                   ? 'bg-[linear-gradient(90deg,rgba(199,162,79,0.18),transparent)]'

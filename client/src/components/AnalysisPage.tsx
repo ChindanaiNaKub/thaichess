@@ -1,5 +1,6 @@
 import { forwardRef, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, Move, Board as BoardType, GameState } from '@shared/types';
 import { createInitialBoard, posToAlgebraic } from '@shared/engine';
 import {
@@ -27,14 +28,7 @@ import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
 import type { WorkerResponse } from '../workers/analysisWorker';
-
-interface GameData {
-  id: string;
-  moves: Move[];
-  result: string;
-  resultReason: string;
-  moveCount: number;
-}
+import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 
 type AnalysisMode = 'game' | 'editor';
 type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
@@ -51,7 +45,15 @@ export default function AnalysisPage() {
   const { t } = useTranslation();
   const reviewT = useReviewCopy();
 
-  const [gameData, setGameData] = useState<GameData | null>(null);
+  // TanStack Query for fetching game data from API
+  const {
+    data: apiGameData,
+    isLoading: isLoadingApi,
+    isError: isApiError,
+    error: apiError,
+  } = useQuery(gameQueryOptions(gameId));
+
+  const [gameData, setGameData] = useState<GameAnalysisData | null>(null);
   const [mode, setMode] = useState<AnalysisMode>('game');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -150,34 +152,12 @@ export default function AnalysisPage() {
 
     if (gameId) {
       setMode('game');
-      fetch(`/api/game/${gameId}`)
-        .then(r => {
-          if (!r.ok) throw new Error(t('analysis.game_not_found'));
-          return r.json();
-        })
-        .then(data => {
-          if (data.moves) {
-            setGameData({
-              id: data.id,
-              moves: data.moves,
-              result: data.result || data.status,
-              resultReason: data.resultReason || '',
-              moveCount: data.moveCount || data.moves.length,
-            });
-          } else {
-            setError(t('analysis.no_moves'));
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          setError(t('analysis.game_not_found'));
-          setLoading(false);
-        });
+      // Data will be set by the apiGameData effect below
     } else {
       setMode('editor');
       setLoading(false);
     }
-  }, [gameId, searchParams, t]);
+  }, [gameId, searchParams, t, isLoadingApi, isApiError]);
 
   useEffect(() => {
     return () => {
@@ -185,6 +165,37 @@ export default function AnalysisPage() {
       workerRef.current = null;
     };
   }, []);
+
+  // Handle API game data from TanStack Query
+  useEffect(() => {
+    if (!gameId || mode !== 'game') return;
+
+    if (isLoadingApi) {
+      setLoading(true);
+      return;
+    }
+
+    if (isApiError) {
+      setError(t('analysis.game_not_found'));
+      setLoading(false);
+      return;
+    }
+
+    if (apiGameData) {
+      if (apiGameData.moves) {
+        setGameData({
+          id: apiGameData.id,
+          moves: apiGameData.moves,
+          result: apiGameData.result || apiGameData.status || 'unknown',
+          resultReason: apiGameData.resultReason || '',
+          moveCount: apiGameData.moveCount || apiGameData.moves.length,
+        });
+      } else {
+        setError(t('analysis.no_moves'));
+      }
+      setLoading(false);
+    }
+  }, [gameId, mode, apiGameData, isLoadingApi, isApiError, t]);
 
   // Run analysis when game data is loaded
   useEffect(() => {
@@ -1425,7 +1436,7 @@ function findCheckSquare(state: GameState): Position | null {
   return null;
 }
 
-function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
+function getAnalysisCacheKey(gameData: GameAnalysisData, movetimeMs: number): string {
   return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${movetimeMs}:${gameData.moves.length}`;
 }
 

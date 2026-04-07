@@ -27,7 +27,9 @@ import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } fr
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
+import { useToast } from '../lib/toast';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { useSaveBotGameMutation } from '../queries/botGames';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import BotAvatar from './BotAvatar';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -136,6 +138,9 @@ export default function BotGame() {
         }
       : null,
   });
+
+  const saveBotGameMutation = useSaveBotGameMutation();
+  const { showToast } = useToast();
 
   // Pre-move state for bot games
   const [premove, setPremove] = useState<{ from: Position; to: Position } | null>(null);
@@ -416,16 +421,15 @@ export default function BotGame() {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
 
+  // Save bot game result when game ends
   useEffect(() => {
     if (!gameStarted || !gameOverInfo || !currentGameId) return;
     if (persistedGameIdRef.current === currentGameId) return;
 
     persistedGameIdRef.current = currentGameId;
 
-    void fetch('/api/games/bot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    saveBotGameMutation.mutate(
+      {
         id: currentGameId,
         playerColor,
         playerName: playerDisplayName,
@@ -437,8 +441,16 @@ export default function BotGame() {
         moves: gameState.moveHistory,
         finalBoard: gameState.board,
         moveCount: gameState.moveCount,
-      }),
-    }).catch(() => undefined);
+      },
+      {
+        onSuccess: () => {
+          showToast(t('bot.save_success'), 'success');
+        },
+        onError: () => {
+          showToast(t('bot.save_failed'), 'error');
+        },
+      }
+    );
   }, [
     currentGameId,
     gameOverInfo,
@@ -451,6 +463,7 @@ export default function BotGame() {
     playerColor,
     playerDisplayName,
     selectedBot.id,
+    saveBotGameMutation,
   ]);
 
   useEffect(() => {

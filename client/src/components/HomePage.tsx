@@ -1,14 +1,17 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   loadBotGameRoute,
   loadLocalGameRoute,
   loadQuickPlayRoute,
 } from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
+import { homeStatsQueryOptions, type HomeStats } from '../queries/stats';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
+import { usePrefetchQueries } from '../hooks/usePrefetchQueries';
 
 import PieceSVG from './PieceSVG';
 
@@ -46,15 +49,13 @@ const SHOWCASE_PIECES: { type: PieceType; color: PieceColor }[] = [
   { type: 'P', color: 'white' },
 ];
 
-interface HomeStats {
-  totalGames: number;
-}
 type SocketModule = typeof import('../lib/socket');
 type SocketLike = SocketModule['socket'];
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { prefetchGames, prefetchLeaderboard } = usePrefetchQueries();
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -66,8 +67,14 @@ export default function HomePage() {
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
   const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
-  const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
+  
+  // Use TanStack Query for stats
+  const { data: stats } = useQuery({
+    ...homeStatsQueryOptions(),
+    enabled: showDeferredContent,
+  });
+  
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
@@ -99,18 +106,25 @@ export default function HomePage() {
     };
   }, []);
 
+  // Prefetch likely next pages when idle
   useEffect(() => {
-    if (!showDeferredContent || typeof fetch !== 'function') return;
+    if (typeof window === 'undefined') return;
+    
+    const prefetchWhenIdle = () => {
+      // Prefetch games and leaderboard data for faster navigation
+      prefetchGames();
+      prefetchLeaderboard();
+    };
 
-    fetch('/api/stats')
-      .then((response) => response.json())
-      .then((data) => {
-        if (typeof data?.totalGames === 'number') {
-          setStats({ totalGames: data.totalGames });
-        }
-      })
-      .catch(() => {});
-  }, [showDeferredContent]);
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(prefetchWhenIdle, { timeout: 2000 });
+      return () => window.cancelIdleCallback?.(idleId);
+    } else {
+      const timeoutId = setTimeout(prefetchWhenIdle, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [prefetchGames, prefetchLeaderboard]);
 
   useEffect(() => {
     if (deferredContentReady || typeof window === 'undefined') return;
