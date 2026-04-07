@@ -104,15 +104,46 @@ export function useReportFairPlayMutation() {
   });
 }
 
-// Mutation hook for case actions
+// Mutation hook for case actions with optimistic updates
 export function useCaseActionMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ action, caseId, userId }: { action: 'restrict' | 'dismiss' | 'clear'; caseId: number; userId?: string }) =>
       performCaseAction(action, caseId, userId),
-    onSuccess: () => {
-      // Invalidate fair play cases queries to refresh the list
+    onMutate: async ({ caseId }) => {
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['fairPlay', 'cases'] });
+
+      // Snapshot the previous value
+      const previousQueries = queryClient.getQueriesData<FairPlayCasesResponse>({ queryKey: ['fairPlay', 'cases'] });
+
+      // Optimistically remove the case from all queries
+      queryClient.setQueriesData<FairPlayCasesResponse>(
+        { queryKey: ['fairPlay', 'cases'] },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            cases: old.cases.filter(c => c.id !== caseId),
+            total: Math.max(0, old.total - 1),
+          };
+        }
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousQueries };
+    },
+    onError: (err, { caseId }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure data is correct
       queryClient.invalidateQueries({ queryKey: ['fairPlay', 'cases'] });
     },
   });
