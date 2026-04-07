@@ -116,6 +116,12 @@ vi.mock('../lib/sounds', () => ({
   playGameStartSound: playGameStartSoundMock,
 }));
 
+vi.mock('../lib/toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
