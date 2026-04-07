@@ -11,6 +11,7 @@ import { homeStatsQueryOptions, type HomeStats } from '../queries/stats';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
+import { usePrefetchQueries } from '../hooks/usePrefetchQueries';
 
 import PieceSVG from './PieceSVG';
 
@@ -54,6 +55,7 @@ type SocketLike = SocketModule['socket'];
 export default function HomePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { prefetchGames, prefetchLeaderboard } = usePrefetchQueries();
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -103,6 +105,26 @@ export default function HomePage() {
       cleanupCreateHandlers();
     };
   }, []);
+
+  // Prefetch likely next pages when idle
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const prefetchWhenIdle = () => {
+      // Prefetch games and leaderboard data for faster navigation
+      prefetchGames();
+      prefetchLeaderboard();
+    };
+
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(prefetchWhenIdle, { timeout: 2000 });
+      return () => window.cancelIdleCallback?.(idleId);
+    } else {
+      const timeoutId = setTimeout(prefetchWhenIdle, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [prefetchGames, prefetchLeaderboard]);
 
   useEffect(() => {
     if (deferredContentReady || typeof window === 'undefined') return;
