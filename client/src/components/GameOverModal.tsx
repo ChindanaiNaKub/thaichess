@@ -121,6 +121,7 @@ export default function GameOverModal({
             {onAnalyze && (
               <button
                 onClick={onAnalyze}
+                data-testid="analyze-game-button"
                 className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
               >
                 🔍 {t('analysis.analyze')}
