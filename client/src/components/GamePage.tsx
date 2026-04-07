@@ -13,6 +13,7 @@ import { useGameInteraction } from '../hooks/useGameInteraction';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { useReportFairPlayMutation } from '../queries/fairPlay';
+import { useToast } from '../lib/toast';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -81,7 +82,6 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
-  const [reportFeedback, setReportFeedback] = useState<string | null>(null);
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
   const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'reconnecting');
   const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
@@ -94,6 +94,7 @@ export default function GamePage() {
 
   // TanStack Query mutation for reporting fair play
   const reportMutation = useReportFairPlayMutation();
+  const { showToast } = useToast();
 
   // Arrow state
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -262,7 +263,6 @@ export default function GamePage() {
       setGameState(null);
       setGameOverInfo(null);
       setShowGameOverModal(false);
-      setReportFeedback(null);
       setRematchState('idle');
       clearSelection();
       setDrawOffered(false);
@@ -477,14 +477,12 @@ export default function GamePage() {
   const handleReportOpponent = async () => {
     if (!gameId || !gameState?.rated || !user || !playerColor || reportMutation.isPending) return;
 
-    setReportFeedback(null);
-
     reportMutation.mutate(gameId, {
       onSuccess: () => {
-        setReportFeedback(t('fair_play.report_sent'));
+        showToast(t('fair_play.report_sent'), 'success');
       },
       onError: (err) => {
-        setReportFeedback(err instanceof Error ? err.message : t('fair_play.report_failed'));
+        showToast(err instanceof Error ? err.message : t('fair_play.report_failed'), 'error');
       },
     });
   };
@@ -936,7 +934,6 @@ export default function GamePage() {
                   ? t('fair_play.report_sent')
                   : t('fair_play.report_opponent')}
                 reportDisabled={reportMutation.isPending || reportMutation.isSuccess}
-                reportStatusMessage={reportFeedback}
               />
             )}
 
@@ -1029,7 +1026,6 @@ export default function GamePage() {
               ? t('fair_play.report_sent_short')
               : t('fair_play.report_action')}
           reportDisabled={reportMutation.isPending || reportMutation.isSuccess}
-          reportStatusMessage={reportFeedback}
           onClose={() => setShowGameOverModal(false)}
         />
       )}

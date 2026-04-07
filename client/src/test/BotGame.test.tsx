@@ -86,6 +86,12 @@ vi.mock('../lib/sounds', () => ({
   playGameOverSound: vi.fn(),
 }));
 
+vi.mock('../lib/toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
 vi.mock('../lib/analysis', () => ({
   buildInlineAnalysisRoute: vi.fn(() => '/analysis/bot'),
   requestBotMove: (...args: unknown[]) => requestBotMoveMock(...args),

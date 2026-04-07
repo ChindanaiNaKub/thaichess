@@ -27,6 +27,7 @@ import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } fr
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
+import { useToast } from '../lib/toast';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { useSaveBotGameMutation } from '../queries/botGames';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
@@ -139,6 +140,7 @@ export default function BotGame() {
   });
 
   const saveBotGameMutation = useSaveBotGameMutation();
+  const { showToast } = useToast();
 
   // Pre-move state for bot games
   const [premove, setPremove] = useState<{ from: Position; to: Position } | null>(null);
@@ -426,19 +428,29 @@ export default function BotGame() {
 
     persistedGameIdRef.current = currentGameId;
 
-    saveBotGameMutation.mutate({
-      id: currentGameId,
-      playerColor,
-      playerName: playerDisplayName,
-      level: botLevel,
-      botId: selectedBot.id,
-      result: gameState.winner || 'draw',
-      resultReason: gameOverInfo.reason,
-      timeControl: BOT_GAME_TIME_CONTROL,
-      moves: gameState.moveHistory,
-      finalBoard: gameState.board,
-      moveCount: gameState.moveCount,
-    });
+    saveBotGameMutation.mutate(
+      {
+        id: currentGameId,
+        playerColor,
+        playerName: playerDisplayName,
+        level: botLevel,
+        botId: selectedBot.id,
+        result: gameState.winner || 'draw',
+        resultReason: gameOverInfo.reason,
+        timeControl: BOT_GAME_TIME_CONTROL,
+        moves: gameState.moveHistory,
+        finalBoard: gameState.board,
+        moveCount: gameState.moveCount,
+      },
+      {
+        onSuccess: () => {
+          showToast(t('bot.save_success'), 'success');
+        },
+        onError: () => {
+          showToast(t('bot.save_failed'), 'error');
+        },
+      }
+    );
   }, [
     currentGameId,
     gameOverInfo,
