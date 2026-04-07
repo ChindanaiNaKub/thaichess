@@ -30,7 +30,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'footer.support': 'Support ThaiChess',
   'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา ค่าใช้จ่ายในการดำเนินการ $20/เดือน หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
   'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
-  'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
+  'footer.thanks': 'ขอบคุณที่ช่วยให้ ThaiChess อยู่ต่อไป! 🙏',
   'footer.bank_info': 'ธนาคารไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
   'footer.tagline': 'ThaiChess — Free & Open Source',
   'footer.what_is_makruk': 'What Is Makruk?',
