@@ -121,6 +121,8 @@ function emitGameOverToParticipants(
 export const SOCKET_RATE_LIMITS = {
   create_game: { windowMs: 60 * 1000, max: 6 },
   join_game: { windowMs: 60 * 1000, max: 20 },
+  leave_game: { windowMs: 60 * 1000, max: 30 },
+  cancel_matchmaking: { windowMs: 60 * 1000, max: 20 },
   find_game: { windowMs: 60 * 1000, max: 10 },
   find_game_ip: { windowMs: 60 * 1000, max: 30 },
   make_move: { windowMs: 10 * 1000, max: 40 },
@@ -333,6 +335,8 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     });
 
     socket.on('leave_game', (payload) => {
+      if (!enforceSocketRateLimit(socket, 'leave_game', deps, ['socket', 'ip'])) return;
+      
       if (payload?.gameId !== undefined && !isValidGameId(payload.gameId)) {
         deps.monitoring.increment('socket.invalidPayload');
         rejectSocketEvent(deps.monitoring, socket, 'leave_game', 'Invalid game ID.');
@@ -658,6 +662,8 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     });
 
     socket.on('cancel_matchmaking', () => {
+      if (!enforceSocketRateLimit(socket, 'cancel_matchmaking', deps, ['socket', 'ip'])) return;
+      
       const removed = deps.matchmaking.removeFromQueue(socket.id);
       if (removed) {
         logInfo('matchmaking_cancelled', { socketId: socket.id });
