@@ -28,7 +28,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'footer.links_label': 'Useful links',
   'footer.star_github': 'Star on GitHub',
   'footer.support': 'Support ThaiChess',
-  'footer.support_desc': 'ThaiChess is free and has no ads. Running it costs $20/month. If you enjoy playing, consider supporting the project!',
+  'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา ค่าใช้จ่ายในการดำเนินการ $20/เดือน หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
   'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
   'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
   'footer.bank_info': 'ธนาคารไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
