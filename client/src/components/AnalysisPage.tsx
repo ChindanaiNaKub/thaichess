@@ -150,6 +150,15 @@ export default function AnalysisPage() {
       return;
     }
 
+    // Check if gameId is an inline source that requires sessionStorage data
+    const inlineSources = ['bot', 'local'];
+    if (gameId && inlineSources.includes(gameId)) {
+      // Inline source but no sessionStorage data - show session expired error
+      setError(t('analysis.session_expired'));
+      setLoading(false);
+      return;
+    }
+
     if (gameId) {
       setMode('game');
       // Data will be set by the apiGameData effect below

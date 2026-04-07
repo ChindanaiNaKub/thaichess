@@ -156,6 +156,44 @@ export default function BotGame() {
   const botName = selectedBot.name;
   const setupIntroPreview = getBotDialoguePack(selectedBot, lang).intro[0] ?? selectedBot.flavorIntroLine;
 
+  // Helper to save bot game and navigate to analysis
+  const handleAnalyzeGame = useCallback(() => {
+    if (!currentGameId || gameState.moveHistory.length === 0) {
+      navigate('/analysis');
+      return;
+    }
+
+    const gameResult: import('../queries/botGames').BotGameResult = {
+      id: currentGameId,
+      playerColor,
+      playerName: playerDisplayName,
+      level: botLevel,
+      botId: selectedBotId,
+      result: gameState.winner || 'draw',
+      resultReason: gameOverInfo?.reason || 'unknown',
+      timeControl: BOT_GAME_TIME_CONTROL,
+      moves: gameState.moveHistory,
+      finalBoard: gameState.board,
+      moveCount: gameState.moveHistory.length,
+    };
+
+    // Save to database first, then navigate to analysis with real game ID
+    saveBotGameMutation.mutate(gameResult, {
+      onSuccess: () => {
+        navigate(`/analysis/${currentGameId}`);
+      },
+      onError: () => {
+        // Fallback: navigate to inline analysis if save fails
+        navigate(buildInlineAnalysisRoute({
+          source: 'bot',
+          moves: gameState.moveHistory,
+          result: gameState.winner || 'draw',
+          reason: gameOverInfo?.reason || 'unknown',
+        }));
+      },
+    });
+  }, [currentGameId, gameState, playerColor, playerDisplayName, botLevel, selectedBotId, gameOverInfo, navigate, saveBotGameMutation]);
+
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
@@ -1243,14 +1281,7 @@ export default function BotGame() {
                 onRematch={handleStartGame}
                 onNewGame={handleReset}
                 onAnalyze={gameState.moveHistory.length > 0
-                  ? () => {
-                      navigate(buildInlineAnalysisRoute({
-                        source: 'bot',
-                        moves: gameState.moveHistory,
-                        result: gameState.winner || 'draw',
-                        reason: gameOverInfo.reason,
-                      }));
-                    }
+                  ? handleAnalyzeGame
                   : undefined
                 }
               />
@@ -1319,14 +1350,7 @@ export default function BotGame() {
           onRematch={handleStartGame}
           onNewGame={handleReset}
           onAnalyze={gameState.moveHistory.length > 0
-            ? () => {
-                navigate(buildInlineAnalysisRoute({
-                  source: 'bot',
-                  moves: gameState.moveHistory,
-                  result: gameState.winner || 'draw',
-                  reason: gameOverInfo.reason,
-                }));
-              }
+            ? handleAnalyzeGame
             : undefined
           }
           onClose={() => setShowGameOverModal(false)}
