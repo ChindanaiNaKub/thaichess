@@ -23,6 +23,49 @@ function createSampleGame() {
 }
 
 describe('usePostGameReview', () => {
+  it('keeps analysis mode active when switching the analysis root through move selection', () => {
+    const { finalState } = createSampleGame();
+    const { result } = renderHook(() => usePostGameReview({
+      enabled: true,
+      mainLine: finalState.moveHistory,
+      finalState,
+    }));
+
+    act(() => {
+      result.current.jumpToMainLine(0);
+    });
+
+    act(() => {
+      result.current.enterAnalysis();
+    });
+
+    act(() => {
+      result.current.handlePieceDrop({ row: 5, col: 1 }, { row: 4, col: 1 });
+    });
+
+    expect(result.current.mode).toBe('analysis');
+    expect(result.current.analysisRootMoveIndex).toBe(0);
+    expect(result.current.analysisLine).toHaveLength(1);
+
+    act(() => {
+      result.current.jumpToAnalysisRoot(1);
+    });
+
+    expect(result.current.mode).toBe('analysis');
+    expect(result.current.selectedMainLineMoveIndex).toBe(1);
+    expect(result.current.analysisRootMoveIndex).toBe(1);
+    expect(result.current.analysisLine).toHaveLength(0);
+    expect(result.current.currentMoveHistory).toHaveLength(finalState.moveHistory.length);
+
+    act(() => {
+      result.current.jumpToAnalysisRoot(0);
+    });
+
+    expect(result.current.mode).toBe('analysis');
+    expect(result.current.analysisRootMoveIndex).toBe(0);
+    expect(result.current.analysisLine).toHaveLength(1);
+  });
+
   it('restores the exact official board after leaving an analysis branch', () => {
     const { afterWhite, finalState } = createSampleGame();
     const { result } = renderHook(() => usePostGameReview({

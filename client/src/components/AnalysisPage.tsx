@@ -27,7 +27,6 @@ import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
-import PostGameReviewPanel from './PostGameReviewPanel';
 import type { WorkerResponse } from '../workers/analysisWorker';
 import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 
@@ -278,6 +277,9 @@ export default function AnalysisPage() {
     mainLine: gameData?.moves ?? [],
   });
   const currentPlyIndex = review.selectedMainLineMoveIndex;
+  const highlightedMainLineMoveIndex = review.mode === 'analysis'
+    ? review.analysisRootMoveIndex ?? review.selectedMainLineMoveIndex
+    : review.selectedMainLineMoveIndex;
 
   // Keyboard navigation
   useEffect(() => {
@@ -521,6 +523,11 @@ export default function AnalysisPage() {
   const reviewIsProvisional = analysis?.engine?.confidence === 'provisional';
 
   const handleMoveClick = useCallback((index: number) => {
+    if (review.mode === 'analysis') {
+      review.jumpToAnalysisRoot(index);
+      return;
+    }
+
     review.jumpToMainLine(index);
   }, [review]);
 
@@ -761,17 +768,17 @@ export default function AnalysisPage() {
       <Header subtitle={t('analysis.title')} />
 
       <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1200px]">
+        <div className="grid w-full max-w-[1400px] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(30rem,36rem)] xl:grid-cols-[minmax(0,1fr)_38rem] lg:items-start">
           {/* Board + Eval Bar (sticky on desktop) */}
-          <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px] lg:sticky lg:top-4 lg:self-start">
+          <div className="flex gap-2 w-full max-w-[760px] lg:sticky lg:top-4 lg:self-start">
             {/* Eval Bar */}
             <EvalBar eval={currentEval} />
 
-            <div className="flex flex-col items-center gap-2 flex-1">
+            <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
               {/* View controls */}
-              <div className="flex items-center gap-2 text-sm w-full justify-between">
+              <div className="flex items-center gap-2 text-sm w-full justify-between rounded-lg border border-surface-hover bg-surface-alt/80 px-2.5 py-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-text-dim">{t('local.view_as')}</span>
+                  <span className="text-text-dim text-xs">{t('local.view_as')}</span>
                   <button
                     onClick={() => setViewAs('white')}
                     className={`px-3 py-1 rounded text-xs ${viewAs === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
@@ -813,7 +820,7 @@ export default function AnalysisPage() {
               </BoardErrorBoundary>
 
               {/* Nav buttons */}
-              <div className="flex items-center justify-center gap-1">
+              <div className="flex items-center justify-center gap-1 rounded-lg border border-surface-hover bg-surface-alt/80 px-2 py-1.5">
                 <button
                   onClick={review.jumpToStart}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
@@ -843,44 +850,81 @@ export default function AnalysisPage() {
           </div>
 
           {/* Side Panel */}
-          <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px] lg:self-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
+          <div className="flex min-w-0 flex-col gap-2 w-full max-w-[760px] lg:self-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
             <div className="rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-              <div className="px-3 py-2 border-b border-surface-hover flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
-                {analysis && (
-                  <label className="flex items-center gap-1.5 text-xs text-text cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showBestMove}
-                      onChange={e => setShowBestMove(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded accent-primary"
-                    />
-                    {t('analysis.show_best')}
-                  </label>
-                )}
+              <div className="px-3 py-2 border-b border-surface-hover flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
+                    {review.mode === 'analysis' && (
+                      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                        {reviewT('review.analysis_branch')}
+                      </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {analysis && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-text cursor-pointer whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={showBestMove}
+                        onChange={e => setShowBestMove(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded accent-primary"
+                      />
+                      {t('analysis.show_best')}
+                    </label>
+                  )}
+                  <div className="hidden sm:flex items-center gap-1">
+                    <button
+                      onClick={review.jumpToStart}
+                      className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    >
+                      ⏮
+                    </button>
+                    <button
+                      onClick={review.stepBackward}
+                      className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      onClick={review.stepForward}
+                      className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    >
+                      ▶
+                    </button>
+                    <button
+                      onClick={review.jumpToEnd}
+                      className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    >
+                      ⏭
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div ref={scrollRef} className="max-h-[320px] overflow-y-auto p-1">
+              <div ref={scrollRef} className="max-h-[460px] lg:max-h-[calc(100vh-18rem)] overflow-y-auto p-1.5">
                 {movePairs.length === 0 ? (
                   <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
                 ) : (
-                  <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-sm">
-                    {review.mode === 'analysis' && review.analysisRootMoveIndex === -1 && review.analysisLine.length > 0 && (
-                      <div className="col-span-3 px-2 pb-2">
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-[15px] leading-6">
+                    {review.analysisRootMoveIndex === -1 && review.analysisLine.length > 0 && (
+                      <div className="col-span-3 pb-1">
                         <VariationLine
-                          ref={setActiveMoveElement}
+                          ref={review.selectedAnalysisMoveIndex >= 0 ? setActiveMoveElement : undefined}
                           rootMoveIndex={review.analysisRootMoveIndex}
                           analysisLine={review.analysisLine}
+                          selectedMoveIndex={review.selectedAnalysisMoveIndex}
+                          onSelectMove={review.jumpToAnalysisMove}
                           t={reviewT}
                         />
                       </div>
                     )}
                     {movePairs.map(({ num, white, black, whiteIdx, blackIdx, whiteClass, blackClass }, pairIndex) => (
                       <div key={num} className="contents">
-                        <span className="text-text px-2 py-0.5 text-right">{num}.</span>
+                        <span className="text-text px-2 py-1 text-right">{num}.</span>
                         <span
-                          ref={currentPlyIndex === whiteIdx ? setActiveMoveElement : undefined}
-                          className={`px-2 py-0.5 font-mono rounded cursor-pointer transition-colors ${
-                            currentPlyIndex === whiteIdx ? 'move-active' : 'move-clickable'
+                          ref={highlightedMainLineMoveIndex === whiteIdx ? setActiveMoveElement : undefined}
+                          className={`px-2 py-1 font-mono rounded cursor-pointer transition-colors ${
+                            highlightedMainLineMoveIndex === whiteIdx ? 'move-active shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable'
                           }`}
                           onClick={() => handleMoveClick(whiteIdx)}
                         >
@@ -892,10 +936,10 @@ export default function AnalysisPage() {
                           )}
                         </span>
                         <span
-                          ref={currentPlyIndex === blackIdx ? setActiveMoveElement : undefined}
-                          className={`px-2 py-0.5 font-mono rounded ${
+                          ref={highlightedMainLineMoveIndex === blackIdx ? setActiveMoveElement : undefined}
+                          className={`px-2 py-1 font-mono rounded ${
                             black
-                              ? currentPlyIndex === blackIdx ? 'move-active cursor-pointer' : 'move-clickable cursor-pointer'
+                              ? highlightedMainLineMoveIndex === blackIdx ? 'move-active cursor-pointer shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable cursor-pointer'
                               : ''
                           }`}
                           onClick={() => black && handleMoveClick(blackIdx)}
@@ -911,16 +955,17 @@ export default function AnalysisPage() {
                             </>
                           )}
                         </span>
-                        {review.mode === 'analysis'
-                          && review.analysisRootMoveIndex !== null
+                        {review.analysisRootMoveIndex !== null
                           && review.analysisRootMoveIndex >= 0
                           && review.analysisLine.length > 0
-                          && pairIndex === Math.max(0, Math.floor(review.analysisRootMoveIndex / 2)) && (
-                            <div className="col-span-3 px-2 pb-2 pt-1">
+                          && pairIndex === Math.floor(review.analysisRootMoveIndex / 2) && (
+                            <div className="col-span-3 pb-1">
                               <VariationLine
-                                ref={setActiveMoveElement}
+                                ref={review.selectedAnalysisMoveIndex >= 0 ? setActiveMoveElement : undefined}
                                 rootMoveIndex={review.analysisRootMoveIndex}
                                 analysisLine={review.analysisLine}
+                                selectedMoveIndex={review.selectedAnalysisMoveIndex}
+                                onSelectMove={review.jumpToAnalysisMove}
                                 t={reviewT}
                               />
                             </div>
@@ -930,30 +975,36 @@ export default function AnalysisPage() {
                   </div>
                 )}
               </div>
+              <div className="border-t border-surface-hover px-2.5 py-2 flex flex-wrap items-center gap-2">
+                {review.mode === 'analysis' ? (
+                  <>
+                    <button
+                      onClick={review.returnToMainLine}
+                      className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    >
+                      {reviewT('review.return_to_game')}
+                    </button>
+                    <button
+                      onClick={review.resetAnalysis}
+                      disabled={!review.canResetAnalysis}
+                      className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
+                    >
+                      {reviewT('review.reset_variation')}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={review.enterAnalysis}
+                    disabled={!review.canEnterAnalysis}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-50"
+                  >
+                    {reviewT('review.enter_analysis')}
+                  </button>
+                )}
+              </div>
             </div>
 
-            <PostGameReviewPanel
-              mode={review.mode}
-              selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
-              analysisRootMoveIndex={review.analysisRootMoveIndex}
-              analysisLine={review.analysisLine}
-              canEnterAnalysis={review.canEnterAnalysis}
-              canResetAnalysis={review.canResetAnalysis}
-              canStepBackward={review.canStepBackward}
-              canStepForward={review.canStepForward}
-              onEnterAnalysis={review.enterAnalysis}
-              onReturnToMainLine={review.returnToMainLine}
-              onResetAnalysis={review.resetAnalysis}
-              onStepBackward={review.stepBackward}
-              onStepForward={review.stepForward}
-              onJumpToStart={review.jumpToStart}
-              onJumpToEnd={review.jumpToEnd}
-              engineAnalysis={currentPositionAnalysis}
-              engineAnalyzing={currentPositionAnalyzing}
-              engineError={currentPositionError}
-            />
-
-            <CurrentPositionCard
+            <CompactEnginePanel
               currentPlyIndex={currentPlyIndex}
               moveCount={gameData.moves.length}
               currentEval={currentEval}
@@ -963,91 +1014,18 @@ export default function AnalysisPage() {
               principalVariation={currentPositionAnalysis?.principalVariation ?? []}
               analyzing={currentPositionAnalyzing}
               error={currentPositionError}
+              reviewMode={review.mode}
+              currentAnalyzedMove={currentAnalyzedMove}
+              reviewIsProvisional={reviewIsProvisional}
+              analyzingGame={analyzing}
+              progress={progress}
+              analysisElapsedSeconds={analysisElapsedSeconds}
               t={t}
               reviewT={reviewT}
             />
 
-            {/* Analysis Status / Progress */}
-            {analyzing && (
-              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-text-bright">{t('analysis.analyzing')}</span>
-                </div>
-                <p className="text-xs leading-relaxed text-text mb-3">
-                  {t('analysis.analyzing_note')}
-                </p>
-                {progress ? (
-                  <>
-                    <div className="w-full bg-surface rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-text mt-1">
-                      {t('analysis.progress', { current: progress.current, total: progress.total })}
-                    </div>
-                    <div className="text-xs text-text-dim mt-1">
-                      {t('analysis.elapsed', { seconds: analysisElapsedSeconds })}
-                    </div>
-                    {showSlowAnalysisHint && (
-                      <div className="text-xs text-text-dim mt-2">
-                        {t('analysis.slow_hint')}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-2" aria-hidden="true">
-                      <div className="h-2 rounded-full bg-surface-hover animate-pulse" />
-                      <div className="h-2 w-2/3 rounded-full bg-surface-hover animate-pulse" />
-                    </div>
-                    <div className="text-xs text-text-dim mt-2">
-                      {t('analysis.elapsed', { seconds: analysisElapsedSeconds })}
-                    </div>
-                    {showSlowAnalysisHint && (
-                      <div className="text-xs text-text-dim mt-2">
-                        {t('analysis.slow_hint')}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Accuracy Summary */}
-            {analysis && (
-              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <h3 className="text-sm font-semibold text-text-bright mb-3">{t('analysis.accuracy')}</h3>
-                {analysis.engine && (
-                  <div className={`mb-3 rounded-lg border px-3 py-2 text-xs leading-relaxed ${
-                    reviewIsProvisional
-                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
-                      : 'border-white/10 bg-surface-alt text-text'
-                  }`}>
-                    <div className="font-medium text-text-bright">
-                      {reviewIsProvisional ? t('analysis.provisional_title') : t('analysis.engine_title')}
-                    </div>
-                    <div className="mt-1">
-                      {reviewIsProvisional
-                        ? t('analysis.provisional_note', { engine: analysis.engine.label })
-                        : t('analysis.engine_note', { engine: analysis.engine.label })}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <AccuracyCard color="white" accuracy={analysis.whiteAccuracy} summary={analysis.summary.white} t={t} />
-                  <AccuracyCard color="black" accuracy={analysis.blackAccuracy} summary={analysis.summary.black} t={t} />
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-text">{t('analysis.note')}</p>
-              </div>
-            )}
-
-            {/* Eval Graph */}
             {analysis && analysis.evaluations.length > 1 && (
-              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-                <h3 className="text-sm font-semibold text-text-bright mb-2">{t('analysis.eval_graph')}</h3>
+              <div className="rounded-xl border border-white/10 bg-surface p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <EvalGraph
                   evaluations={analysis.evaluations}
                   moves={analysis.moves}
@@ -1056,36 +1034,6 @@ export default function AnalysisPage() {
                 />
               </div>
             )}
-
-            {/* Game Review Card (Chess.com-style) */}
-            {currentAnalyzedMove && (
-              <ReviewCard
-                analyzed={currentAnalyzedMove}
-                currentPositionAnalysis={currentPositionAnalysis}
-                currentPositionAnalyzing={currentPositionAnalyzing}
-                currentPositionError={currentPositionError}
-                winningChances={currentWinningChances}
-                t={t}
-                reviewT={reviewT}
-                onNext={review.stepForward}
-                onPrev={review.stepBackward}
-                hasNext={review.canStepForward}
-                hasPrev={review.canStepBackward}
-              />
-            )}
-
-            {/* Keyboard hint */}
-            <div className="text-center text-xs text-text">
-              {t('analysis.keyboard_hint')}
-            </div>
-
-            {/* Back buttons */}
-            <button
-              onClick={() => navigate('/')}
-              className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors"
-            >
-              {t('common.back_home')}
-            </button>
           </div>
         </div>
       </main>
@@ -1245,7 +1193,7 @@ function EvalGraph({
   );
 }
 
-function CurrentPositionCard({
+function CompactEnginePanel({
   currentPlyIndex,
   moveCount,
   currentEval,
@@ -1255,6 +1203,12 @@ function CurrentPositionCard({
   principalVariation,
   analyzing,
   error,
+  reviewMode,
+  currentAnalyzedMove,
+  reviewIsProvisional,
+  analyzingGame,
+  progress,
+  analysisElapsedSeconds,
   t,
   reviewT,
 }: {
@@ -1267,184 +1221,140 @@ function CurrentPositionCard({
   principalVariation: string[];
   analyzing: boolean;
   error: string | null;
+  reviewMode: 'mainLine' | 'analysis';
+  currentAnalyzedMove: AnalyzedMove | null;
+  reviewIsProvisional: boolean;
+  analyzingGame: boolean;
+  progress: AnalysisProgress | null;
+  analysisElapsedSeconds: number;
   t: (key: string, params?: Record<string, string | number>) => string;
-  reviewT: (key: 'analysis.current_position' | 'analysis.position_before_start' | 'analysis.position_after_move' | 'analysis.turn_to_move' | 'analysis.win_chances' | 'analysis.best_continuation' | 'review.engine_loading' | 'review.engine_error', params?: Record<string, string | number>) => string;
+  reviewT: (key: 'analysis.current_position' | 'analysis.position_before_start' | 'analysis.position_after_move' | 'analysis.turn_to_move' | 'analysis.win_chances' | 'analysis.best_continuation' | 'analysis.eval_swing' | 'analysis.expected_score' | 'review.engine_loading' | 'review.engine_error' | 'review.engine' | 'review.analysis_branch', params?: Record<string, string | number>) => string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const classification = currentAnalyzedMove?.classification ?? null;
+  const classificationColor = classification ? getClassificationColor(classification) : null;
+  const swing = currentAnalyzedMove ? currentAnalyzedMove.evalAfter - currentAnalyzedMove.evalBefore : null;
+  const swingLabel = swing === null ? null : `${swing >= 0 ? '+' : ''}${formatEval(swing)}`;
+  const currentMoveText = currentAnalyzedMove
+    ? `${posToAlgebraic(currentAnalyzedMove.move.from)}${currentAnalyzedMove.move.captured ? 'x' : '-'}${posToAlgebraic(currentAnalyzedMove.move.to)}`
+    : null;
+  const pvText = principalVariation.join(' ');
+  const pvPreview = principalVariation.slice(0, 5).join(' ');
+  const positionLabel = currentPlyIndex < 0
+    ? reviewT('analysis.position_before_start')
+    : reviewT('analysis.position_after_move', { move: currentPlyIndex + 1, total: moveCount });
+
   return (
-    <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+    <div className="rounded-xl border border-white/10 bg-surface p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-text-bright">{reviewT('analysis.current_position')}</h3>
-        <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 text-[11px] font-semibold text-text">
-          {currentPlyIndex < 0
-            ? reviewT('analysis.position_before_start')
-            : reviewT('analysis.position_after_move', { move: currentPlyIndex + 1, total: moveCount })}
-        </span>
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          <h3 className="text-sm font-semibold text-text-bright">{reviewT('review.engine')}</h3>
+          {reviewMode === 'analysis' && (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+              {reviewT('review.analysis_branch')}
+            </span>
+          )}
+          {reviewIsProvisional && (
+            <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">
+              Local
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:inline rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 text-[11px] font-semibold text-text whitespace-nowrap">
+            {positionLabel}
+          </span>
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="rounded-lg border border-surface-hover bg-surface-alt px-2.5 py-1 text-[11px] font-semibold text-text transition-colors hover:bg-surface-hover"
+          >
+            {expanded ? 'Less' : 'More'}
+          </button>
+        </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{t('analysis.editor.eval')}</div>
-          <div className="font-mono font-semibold text-text-bright">{formatEval(currentEval)}</div>
+          <div className="text-[11px] text-text-dim">{t('analysis.editor.eval')}</div>
+          <div className="font-mono text-lg font-semibold text-text-bright">{formatEval(currentEval)}</div>
         </div>
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{reviewT('analysis.turn_to_move')}</div>
-          <div className="font-semibold text-text-bright">{t(turn === 'white' ? 'common.white' : 'common.black')}</div>
-        </div>
-        <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{reviewT('analysis.win_chances')}</div>
-          <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
-        </div>
-        <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-text-dim">{t('analysis.editor.best_move')}</div>
-          <div className="font-mono font-semibold text-text-bright">
+          <div className="text-[11px] text-text-dim">{t('analysis.editor.best_move')}</div>
+          <div className="font-mono font-semibold text-text-bright truncate">
             {analyzing ? reviewT('review.engine_loading') : error ? reviewT('review.engine_error') : bestMoveText}
           </div>
         </div>
       </div>
 
-      {principalVariation.length > 0 && (
-        <div className="mt-3 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {reviewT('analysis.best_continuation')}
-          </div>
-          <div className="font-mono text-xs text-text-bright">{principalVariation.join(' ')}</div>
+      {currentAnalyzedMove && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-mono text-text-bright">
+            {currentMoveText}
+          </span>
+          {classification && classificationColor && (
+            <span
+              className="rounded-full px-2 py-1 font-semibold"
+              style={{ backgroundColor: `${classificationColor}22`, color: classificationColor }}
+            >
+              {t(`analysis.${classification}`)}
+            </span>
+          )}
+          {swingLabel && (
+            <span className={`rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-mono ${swing !== null && swing >= 0 ? 'text-primary-light' : 'text-danger'}`}>
+              {reviewT('analysis.eval_swing')} {swingLabel}
+            </span>
+          )}
+          <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-semibold text-text">
+            {reviewT('analysis.expected_score')} {Math.round(currentAnalyzedMove.winPercentBefore)}% {'->'} {Math.round(currentAnalyzedMove.winPercentAfter)}%
+          </span>
         </div>
       )}
-    </div>
-  );
-}
 
-function ReviewCard({ analyzed, currentPositionAnalysis, currentPositionAnalyzing, currentPositionError, winningChances, t, reviewT, onNext, onPrev, hasNext, hasPrev }: {
-  analyzed: AnalyzedMove;
-  currentPositionAnalysis: PositionAnalysisResult | null;
-  currentPositionAnalyzing: boolean;
-  currentPositionError: string | null;
-  winningChances: { white: number; black: number };
-  t: (key: string, params?: Record<string, string | number>) => string;
-  reviewT: (key: 'analysis.win_chances' | 'analysis.eval_swing' | 'analysis.expected_score' | 'review.engine_loading' | 'review.engine_error', params?: Record<string, string | number>) => string;
-  onNext: () => void;
-  onPrev: () => void;
-  hasNext: boolean;
-  hasPrev: boolean;
-}) {
-  const cls = analyzed.classification;
-  const color = getClassificationColor(cls);
-  const theme = getClassificationTheme(cls);
-  const icon = getClassificationIcon(cls);
-  const moveStr = `${posToAlgebraic(analyzed.move.from)}${analyzed.move.captured ? 'x' : '-'}${posToAlgebraic(analyzed.move.to)}`;
-  const evalStr = formatEval(analyzed.evalAfter);
-  const accuracyStr = `${Math.round(analyzed.moveAccuracy)}%`;
-  const swing = analyzed.evalAfter - analyzed.evalBefore;
-  const swingLabel = `${swing >= 0 ? '+' : ''}${formatEval(swing)}`;
-  const currentBestMoveText = currentPositionAnalysis?.bestMove
-    ? `${posToAlgebraic(currentPositionAnalysis.bestMove.from)}-${posToAlgebraic(currentPositionAnalysis.bestMove.to)}`
-    : t('analysis.editor.none');
-
-  const getDescription = (): string => {
-    if (cls === 'best' || cls === 'excellent') return t('analysis.desc_best');
-    if (cls === 'good') return t('analysis.desc_good');
-    if (cls === 'inaccuracy') return t('analysis.desc_inaccuracy');
-    if (cls === 'mistake') return t('analysis.desc_mistake');
-    if (cls === 'blunder') return t('analysis.desc_blunder');
-    return '';
-  };
-
-  const bestMoveStr = analyzed.bestMove
-    ? `${posToAlgebraic(analyzed.bestMove.from)}-${posToAlgebraic(analyzed.bestMove.to)}`
-    : '';
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-      <div className="p-3">
-        <div className="flex items-start gap-3">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 shadow-md border"
-            style={{ backgroundColor: theme.iconBg, borderColor: theme.iconBorder, color: theme.iconText }}
-          >
-            {icon}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-sm font-bold text-text-bright">{moveStr}</span>
-              <span
-                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold tracking-[0.02em]"
-                style={{ backgroundColor: theme.pillBg, borderColor: theme.pillBorder, color: theme.pillText }}
-              >
-                {t(`analysis.${cls}`)}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-white/8 bg-surface-hover px-2 py-0.5 text-[10px] font-bold text-text-bright">
-                {accuracyStr}
-              </span>
-              <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-hover text-text-bright border border-white/8">
-                {evalStr}
-              </span>
-            </div>
-            <p className="text-xs text-text leading-relaxed">{getDescription()}</p>
-            <p className="mt-1 text-[11px] text-text-dim">
-              {t('analysis.move_accuracy')}: <span className="font-semibold text-text-bright">{accuracyStr}</span>
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-text">
-              <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{t('analysis.eval_before')}</div>
-                <div className="font-mono font-semibold text-text-bright">{formatEval(analyzed.evalBefore)}</div>
-              </div>
-              <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{t('analysis.eval_after')}</div>
-                <div className="font-mono font-semibold text-text-bright">{formatEval(analyzed.evalAfter)}</div>
-              </div>
-              <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{reviewT('analysis.win_chances')}</div>
-                <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
-              </div>
-              <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2">
-                <div className="text-text-dim">{reviewT('analysis.eval_swing')}</div>
-                <div className={`font-mono font-semibold ${swing >= 0 ? 'text-primary-light' : 'text-danger'}`}>{swingLabel}</div>
-              </div>
-            </div>
-            <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2 text-[11px] text-text">
-              <div className="text-text-dim">{reviewT('analysis.expected_score')}</div>
-              <div className="font-semibold text-text-bright">{Math.round(analyzed.winPercentBefore)}% {'->'} {Math.round(analyzed.winPercentAfter)}%</div>
-            </div>
-            <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-2.5 py-2 text-[11px] text-text">
-              <div className="text-text-dim">{t('analysis.editor.best_move')}</div>
-              <div className="font-mono font-semibold text-text-bright">
-                {currentPositionAnalyzing
-                  ? reviewT('review.engine_loading')
-                  : currentPositionError
-                    ? reviewT('review.engine_error')
-                    : currentBestMoveText}
-              </div>
-            </div>
-            {analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') && (
-              <div className="mt-1.5 text-xs px-2 py-1 rounded border inline-block font-medium" style={{ backgroundColor: 'rgba(86, 179, 48, 0.16)', borderColor: 'rgba(134, 204, 99, 0.35)', color: '#d8f1be' }}>
-                ⭐ {t('analysis.best_was')}: <span className="font-mono font-bold">{bestMoveStr}</span> ({formatEval(analyzed.bestEval)})
-              </div>
-            )}
+      {!expanded && pvPreview && (
+        <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+            <span>PV</span>
+            <span className="text-[10px] normal-case tracking-normal text-text-dim">{pvPreview}</span>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex border-t border-surface-hover">
-        <button
-          onClick={onPrev}
-          disabled={!hasPrev}
-          className="flex-1 py-2.5 text-sm font-semibold text-text hover:text-text-bright hover:bg-surface-hover transition-colors disabled:opacity-30 border-r border-surface-hover"
-        >
-          ◀ {t('analysis.prev')}
-        </button>
-        <button
-          onClick={onNext}
-          disabled={!hasNext}
-          className="flex-1 py-2.5 text-sm font-semibold transition-colors disabled:opacity-30"
-          style={{
-            backgroundColor: hasNext ? theme.buttonBg : undefined,
-            color: hasNext ? theme.buttonText : undefined,
-          }}
-        >
-          {t('analysis.next')} ▶
-        </button>
-      </div>
+      {analyzingGame && (
+        <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
+          <div className="flex items-center justify-between gap-2 text-[11px] text-text-dim">
+            <span>{t('analysis.analyzing')}</span>
+            <span>{progress ? `${progress.current}/${progress.total}` : t('analysis.elapsed', { seconds: analysisElapsedSeconds })}</span>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-surface">
+            <div
+              className="h-1.5 rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${progress ? (progress.current / progress.total) * 100 : 18}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
+            <div className="text-[11px] text-text-dim">{reviewT('analysis.turn_to_move')}</div>
+            <div className="font-semibold text-text-bright">{t(turn === 'white' ? 'common.white' : 'common.black')}</div>
+          </div>
+          <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
+            <div className="text-[11px] text-text-dim">{reviewT('analysis.win_chances')}</div>
+            <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
+          </div>
+          {pvText && (
+            <div className="sm:col-span-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                PV
+              </div>
+              <div className="font-mono text-xs leading-5 text-text-bright break-words">{pvText}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1563,31 +1473,42 @@ interface MovePair {
 interface VariationToken {
   label: string;
   moveText: string;
-  isCurrent: boolean;
+  moveIndex: number;
+  isSelected: boolean;
 }
 
 const VariationLine = forwardRef<HTMLDivElement, {
   rootMoveIndex: number | null;
   analysisLine: Move[];
+  selectedMoveIndex: number;
+  onSelectMove: (moveIndex: number) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
-}>(({ rootMoveIndex, analysisLine, t }, ref) => {
-  const tokens = buildVariationTokens(rootMoveIndex, analysisLine);
+}>(({ rootMoveIndex, analysisLine, selectedMoveIndex, onSelectMove, t }, ref) => {
+  const tokens = buildVariationTokens(rootMoveIndex, analysisLine, selectedMoveIndex);
 
   return (
     <div
       ref={ref}
-      className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-text"
+      className="ml-6 border-l border-primary/25 pl-3 py-1 text-[12px] text-text"
     >
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-        {t('review.analysis_branch')}
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 font-mono">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-light">
+          {t('review.analysis_branch')}
+        </span>
         {tokens.map((token) => (
           <span key={`${token.label}-${token.moveText}`} className="contents">
             <span className="text-text-dim">{token.label}</span>
-            <span className={`rounded px-1.5 py-0.5 ${token.isCurrent ? 'bg-primary/25 text-text-bright ring-1 ring-primary/30' : 'bg-surface-hover/70 text-text'}`}>
+            <button
+              type="button"
+              onClick={() => onSelectMove(token.moveIndex)}
+              className={`rounded px-1.5 py-0.5 text-left transition-colors ${
+                token.isSelected
+                  ? 'bg-primary/25 text-text-bright ring-1 ring-primary/30'
+                  : 'text-text hover:bg-surface-hover/70'
+              }`}
+            >
               {token.moveText}
-            </span>
+            </button>
           </span>
         ))}
       </div>
@@ -1625,7 +1546,7 @@ function formatReviewMove(move: Move): string {
   return `${from}${move.captured ? 'x' : '-'}${dest}${promo}`;
 }
 
-function buildVariationTokens(rootMoveIndex: number | null, analysisLine: Move[]): VariationToken[] {
+function buildVariationTokens(rootMoveIndex: number | null, analysisLine: Move[], selectedMoveIndex: number): VariationToken[] {
   if (rootMoveIndex === null) return [];
 
   let ply = rootMoveIndex + 1;
@@ -1638,7 +1559,8 @@ function buildVariationTokens(rootMoveIndex: number | null, analysisLine: Move[]
     return {
       label,
       moveText: formatReviewMove(move),
-      isCurrent: index === analysisLine.length - 1,
+      moveIndex: index,
+      isSelected: index === selectedMoveIndex,
     };
   });
 }
