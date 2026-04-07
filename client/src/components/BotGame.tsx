@@ -28,6 +28,7 @@ import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { useSaveBotGameMutation } from '../queries/botGames';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import BotAvatar from './BotAvatar';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -136,6 +137,8 @@ export default function BotGame() {
         }
       : null,
   });
+
+  const saveBotGameMutation = useSaveBotGameMutation();
 
   // Pre-move state for bot games
   const [premove, setPremove] = useState<{ from: Position; to: Position } | null>(null);
@@ -416,29 +419,26 @@ export default function BotGame() {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
 
+  // Save bot game result when game ends
   useEffect(() => {
     if (!gameStarted || !gameOverInfo || !currentGameId) return;
     if (persistedGameIdRef.current === currentGameId) return;
 
     persistedGameIdRef.current = currentGameId;
 
-    void fetch('/api/games/bot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: currentGameId,
-        playerColor,
-        playerName: playerDisplayName,
-        level: botLevel,
-        botId: selectedBot.id,
-        result: gameState.winner || 'draw',
-        resultReason: gameOverInfo.reason,
-        timeControl: BOT_GAME_TIME_CONTROL,
-        moves: gameState.moveHistory,
-        finalBoard: gameState.board,
-        moveCount: gameState.moveCount,
-      }),
-    }).catch(() => undefined);
+    saveBotGameMutation.mutate({
+      id: currentGameId,
+      playerColor,
+      playerName: playerDisplayName,
+      level: botLevel,
+      botId: selectedBot.id,
+      result: gameState.winner || 'draw',
+      resultReason: gameOverInfo.reason,
+      timeControl: BOT_GAME_TIME_CONTROL,
+      moves: gameState.moveHistory,
+      finalBoard: gameState.board,
+      moveCount: gameState.moveCount,
+    });
   }, [
     currentGameId,
     gameOverInfo,
@@ -451,6 +451,7 @@ export default function BotGame() {
     playerColor,
     playerDisplayName,
     selectedBot.id,
+    saveBotGameMutation,
   ]);
 
   useEffect(() => {
