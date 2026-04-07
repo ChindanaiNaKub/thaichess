@@ -21,10 +21,9 @@ function getDisplayName(item: FairPlayCase) {
 export default function FairPlayCasesPage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
-  const { user, loading: authLoading, refreshUser } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<FilterStatus>('open');
-  const [busyCaseId, setBusyCaseId] = useState<number | null>(null);
 
   const limit = 20;
 
@@ -58,28 +57,18 @@ export default function FairPlayCasesPage() {
 
   const totalPages = Math.ceil(total / limit);
 
+  // Optimistic updates: cases disappear immediately when action is clicked
+  // The mutation handles rollback on error
   async function handleRestrict(item: FairPlayCase) {
-    setBusyCaseId(item.id);
-    caseActionMutation.mutate(
-      { action: 'restrict', caseId: item.id },
-      { onSettled: () => setBusyCaseId(null) }
-    );
+    caseActionMutation.mutate({ action: 'restrict', caseId: item.id });
   }
 
   async function handleDismiss(item: FairPlayCase) {
-    setBusyCaseId(item.id);
-    caseActionMutation.mutate(
-      { action: 'dismiss', caseId: item.id },
-      { onSettled: () => setBusyCaseId(null) }
-    );
+    caseActionMutation.mutate({ action: 'dismiss', caseId: item.id });
   }
 
   async function handleClear(item: FairPlayCase) {
-    setBusyCaseId(item.id);
-    caseActionMutation.mutate(
-      { action: 'clear', caseId: item.id, userId: item.user_id },
-      { onSettled: () => setBusyCaseId(null) }
-    );
+    caseActionMutation.mutate({ action: 'clear', caseId: item.id, userId: item.user_id });
   }
 
   if (authLoading || user?.role !== 'admin') {
@@ -133,7 +122,6 @@ export default function FairPlayCasesPage() {
           <>
             <div className="space-y-3">
               {cases.map((item) => {
-                const busy = busyCaseId === item.id;
                 const isRestrictedUser = item.user_fair_play_status === 'restricted';
 
                 return (
@@ -175,8 +163,7 @@ export default function FairPlayCasesPage() {
                         {!isRestrictedUser && item.status !== 'dismissed' && (
                           <button
                             onClick={() => void handleRestrict(item)}
-                            disabled={busy}
-                            className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+                            className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/20 transition-colors"
                           >
                             {t('fair_play.action_restrict')}
                           </button>
@@ -184,8 +171,7 @@ export default function FairPlayCasesPage() {
                         {isRestrictedUser && (
                           <button
                             onClick={() => void handleClear(item)}
-                            disabled={busy}
-                            className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light disabled:opacity-60"
+                            className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary/20 transition-colors"
                           >
                             {t('fair_play.action_clear')}
                           </button>
@@ -193,8 +179,7 @@ export default function FairPlayCasesPage() {
                         {item.status !== 'dismissed' && (
                           <button
                             onClick={() => void handleDismiss(item)}
-                            disabled={busy}
-                            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright disabled:opacity-60"
+                            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright hover:bg-surface-hover transition-colors"
                           >
                             {t('fair_play.action_dismiss')}
                           </button>

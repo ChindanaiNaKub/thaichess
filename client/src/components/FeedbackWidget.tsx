@@ -18,19 +18,28 @@ export default function FeedbackWidget() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || submitMutation.isPending) return;
+
+    // Optimistic update - show success immediately
+    setIsSent(true);
+    const submittedMessage = message;
+    setMessage('');
 
     submitMutation.mutate(
       {
         type,
-        message: message.trim(),
+        message: submittedMessage.trim(),
         page: location.pathname,
         userAgent: navigator.userAgent,
       },
       {
+        onError: () => {
+          // On error, restore the message and show form again
+          setIsSent(false);
+          setMessage(submittedMessage);
+        },
         onSuccess: () => {
-          setIsSent(true);
-          setMessage('');
+          // Close after showing success for 2 seconds
           setTimeout(() => {
             setIsOpen(false);
             setIsSent(false);
