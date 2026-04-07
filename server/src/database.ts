@@ -14,12 +14,71 @@ export type FairPlayStatus = 'clear' | 'restricted';
 export type FairPlayEventType = 'analysis_blocked' | 'user_reported';
 export type FairPlayCaseStatus = 'open' | 'reviewed' | 'restricted' | 'dismissed';
 
+// Valid tables and columns for schema migrations (prevents SQL injection)
+const VALID_MIGRATION_TABLES = new Set([
+  'feedback',
+  'users',
+  'games',
+  'puzzle_progress',
+  'sessions',
+  'login_codes',
+  'fair_play_events',
+  'fair_play_cases',
+]);
+
+// Valid column names for each table (prevents SQL injection)
+const VALID_MIGRATION_COLUMNS: Record<string, Set<string>> = {
+  feedback: new Set(['visible', 'deleted_at', 'deleted_by', 'moderation_note', 'user_id']),
+  users: new Set([
+    'fair_play_status', 'rated_restricted_at', 'rated_restriction_note',
+    'rating', 'rated_games', 'wins', 'losses', 'draws'
+  ]),
+  games: new Set([
+    'white_user_id', 'black_user_id', 'rated', 'game_mode', 'game_type',
+    'opponent_type', 'opponent_name', 'bot_level', 'bot_color',
+    'white_rating_before', 'black_rating_before', 'white_rating_after', 'black_rating_after'
+  ]),
+  puzzle_progress: new Set(['last_played_at', 'attempts', 'successes', 'failures']),
+};
+
+// Valid SQLite type definitions (prevents SQL injection in column definitions)
+const VALID_SQLITE_TYPE_PATTERN = /^(INTEGER|TEXT|REAL|BLOB|NUMERIC)(\s+NOT\s+NULL)?(\s+DEFAULT\s+([^'"\s;]+|'[^']*'))?$/i;
+
 async function ensureColumn(table: string, column: string, definition: string) {
-  const result = await db.execute(`PRAGMA table_info(${table})`);
+  // Validate table name against whitelist
+  if (!VALID_MIGRATION_TABLES.has(table)) {
+    logError('ensureColumn_invalid_table', new Error(`Invalid table: ${table}`), { table, column });
+    throw new Error(`Invalid table name: ${table}`);
+  }
+
+  // Validate column name against whitelist for this table
+  const validColumns = VALID_MIGRATION_COLUMNS[table];
+  if (!validColumns || !validColumns.has(column)) {
+    logError('ensureColumn_invalid_column', new Error(`Invalid column: ${column} for table ${table}`), { table, column });
+    throw new Error(`Invalid column name: ${column} for table: ${table}`);
+  }
+
+  // Validate column definition syntax (prevents SQL injection)
+  if (!VALID_SQLITE_TYPE_PATTERN.test(definition.trim())) {
+    logError('ensureColumn_invalid_definition', new Error(`Invalid definition: ${definition}`), { table, column, definition });
+    throw new Error(`Invalid column definition: ${definition}`);
+  }
+
+  // Use parameterized query for PRAGMA (table name is safe due to whitelist)
+  const result = await db.execute({
+    sql: `PRAGMA table_info(${table})`,
+    args: [],
+  });
   const hasColumn = result.rows.some((row) => String(row.name) === column);
 
   if (!hasColumn) {
-    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    // Both table and column are validated, definition is sanitized
+    // This is safe because we've whitelisted all inputs
+    await db.execute({
+      sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+      args: [],
+    });
+    logInfo('ensureColumn_added', { table, column, definition });
   }
 }
 
