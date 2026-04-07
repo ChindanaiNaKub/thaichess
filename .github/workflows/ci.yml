@@ -26,6 +26,79 @@ jobs:
         uses: peakoss/anti-slop@v0.2.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # General Settings
+          max-failures: 4
+
+          # PR Branch Checks
+          allowed-target-branches: "main"
+          blocked-source-branches: |
+            main
+            master
+
+          # PR Quality Checks
+          max-negative-reactions: 0
+          require-maintainer-can-modify: true
+
+          # PR Title Checks
+          require-conventional-title: true
+
+          # PR Description Checks
+          require-description: true
+          max-description-length: 3000
+          max-emoji-count: 5
+          max-code-references: 10
+          require-linked-issue: false
+
+          # PR Template Checks
+          require-pr-template: false
+
+          # Commit Message Checks
+          max-commit-message-length: 500
+          require-conventional-commits: true
+          require-commit-author-match: true
+
+          # File Checks
+          blocked-paths: |
+            README.md
+            SECURITY.md
+            LICENSE
+            CODE_OF_CONDUCT.md
+          require-final-newline: true
+          max-added-comments: 15
+
+          # User Checks
+          detect-spam-usernames: true
+          min-account-age: 7
+          max-daily-forks: 10
+          min-profile-completeness: 3
+
+          # Merge Checks
+          min-repo-merged-prs: 0
+          min-repo-merge-ratio: 0
+          min-global-merge-ratio: 20
+
+          # Exemptions
+          exempt-draft-prs: true
+          exempt-bots: |
+            actions-user
+            dependabot[bot]
+            renovate[bot]
+            github-actions[bot]
+          exempt-author-association: "OWNER,MEMBER,COLLABORATOR"
+
+          # PR Failure Actions
+          close-pr: false
+          failure-pr-message: |
+            👋 Hi! This PR doesn't meet our quality standards.
+            
+            Please check:
+            - PR title follows conventional commits (e.g., "feat:", "fix:", "test:")
+            - PR has a meaningful description
+            - Commit messages follow conventional format
+            - No blocked files are being modified
+            
+            See our contributing guidelines for more details.
 
   test:
     name: Unit And Integration Tests
