@@ -31,7 +31,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'footer.support_desc': 'ThaiChess is free and has no ads. Running it costs $20/month. If you enjoy playing, consider supporting the project!',
   'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
   'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
-  'footer.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
+  'footer.bank_info': 'ธนาคารไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
   'footer.tagline': 'ThaiChess — Free & Open Source',
   'footer.what_is_makruk': 'What Is Makruk?',
   'games.title': 'Recent Games',
