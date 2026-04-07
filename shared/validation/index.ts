@@ -19,6 +19,9 @@ export * from './types';
 // Socket.IO event payloads
 export * from './socketEvents';
 
+// API endpoint payloads
+export * from './api';
+
 // Puzzle data
 export * from './puzzle';
 
