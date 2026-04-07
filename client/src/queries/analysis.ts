@@ -31,13 +31,17 @@ async function fetchGame(gameId: string): Promise<GameApiResponse> {
 
 // Query options factory
 export function gameQueryOptions(gameId: string | undefined) {
+  // Inline analysis sources that don't exist in the database
+  const inlineSources = ['bot', 'local', 'editor'];
+  const isRealGameId = Boolean(gameId && !inlineSources.includes(gameId));
+
   return queryOptions({
     queryKey: ['game', gameId],
     queryFn: () => {
       if (!gameId) throw new Error('Game ID is required');
       return fetchGame(gameId);
     },
-    enabled: Boolean(gameId),
+    enabled: isRealGameId,
     staleTime: 1000 * 60 * 5, // Game data stays fresh for 5 minutes
     gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
   });

@@ -751,6 +751,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'analysis.loading': 'Loading game...',
   'analysis.parse_failed': 'Failed to parse game data',
   'analysis.game_not_found': 'Game not found',
+  'analysis.session_expired': 'Game data no longer available. This can happen if you refreshed the page or opened the link in a new tab. Please play the game again to view the analysis.',
   'analysis.no_moves': 'Game has no moves to analyze',
   'analysis.failed': 'Analysis failed',
   'analysis.analyzing': 'Reviewing game...',

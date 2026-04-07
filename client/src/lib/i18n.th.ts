@@ -712,6 +712,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'analysis.loading': 'กำลังโหลดเกม...',
   'analysis.parse_failed': 'อ่านข้อมูลเกมไม่สำเร็จ',
   'analysis.game_not_found': 'ไม่พบเกม',
+  'analysis.session_expired': 'ข้อมูลเกมไม่พร้อมใช้งานแล้ว อาจเกิดจากการรีเฟรชหน้าเว็บหรือเปิดลิงก์ในแท็บใหม่ กรุณาเล่นเกมใหม่อีกครั้งเพื่อดูการวิเคราะห์',
   'analysis.no_moves': 'เกมนี้ไม่มีตาเดินให้วิเคราะห์',
   'analysis.failed': 'วิเคราะห์ไม่สำเร็จ',
   'analysis.analyzing': 'กำลังตรวจเกม...',
