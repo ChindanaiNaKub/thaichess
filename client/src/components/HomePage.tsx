@@ -631,6 +631,25 @@ export default function HomePage() {
 
       <footer className="deferred-section bg-surface-alt border-t border-surface-hover py-6 px-4">
         <div className="max-w-6xl mx-auto">
+          {/* Support Section */}
+          <div className="mb-6 p-4 rounded-xl border border-accent/20 bg-accent/5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <p className="text-text-bright font-semibold text-sm">{t('footer.support')}</p>
+                <p className="text-text-dim text-xs mt-1 max-w-md">{t('footer.support_desc')}</p>
+              </div>
+              <a
+                href="https://buymeacoffee.com/thaichess"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent/85 hover:scale-105 whitespace-nowrap"
+              >
+                <span>☕</span>
+                {t('footer.donate')}
+              </a>
+            </div>
+          </div>
+
           <h2 className="sr-only">{t('footer.links_label')}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 mb-4">
             {/* Play */}
@@ -679,6 +698,7 @@ export default function HomePage() {
                 Chess.com
               </a>
             </p>
+            <p className="text-text-dim/70 text-xs mt-2">{t('footer.thanks')}</p>
           </div>
         </div>
       </footer>
