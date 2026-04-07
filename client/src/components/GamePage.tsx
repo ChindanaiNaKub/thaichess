@@ -12,6 +12,7 @@ import { getCapturedSummary } from '../lib/capturedSummary';
 import { useGameInteraction } from '../hooks/useGameInteraction';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
+import { useReportFairPlayMutation } from '../queries/fairPlay';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
@@ -80,10 +81,9 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
-  const [reportState, setReportState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
-  const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'disconnected');
+  const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'reconnecting');
   const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
@@ -91,6 +91,9 @@ export default function GamePage() {
   const lastInteractionAtRef = useRef(Date.now());
   const lastHeartbeatAtRef = useRef(0);
   const lastMeasuredLatencyRef = useRef<number | null>(null);
+
+  // TanStack Query mutation for reporting fair play
+  const reportMutation = useReportFairPlayMutation();
 
   // Arrow state
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -259,7 +262,6 @@ export default function GamePage() {
       setGameState(null);
       setGameOverInfo(null);
       setShowGameOverModal(false);
-      setReportState('idle');
       setReportFeedback(null);
       setRematchState('idle');
       clearSelection();
@@ -473,27 +475,18 @@ export default function GamePage() {
   };
 
   const handleReportOpponent = async () => {
-    if (!gameId || !gameState?.rated || !user || !playerColor || reportState !== 'idle') return;
+    if (!gameId || !gameState?.rated || !user || !playerColor || reportMutation.isPending) return;
 
-    setReportState('sending');
     setReportFeedback(null);
 
-    try {
-      const response = await fetch('/api/fair-play/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(typeof data.error === 'string' ? data.error : t('fair_play.report_failed'));
-      }
-      setReportState('sent');
-      setReportFeedback(t('fair_play.report_sent'));
-    } catch (err) {
-      setReportState('idle');
-      setReportFeedback(err instanceof Error ? err.message : t('fair_play.report_failed'));
-    }
+    reportMutation.mutate(gameId, {
+      onSuccess: () => {
+        setReportFeedback(t('fair_play.report_sent'));
+      },
+      onError: (err) => {
+        setReportFeedback(err instanceof Error ? err.message : t('fair_play.report_failed'));
+      },
+    });
   };
 
   const copyGameLink = () => {
@@ -937,12 +930,12 @@ export default function GamePage() {
                   : undefined
                 }
                 onReport={canReportOpponent ? handleReportOpponent : undefined}
-                reportLabel={reportState === 'sending'
-                  ? t('common.sending')
-                  : reportState === 'sent'
-                    ? t('fair_play.report_sent_short')
-                    : t('fair_play.report_action')}
-                reportDisabled={reportState !== 'idle'}
+                reportLabel={reportMutation.isPending
+                  ? t('fair_play.report_sending')
+                  : reportMutation.isSuccess
+                  ? t('fair_play.report_sent')
+                  : t('fair_play.report_opponent')}
+                reportDisabled={reportMutation.isPending || reportMutation.isSuccess}
                 reportStatusMessage={reportFeedback}
               />
             )}
@@ -1030,12 +1023,12 @@ export default function GamePage() {
             : undefined
           }
           onReport={canReportOpponent ? handleReportOpponent : undefined}
-          reportLabel={reportState === 'sending'
+          reportLabel={reportMutation.isPending
             ? t('common.sending')
-            : reportState === 'sent'
+            : reportMutation.isSuccess
               ? t('fair_play.report_sent_short')
               : t('fair_play.report_action')}
-          reportDisabled={reportState !== 'idle'}
+          reportDisabled={reportMutation.isPending || reportMutation.isSuccess}
           reportStatusMessage={reportFeedback}
           onClose={() => setShowGameOverModal(false)}
         />

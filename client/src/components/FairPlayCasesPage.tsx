@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
-import { fairPlayCasesQueryOptions, type FairPlayCase, type FilterStatus } from '../queries/fairPlay';
+import { fairPlayCasesQueryOptions, useCaseActionMutation, type FairPlayCase, type FilterStatus } from '../queries/fairPlay';
 
 const STATUS_STYLES: Record<FilterStatus | FairPlayCase['status'], string> = {
   all: 'bg-surface text-text-dim border border-surface-hover',
@@ -36,6 +36,9 @@ export default function FairPlayCasesPage() {
     error: queryError,
   } = useQuery(fairPlayCasesQueryOptions(page, limit, filter));
 
+  // TanStack Query mutation for case actions
+  const caseActionMutation = useCaseActionMutation();
+
   const cases = data?.cases ?? [];
   const total = data?.total ?? 0;
 
@@ -55,40 +58,28 @@ export default function FairPlayCasesPage() {
 
   const totalPages = Math.ceil(total / limit);
 
-  async function postCaseAction(path: string, caseId: number) {
-    setBusyCaseId(caseId);
-
-    try {
-      const response = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: t('fair_play.admin_note_default') }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || t('fair_play.admin_action_failed'));
-      }
-
-      // Invalidate the query to refetch data
-      await refreshUser().catch(() => undefined);
-    } catch (err) {
-      // Error handling - could add toast notification here
-      console.error(err);
-    } finally {
-      setBusyCaseId(null);
-    }
-  }
-
   async function handleRestrict(item: FairPlayCase) {
-    await postCaseAction(`/api/fair-play/cases/${item.id}/restrict`, item.id);
+    setBusyCaseId(item.id);
+    caseActionMutation.mutate(
+      { action: 'restrict', caseId: item.id },
+      { onSettled: () => setBusyCaseId(null) }
+    );
   }
 
   async function handleDismiss(item: FairPlayCase) {
-    await postCaseAction(`/api/fair-play/cases/${item.id}/dismiss`, item.id);
+    setBusyCaseId(item.id);
+    caseActionMutation.mutate(
+      { action: 'dismiss', caseId: item.id },
+      { onSettled: () => setBusyCaseId(null) }
+    );
   }
 
   async function handleClear(item: FairPlayCase) {
-    await postCaseAction(`/api/fair-play/users/${item.user_id}/clear`, item.id);
+    setBusyCaseId(item.id);
+    caseActionMutation.mutate(
+      { action: 'clear', caseId: item.id, userId: item.user_id },
+      { onSettled: () => setBusyCaseId(null) }
+    );
   }
 
   if (authLoading || user?.role !== 'admin') {
