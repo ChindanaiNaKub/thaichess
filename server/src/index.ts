@@ -64,6 +64,7 @@ import {
   ReportFairPlaySchema,
   FairPlayCaseActionSchema,
   SaveBotGameSchema,
+  SaveLocalGameSchema,
   AnalyzeGameSchema,
   AnalyzePositionSchema,
   BotMoveSchema,
@@ -561,6 +562,56 @@ app.post('/api/games/bot', async (req, res) => {
     id,
     opponentName: botName,
     gameType: 'bot',
+  });
+});
+
+app.post('/api/games/local', async (req, res) => {
+  const parseResult = SaveLocalGameSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const fieldErrors = Object.values(flattened.fieldErrors);
+    const firstFieldError = fieldErrors.find(err => err && err.length > 0)?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = firstFieldError || formError || 'Valid local game payload is required.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const {
+    id,
+    result,
+    resultReason,
+    whiteName,
+    blackName,
+    moves,
+    finalBoard,
+    moveCount,
+    timeControl,
+  } = parseResult.data;
+
+  await saveCompletedGame({
+    id,
+    result,
+    resultReason,
+    whiteName: whiteName || 'White',
+    blackName: blackName || 'Black',
+    whiteUserId: null,
+    blackUserId: null,
+    rated: false,
+    gameMode: 'private',
+    gameType: 'human',
+    opponentType: null,
+    opponentName: null,
+    timeControl,
+    moves,
+    finalBoard,
+    moveCount: moveCount ?? moves.length,
+  });
+
+  res.json({
+    ok: true,
+    id,
+    gameType: 'local',
   });
 });
 
