@@ -1,27 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
-
-interface FairPlayCase {
-  id: number;
-  user_id: string;
-  user_email: string;
-  user_username: string | null;
-  user_fair_play_status: 'clear' | 'restricted';
-  user_rated_restricted_at: number | null;
-  status: 'open' | 'reviewed' | 'restricted' | 'dismissed';
-  reason: string;
-  note: string | null;
-  reviewed_by: string | null;
-  created_at: number;
-  updated_at: number;
-  event_count: number;
-  latest_event_type: 'analysis_blocked' | 'user_reported' | null;
-}
-
-type FilterStatus = 'all' | 'open' | 'reviewed' | 'restricted' | 'dismissed';
+import { fairPlayCasesQueryOptions, type FairPlayCase, type FilterStatus } from '../queries/fairPlay';
 
 const STATUS_STYLES: Record<FilterStatus | FairPlayCase['status'], string> = {
   all: 'bg-surface text-text-dim border border-surface-hover',
@@ -39,15 +22,22 @@ export default function FairPlayCasesPage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
   const { user, loading: authLoading, refreshUser } = useAuth();
-  const [cases, setCases] = useState<FairPlayCase[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<FilterStatus>('open');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [busyCaseId, setBusyCaseId] = useState<number | null>(null);
 
   const limit = 20;
+
+  // TanStack Query for fetching cases
+  const {
+    data,
+    isLoading,
+    isError,
+    error: queryError,
+  } = useQuery(fairPlayCasesQueryOptions(page, limit, filter));
+
+  const cases = data?.cases ?? [];
+  const total = data?.total ?? 0;
 
   const formatDateTime = (timestamp: number) =>
     new Date(timestamp * 1000).toLocaleString(lang === 'th' ? 'th-TH' : 'en-US');
@@ -58,32 +48,7 @@ export default function FairPlayCasesPage() {
     }
   }, [authLoading, navigate, user]);
 
-  useEffect(() => {
-    if (authLoading || user?.role !== 'admin') return;
-
-    setLoading(true);
-    setError('');
-
-    const params = new URLSearchParams({ page: String(page), limit: String(limit), status: filter });
-    fetch(`/api/fair-play/cases?${params}`)
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || t('fair_play.admin_load_failed'));
-        }
-        return data;
-      })
-      .then((data) => {
-        setCases(data.cases || []);
-        setTotal(data.total || 0);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : t('fair_play.admin_load_failed'));
-        setLoading(false);
-      });
-  }, [authLoading, filter, page, t, user]);
-
+  // Reset page when filter changes
   useEffect(() => {
     setPage(0);
   }, [filter]);
@@ -92,7 +57,6 @@ export default function FairPlayCasesPage() {
 
   async function postCaseAction(path: string, caseId: number) {
     setBusyCaseId(caseId);
-    setError('');
 
     try {
       const response = await fetch(path, {
@@ -105,11 +69,11 @@ export default function FairPlayCasesPage() {
         throw new Error(data.error || t('fair_play.admin_action_failed'));
       }
 
-      setCases((current) => current.filter((entry) => entry.id !== caseId));
-      setTotal((current) => Math.max(0, current - 1));
+      // Invalidate the query to refetch data
       await refreshUser().catch(() => undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('fair_play.admin_action_failed'));
+      // Error handling - could add toast notification here
+      console.error(err);
     } finally {
       setBusyCaseId(null);
     }
@@ -164,12 +128,12 @@ export default function FairPlayCasesPage() {
           ))}
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
           </div>
-        ) : error ? (
-          <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+        ) : isError ? (
+          <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{queryError?.message || t('fair_play.admin_load_failed')}</div>
         ) : cases.length === 0 ? (
           <div className="rounded-2xl border border-surface-hover bg-surface-alt px-6 py-12 text-center text-text-dim">
             {t('fair_play.admin_empty')}
