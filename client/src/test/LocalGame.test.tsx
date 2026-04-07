@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LocalGame from '../components/LocalGame';
 
 const {
@@ -97,12 +98,30 @@ vi.mock('../components/InGameShell', () => ({
   },
 }));
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
+}
+
 function renderLocalGame() {
-  return render(
-    <MemoryRouter>
-      <LocalGame />
-    </MemoryRouter>
-  );
+  const Wrapper = createWrapper();
+  return render(<LocalGame />, { wrapper: Wrapper });
 }
 
 describe('LocalGame', () => {

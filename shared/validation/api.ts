@@ -126,6 +126,31 @@ export const SaveBotGameSchema = z.object({
 });
 export type SaveBotGamePayload = z.infer<typeof SaveBotGameSchema>;
 
+export const SaveLocalGameSchema = z.object({
+  id: z.string()
+    .min(4, 'Game ID too short')
+    .max(32, 'Game ID too long')
+    .regex(/^[A-Za-z0-9-]+$/, 'Invalid game ID format'),
+  result: z.enum(['white', 'black', 'draw']),
+  resultReason: z.string().min(1, 'Result reason is required'),
+  whiteName: z.string()
+    .max(50, 'White player name too long')
+    .optional()
+    .transform((name) => name?.trim()),
+  blackName: z.string()
+    .max(50, 'Black player name too long')
+    .optional()
+    .transform((name) => name?.trim()),
+  moves: z.array(z.any()).min(1, 'Moves are required'),
+  finalBoard: z.array(z.any()).min(1, 'Final board is required'),
+  moveCount: z.number().int().min(0).optional(),
+  timeControl: z.object({
+    initial: z.number().int().min(10).max(7200),
+    increment: z.number().int().min(0).max(60),
+  }),
+});
+export type SaveLocalGamePayload = z.infer<typeof SaveLocalGameSchema>;
+
 // ============================================
 // Analysis Endpoints
 // ============================================
