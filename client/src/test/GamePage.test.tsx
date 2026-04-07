@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createInitialGameState } from '@shared/engine';
 import type { ClientGameState, LastMove, Move, PieceColor } from '@shared/types';
 import GamePage from '../components/GamePage';
@@ -235,13 +236,34 @@ vi.mock('../components/CapturedPiecesPanel', () => ({
   default: () => null,
 }));
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    );
+  };
+}
+
 function renderGamePage(initialRoute = '/game/reconnect-room') {
+  const Wrapper = createWrapper();
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
       <Routes>
         <Route path="/game/:gameId" element={<GamePage />} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
+    { wrapper: Wrapper }
   );
 }
 
