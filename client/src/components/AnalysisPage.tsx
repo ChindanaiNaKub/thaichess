@@ -779,7 +779,7 @@ export default function AnalysisPage() {
       <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
         <div className="grid w-full max-w-[1400px] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(30rem,36rem)] xl:grid-cols-[minmax(0,1fr)_38rem] lg:items-start">
           {/* Board + Eval Bar (sticky on desktop) */}
-          <div className="flex gap-2 w-full max-w-[760px] lg:sticky lg:top-4 lg:self-start">
+          <div className="flex gap-2 w-full max-w-[760px] lg:max-w-[calc(100vh-6rem)] lg:sticky lg:top-4 lg:self-start">
             {/* Eval Bar */}
             <EvalBar eval={currentEval} />
 
