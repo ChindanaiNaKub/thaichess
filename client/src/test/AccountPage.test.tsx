@@ -5,10 +5,11 @@ import { MemoryRouter } from 'react-router-dom';
 import AccountPage from '../components/AccountPage';
 import type { AuthUser } from '../lib/auth';
 
-const { navigateMock, logoutMock, updateProfileMock, authState, puzzleProgressSummaryState } = vi.hoisted(() => ({
+const { navigateMock, logoutMock, updateProfileMock, headerPropsSpy, authState, puzzleProgressSummaryState } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   logoutMock: vi.fn(),
   updateProfileMock: vi.fn(),
+  headerPropsSpy: vi.fn(),
   authState: {
     user: {
       id: 'user-1',
@@ -127,7 +128,10 @@ vi.mock('../lib/i18n', () => ({
 }));
 
 vi.mock('../components/Header', () => ({
-  default: ({ children }: { children?: ReactNode }) => <div data-testid="header">{children}</div>,
+  default: (props: { children?: ReactNode; active?: string | null }) => {
+    headerPropsSpy(props);
+    return <div data-testid="header">{props.children}</div>;
+  },
 }));
 
 describe('AccountPage', () => {
@@ -135,7 +139,25 @@ describe('AccountPage', () => {
     navigateMock.mockReset();
     logoutMock.mockReset();
     updateProfileMock.mockReset();
+    headerPropsSpy.mockReset();
     authState.loading = false;
+    authState.user = {
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player_one',
+      role: 'user' as const,
+      fair_play_status: 'clear' as const,
+      rated_restricted_at: null,
+      rated_restriction_note: null,
+      rating: 1612,
+      rated_games: 24,
+      wins: 14,
+      losses: 6,
+      draws: 4,
+      created_at: 0,
+      updated_at: 0,
+      last_login_at: null,
+    } as AuthUser;
   });
 
   it('renders rating and record stats for the authenticated user', () => {
@@ -150,13 +172,16 @@ describe('AccountPage', () => {
     expect(screen.getByText('14')).toBeInTheDocument();
     expect(screen.getByText('6')).toBeInTheDocument();
     expect(screen.getAllByText('4').length).toBeGreaterThan(0);
+    expect(screen.getByText('account.hero_eyebrow')).toBeInTheDocument();
     expect(screen.getByDisplayValue('player_one')).toBeInTheDocument();
+    expect(screen.getByText('account.actions_title')).toBeInTheDocument();
     expect(screen.getByText('account.puzzle_title')).toBeInTheDocument();
     expect(screen.getByText('3/7 completed')).toBeInTheDocument();
     expect(screen.getAllByText('Hanging Piece').length).toBeGreaterThan(0);
     expect(screen.getAllByText('#5001 · Trapped Knight').length).toBeGreaterThan(0);
     expect(screen.getByText('account.puzzle_last_played_label')).toBeInTheDocument();
     expect(screen.getByText('#10 · Rook Harvest')).toBeInTheDocument();
+    expect(headerPropsSpy).toHaveBeenCalledWith(expect.objectContaining({ active: null }));
   });
 
   it('routes to the next recommended puzzle from the account page', () => {

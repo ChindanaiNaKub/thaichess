@@ -7,7 +7,7 @@ import { routes } from '../lib/routes';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { requestCode, verifyCode, signInWithGoogle, signInWithFacebook, user } = useAuth();
+  const { requestCode, verifyCode, signInWithGoogle, user } = useAuth();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -53,17 +53,13 @@ export default function LoginPage() {
     }
   }
 
-  async function handleSocialSignIn(provider: 'google' | 'facebook') {
+  async function handleSocialSignIn() {
     setLoading(true);
     setError('');
     setNotice('');
 
     try {
-      if (provider === 'google') {
-        await signInWithGoogle();
-      } else {
-        await signInWithFacebook();
-      }
+      await signInWithGoogle();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.sign_in_failed'));
       setLoading(false);
@@ -112,19 +108,11 @@ export default function LoginPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => void handleSocialSignIn('google')}
+                onClick={() => void handleSocialSignIn()}
                 disabled={loading}
                 className="w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
               >
                 {t('auth.continue_with_google')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSocialSignIn('facebook')}
-                disabled={loading}
-                className="w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
-              >
-                {t('auth.continue_with_facebook')}
               </button>
               <button
                 type="button"

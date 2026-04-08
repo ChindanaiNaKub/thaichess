@@ -19,9 +19,8 @@ vi.mock('../lib/i18n', () => ({
         'auth.benefit_fast': 'Fast sign in',
         'auth.back_to_play': 'Back to play',
         'auth.social_title': 'Choose a sign-in method',
-        'auth.social_desc': 'Google and Facebook are the fastest way to keep your account.',
+        'auth.social_desc': 'Google is the fastest way to keep your account.',
         'auth.continue_with_google': 'Continue with Google',
-        'auth.continue_with_facebook': 'Continue with Facebook',
         'auth.or_email_fallback': 'Use email instead',
       };
       return translations[key] ?? key;
@@ -52,7 +51,7 @@ describe('LoginPage', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Continue with Facebook' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue with Facebook' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use email instead' })).toBeInTheDocument();
   });
 });
