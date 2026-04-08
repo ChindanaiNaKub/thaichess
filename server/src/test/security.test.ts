@@ -32,6 +32,7 @@ describe('security utilities', () => {
 
   it('validates game ids, board positions, booleans, and time controls', () => {
     expect(isValidGameId('abcd-1234')).toBe(true);
+    expect(isValidGameId('54718574-8df5-48cc-97f4-16349bf43402')).toBe(true);
     expect(isValidGameId('bad id')).toBe(false);
 
     expect(isValidPosition({ row: 7, col: 0 })).toBe(true);

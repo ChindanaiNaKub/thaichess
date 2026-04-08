@@ -303,7 +303,7 @@ function isValidFairPlayCaseStatus(value: unknown): value is FairPlayCaseStatus 
 }
 
 function isValidGameIdParam(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9-]{4,32}$/.test(value.trim());
+  return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value.trim());
 }
 
 async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response) {
