@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Block non-indexable dynamic routes
+Disallow: /game/
+Disallow: /spectate/
+Disallow: /analysis/
+Disallow: /feedback
+Disallow: /login
+Disallow: /account
+Disallow: /settings/
+
+# Block API and internal paths
+Disallow: /api/
+Disallow: /internal/
+Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://thaichess.dev/sitemap.xml
