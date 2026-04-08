@@ -73,7 +73,7 @@ export function getSocketIp(socket: Socket<ClientToServerEvents, ServerToClientE
 }
 
 export function isValidGameId(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9-]{4,32}$/.test(value);
+  return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value);
 }
 
 export function isValidPosition(value: unknown): value is Position {
