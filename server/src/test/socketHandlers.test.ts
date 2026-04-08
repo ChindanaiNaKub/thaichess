@@ -66,7 +66,10 @@ function createSocketMock(id: string, authUser: AuthUser | null = null, playerId
 function createAuthUser(id: string, email: string, username: string, fairPlayStatus: AuthUser['fair_play_status'] = 'clear'): AuthUser {
   return {
     id,
+    name: username,
     email,
+    email_verified: true,
+    image: null,
     username,
     role: 'user',
     fair_play_status: fairPlayStatus,

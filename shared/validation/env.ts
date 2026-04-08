@@ -23,9 +23,18 @@ export const ServerEnvSchema = z.object({
   
   // Database
   DATABASE_URL: z.string().url().optional(),
+  TURSO_DATABASE_URL: z.string().optional(),
+  TURSO_AUTH_TOKEN: z.string().optional(),
   
   // Session/Auth (if needed in future)
   SESSION_SECRET: z.string().min(32).optional(),
+  AUTH_SECRET: z.string().optional(),
+  BETTER_AUTH_SECRET: z.string().optional(),
+  BETTER_AUTH_URL: z.string().url().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_CLIENT_ID: z.string().optional(),
+  FACEBOOK_CLIENT_SECRET: z.string().optional(),
   
   // External services
   REDIS_URL: z.string().url().optional(),

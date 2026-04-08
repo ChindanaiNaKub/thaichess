@@ -8,7 +8,7 @@ import PieceSVG from './PieceSVG';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 
 interface HeaderProps {
-  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about';
+  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | null;
   subtitle?: string;
   right?: React.ReactNode;
 }

@@ -13,6 +13,7 @@ import {
   markLoginCodeAttempt,
   upsertUserByEmail,
 } from './database';
+import { getBetterAuthUserFromCookieHeader } from './betterAuth';
 import { logInfo, logWarn } from './logger';
 
 const SESSION_COOKIE_NAME = 'thaichess_session';
@@ -135,6 +136,11 @@ export async function getAuthenticatedUser(req: Request): Promise<AuthUser | nul
 }
 
 export async function getAuthenticatedUserFromCookieHeader(cookieHeader?: string): Promise<AuthUser | null> {
+  const betterAuthUser = await getBetterAuthUserFromCookieHeader(cookieHeader);
+  if (betterAuthUser) {
+    return betterAuthUser;
+  }
+
   const cookies = parseCookies(cookieHeader);
   const token = cookies[SESSION_COOKIE_NAME];
   if (!token) return null;
@@ -154,22 +160,24 @@ export async function logoutRequest(req: Request, res: Response) {
 }
 
 export async function issueLoginCode(email: string, requestedIp?: string) {
+  const normalizedEmail = normalizeEmail(email);
   const code = createLoginCodeValue();
   const expiresAt = Math.floor(Date.now() / 1000) + LOGIN_CODE_TTL_SECONDS;
 
   await createLoginCode({
     id: uuidv4(),
-    email,
-    codeHash: hashAuthValue(`${email}:${code}`),
+    email: normalizedEmail,
+    codeHash: hashAuthValue(`${normalizedEmail}:${code}`),
     expiresAt,
     requestedIp,
   });
 
-  await sendLoginCode(email, code);
+  await sendLoginCode(normalizedEmail, code);
 }
 
 export async function verifyLoginCode(email: string, code: string) {
-  const record = await getLoginCodeByEmail(email);
+  const normalizedEmail = normalizeEmail(email);
+  const record = await getLoginCodeByEmail(normalizedEmail);
   const now = Math.floor(Date.now() / 1000);
 
   if (!record || record.consumed_at || record.expires_at <= now) {
@@ -180,7 +188,7 @@ export async function verifyLoginCode(email: string, code: string) {
     return { ok: false as const, error: 'Too many attempts. Please request a new code.' };
   }
 
-  const candidateHash = hashAuthValue(`${email}:${code}`);
+  const candidateHash = hashAuthValue(`${normalizedEmail}:${code}`);
   if (candidateHash !== record.code_hash) {
     await markLoginCodeAttempt(record.id);
     return { ok: false as const, error: 'Invalid code.' };
@@ -189,7 +197,7 @@ export async function verifyLoginCode(email: string, code: string) {
   await consumeLoginCode(record.id);
   const user = await upsertUserByEmail({
     id: uuidv4(),
-    email,
+    email: normalizedEmail,
     role: 'user',
   });
 
