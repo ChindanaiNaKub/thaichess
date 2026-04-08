@@ -218,7 +218,8 @@ describe('BotGame', () => {
   it('renders the started game without countdown timers while keeping both player bars', () => {
     renderBotGame();
 
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+    // Click first start button (both desktop and mobile have this testid)
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
@@ -233,8 +234,12 @@ describe('BotGame', () => {
   it('starts a game with a roster-selected persona instead of the default bot', () => {
     renderBotGame();
 
-    fireEvent.click(screen.getByRole('button', { name: /Mekhala Saeng/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+    // Click on Mekhala Saeng bot card (first occurrence from either desktop or mobile)
+    const mekhalaButtons = screen.getAllByRole('button', { name: /Mekhala Saeng/i });
+    fireEvent.click(mekhalaButtons[0]);
+    
+    // Click first start button (both desktop and mobile have this testid)
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
 
     expect(screen.getAllByText('Mekhala Saeng').length).toBeGreaterThan(0);
     expect(screen.getByText('Matron of Riverlight Sala')).toBeInTheDocument();
@@ -245,7 +250,8 @@ describe('BotGame', () => {
 
     expect(screen.getAllByText('Level 4').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Estimated 650-800 ELO').length).toBeGreaterThan(0);
-    expect(screen.getByText('Estimated strength based on play behavior, not an official rating.')).toBeInTheDocument();
+    // ELO note appears in both desktop and mobile layouts
+    expect(screen.getAllByText('Estimated strength based on play behavior, not an official rating.').length).toBeGreaterThan(0);
   });
 
   it('falls back to a local move when the server returns no bot move', async () => {
@@ -253,8 +259,12 @@ describe('BotGame', () => {
 
     renderBotGame();
 
-    fireEvent.click(screen.getByRole('button', { name: 'common.black' }));
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+    // Select black side (first occurrence from either desktop or mobile layout)
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+    
+    // Click first start button (both desktop and mobile have this testid)
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
 
     await waitFor(() => {
       const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
@@ -280,8 +290,12 @@ describe('BotGame', () => {
 
     renderBotGame();
 
-    fireEvent.click(screen.getByRole('button', { name: 'common.black' }));
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
+    // Select black side (first occurrence from either desktop or mobile layout)
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+    
+    // Click first start button (both desktop and mobile have this testid)
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
@@ -296,8 +310,12 @@ describe('BotGame', () => {
 
     renderBotGame();
 
-    fireEvent.click(screen.getByRole('button', { name: 'bot.start' }));
-    fireEvent.click(screen.getByRole('button', { name: /bot.resign/i }));
+    // Click first start button (both desktop and mobile have this testid)
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+    
+    // Click resign button (first occurrence from either desktop or mobile layout)
+    const resignButtons = screen.getAllByRole('button', { name: /bot.resign/i });
+    fireEvent.click(resignButtons[0]);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/bot', expect.objectContaining({

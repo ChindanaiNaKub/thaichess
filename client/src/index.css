@@ -483,3 +483,158 @@
 .animate-slideOut {
   animation: slideOut 0.3s ease-in;
 }
+
+/* ─── Bot Page Animations ──────────────────────────────────────────── */
+
+/* Card entrance animation - staggered */
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-entrance {
+  animation: cardEntrance 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* Avatar breathing animation */
+@keyframes avatarBreathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.animate-breathe {
+  animation: avatarBreathe 4s ease-in-out infinite;
+}
+
+/* Selection pulse ring */
+@keyframes selectionPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.58 0.16 135 / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px oklch(0.58 0.16 135 / 0);
+  }
+}
+
+.animate-selection-pulse {
+  animation: selectionPulse 2s ease-in-out infinite;
+}
+
+/* Avatar "wake up" animation when selected */
+@keyframes avatarWakeUp {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.12) rotate(-4deg);
+  }
+  50% {
+    transform: scale(1.18) rotate(4deg);
+  }
+  75% {
+    transform: scale(1.12) rotate(0deg);
+  }
+  100% {
+    transform: scale(1.1) rotate(0deg);
+  }
+}
+
+.animate-wake-up {
+  animation: avatarWakeUp 0.6s ease-out forwards;
+}
+
+/* Play button pulse */
+@keyframes playButtonPulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(92, 160, 26, 0.35);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(92, 160, 26, 0.5);
+  }
+}
+
+.animate-play-pulse {
+  animation: playButtonPulse 2s ease-in-out infinite;
+}
+
+/* Shimmer effect for play button */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-primary-light) 25%,
+    var(--color-primary) 50%,
+    var(--color-primary-light) 75%,
+    var(--color-primary) 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Content fade in for details panel */
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-content-fade {
+  animation: contentFadeIn 0.3s ease-out forwards;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Stagger delay utilities */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
+.stagger-9 { animation-delay: 0.45s; }
+.stagger-10 { animation-delay: 0.5s; }
+
+/* Hide scrollbar utility for mobile carousel */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
