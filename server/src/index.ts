@@ -52,6 +52,7 @@ import { createSocketConnectionHandler, type AuthenticatedSocketData } from './s
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
 import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine } from './engineGateway';
+import { betterAuthHandler } from './betterAuth';
 import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
@@ -170,8 +171,33 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Serve static files in production (__dirname = server/dist/server/src when compiled)
-const clientDist = path.join(__dirname, '../../../../client/dist');
+function findWorkspaceRoot(startDir: string): string {
+  let currentDir = path.resolve(startDir);
+
+  while (true) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { workspaces?: unknown };
+        if (Array.isArray(parsed.workspaces) && parsed.workspaces.includes('server') && parsed.workspaces.includes('client')) {
+          return currentDir;
+        }
+      } catch {
+        // Ignore malformed package.json candidates and keep walking upward.
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return startDir;
+    }
+    currentDir = parentDir;
+  }
+}
+
+// Serve static files in production from the repo root regardless of tsx vs compiled output.
+const workspaceRoot = findWorkspaceRoot(__dirname);
+const clientDist = path.join(workspaceRoot, 'client', 'dist');
 const assetDist = path.join(clientDist, 'assets');
 
 app.use('/assets', express.static(assetDist, {
@@ -719,7 +745,7 @@ const fairPlayReportLimiter = rateLimit({
   message: { error: 'Too many fair-play reports. Please try again later.' },
 });
 
-app.post('/api/auth/request-code', authLimiter, async (req, res) => {
+app.post('/api/auth/email/request-code', authLimiter, async (req, res) => {
   const parseResult = RequestCodeSchema.safeParse(req.body);
   if (!parseResult.success) {
     const flattened = parseResult.error.flatten();
@@ -741,7 +767,7 @@ app.post('/api/auth/request-code', authLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/auth/verify-code', authLimiter, async (req, res) => {
+app.post('/api/auth/email/verify-code', authLimiter, async (req, res) => {
   const parseResult = VerifyCodeSchema.safeParse(req.body);
   if (!parseResult.success) {
     const flattened = parseResult.error.flatten();
@@ -794,6 +820,8 @@ app.patch('/api/auth/profile', async (req, res) => {
 
   res.json({ ok: true, user: updated });
 });
+
+app.all('/api/auth/*', betterAuthHandler);
 
 app.get('/api/fair-play/cases', async (req, res) => {
   const admin = await requireAdmin(req, res);

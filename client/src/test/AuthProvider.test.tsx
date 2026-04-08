@@ -38,7 +38,9 @@ describe('AuthProvider', () => {
     fireEvent.keyUp(window, { key: 'Tab' });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me');
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', {
+        cache: 'no-store',
+      });
     });
   });
 
@@ -58,7 +60,9 @@ describe('AuthProvider', () => {
     );
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me');
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', {
+        cache: 'no-store',
+      });
     });
   });
 });
