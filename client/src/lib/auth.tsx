@@ -29,7 +29,7 @@ interface AuthContextValue {
   loading: boolean;
   refreshUser: () => Promise<void>;
   requestCode: (email: string) => Promise<{ ok: true }>;
-  verifyCode: (email: string, code: string) => Promise<{ ok: true }>;
+  verifyCode: (email: string, code: string) => Promise<{ ok: true; twoFactorRedirect: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
@@ -139,10 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(response.error.message || 'Failed to sign in.');
     }
 
-    const nextUser = response.data?.user ?? null;
-    setUser(nextUser);
-    writeCachedUser(nextUser);
-    return { ok: true as const };
+    await refreshUser();
+    return {
+      ok: true as const,
+      twoFactorRedirect: Boolean(response.data?.twoFactorRedirect),
+    };
   }
 
   async function signInWithProvider(provider: 'google' | 'facebook') {

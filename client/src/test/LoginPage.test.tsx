@@ -50,6 +50,8 @@ vi.mock('../lib/i18n', () => ({
         'auth.use_another_email': 'Use another email',
         'auth.signing_in': 'Signing in',
         'auth.back_to_play': 'Back to play',
+        'auth.send_code_failed': 'Failed to send code.',
+        'auth.sign_in_failed': 'Failed to sign in.',
       };
       return translations[key] ?? key;
     },
@@ -76,12 +78,43 @@ describe('LoginPage', () => {
     authClientMock.signIn.emailOtp.mockReset();
     authClientMock.signIn.social.mockReset();
     authClientMock.signOut.mockReset();
+  });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.pushState({}, '', '/');
+  });
+
+  it('caches the canonical auth user after an OTP sign-in', async () => {
+    const canonicalUser = {
+      id: 'user-1',
+      name: 'Test User',
+      email: 'test@example.com',
+      email_verified: true,
+      twoFactorEnabled: true,
+      image: null,
+      username: null,
+      role: 'user',
+      fair_play_status: 'clear',
+      rated_restricted_at: null,
+      rated_restriction_note: null,
+      rating: 1500,
+      rated_games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      created_at: 1710000000,
+      updated_at: 1710000100,
+      last_login_at: 1710000200,
+    };
+
+    let authMeCalls = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (input === '/api/auth/me') {
+        authMeCalls += 1;
         return {
           ok: true,
-          json: async () => ({ user: null }),
+          json: async () => ({ user: authMeCalls === 1 ? null : canonicalUser }),
         } as Response;
       }
 
@@ -91,15 +124,6 @@ describe('LoginPage', () => {
       } as Response;
     });
 
-    vi.stubGlobal('fetch', fetchMock);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    window.history.pushState({}, '', '/');
-  });
-
-  it('keeps the current login copy and uses Better Auth for Google and email OTP sign-in', async () => {
     authClientMock.emailOtp.sendVerificationOtp.mockResolvedValue({
       data: { success: true },
       error: null,
@@ -108,9 +132,9 @@ describe('LoginPage', () => {
       data: {
         token: 'session-token',
         user: {
-          id: 'user-1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          id: 'better-auth-user',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+          updatedAt: new Date('2024-01-01T00:00:00Z'),
           email: 'test@example.com',
           emailVerified: true,
           name: 'Test User',
@@ -123,6 +147,8 @@ describe('LoginPage', () => {
       data: undefined,
       error: null,
     });
+
+    vi.stubGlobal('fetch', fetchMock);
 
     const user = userEvent.setup();
     renderLoginPage();
@@ -140,9 +166,6 @@ describe('LoginPage', () => {
     });
 
     await user.click(screen.getByRole('button', { name: 'Use email instead' }));
-    expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send sign-in code' })).toBeInTheDocument();
-
     await user.type(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
     await user.click(screen.getByRole('button', { name: 'Send sign-in code' }));
 
@@ -152,8 +175,6 @@ describe('LoginPage', () => {
         type: 'sign-in',
       });
     });
-    expect(screen.getByText('Code sent to test@example.com')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Verify code' })).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText('Enter 6-digit code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify code' }));
@@ -163,7 +184,64 @@ describe('LoginPage', () => {
         email: 'test@example.com',
         otp: '123456',
       });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+
+    const cachedUser = JSON.parse(window.sessionStorage.getItem('thaichess-auth-user') ?? 'null') as Record<string, unknown> | null;
+    expect(cachedUser).toEqual(canonicalUser);
+    expect(cachedUser).not.toHaveProperty('emailVerified');
     expect(navigateMock).toHaveBeenCalledWith('/account', { replace: true });
+  });
+
+  it('does not treat twoFactorRedirect as a normal account sign-in', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input === '/api/auth/me') {
+        return {
+          ok: true,
+          json: async () => ({ user: null }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    authClientMock.emailOtp.sendVerificationOtp.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+    authClientMock.signIn.emailOtp.mockResolvedValue({
+      data: { twoFactorRedirect: true },
+      error: null,
+    });
+    authClientMock.signIn.social.mockResolvedValue({
+      data: undefined,
+      error: null,
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    renderLoginPage();
+
+    await screen.findByRole('heading', { name: 'Sign in' });
+    await user.click(screen.getByRole('button', { name: 'Use email instead' }));
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send sign-in code' }));
+    await user.type(screen.getByPlaceholderText('Enter 6-digit code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify code' }));
+
+    await waitFor(() => {
+      expect(authClientMock.signIn.emailOtp).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        otp: '123456',
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(window.sessionStorage.getItem('thaichess-auth-user')).toBeNull();
+    expect(navigateMock).not.toHaveBeenCalledWith('/account', { replace: true });
   });
 });

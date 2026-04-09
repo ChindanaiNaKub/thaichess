@@ -139,8 +139,10 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await verifyCode(email, code);
-      navigate('/account', { replace: true });
+      const result = await verifyCode(email, code);
+      if (!result.twoFactorRedirect) {
+        navigate('/account', { replace: true });
+      }
     } catch (err) {
       setError(getErrorMessage(err, t('auth.sign_in_failed')));
     } finally {
