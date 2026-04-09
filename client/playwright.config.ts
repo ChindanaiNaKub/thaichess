@@ -48,5 +48,6 @@ export default defineConfig({
     cwd: repoRoot,
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
 });

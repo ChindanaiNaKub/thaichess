@@ -24,19 +24,19 @@ import GameOverPanel from './GameOverPanel';
 import Clock from './Clock';
 import InGameShell from './InGameShell';
 import PostGameReviewPanel from './PostGameReviewPanel';
+import PostGameSharePanel from './PostGameSharePanel';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
+const LOCAL_GAME_TIME_CONTROL = {
+  initial: DEFAULT_PLAY_TIME_MS / 1000,
+  increment: 0,
+};
 
 function createLocalGameId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
-
-const LOCAL_GAME_TIME_CONTROL = {
-  initial: DEFAULT_PLAY_TIME_MS / 1000,
-  increment: 0,
-};
 
 export default function LocalGame() {
   const navigate = useNavigate();
@@ -344,7 +344,7 @@ export default function LocalGame() {
       return;
     }
     setViewMoveIndex(index);
-  }, [gameState.moveHistory.length, viewMoveIndex]);
+  }, [gameState.moveHistory.length]);
 
   const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
 
@@ -536,6 +536,23 @@ export default function LocalGame() {
                   ? handleAnalyzeGame
                   : undefined
                 }
+              />
+            )}
+
+            {gameOverInfo && (
+              <PostGameSharePanel
+                analysisId={`local-${gameState.moveHistory.length}`}
+                board={gameState.board}
+                lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                moves={gameState.moveHistory}
+                moveCount={gameState.moveCount}
+                playerColor={viewAs}
+                whitePlayerName={t('common.white')}
+                blackPlayerName={t('common.black')}
+                winner={gameOverInfo.winner}
+                resultReason={gameOverInfo.reason}
+                gameMode="local"
+                timeControl={LOCAL_GAME_TIME_CONTROL}
               />
             )}
 
