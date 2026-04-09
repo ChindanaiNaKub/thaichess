@@ -1,3 +1,4 @@
+import type { RequestHandler } from 'express';
 import type { Socket } from 'socket.io';
 import type {
   ClientToServerEvents,
@@ -20,6 +21,18 @@ interface RateLimitState {
 function normalizeOrigin(value: string) {
   return value.trim().replace(/\/+$/, '');
 }
+
+function getNormalizedRequestOrigin(value: string | undefined) {
+  if (!value) return null;
+
+  try {
+    return normalizeOrigin(new URL(value).origin);
+  } catch {
+    return null;
+  }
+}
+
+const TRUSTED_WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export class SocketRateLimiter {
   private buckets = new Map<string, RateLimitState>();
@@ -128,4 +141,39 @@ export function getAllowedCorsOrigins(env: NodeJS.ProcessEnv) {
 export function isAllowedCorsOrigin(origin: string | undefined, allowedOrigins: readonly string[]) {
   if (!origin) return true;
   return allowedOrigins.includes(normalizeOrigin(origin));
+}
+
+export function isAllowedWriteOrigin(origin: string | undefined, allowedOrigins: readonly string[]) {
+  if (!origin) return false;
+  return allowedOrigins.includes(normalizeOrigin(origin));
+}
+
+export function requireTrustedWriteOrigin(allowedOrigins: readonly string[]): RequestHandler {
+  return (req, res, next) => {
+    if (!TRUSTED_WRITE_METHODS.has(req.method)) {
+      next();
+      return;
+    }
+
+    const originHeader = req.get('origin');
+    const origin = getNormalizedRequestOrigin(originHeader);
+
+    if (originHeader !== undefined) {
+      if (!origin || !allowedOrigins.includes(origin)) {
+        res.status(403).json({ error: 'Untrusted origin.' });
+        return;
+      }
+
+      next();
+      return;
+    }
+
+    const referer = getNormalizedRequestOrigin(req.get('referer'));
+    if (!referer || !allowedOrigins.includes(referer)) {
+      res.status(403).json({ error: 'Untrusted origin.' });
+      return;
+    }
+
+    next();
+  };
 }

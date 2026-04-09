@@ -69,6 +69,7 @@ function createAuthUser(id: string, email: string, username: string, fairPlaySta
     name: username,
     email,
     email_verified: true,
+    twoFactorEnabled: false,
     image: null,
     username,
     role: 'user',

@@ -3,6 +3,7 @@ import {
   getAllowedCorsOrigins,
   getSocketIp,
   isAllowedCorsOrigin,
+  isAllowedWriteOrigin,
   isValidBoolean,
   isValidGameId,
   isValidPosition,
@@ -93,5 +94,18 @@ describe('security utilities', () => {
     expect(origins).toContain('http://localhost:5173');
     expect(origins).toContain('http://localhost:5174');
     expect(isAllowedCorsOrigin(undefined, origins)).toBe(true);
+  });
+
+  it('only allows trusted write origins with normalized matches', () => {
+    const origins = getAllowedCorsOrigins({
+      NODE_ENV: 'production',
+      SITE_URL: 'https://thaichess.dev/',
+      APP_URL: 'https://app.thaichess.dev/',
+    });
+
+    expect(isAllowedWriteOrigin('https://thaichess.dev/', origins)).toBe(true);
+    expect(isAllowedWriteOrigin('https://app.thaichess.dev', origins)).toBe(true);
+    expect(isAllowedWriteOrigin('https://evil.example', origins)).toBe(false);
+    expect(isAllowedWriteOrigin(undefined, origins)).toBe(false);
   });
 });

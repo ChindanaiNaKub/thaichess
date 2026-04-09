@@ -7,6 +7,7 @@ export interface AuthUser {
   name?: string;
   email: string;
   email_verified?: boolean;
+  twoFactorEnabled: boolean;
   image?: string | null;
   username: string | null;
   role: 'user' | 'admin';

@@ -46,8 +46,8 @@ import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor }
 import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
-import { getAllowedCorsOrigins, isAllowedCorsOrigin, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, hasAdminMfaAccess, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
@@ -106,6 +106,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 
 app.use(cors(corsOptions));
 app.use(express.json());
+const requireTrustedWriteOriginMiddleware = requireTrustedWriteOrigin(allowedCorsOrigins);
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
 app.set('trust proxy', 1);
@@ -400,6 +401,16 @@ async function requireAdmin(req: express.Request, res: express.Response) {
   if (!user) return null;
   if (user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required.' });
+    return null;
+  }
+  return user;
+}
+
+async function requireAdminWithMfa(req: express.Request, res: express.Response) {
+  const user = await requireAdmin(req, res);
+  if (!user) return null;
+  if (!hasAdminMfaAccess(user)) {
+    res.status(403).json({ error: 'Admin MFA required.' });
     return null;
   }
   return user;
@@ -792,12 +803,12 @@ app.post('/api/auth/email/verify-code', authLimiter, async (req, res) => {
   res.json({ ok: true, user: result.user });
 });
 
-app.post('/api/auth/logout', async (req, res) => {
+app.post('/api/auth/logout', requireTrustedWriteOriginMiddleware, async (req, res) => {
   await logoutRequest(req, res);
   res.json({ ok: true });
 });
 
-app.patch('/api/auth/profile', async (req, res) => {
+app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -825,7 +836,7 @@ app.patch('/api/auth/profile', async (req, res) => {
 app.all('/api/auth/*', betterAuthHandler);
 
 app.get('/api/fair-play/cases', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -844,7 +855,7 @@ app.get('/api/fair-play/cases', async (req, res) => {
   res.json({ cases, total, page, limit, status });
 });
 
-app.post('/api/fair-play/report', fairPlayReportLimiter, async (req, res) => {
+app.post('/api/fair-play/report', requireTrustedWriteOriginMiddleware, fairPlayReportLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -883,8 +894,8 @@ app.post('/api/fair-play/report', fairPlayReportLimiter, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/cases/:id/restrict', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -913,8 +924,8 @@ app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/cases/:id/dismiss', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -943,8 +954,8 @@ app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/users/:id/clear', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/users/:id/clear', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const userId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
@@ -988,7 +999,7 @@ app.get('/api/puzzle-progress', async (req, res) => {
   res.json({ completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/visit', async (req, res) => {
+app.post('/api/puzzle-progress/visit', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -1011,7 +1022,7 @@ app.post('/api/puzzle-progress/visit', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/complete', async (req, res) => {
+app.post('/api/puzzle-progress/complete', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -1034,7 +1045,7 @@ app.post('/api/puzzle-progress/complete', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/attempt', async (req, res) => {
+app.post('/api/puzzle-progress/attempt', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -1058,7 +1069,7 @@ app.post('/api/puzzle-progress/attempt', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/sync', async (req, res) => {
+app.post('/api/puzzle-progress/sync', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -1186,7 +1197,7 @@ const feedbackLimiter = rateLimit({
 });
 
 app.get('/api/feedback', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -1226,8 +1237,8 @@ app.post('/api/feedback', feedbackLimiter, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/feedback/:id', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.delete('/api/feedback/:id', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const feedbackId = Number(req.params.id);

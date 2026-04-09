@@ -19,6 +19,7 @@ export const routes = {
   feedback: '/feedback',
   fairPlay: '/fair-play',
   login: '/login',
+  twoFactor: '/2fa',
   account: '/account',
   appearanceSettings: '/settings/board-pieces',
   analysisRoot: '/analysis',

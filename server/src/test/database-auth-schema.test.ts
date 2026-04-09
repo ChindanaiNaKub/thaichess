@@ -56,18 +56,20 @@ describe('better-auth database schema', () => {
     expect(userColumns.has('name')).toBe(true);
     expect(userColumns.has('image')).toBe(true);
     expect(userColumns.has('email_verified')).toBe(true);
+    expect(userColumns.has('twoFactorEnabled')).toBe(true);
 
     const tables = await client.execute(`
       SELECT name
       FROM sqlite_master
       WHERE type = 'table'
-        AND name IN ('accounts', 'auth_sessions', 'verifications')
+        AND name IN ('accounts', 'auth_sessions', 'twoFactor', 'verifications')
       ORDER BY name
     `);
 
     expect(tables.rows.map((row) => String(row.name))).toEqual([
       'accounts',
       'auth_sessions',
+      'twoFactor',
       'verifications',
     ]);
   });
