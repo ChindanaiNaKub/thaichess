@@ -1999,3 +1999,29 @@ export async function deleteSessionByTokenHash(tokenHash: string): Promise<void>
     logError('database_delete_session_failed', err);
   }
 }
+
+export async function deleteUser(userId: string): Promise<boolean> {
+  try {
+    // Delete user from all related tables first
+    await db.execute({
+      sql: 'DELETE FROM sessions WHERE user_id = ?',
+      args: [userId],
+    });
+    await db.execute({
+      sql: 'DELETE FROM puzzle_progress WHERE user_id = ?',
+      args: [userId],
+    });
+    await db.execute({
+      sql: 'DELETE FROM games WHERE white_user_id = ? OR black_user_id = ?',
+      args: [userId, userId],
+    });
+    await db.execute({
+      sql: 'DELETE FROM users WHERE id = ?',
+      args: [userId],
+    });
+    return true;
+  } catch (err) {
+    logError('database_delete_user_failed', err);
+    return false;
+  }
+}
