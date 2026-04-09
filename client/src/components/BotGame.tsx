@@ -46,6 +46,7 @@ import PieceSVG from './PieceSVG';
 import Clock from './Clock';
 import InGameShell from './InGameShell';
 import PostGameReviewPanel from './PostGameReviewPanel';
+import PostGameSharePanel from './PostGameSharePanel';
 
 // Map bot IDs to i18n translation keys
 const BOT_ID_TO_I18N_KEY: Record<string, string> = {
@@ -457,6 +458,7 @@ export default function BotGame() {
     botColor,
     botLevel,
     gameStarted,
+    gameState,
     gameState.board,
     gameState.counting,
     gameState.gameOver,
@@ -632,7 +634,7 @@ export default function BotGame() {
     }
 
     previousGameStateRef.current = gameState;
-  }, [botColor, buildBotChatHistory, gameStarted, gameState, queueBotChat, selectedBot]);
+  }, [botColor, buildBotChatHistory, gameStarted, gameState, lang, queueBotChat, selectedBot]);
 
   useEffect(() => {
     if (botThinkingLineTimeoutRef.current) {
@@ -663,7 +665,7 @@ export default function BotGame() {
         botThinkingLineTimeoutRef.current = null;
       }
     };
-  }, [botColor, botThinking, buildBotChatHistory, gameStarted, gameState.gameOver, queueBotChat, selectedBot]);
+  }, [botColor, botThinking, buildBotChatHistory, gameStarted, gameState.gameOver, lang, queueBotChat, selectedBot]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (gameState.gameOver) return;
@@ -877,7 +879,7 @@ export default function BotGame() {
       return;
     }
     setViewMoveIndex(index);
-  }, [gameState.moveHistory.length, viewMoveIndex]);
+  }, [gameState.moveHistory.length]);
 
   const getVisibleMoves = () => {
     if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
@@ -1387,6 +1389,23 @@ export default function BotGame() {
                   ? handleAnalyzeGame
                   : undefined
                 }
+              />
+            )}
+
+            {gameOverInfo && (
+              <PostGameSharePanel
+                analysisId={currentGameId}
+                board={gameState.board}
+                lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                moves={gameState.moveHistory}
+                moveCount={gameState.moveCount}
+                playerColor={playerColor}
+                whitePlayerName={playerColor === 'white' ? playerDisplayName : botName}
+                blackPlayerName={playerColor === 'black' ? playerDisplayName : botName}
+                winner={gameOverInfo.winner}
+                resultReason={gameOverInfo.reason}
+                gameMode="bot"
+                timeControl={BOT_GAME_TIME_CONTROL}
               />
             )}
 
