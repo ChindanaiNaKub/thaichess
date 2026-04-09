@@ -25,6 +25,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'footer.tagline': 'ThaiChess — ฟรีและโอเพนซอร์ส',
   'footer.inspired': 'ได้แรงบันดาลใจจาก',
   'footer.community': 'ชุมชน',
+  'footer.discord': 'ดิสคอร์ด',
   'footer.github': 'GitHub',
   'footer.star_github': 'ติดดาวบน GitHub',
 
