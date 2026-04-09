@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 
 /**
  * Page Object for Game pages (BotGame and LocalGame)
@@ -67,9 +67,11 @@ export class GamePage {
   async makeMove(fromRow: number, fromCol: number, toRow: number, toCol: number): Promise<void> {
     const fromSquare = this.getSquare(fromRow, fromCol);
     const toSquare = this.getSquare(toRow, toCol);
+    const movedPiece = this.getPiece(toRow, toCol);
 
     await fromSquare.click();
     await toSquare.click();
+    await expect(movedPiece).toBeVisible();
   }
 
   /**
@@ -80,12 +82,9 @@ export class GamePage {
   async makeOpeningMoves(): Promise<void> {
     // White pawn move (e2-e3 equivalent in Makruk)
     await this.makeMove(2, 4, 3, 4);
-    // Wait for bot move or next turn
-    await this.page.waitForTimeout(500);
 
     // Black pawn move (b7-b5 equivalent in Makruk)
     await this.makeMove(7, 1, 6, 3);
-    await this.page.waitForTimeout(500);
   }
 
   /**

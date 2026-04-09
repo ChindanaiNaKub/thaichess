@@ -53,8 +53,8 @@ test.describe('Bot Game Analysis Persistence', () => {
     const isBoardVisible = await gamePage.board.isVisible();
     expect(isBoardVisible).toBe(true);
 
-    // Make some moves
-    await gamePage.makeOpeningMoves();
+    // Make a legal player move and let the bot game remain in a valid state.
+    await gamePage.makeMove(2, 4, 3, 4);
 
     // Board should still be visible after moves
     const isBoardStillVisible = await gamePage.board.isVisible();
@@ -68,7 +68,7 @@ test.describe('Bot Game Analysis Persistence', () => {
     // Act - Start a bot game
     await gamePage.gotoBot();
     await gamePage.startBotGame();
-    await gamePage.makeOpeningMoves();
+    await gamePage.makeMove(2, 4, 3, 4);
 
     // Navigate to analysis using the URL directly (simulating the analyze button click)
     // In a real scenario, the user would click analyze after game over
