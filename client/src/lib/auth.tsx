@@ -29,7 +29,7 @@ interface AuthContextValue {
   loading: boolean;
   refreshUser: () => Promise<void>;
   requestCode: (email: string) => Promise<{ ok: true }>;
-  verifyCode: (email: string, code: string) => Promise<{ ok: true }>;
+  verifyCode: (email: string, code: string) => Promise<{ ok: true; twoFactorRedirect: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
@@ -117,26 +117,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [deferInitialRefresh]);
 
   async function requestCode(email: string) {
-    const response = await fetch('/api/auth/email/request-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+    const response = await authClient.emailOtp.sendVerificationOtp({
+      email,
+      type: 'sign-in',
     });
-    await readJsonOrThrow(response);
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to send code.');
+    }
+
     return { ok: true as const };
   }
 
   async function verifyCode(email: string, code: string) {
-    const response = await fetch('/api/auth/email/verify-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code }),
+    const response = await authClient.signIn.emailOtp({
+      email,
+      otp: code,
     });
-    const data = await readJsonOrThrow(response);
-    const nextUser = data.user ?? null;
-    setUser(nextUser);
-    writeCachedUser(nextUser);
-    return { ok: true as const };
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to sign in.');
+    }
+
+    const twoFactorRedirect = Boolean(
+      response.data
+      && typeof response.data === 'object'
+      && 'twoFactorRedirect' in response.data
+      && (response.data as { twoFactorRedirect?: unknown }).twoFactorRedirect,
+    );
+
+    await refreshUser();
+    return {
+      ok: true as const,
+      twoFactorRedirect,
+    };
   }
 
   async function signInWithProvider(provider: 'google' | 'facebook') {
