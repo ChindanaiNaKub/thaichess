@@ -25,6 +25,7 @@ const {
     user: {
       id: 'user-1',
       email: 'player@example.com',
+      twoFactorEnabled: false,
       username: 'player_one',
       role: 'user' as const,
       fair_play_status: 'clear' as const,
@@ -46,6 +47,7 @@ function createUser(fairPlayStatus: AuthUser['fair_play_status'] = 'clear'): Aut
   return {
     id: 'user-1',
     email: 'player@example.com',
+    twoFactorEnabled: false,
     username: 'player_one',
     role: 'user',
     fair_play_status: fairPlayStatus,

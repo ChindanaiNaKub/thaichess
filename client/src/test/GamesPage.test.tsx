@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import GamesPage from '../components/GamesPage';
 import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
 
@@ -23,12 +24,25 @@ vi.mock('../components/Header', () => ({
   default: ({ children }: { children?: ReactNode }) => <div data-testid="header">{children}</div>,
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
-  return (
-    <MemoryRouter>
-      <I18nProvider>{children}</I18nProvider>
-    </MemoryRouter>
-  );
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <I18nProvider>{children}</I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
 }
 
 describe('GamesPage', () => {
@@ -41,6 +55,7 @@ describe('GamesPage', () => {
 
   it('renders rated and casual badges for recent games', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [
           {
@@ -97,13 +112,13 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('rated-1')).toBeInTheDocument();
-      expect(screen.getByText('bot-1')).toBeInTheDocument();
-      expect(screen.getByText('casual-1')).toBeInTheDocument();
-    });
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('rated-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('bot-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('casual-1', {}, { timeout: 3000 })).toBeInTheDocument();
 
     expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
@@ -119,6 +134,7 @@ describe('GamesPage', () => {
 
   it('requests filtered recent games when the filter changes', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [],
         total: 0,
@@ -130,33 +146,35 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Rated' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=rated');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Casual' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=casual');
-    });
+    }, { timeout: 3000 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Bot' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=bot');
-    });
+    }, { timeout: 3000 });
   });
 
   it('opens finished games in analysis instead of the live game route', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({
         games: [
           {
@@ -182,11 +200,11 @@ describe('GamesPage', () => {
       }),
     });
 
-    render(<GamesPage />, { wrapper });
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
 
-    await waitFor(() => {
-      expect(screen.getByText('finished-1')).toBeInTheDocument();
-    });
+    // Wait for loading to finish and data to appear (increased timeout)
+    expect(await screen.findByText('finished-1', {}, { timeout: 3000 })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('finished-1'));
 

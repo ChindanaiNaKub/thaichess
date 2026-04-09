@@ -1,14 +1,17 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   loadBotGameRoute,
   loadLocalGameRoute,
   loadQuickPlayRoute,
 } from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
+import { homeStatsQueryOptions, type HomeStats } from '../queries/stats';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
+import { usePrefetchQueries } from '../hooks/usePrefetchQueries';
 
 import PieceSVG from './PieceSVG';
 
@@ -46,15 +49,13 @@ const SHOWCASE_PIECES: { type: PieceType; color: PieceColor }[] = [
   { type: 'P', color: 'white' },
 ];
 
-interface HomeStats {
-  totalGames: number;
-}
 type SocketModule = typeof import('../lib/socket');
 type SocketLike = SocketModule['socket'];
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { prefetchGames, prefetchLeaderboard } = usePrefetchQueries();
 
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
   const [selectedColor, setSelectedColor] = useState<PrivateGameColorPreference>('random');
@@ -66,8 +67,14 @@ export default function HomePage() {
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
   const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
-  const [stats, setStats] = useState<HomeStats | null>(null);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
+  
+  // Use TanStack Query for stats
+  const { data: stats } = useQuery({
+    ...homeStatsQueryOptions(),
+    enabled: showDeferredContent,
+  });
+  
   const gameCreatedHandlerRef = useRef<((payload: { gameId: string }) => void) | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const errorHandlerRef = useRef<((payload: { message: string }) => void) | null>(null);
@@ -99,18 +106,25 @@ export default function HomePage() {
     };
   }, []);
 
+  // Prefetch likely next pages when idle
   useEffect(() => {
-    if (!showDeferredContent || typeof fetch !== 'function') return;
+    if (typeof window === 'undefined') return;
+    
+    const prefetchWhenIdle = () => {
+      // Prefetch games and leaderboard data for faster navigation
+      prefetchGames();
+      prefetchLeaderboard();
+    };
 
-    fetch('/api/stats')
-      .then((response) => response.json())
-      .then((data) => {
-        if (typeof data?.totalGames === 'number') {
-          setStats({ totalGames: data.totalGames });
-        }
-      })
-      .catch(() => {});
-  }, [showDeferredContent]);
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(prefetchWhenIdle, { timeout: 2000 });
+      return () => window.cancelIdleCallback?.(idleId);
+    } else {
+      const timeoutId = setTimeout(prefetchWhenIdle, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [prefetchGames, prefetchLeaderboard]);
 
   useEffect(() => {
     if (deferredContentReady || typeof window === 'undefined') return;
@@ -617,6 +631,31 @@ export default function HomePage() {
 
       <footer className="deferred-section bg-surface-alt border-t border-surface-hover py-6 px-4">
         <div className="max-w-6xl mx-auto">
+          {/* Support Section */}
+          <div className="mb-6 p-4 rounded-xl border border-accent/20 bg-accent/5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <p className="text-text-bright font-semibold text-sm">{t('footer.support')}</p>
+                <p className="text-text-dim text-xs mt-1 max-w-md">{t('footer.support_desc')}</p>
+              </div>
+              <a
+                href="/donate-qr.jpg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#4B0082] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#4B0082]/85 hover:scale-105 whitespace-nowrap"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 11h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v3h-3v-3zm-2 2h3v3h-3v-3zm2 2h3v3h-3v-3zm-9 2h3v3H9v-3zm2 2h3v3h-3v-3zm-2 2h3v3H9v-3z"/>
+                </svg>
+                {t('footer.donate_thai')}
+              </a>
+            </div>
+            {/* Bank Info */}
+            <div className="mt-3 pt-3 border-t border-accent/10 text-center">
+              <p className="text-text-dim/80 text-xs">{t('footer.bank_info')}</p>
+            </div>
+          </div>
+
           <h2 className="sr-only">{t('footer.links_label')}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 mb-4">
             {/* Play */}
@@ -665,6 +704,7 @@ export default function HomePage() {
                 Chess.com
               </a>
             </p>
+            <p className="text-text-dim/70 text-xs mt-2">{t('footer.thanks')}</p>
           </div>
         </div>
       </footer>

@@ -1,38 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../lib/i18n';
 import { routes, savedGameAnalysisRoute } from '../lib/routes';
+import { gamesQueryOptions, type GamesFilter, type GameEntry } from '../queries/games';
 import Header from './Header';
-
-interface GameEntry {
-  id: string;
-  white_name: string;
-  black_name: string;
-  result: string;
-  result_reason: string;
-  rated?: number;
-  game_mode?: string;
-  game_type?: 'human' | 'bot';
-  opponent_type?: string | null;
-  opponent_name?: string | null;
-  bot_level?: number | null;
-  white_rating_before?: number | null;
-  black_rating_before?: number | null;
-  white_rating_after?: number | null;
-  black_rating_after?: number | null;
-  time_control_initial: number;
-  time_control_increment: number;
-  move_count: number;
-  finished_at: number;
-}
 
 interface BotPerformanceStats {
   gamesCount: number;
   winRate: number;
   highestBotLevelDefeated: number | null;
 }
-
-type GamesFilter = 'all' | 'rated' | 'casual' | 'bot';
 
 function formatTimeControl(initial: number, increment: number): string {
   const mins = Math.floor(initial / 60);
@@ -193,43 +171,36 @@ function renderGameRow(
 export default function GamesPage() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
-  const [games, setGames] = useState<GameEntry[]>([]);
-  const [botStats, setBotStats] = useState<BotPerformanceStats>({
+  const [page, setPage] = useState(0);
+  const [filter, setFilter] = useState<GamesFilter>('all');
+  const limit = 20;
+
+  // Reset page when filter changes
+  const handleFilterChange = (newFilter: GamesFilter) => {
+    setFilter(newFilter);
+    setPage(0);
+  };
+
+  // Use TanStack Query for data fetching
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    isPlaceholderData,
+  } = useQuery(gamesQueryOptions(page, limit, filter));
+
+  const games = data?.games ?? [];
+  const total = data?.total ?? 0;
+  const botStats = data?.botStats ?? {
     gamesCount: 0,
     winRate: 0,
     highestBotLevelDefeated: null,
-  });
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [filter, setFilter] = useState<GamesFilter>('all');
-  const [loading, setLoading] = useState(true);
-
-  const limit = 20;
-
-  useEffect(() => {
-    setPage(0);
-  }, [filter]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/games/recent?page=${page}&limit=${limit}&filter=${filter}`)
-      .then(r => r.json())
-      .then(data => {
-        setGames(data.games || []);
-        setTotal(data.total || 0);
-        setBotStats(data.botStats || {
-          gamesCount: 0,
-          winRate: 0,
-          highestBotLevelDefeated: null,
-        });
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [page, filter]);
+  };
 
   const totalPages = Math.ceil(total / limit);
-  const highlightedGames = games.filter(game => !isLowSignalGame(game));
-  const lowSignalGames = games.filter(isLowSignalGame);
+  const highlightedGames = games.filter((game: GameEntry) => !isLowSignalGame(game));
+  const lowSignalGames = games.filter((game: GameEntry) => isLowSignalGame(game));
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -255,7 +226,7 @@ export default function GamesPage() {
                 <button
                   key={filterOption}
                   type="button"
-                  onClick={() => setFilter(filterOption)}
+                  onClick={() => handleFilterChange(filterOption)}
                   className={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
                     filter === filterOption
                       ? 'bg-primary text-white'
@@ -285,9 +256,19 @@ export default function GamesPage() {
           </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : isError ? (
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 px-6 py-10 text-center">
+            <p className="text-danger">{error?.message || t('error.generic')}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
+            >
+              {t('common.retry')}
+            </button>
           </div>
         ) : games.length === 0 ? (
           <div className="rounded-2xl border border-surface-hover bg-surface-alt px-6 py-10 sm:px-10 sm:py-12 text-center">
@@ -336,7 +317,7 @@ export default function GamesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {highlightedGames.map(game => renderGameRow(game, navigate, t, lang))}
+                  {highlightedGames.map((game: GameEntry) => renderGameRow(game, navigate, t, lang))}
                 </tbody>
               </table>
             </div>
@@ -350,7 +331,7 @@ export default function GamesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[320px] text-sm">
                     <tbody>
-                      {lowSignalGames.map(game => renderGameRow(game, navigate, t, lang, true))}
+                      {lowSignalGames.map((game: GameEntry) => renderGameRow(game, navigate, t, lang, true))}
                     </tbody>
                   </table>
                 </div>

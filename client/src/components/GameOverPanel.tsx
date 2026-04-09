@@ -111,6 +111,7 @@ export default function GameOverPanel({
           {onAnalyze && (
             <button
               onClick={onAnalyze}
+              data-testid="analyze-game-button"
               className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-semibold text-xs rounded-lg border border-blue-600/30 transition-colors"
             >
               {t('analysis.analyze')}

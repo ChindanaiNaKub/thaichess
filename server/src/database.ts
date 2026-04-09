@@ -14,12 +14,76 @@ export type FairPlayStatus = 'clear' | 'restricted';
 export type FairPlayEventType = 'analysis_blocked' | 'user_reported';
 export type FairPlayCaseStatus = 'open' | 'reviewed' | 'restricted' | 'dismissed';
 
+// Valid tables and columns for schema migrations (prevents SQL injection)
+const VALID_MIGRATION_TABLES = new Set([
+  'feedback',
+  'users',
+  'games',
+  'puzzle_progress',
+  'sessions',
+  'login_codes',
+  'fair_play_events',
+  'fair_play_cases',
+  'accounts',
+  'auth_sessions',
+  'twoFactor',
+  'verifications',
+]);
+
+// Valid column names for each table (prevents SQL injection)
+const VALID_MIGRATION_COLUMNS: Record<string, Set<string>> = {
+  feedback: new Set(['visible', 'deleted_at', 'deleted_by', 'moderation_note', 'user_id']),
+  users: new Set([
+    'fair_play_status', 'rated_restricted_at', 'rated_restriction_note',
+    'rating', 'rated_games', 'wins', 'losses', 'draws',
+    'name', 'image', 'email_verified', 'twoFactorEnabled',
+  ]),
+  games: new Set([
+    'white_user_id', 'black_user_id', 'rated', 'game_mode', 'game_type',
+    'opponent_type', 'opponent_name', 'bot_level', 'bot_color',
+    'white_rating_before', 'black_rating_before', 'white_rating_after', 'black_rating_after'
+  ]),
+  puzzle_progress: new Set(['last_played_at', 'attempts', 'successes', 'failures']),
+};
+
+// Valid SQLite type definitions (prevents SQL injection in column definitions)
+const VALID_SQLITE_TYPE_PATTERN = /^(INTEGER|TEXT|REAL|BLOB|NUMERIC)(\s+NOT\s+NULL)?(\s+DEFAULT\s+([^'"\s;]+|'[^']*'))?$/i;
+
 async function ensureColumn(table: string, column: string, definition: string) {
-  const result = await db.execute(`PRAGMA table_info(${table})`);
+  // Validate table name against whitelist
+  if (!VALID_MIGRATION_TABLES.has(table)) {
+    logError('ensureColumn_invalid_table', new Error(`Invalid table: ${table}`), { table, column });
+    throw new Error(`Invalid table name: ${table}`);
+  }
+
+  // Validate column name against whitelist for this table
+  const validColumns = VALID_MIGRATION_COLUMNS[table];
+  if (!validColumns || !validColumns.has(column)) {
+    logError('ensureColumn_invalid_column', new Error(`Invalid column: ${column} for table ${table}`), { table, column });
+    throw new Error(`Invalid column name: ${column} for table: ${table}`);
+  }
+
+  // Validate column definition syntax (prevents SQL injection)
+  if (!VALID_SQLITE_TYPE_PATTERN.test(definition.trim())) {
+    logError('ensureColumn_invalid_definition', new Error(`Invalid definition: ${definition}`), { table, column, definition });
+    throw new Error(`Invalid column definition: ${definition}`);
+  }
+
+  // Use parameterized query for PRAGMA (table name is safe due to whitelist)
+  const result = await db.execute({
+    sql: `PRAGMA table_info(${table})`,
+    args: [],
+  });
   const hasColumn = result.rows.some((row) => String(row.name) === column);
 
   if (!hasColumn) {
-    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    // Both table and column are validated, definition is sanitized
+    // This is safe because we've whitelisted all inputs
+    await db.execute({
+      sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+      args: [],
+    });
+    logInfo('ensureColumn_added', { table, column, definition });
   }
 }
 
@@ -99,7 +163,7 @@ function resolveLocalDatabasePath() {
   };
 }
 
-function getDatabaseConfig() {
+export function getDatabaseConfig() {
   if (TURSO_DATABASE_URL) {
     return {
       client: createClient({
@@ -165,7 +229,11 @@ async function runSchemaMigration() {
     `
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
+        name TEXT,
         email TEXT NOT NULL UNIQUE,
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        twoFactorEnabled INTEGER NOT NULL DEFAULT 0,
+        image TEXT,
         username TEXT UNIQUE,
         role TEXT NOT NULL DEFAULT 'user',
         fair_play_status TEXT NOT NULL DEFAULT 'clear',
@@ -181,6 +249,60 @@ async function runSchemaMigration() {
         last_login_at INTEGER
       )
     `,
+    `
+      CREATE TABLE IF NOT EXISTS accounts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        access_token TEXT,
+        refresh_token TEXT,
+        access_token_expires_at INTEGER,
+        refresh_token_expires_at INTEGER,
+        scope TEXT,
+        id_token TEXT,
+        password TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)',
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_provider_account ON accounts(provider_id, account_id)',
+    `
+      CREATE TABLE IF NOT EXISTS auth_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
+    `
+      CREATE TABLE IF NOT EXISTS twoFactor (
+        id TEXT PRIMARY KEY,
+        secret TEXT NOT NULL,
+        backupCodes TEXT NOT NULL,
+        userId TEXT NOT NULL UNIQUE
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_twoFactor_userId ON twoFactor(userId)',
+    `
+      CREATE TABLE IF NOT EXISTS verifications (
+        id TEXT PRIMARY KEY,
+        identifier TEXT NOT NULL,
+        value TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_verifications_identifier ON verifications(identifier)',
+    'CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at)',
     `
       CREATE TABLE IF NOT EXISTS fair_play_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -262,6 +384,10 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'draws', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'name', 'TEXT');
+  await ensureColumn('users', 'image', 'TEXT');
+  await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'twoFactorEnabled', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('games', 'white_user_id', 'TEXT');
   await ensureColumn('games', 'black_user_id', 'TEXT');
   await ensureColumn('games', 'rated', 'INTEGER NOT NULL DEFAULT 0');
@@ -280,6 +406,25 @@ async function runSchemaMigration() {
   await ensureColumn('puzzle_progress', 'successes', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('puzzle_progress', 'failures', 'INTEGER NOT NULL DEFAULT 0');
 
+  await db.execute(`
+    UPDATE users
+    SET name = COALESCE(
+          NULLIF(TRIM(name), ''),
+          NULLIF(TRIM(username), ''),
+          CASE
+            WHEN instr(email, '@') > 1 THEN substr(email, 1, instr(email, '@') - 1)
+            ELSE email
+          END
+        )
+    WHERE name IS NULL OR TRIM(name) = ''
+  `);
+  await db.execute(`
+    UPDATE users
+    SET email_verified = 1
+    WHERE email_verified = 0
+      AND email IS NOT NULL
+      AND email != ''
+  `);
   await db.execute(`
     UPDATE puzzle_progress
     SET last_played_at = COALESCE(last_played_at, completed_at, unixepoch())
@@ -350,7 +495,11 @@ function rowToSavedFeedback(row: Row): SavedFeedback {
 
 export interface AuthUser {
   id: string;
+  name: string;
   email: string;
+  email_verified: boolean;
+  twoFactorEnabled: boolean;
+  image: string | null;
   username: string | null;
   role: 'user' | 'admin';
   fair_play_status: FairPlayStatus;
@@ -388,7 +537,11 @@ export interface PuzzleProgressRecord {
 function rowToAuthUser(row: Row): AuthUser {
   return {
     id: String(row.id),
+    name: String(row.name ?? ''),
     email: String(row.email),
+    email_verified: Boolean(Number(row.email_verified ?? 0)),
+    twoFactorEnabled: Boolean(Number(row.twoFactorEnabled ?? 0)),
+    image: row.image === null || row.image === undefined ? null : String(row.image),
     username: row.username === null || row.username === undefined ? null : String(row.username),
     role: String(row.role ?? 'user') === 'admin' ? 'admin' : 'user',
     fair_play_status: normalizeFairPlayStatus(row.fair_play_status),
@@ -1480,20 +1633,24 @@ export async function upsertUserByEmail(data: {
   email: string;
   role: 'user' | 'admin';
 }): Promise<AuthUser | null> {
+  const normalizedEmail = data.email.trim().toLowerCase();
+  const fallbackName = normalizedEmail.split('@')[0]?.trim() || 'player';
+
   try {
     await db.execute({
       sql: `
-        INSERT INTO users (id, email, role, last_login_at)
-        VALUES (?, ?, ?, unixepoch())
+        INSERT INTO users (id, name, email, email_verified, role, last_login_at)
+        VALUES (?, ?, ?, 1, ?, unixepoch())
         ON CONFLICT(email) DO UPDATE SET
           updated_at = unixepoch(),
+          email_verified = 1,
           last_login_at = unixepoch()
       `,
-      args: [data.id, data.email, data.role],
+      args: [data.id, fallbackName, normalizedEmail, data.role],
     });
-    return await getUserByEmail(data.email);
+    return await getUserByEmail(normalizedEmail);
   } catch (err) {
-    logError('database_upsert_user_failed', err, { email: data.email });
+    logError('database_upsert_user_failed', err, { email: normalizedEmail });
     return null;
   }
 }

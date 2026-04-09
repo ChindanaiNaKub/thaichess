@@ -46,18 +46,39 @@ import { ServerToClientEvents, ClientToServerEvents, GameRoom, type PieceColor }
 import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
-import { getAllowedCorsOrigins, isAllowedCorsOrigin, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, hasAdminMfaAccess, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
 import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine } from './engineGateway';
+import { betterAuthHandler } from './betterAuth';
 import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
 import { renderSeoHtml } from './seoHtml';
+import {
+  RequestCodeSchema,
+  VerifyCodeSchema,
+  UpdateProfileSchema,
+  SubmitFeedbackSchema,
+  ReportFairPlaySchema,
+  FairPlayCaseActionSchema,
+  SaveBotGameSchema,
+  SaveLocalGameSchema,
+  AnalyzeGameSchema,
+  AnalyzePositionSchema,
+  BotMoveSchema,
+  PuzzleVisitSchema,
+  PuzzleCompleteSchema,
+  PuzzleAttemptSchema,
+  PuzzleSyncSchema,
+  ClientErrorSchema,
+  ClientDebugSchema,
+} from '../../shared/validation';
 
 const app = express();
+app.disable('x-powered-by');
 const httpServer = createServer(app);
 const startTime = Date.now();
 const moduleInitUptimeMs = Math.round(process.uptime() * 1000);
@@ -85,9 +106,45 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 
 app.use(cors(corsOptions));
 app.use(express.json());
+const requireTrustedWriteOriginMiddleware = requireTrustedWriteOrigin(allowedCorsOrigins);
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
 app.set('trust proxy', 1);
+
+// URL Canonicalization Redirects (SEO - fix Google Search Console issues)
+// Redirects: www → non-www, HTTP → HTTPS, trailing slash normalization
+app.use((req, res, next) => {
+  const host = req.get('host') || '';
+  const protocol = req.protocol;
+  const url = req.originalUrl;
+
+  let redirectUrl: string | null = null;
+  let statusCode = 301; // Permanent redirect for SEO
+
+  // 1. Redirect www to non-www
+  if (host.startsWith('www.')) {
+    const nonWwwHost = host.slice(4);
+    redirectUrl = `https://${nonWwwHost}${url}`;
+  }
+  // 2. Redirect HTTP to HTTPS (only in production, skip localhost)
+  else if (protocol === 'http' && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+    redirectUrl = `https://${host}${url}`;
+  }
+
+  // 3. Trailing slash normalization (except for files with extensions)
+  // Remove trailing slash from URLs like /about/ → /about
+  // But keep it for root / and file paths like /assets/image.png
+  if (!redirectUrl && url.length > 1 && url.endsWith('/') && !url.match(/\/[^/]+\.[^/]+$/)) {
+    redirectUrl = `https://${host}${url.slice(0, -1)}`;
+  }
+
+  if (redirectUrl) {
+    res.redirect(statusCode, redirectUrl);
+    return;
+  }
+
+  next();
+});
 
 // Rate limiting for API endpoints
 const apiLimiter = rateLimit({
@@ -116,8 +173,33 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Serve static files in production (__dirname = server/dist/server/src when compiled)
-const clientDist = path.join(__dirname, '../../../../client/dist');
+function findWorkspaceRoot(startDir: string): string {
+  let currentDir = path.resolve(startDir);
+
+  while (true) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { workspaces?: unknown };
+        if (Array.isArray(parsed.workspaces) && parsed.workspaces.includes('server') && parsed.workspaces.includes('client')) {
+          return currentDir;
+        }
+      } catch {
+        // Ignore malformed package.json candidates and keep walking upward.
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return startDir;
+    }
+    currentDir = parentDir;
+  }
+}
+
+// Serve static files in production from the repo root regardless of tsx vs compiled output.
+const workspaceRoot = findWorkspaceRoot(__dirname);
+const clientDist = path.join(workspaceRoot, 'client', 'dist');
 const assetDist = path.join(clientDist, 'assets');
 
 app.use('/assets', express.static(assetDist, {
@@ -223,7 +305,7 @@ function isValidFairPlayCaseStatus(value: unknown): value is FairPlayCaseStatus 
 }
 
 function isValidGameIdParam(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9-]{4,32}$/.test(value.trim());
+  return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value.trim());
 }
 
 async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response) {
@@ -319,6 +401,16 @@ async function requireAdmin(req: express.Request, res: express.Response) {
   if (!user) return null;
   if (user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required.' });
+    return null;
+  }
+  return user;
+}
+
+async function requireAdminWithMfa(req: express.Request, res: express.Response) {
+  const user = await requireAdmin(req, res);
+  if (!user) return null;
+  if (!hasAdminMfaAccess(user)) {
+    res.status(403).json({ error: 'Admin MFA required.' });
     return null;
   }
   return user;
@@ -433,8 +525,17 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
 app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
   if (await enforceAnalysisFairPlayPolicy(req, res)) return;
 
-  const position = typeof req.body?.position === 'string' ? req.body.position : '';
-  const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
+  const parseResult = AnalyzePositionSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const positionError = flattened.fieldErrors.position?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = positionError || formError || 'Valid position is required.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { position, counting, depth, movetimeMs, nodes, multipv } = parseResult.data;
   const snapshot = deserializeAnalysisPosition(position, counting);
 
   if (!snapshot) {
@@ -443,10 +544,10 @@ app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
   }
 
   const analysis = await analyzePositionWithEngine(snapshot, {
-    depth: Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined,
-    movetimeMs: Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined,
-    nodes: Number.isFinite(req.body?.nodes) ? Number(req.body.nodes) : undefined,
-  }, Number.isFinite(req.body?.multipv) ? Number(req.body.multipv) : 1);
+    depth,
+    movetimeMs,
+    nodes,
+  }, multipv);
 
   res.json(analysis);
 });
@@ -454,10 +555,17 @@ app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
 app.post('/api/bot/move', analysisLimiter, async (req, res) => {
   if (await enforceAnalysisFairPlayPolicy(req, res)) return;
 
-  const position = typeof req.body?.position === 'string' ? req.body.position : '';
-  const counting = typeof req.body?.counting === 'string' ? req.body.counting : null;
-  const level = Number.isFinite(req.body?.level) ? Number(req.body.level) : 5;
-  const botId = typeof req.body?.botId === 'string' ? req.body.botId.trim() : undefined;
+  const parseResult = BotMoveSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const positionError = flattened.fieldErrors.position?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = positionError || formError || 'Valid position is required.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { position, counting, level, botId } = parseResult.data;
   const snapshot = deserializeAnalysisPosition(position, counting);
 
   if (!snapshot) {
@@ -470,33 +578,34 @@ app.post('/api/bot/move', analysisLimiter, async (req, res) => {
 });
 
 app.post('/api/games/bot', async (req, res) => {
-  const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
-  const result = req.body?.result === 'white' || req.body?.result === 'black' || req.body?.result === 'draw'
-    ? req.body.result
-    : null;
-  const resultReason = typeof req.body?.resultReason === 'string' ? req.body.resultReason.trim() : '';
-  const playerColor: PieceColor | null = req.body?.playerColor === 'white' || req.body?.playerColor === 'black'
-    ? req.body.playerColor
-    : null;
-  const level = Number.isFinite(req.body?.level)
-    ? Math.min(Math.max(Number(req.body.level), 1), 10)
-    : 5;
-  const botId = typeof req.body?.botId === 'string' && req.body.botId.trim()
-    ? req.body.botId.trim()
-    : undefined;
-  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
-  const finalBoard = Array.isArray(req.body?.finalBoard) ? req.body.finalBoard : null;
-  const moveCount = Number.isFinite(req.body?.moveCount) ? Number(req.body.moveCount) : Array.isArray(moves) ? moves.length : 0;
-  const timeControlInitial = Number.isFinite(req.body?.timeControl?.initial) ? Number(req.body.timeControl.initial) : 600;
-  const timeControlIncrement = Number.isFinite(req.body?.timeControl?.increment) ? Number(req.body.timeControl.increment) : 0;
-
-  if (!id || !result || !resultReason || !playerColor || !moves || !finalBoard) {
-    res.status(400).json({ error: 'Valid bot game payload is required.' });
+  const parseResult = SaveBotGameSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    // Get first field error
+    const fieldErrors = Object.values(flattened.fieldErrors);
+    const firstFieldError = fieldErrors.find(err => err && err.length > 0)?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = firstFieldError || formError || 'Valid bot game payload is required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
 
+  const {
+    id,
+    result,
+    resultReason,
+    playerColor,
+    level,
+    botId,
+    moves,
+    finalBoard,
+    moveCount,
+    timeControl,
+    playerName: rawPlayerName,
+  } = parseResult.data;
+
   const user = await getAuthenticatedUser(req);
-  const playerName = normalizeBotGamePlayerName(user, req.body?.playerName);
+  const playerName = normalizeBotGamePlayerName(user, rawPlayerName);
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
   const botName = buildBotName(level, botId);
 
@@ -515,13 +624,10 @@ app.post('/api/games/bot', async (req, res) => {
     opponentName: botName,
     botLevel: level,
     botColor,
-    timeControl: {
-      initial: timeControlInitial,
-      increment: timeControlIncrement,
-    },
+    timeControl,
     moves,
     finalBoard,
-    moveCount,
+    moveCount: moveCount ?? moves.length,
   });
 
   res.json({
@@ -529,6 +635,56 @@ app.post('/api/games/bot', async (req, res) => {
     id,
     opponentName: botName,
     gameType: 'bot',
+  });
+});
+
+app.post('/api/games/local', async (req, res) => {
+  const parseResult = SaveLocalGameSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const fieldErrors = Object.values(flattened.fieldErrors);
+    const firstFieldError = fieldErrors.find(err => err && err.length > 0)?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = firstFieldError || formError || 'Valid local game payload is required.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const {
+    id,
+    result,
+    resultReason,
+    whiteName,
+    blackName,
+    moves,
+    finalBoard,
+    moveCount,
+    timeControl,
+  } = parseResult.data;
+
+  await saveCompletedGame({
+    id,
+    result,
+    resultReason,
+    whiteName: whiteName || 'White',
+    blackName: blackName || 'Black',
+    whiteUserId: null,
+    blackUserId: null,
+    rated: false,
+    gameMode: 'private',
+    gameType: 'human',
+    opponentType: null,
+    opponentName: null,
+    timeControl,
+    moves,
+    finalBoard,
+    moveCount: moveCount ?? moves.length,
+  });
+
+  res.json({
+    ok: true,
+    id,
+    gameType: 'local',
   });
 });
 
@@ -601,12 +757,18 @@ const fairPlayReportLimiter = rateLimit({
   message: { error: 'Too many fair-play reports. Please try again later.' },
 });
 
-app.post('/api/auth/request-code', authLimiter, async (req, res) => {
-  const email = normalizeEmail(String(req.body?.email || ''));
-  if (!isValidEmail(email)) {
-    res.status(400).json({ error: 'Please enter a valid email address.' });
+app.post('/api/auth/email/request-code', authLimiter, async (req, res) => {
+  const parseResult = RequestCodeSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const fieldError = flattened.fieldErrors.email?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = fieldError || formError || 'Invalid email address.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { email } = parseResult.data;
 
   try {
     await issueLoginCode(email, req.ip);
@@ -617,14 +779,19 @@ app.post('/api/auth/request-code', authLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/auth/verify-code', authLimiter, async (req, res) => {
-  const email = normalizeEmail(String(req.body?.email || ''));
-  const code = String(req.body?.code || '').trim();
-
-  if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
-    res.status(400).json({ error: 'Invalid email or code.' });
+app.post('/api/auth/email/verify-code', authLimiter, async (req, res) => {
+  const parseResult = VerifyCodeSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const emailError = flattened.fieldErrors.email?.[0];
+    const codeError = flattened.fieldErrors.code?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = emailError || codeError || formError || 'Invalid email or code.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { email, code } = parseResult.data;
 
   const result = await verifyLoginCode(email, code);
   if (!result.ok) {
@@ -636,20 +803,26 @@ app.post('/api/auth/verify-code', authLimiter, async (req, res) => {
   res.json({ ok: true, user: result.user });
 });
 
-app.post('/api/auth/logout', async (req, res) => {
+app.post('/api/auth/logout', requireTrustedWriteOriginMiddleware, async (req, res) => {
   await logoutRequest(req, res);
   res.json({ ok: true });
 });
 
-app.patch('/api/auth/profile', async (req, res) => {
+app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const username = normalizeUsername(String(req.body?.username || ''));
-  if (!isValidUsername(username)) {
-    res.status(400).json({ error: 'Username must be 3-20 characters using letters, numbers, or underscores.' });
+  const parseResult = UpdateProfileSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const usernameError = flattened.fieldErrors.username?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = usernameError || formError || 'Invalid username.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { username } = parseResult.data;
 
   const updated = await updateUsername(user.id, username);
   if (!updated) {
@@ -660,8 +833,10 @@ app.patch('/api/auth/profile', async (req, res) => {
   res.json({ ok: true, user: updated });
 });
 
+app.all('/api/auth/*', betterAuthHandler);
+
 app.get('/api/fair-play/cases', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -680,16 +855,21 @@ app.get('/api/fair-play/cases', async (req, res) => {
   res.json({ cases, total, page, limit, status });
 });
 
-app.post('/api/fair-play/report', fairPlayReportLimiter, async (req, res) => {
+app.post('/api/fair-play/report', requireTrustedWriteOriginMiddleware, fairPlayReportLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const gameId = typeof req.body?.gameId === 'string' ? req.body.gameId.trim() : '';
-  const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 500) : '';
-  if (!isValidGameIdParam(gameId)) {
-    res.status(400).json({ error: 'Valid gameId is required.' });
+  const parseResult = ReportFairPlaySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const gameIdError = flattened.fieldErrors.gameId?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = gameIdError || formError || 'Valid gameId is required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { gameId, message } = parseResult.data;
 
   const targetUserId = await resolveFairPlayReportTarget(gameId, user.id);
   if (!targetUserId) {
@@ -714,8 +894,8 @@ app.post('/api/fair-play/report', fairPlayReportLimiter, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/cases/:id/restrict', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -724,7 +904,17 @@ app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
     return;
   }
 
-  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const parseResult = FairPlayCaseActionSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const noteError = flattened.fieldErrors.note?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = noteError || formError || 'Invalid request.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { note } = parseResult.data;
   const ok = await restrictUserForFairPlay(caseId, admin.id, note);
   if (!ok) {
     res.status(500).json({ error: 'Failed to restrict player.' });
@@ -734,8 +924,8 @@ app.post('/api/fair-play/cases/:id/restrict', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/cases/:id/dismiss', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -744,7 +934,17 @@ app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
     return;
   }
 
-  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const parseResult = FairPlayCaseActionSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const noteError = flattened.fieldErrors.note?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = noteError || formError || 'Invalid request.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { note } = parseResult.data;
   const ok = await dismissFairPlayCase(caseId, admin.id, note);
   if (!ok) {
     res.status(500).json({ error: 'Failed to dismiss case.' });
@@ -754,8 +954,8 @@ app.post('/api/fair-play/cases/:id/dismiss', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/fair-play/users/:id/clear', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.post('/api/fair-play/users/:id/clear', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const userId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
@@ -770,7 +970,17 @@ app.post('/api/fair-play/users/:id/clear', async (req, res) => {
     return;
   }
 
-  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const parseResult = FairPlayCaseActionSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const noteError = flattened.fieldErrors.note?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = noteError || formError || 'Invalid request.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { note } = parseResult.data;
   const ok = await clearFairPlayRestriction(user.id, admin.id, note);
   if (!ok) {
     res.status(500).json({ error: 'Failed to clear restriction.' });
@@ -789,15 +999,21 @@ app.get('/api/puzzle-progress', async (req, res) => {
   res.json({ completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/visit', async (req, res) => {
+app.post('/api/puzzle-progress/visit', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const puzzleId = Number(req.body?.puzzleId);
-  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
-    res.status(400).json({ error: 'Valid puzzleId is required.' });
+  const parseResult = PuzzleVisitSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const puzzleIdError = flattened.fieldErrors.puzzleId?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = puzzleIdError || formError || 'Valid puzzleId is required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { puzzleId } = parseResult.data;
 
   const progressRecords = await markPuzzlePlayed(user.id, puzzleId);
   const completedPuzzleIds = progressRecords
@@ -806,15 +1022,21 @@ app.post('/api/puzzle-progress/visit', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/complete', async (req, res) => {
+app.post('/api/puzzle-progress/complete', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const puzzleId = Number(req.body?.puzzleId);
-  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
-    res.status(400).json({ error: 'Valid puzzleId is required.' });
+  const parseResult = PuzzleCompleteSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const puzzleIdError = flattened.fieldErrors.puzzleId?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = puzzleIdError || formError || 'Valid puzzleId is required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { puzzleId } = parseResult.data;
 
   const progressRecords = await markPuzzleCompleted(user.id, puzzleId);
   const completedPuzzleIds = progressRecords
@@ -823,16 +1045,22 @@ app.post('/api/puzzle-progress/complete', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/attempt', async (req, res) => {
+app.post('/api/puzzle-progress/attempt', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const puzzleId = Number(req.body?.puzzleId);
-  const succeeded = Boolean(req.body?.succeeded);
-  if (!Number.isInteger(puzzleId) || puzzleId <= 0) {
-    res.status(400).json({ error: 'Valid puzzleId is required.' });
+  const parseResult = PuzzleAttemptSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const puzzleIdError = flattened.fieldErrors.puzzleId?.[0];
+    const succeededError = flattened.fieldErrors.succeeded?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = puzzleIdError || succeededError || formError || 'Valid puzzleId and succeeded status are required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { puzzleId, succeeded } = parseResult.data;
 
   const progressRecords = await markPuzzleAttempt(user.id, puzzleId, succeeded);
   const completedPuzzleIds = progressRecords
@@ -841,35 +1069,43 @@ app.post('/api/puzzle-progress/attempt', async (req, res) => {
   res.json({ ok: true, completedPuzzleIds, progressRecords });
 });
 
-app.post('/api/puzzle-progress/sync', async (req, res) => {
+app.post('/api/puzzle-progress/sync', requireTrustedWriteOriginMiddleware, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const rawProgressRecords = Array.isArray(req.body?.progressRecords) ? req.body.progressRecords : null;
-  const rawPuzzleIds = Array.isArray(req.body?.completedPuzzleIds) ? req.body.completedPuzzleIds : null;
-  if (!rawProgressRecords && !rawPuzzleIds) {
-    res.status(400).json({ error: 'progressRecords or completedPuzzleIds is required.' });
+  const parseResult = PuzzleSyncSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const progressRecordsError = flattened.fieldErrors.progressRecords?.[0];
+    const completedPuzzleIdsError = flattened.fieldErrors.completedPuzzleIds?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = progressRecordsError || completedPuzzleIdsError || formError || 'progressRecords or completedPuzzleIds is required.';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { progressRecords: rawProgressRecords, completedPuzzleIds: rawPuzzleIds } = parseResult.data;
 
   let progressRecords: PuzzleProgressRecord[];
   if (rawProgressRecords) {
     progressRecords = await mergePuzzleProgress(
       user.id,
-      rawProgressRecords.map((value: any) => ({
-        puzzleId: Number(value?.puzzleId),
-        lastPlayedAt: Number(value?.lastPlayedAt),
-        completedAt: value?.completedAt === null || value?.completedAt === undefined
-          ? null
-          : Number(value.completedAt),
-        attempts: Number(value?.attempts ?? 0),
-        successes: Number(value?.successes ?? 0),
-        failures: Number(value?.failures ?? 0),
+      rawProgressRecords.map((value) => ({
+        puzzleId: value.puzzleId,
+        lastPlayedAt: value.lastPlayedAt,
+        completedAt: value.completedAt ?? null,
+        attempts: value.attempts,
+        successes: value.successes,
+        failures: value.failures,
       })),
     );
-  } else {
-    await mergeCompletedPuzzles(user.id, rawPuzzleIds.map((value: unknown) => Number(value)));
+  } else if (rawPuzzleIds) {
+    await mergeCompletedPuzzles(user.id, rawPuzzleIds);
     progressRecords = await getPuzzleProgressForUser(user.id);
+  } else {
+    // Should not happen due to schema validation, but handle gracefully
+    res.status(400).json({ error: 'progressRecords or completedPuzzleIds is required.' });
+    return;
   }
 
   const completedPuzzleIds = progressRecords
@@ -879,20 +1115,25 @@ app.post('/api/puzzle-progress/sync', async (req, res) => {
 });
 
 app.post('/api/client-errors', (req, res) => {
-  const { source, message, stack, componentStack, url, userAgent } = req.body ?? {};
-
-  if (!message || typeof message !== 'string') {
-    res.status(400).json({ error: 'Invalid client error payload' });
+  const parseResult = ClientErrorSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const messageError = flattened.fieldErrors.message?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = messageError || formError || 'Invalid client error payload';
+    res.status(400).json({ error: errorMessage });
     return;
   }
 
+  const { source, message, stack, componentStack, url, userAgent } = parseResult.data;
+
   monitoring.increment('clientErrors');
   logError('client_error', new Error(message), {
-    source: typeof source === 'string' ? source : 'unknown',
-    stack: typeof stack === 'string' ? stack : undefined,
-    componentStack: typeof componentStack === 'string' ? componentStack : undefined,
-    url: typeof url === 'string' ? url : undefined,
-    userAgent: typeof userAgent === 'string' ? userAgent : req.headers['user-agent'],
+    source: source || 'unknown',
+    stack: stack || undefined,
+    componentStack: componentStack || undefined,
+    url: url || undefined,
+    userAgent: userAgent || req.headers['user-agent'],
     ip: req.ip,
   });
 
@@ -900,28 +1141,26 @@ app.post('/api/client-errors', (req, res) => {
 });
 
 app.post('/api/client-debug', (req, res) => {
-  const { entries, url, userAgent } = req.body ?? {};
-
-  if (!Array.isArray(entries) || entries.length === 0) {
-    res.status(400).json({ error: 'Invalid client debug payload' });
+  const parseResult = ClientDebugSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const entriesError = flattened.fieldErrors.entries?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = entriesError || formError || 'Invalid client debug payload';
+    res.status(400).json({ error: errorMessage });
     return;
   }
 
-  for (const entry of entries.slice(0, 25)) {
-    if (!entry || typeof entry !== 'object') continue;
+  const { entries, url, userAgent } = parseResult.data;
 
-    const eventName = typeof entry.event === 'string' ? entry.event : 'unknown';
-    const clientTs = typeof entry.ts === 'number' ? entry.ts : undefined;
-    const path = typeof entry.path === 'string' ? entry.path : undefined;
-    const detail = entry.detail && typeof entry.detail === 'object' ? entry.detail : undefined;
-
+  for (const entry of entries) {
     logInfo('client_debug', {
-      eventName,
-      clientTs,
-      path,
-      detail,
-      url: typeof url === 'string' ? url : undefined,
-      userAgent: typeof userAgent === 'string' ? userAgent : req.headers['user-agent'],
+      eventName: entry.event,
+      clientTs: entry.ts,
+      path: entry.path,
+      detail: entry.detail,
+      url: url || undefined,
+      userAgent: userAgent || req.headers['user-agent'],
       ip: req.ip,
     });
   }
@@ -958,7 +1197,7 @@ const feedbackLimiter = rateLimit({
 });
 
 app.get('/api/feedback', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -972,14 +1211,21 @@ app.get('/api/feedback', async (req, res) => {
 });
 
 app.post('/api/feedback', feedbackLimiter, async (req, res) => {
-  const { type, message, page, userAgent } = req.body;
-  if (!message || typeof message !== 'string' || message.length > 2000) {
-    res.status(400).json({ error: 'Invalid feedback' });
+  const parseResult = SubmitFeedbackSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const messageError = flattened.fieldErrors.message?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = messageError || formError || 'Invalid feedback';
+    res.status(400).json({ error: errorMessage });
     return;
   }
+
+  const { type, message, page, userAgent } = parseResult.data;
+  
   const feedback = {
-    type: type || 'bug',
-    message: message.slice(0, 2000),
+    type,
+    message,
     page: page || 'unknown',
     userAgent: userAgent || req.headers['user-agent'] || 'unknown',
     ip: req.ip,
@@ -991,8 +1237,8 @@ app.post('/api/feedback', feedbackLimiter, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/feedback/:id', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+app.delete('/api/feedback/:id', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const feedbackId = Number(req.params.id);
@@ -1001,7 +1247,17 @@ app.delete('/api/feedback/:id', async (req, res) => {
     return;
   }
 
-  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+  const parseResult = FairPlayCaseActionSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const flattened = parseResult.error.flatten();
+    const noteError = flattened.fieldErrors.note?.[0];
+    const formError = flattened.formErrors[0];
+    const errorMessage = noteError || formError || 'Invalid request.';
+    res.status(400).json({ error: errorMessage });
+    return;
+  }
+
+  const { note } = parseResult.data;
   const ok = await moderateFeedback(feedbackId, admin.id, note);
   if (!ok) {
     res.status(500).json({ error: 'Failed to moderate feedback.' });

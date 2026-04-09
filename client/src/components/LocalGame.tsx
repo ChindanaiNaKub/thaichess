@@ -13,6 +13,7 @@ import { buildInlineAnalysisRoute } from '../lib/analysis';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
+import { useSaveLocalGameMutation } from '../queries/localGames';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -32,6 +33,11 @@ const LOCAL_GAME_TIME_CONTROL = {
   increment: 0,
 };
 
+function createLocalGameId() {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function LocalGame() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -44,6 +50,7 @@ export default function LocalGame() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
+  const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const moveCountRef = useRef(gameState.moveHistory.length);
   const review = usePostGameReview({
     enabled: gameState.gameOver,
@@ -60,6 +67,51 @@ export default function LocalGame() {
         }
       : null,
   });
+
+  const saveLocalGameMutation = useSaveLocalGameMutation();
+
+  // Helper to save local game and navigate to analysis
+  const handleAnalyzeGame = useCallback(() => {
+    if (!currentGameId || gameState.moveHistory.length === 0) {
+      navigate('/analysis');
+      return;
+    }
+
+    const gameResult: import('../queries/localGames').LocalGameResult = {
+      id: currentGameId,
+      whiteName: 'White',
+      blackName: 'Black',
+      result: gameState.winner || 'draw',
+      resultReason: gameOverInfo?.reason || 'unknown',
+      timeControl: LOCAL_GAME_TIME_CONTROL,
+      moves: gameState.moveHistory,
+      finalBoard: gameState.board,
+      moveCount: gameState.moveHistory.length,
+    };
+
+    // Save to database first, then navigate to analysis with real game ID
+    saveLocalGameMutation.mutate(gameResult, {
+      onSuccess: () => {
+        navigate(`/analysis/${currentGameId}`);
+      },
+      onError: () => {
+        // Fallback: navigate to inline analysis if save fails
+        navigate(buildInlineAnalysisRoute({
+          source: 'local',
+          moves: gameState.moveHistory,
+          result: gameState.winner || 'draw',
+          reason: gameOverInfo?.reason || 'unknown',
+        }));
+      },
+    });
+  }, [currentGameId, gameState, gameOverInfo, navigate, saveLocalGameMutation]);
+
+  // Initialize game ID when component mounts
+  useEffect(() => {
+    if (!currentGameId) {
+      setCurrentGameId(createLocalGameId());
+    }
+  }, []);
 
   useEffect(() => {
     if (gameState.moveHistory.length === 0) return;
@@ -248,6 +300,7 @@ export default function LocalGame() {
     setShowGameOverModal(false);
     setArrows([]);
     setViewMoveIndex(null);
+    setCurrentGameId(null);
   };
 
   const getLastMove = (): Move | null => {
@@ -480,14 +533,7 @@ export default function LocalGame() {
                 onRematch={handleReset}
                 onNewGame={() => navigate('/')}
                 onAnalyze={gameState.moveHistory.length > 0
-                  ? () => {
-                      navigate(buildInlineAnalysisRoute({
-                        source: 'local',
-                        moves: gameState.moveHistory,
-                        result: gameState.winner || 'draw',
-                        reason: gameOverInfo.reason,
-                      }));
-                    }
+                  ? handleAnalyzeGame
                   : undefined
                 }
               />
@@ -566,14 +612,7 @@ export default function LocalGame() {
           onRematch={handleReset}
           onNewGame={() => navigate('/')}
           onAnalyze={gameState.moveHistory.length > 0
-            ? () => {
-                navigate(buildInlineAnalysisRoute({
-                  source: 'local',
-                  moves: gameState.moveHistory,
-                  result: gameState.winner || 'draw',
-                  reason: gameOverInfo.reason,
-                }));
-              }
+            ? handleAnalyzeGame
             : undefined
           }
           onClose={() => setShowGameOverModal(false)}

@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io';
+import type { ZodError } from 'zod';
 import { logInfo, logWarn } from './logger';
 import type { ServerToClientEvents, ClientToServerEvents, GameRoom, RatingChangeSummary } from '../../shared/types';
 import type { GameManager } from './gameManager';
@@ -6,14 +7,57 @@ import type { MatchmakingQueue, QueueEntry } from './matchmaking';
 import type { MonitoringStore } from './monitoring';
 import type { AuthUser } from './database';
 import {
+  CreateGamePayloadSchema,
+  JoinGamePayloadSchema,
+  MakeMovePayloadSchema,
+  PresenceHeartbeatPayloadSchema,
+  RespondDrawPayloadSchema,
+  FindGamePayloadSchema,
+  SpectateGamePayloadSchema,
+} from '../../shared/validation';
+import {
   getSocketIp,
-  isValidBoolean,
   isValidGameId,
-  isValidPosition,
-  isValidPrivateGameColorPreference,
-  isValidTimeControl,
   SocketRateLimiter,
 } from './security';
+
+/**
+ * Formats Zod validation errors into user-friendly messages.
+ * 
+ * @param error - ZodError from safeParse
+ * @returns Human-readable error message
+ * 
+ * @example
+ * Input: ZodError with issues on timeControl.initial and colorPreference
+ * Output: "Invalid fields: timeControl.initial (must be >= 10), colorPreference (required)"
+ */
+function formatZodError(error: ZodError): string {
+  const flattened = error.flatten();
+  
+  // Collect field errors
+  const fieldErrors: string[] = [];
+  const fieldErrorsMap = flattened.fieldErrors as Record<string, string[] | undefined>;
+  for (const [field, messages] of Object.entries(fieldErrorsMap)) {
+    if (messages && messages.length > 0) {
+      // Take the first error message for each field
+      fieldErrors.push(`${field} (${messages[0]})`);
+    }
+  }
+  
+  // Collect form errors (non-field errors)
+  const formErrors = flattened.formErrors as string[];
+  
+  // Build the message
+  const parts: string[] = [];
+  if (fieldErrors.length > 0) {
+    parts.push(`Invalid fields: ${fieldErrors.join(', ')}`);
+  }
+  if (formErrors.length > 0) {
+    parts.push(formErrors.join(', '));
+  }
+  
+  return parts.join('. ') || 'Invalid input data';
+}
 
 export interface AuthenticatedSocketData {
   authUser: AuthUser | null;
@@ -77,6 +121,8 @@ function emitGameOverToParticipants(
 export const SOCKET_RATE_LIMITS = {
   create_game: { windowMs: 60 * 1000, max: 6 },
   join_game: { windowMs: 60 * 1000, max: 20 },
+  leave_game: { windowMs: 60 * 1000, max: 30 },
+  cancel_matchmaking: { windowMs: 60 * 1000, max: 20 },
   find_game: { windowMs: 60 * 1000, max: 10 },
   find_game_ip: { windowMs: 60 * 1000, max: 30 },
   make_move: { windowMs: 10 * 1000, max: 40 },
@@ -252,23 +298,29 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('create_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'create_game', deps, ['socket', 'ip'])) return;
-      if (!payload || !isValidTimeControl(payload.timeControl) || !isValidPrivateGameColorPreference(payload.colorPreference)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = CreateGamePayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Invalid private game settings.');
+        rejectSocketEvent(deps.monitoring, socket, 'create_game', formatZodError(parseResult.error));
         return;
       }
+      
+      const { timeControl, colorPreference } = parseResult.data;
+      
       if (deps.gameManager.getBlockingPlayerGame(socket.data.playerId) || deps.matchmaking.isInQueue(socket.id)) {
         rejectSocketEvent(deps.monitoring, socket, 'create_game', 'Leave your current game or queue before creating another game.');
         return;
       }
 
-      const room = deps.gameManager.createGame(payload.timeControl, {
+      const room = deps.gameManager.createGame(timeControl, {
         ownerSocketId: socket.id,
         ownerPlayerId: socket.data.playerId,
         ownerUserId: socket.data.authUser?.id ?? null,
         ownerDisplayName: getSocketDisplayName(socket),
         ownerRating: socket.data.authUser?.rating ?? null,
-        ownerColorPreference: payload.colorPreference,
+        ownerColorPreference: colorPreference,
         gameMode: 'private',
         rated: false,
       });
@@ -276,13 +328,15 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       logInfo('game_created', {
         gameId: room.id,
         socketId: socket.id,
-        timeControl: payload.timeControl,
-        colorPreference: payload.colorPreference,
+        timeControl,
+        colorPreference,
       });
       socket.emit('game_created', { gameId: room.id });
     });
 
     socket.on('leave_game', (payload) => {
+      if (!enforceSocketRateLimit(socket, 'leave_game', deps, ['socket', 'ip'])) return;
+      
       if (payload?.gameId !== undefined && !isValidGameId(payload.gameId)) {
         deps.monitoring.increment('socket.invalidPayload');
         rejectSocketEvent(deps.monitoring, socket, 'leave_game', 'Invalid game ID.');
@@ -298,13 +352,16 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('join_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
-      if (!payload || !isValidGameId(payload.gameId)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = JoinGamePayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'join_game', 'Invalid game ID.');
+        rejectSocketEvent(deps.monitoring, socket, 'join_game', formatZodError(parseResult.error));
         return;
       }
 
-      const { gameId } = payload;
+      const { gameId } = parseResult.data;
       const currentGameId = deps.gameManager.getBlockingPlayerGame(socket.data.playerId);
       if (currentGameId && currentGameId !== gameId) {
         rejectSocketEvent(deps.monitoring, socket, 'join_game', 'Leave your current game before joining another one.');
@@ -362,53 +419,57 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('spectate_game', (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
-      if (!payload || !isValidGameId(payload.gameId)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = SpectateGamePayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', 'Invalid game ID.');
+        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', formatZodError(parseResult.error));
         return;
       }
+      
+      const { gameId } = parseResult.data;
 
       const currentGameId = deps.gameManager.getBlockingPlayerGame(socket.data.playerId);
-      if (currentGameId && currentGameId !== payload.gameId) {
+      if (currentGameId && currentGameId !== gameId) {
         rejectSocketEvent(deps.monitoring, socket, 'spectate_game', 'Leave your current game before spectating another one.');
         return;
       }
 
-      const room = deps.gameManager.spectateGame(payload.gameId, socket.id);
+      const room = deps.gameManager.spectateGame(gameId, socket.id);
       if (!room) {
-        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', 'Unable to spectate game. Game may not exist.', { gameId: payload.gameId });
+        rejectSocketEvent(deps.monitoring, socket, 'spectate_game', 'Unable to spectate game. Game may not exist.', { gameId });
         return;
       }
 
-      socket.join(payload.gameId);
+      socket.join(gameId);
       socket.emit('game_joined', { color: null, gameState: deps.gameManager.getClientGameState(room, socket.id) });
     });
 
     socket.on('presence_heartbeat', (payload) => {
       if (!enforceSocketRateLimit(socket, 'presence_heartbeat', deps)) return;
-      if (!payload || !isValidGameId(payload.gameId) || typeof payload.sentAt !== 'number') {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = PresenceHeartbeatPayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', 'Invalid heartbeat payload.');
+        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', formatZodError(parseResult.error));
         return;
       }
+      
+      const { gameId, sentAt, clientStatus, latencyMs } = parseResult.data;
 
-      if (payload.clientStatus !== 'active' && payload.clientStatus !== 'idle' && payload.clientStatus !== 'away') {
-        deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'presence_heartbeat', 'Invalid heartbeat payload.');
-        return;
-      }
-
-      const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
-      if (!gameId || gameId !== payload.gameId) {
+      const playerGameId = deps.gameManager.getPlayerGame(socket.data.playerId);
+      if (!playerGameId || playerGameId !== gameId) {
         return;
       }
 
       const room = deps.gameManager.updatePlayerPresence(gameId, socket.id, {
-        status: payload.clientStatus,
-        latencyMs: typeof payload.latencyMs === 'number' ? Math.max(0, Math.round(payload.latencyMs)) : null,
+        status: clientStatus,
+        latencyMs: latencyMs ?? null,
         lastSeenAt: Date.now(),
       });
-      socket.emit('heartbeat_ack', { sentAt: payload.sentAt });
+      socket.emit('heartbeat_ack', { sentAt });
 
       if (room) {
         emitPresenceToParticipants(deps.io, deps.gameManager, room);
@@ -417,11 +478,16 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('make_move', (payload) => {
       if (!enforceSocketRateLimit(socket, 'make_move', deps)) return;
-      if (!payload || !isValidPosition(payload.from) || !isValidPosition(payload.to)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = MakeMovePayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'make_move', 'Invalid move payload.');
+        rejectSocketEvent(deps.monitoring, socket, 'make_move', formatZodError(parseResult.error));
         return;
       }
+
+      const { from, to } = parseResult.data;
 
       const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) {
@@ -429,7 +495,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const result = deps.gameManager.makeMove(gameId, socket.id, payload.from, payload.to);
+      const result = deps.gameManager.makeMove(gameId, socket.id, from, to);
       if (!result.success) {
         rejectSocketEvent(deps.monitoring, socket, 'make_move', result.error || 'Invalid move', { gameId });
         return;
@@ -499,19 +565,24 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('respond_draw', (payload) => {
       if (!enforceSocketRateLimit(socket, 'control_action', deps)) return;
-      if (!payload || !isValidBoolean(payload.accept)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = RespondDrawPayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'respond_draw', 'Invalid draw response.');
+        rejectSocketEvent(deps.monitoring, socket, 'respond_draw', formatZodError(parseResult.error));
         return;
       }
+      
+      const { accept } = parseResult.data;
 
       const gameId = deps.gameManager.getPlayerGame(socket.data.playerId);
       if (!gameId) return;
 
-      const room = deps.gameManager.respondDraw(gameId, socket.id, payload.accept);
+      const room = deps.gameManager.respondDraw(gameId, socket.id, accept);
       if (!room) return;
 
-      if (payload.accept) {
+      if (accept) {
         deps.monitoring.increment('gamesFinished');
         void deps.saveGameToDb(room, 'draw_agreement').then(({ ratingChange }) => {
           emitGameOverToParticipants(deps.io, deps.gameManager, room, 'draw_agreement', ratingChange);
@@ -555,11 +626,17 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
     socket.on('find_game', (payload) => {
       if (!enforceFindGameRateLimit(socket, deps)) return;
-      if (!payload || !isValidTimeControl(payload.timeControl)) {
+      
+      // Zod validation with user-friendly error messages
+      const parseResult = FindGamePayloadSchema.safeParse(payload);
+      if (!parseResult.success) {
         deps.monitoring.increment('socket.invalidPayload');
-        rejectSocketEvent(deps.monitoring, socket, 'find_game', 'Invalid time control.');
+        rejectSocketEvent(deps.monitoring, socket, 'find_game', formatZodError(parseResult.error));
         return;
       }
+      
+      const { timeControl } = parseResult.data;
+      
       if (deps.gameManager.getBlockingPlayerGame(socket.data.playerId)) {
         rejectSocketEvent(deps.monitoring, socket, 'find_game', 'Leave your current game before entering matchmaking.');
         return;
@@ -570,9 +647,9 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       }
 
       deps.monitoring.increment('matchmakingStarted');
-      logInfo('matchmaking_started', { socketId: socket.id, timeControl: payload.timeControl });
+      logInfo('matchmaking_started', { socketId: socket.id, timeControl });
 
-      deps.matchmaking.addToQueue(socket.id, payload.timeControl, {
+      deps.matchmaking.addToQueue(socket.id, timeControl, {
         playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
         ratedEligible: isRatedEligibleUser(socket.data.authUser),
@@ -585,6 +662,8 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
     });
 
     socket.on('cancel_matchmaking', () => {
+      if (!enforceSocketRateLimit(socket, 'cancel_matchmaking', deps, ['socket', 'ip'])) return;
+      
       const removed = deps.matchmaking.removeFromQueue(socket.id);
       if (removed) {
         logInfo('matchmaking_cancelled', { socketId: socket.id });

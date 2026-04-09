@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from '../lib/i18n';
 import { routes } from '../lib/routes';
+import { useQuery } from '@tanstack/react-query';
 import Header from './Header';
 import PieceSVG from './PieceSVG';
-
-interface Stats {
-  totalGames: number;
-  totalMoves: number;
-  whiteWins: number;
-  blackWins: number;
-  draws: number;
-}
+import { aboutStatsQueryOptions } from '../queries/stats';
 
 export default function AboutPage() {
   const { t } = useTranslation();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { data: stats } = useQuery(aboutStatsQueryOptions());
   const differenceKeys = ['about.diff1', 'about.diff2', 'about.diff3', 'about.diff4'] as const;
   const pieceCards = [
     { type: 'K' as const, title: t('guide.king'), desc: t('guide.king_move') },
@@ -24,13 +17,6 @@ export default function AboutPage() {
     { type: 'N' as const, title: t('guide.knight'), desc: t('guide.knight_move') },
     { type: 'P' as const, title: t('guide.pawn'), desc: t('guide.pawn_move') },
   ];
-
-  useEffect(() => {
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {});
-  }, []);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -192,6 +178,31 @@ export default function AboutPage() {
 
       <footer className="bg-surface-alt border-t border-surface-hover py-8 px-4">
         <div className="max-w-6xl mx-auto">
+          {/* Support Section */}
+          <div className="mb-6 p-4 rounded-xl border border-accent/20 bg-accent/5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <p className="text-text-bright font-semibold text-sm">{t('footer.support')}</p>
+                <p className="text-text-dim text-xs mt-1 max-w-md">{t('footer.support_desc')}</p>
+              </div>
+              <a
+                href="/donate-qr.jpg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#4B0082] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#4B0082]/85 hover:scale-105 whitespace-nowrap"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 11h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v3h-3v-3zm-2 2h3v3h-3v-3zm2 2h3v3h-3v-3zm-9 2h3v3H9v-3zm2 2h3v3h-3v-3zm-2 2h3v3H9v-3z"/>
+                </svg>
+                {t('footer.donate_thai')}
+              </a>
+            </div>
+            {/* Bank Info */}
+            <div className="mt-3 pt-3 border-t border-accent/10 text-center">
+              <p className="text-text-dim/80 text-xs">{t('footer.bank_info')}</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 mb-6">
             {/* Play */}
             <div>
@@ -228,6 +239,7 @@ export default function AboutPage() {
           </div>
           <div className="pt-6 border-t border-surface-hover text-center">
             <p className="text-text-dim text-xs">{t('about.footer')}</p>
+            <p className="text-text-dim/70 text-xs mt-2">{t('footer.thanks')}</p>
           </div>
         </div>
       </footer>

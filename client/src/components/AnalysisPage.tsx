@@ -1,5 +1,6 @@
 import { forwardRef, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, Move, Board as BoardType, GameState } from '@shared/types';
 import { createInitialBoard, posToAlgebraic } from '@shared/engine';
 import {
@@ -28,14 +29,7 @@ import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
 import Header from './Header';
 import type { WorkerResponse } from '../workers/analysisWorker';
-
-interface GameData {
-  id: string;
-  moves: Move[];
-  result: string;
-  resultReason: string;
-  moveCount: number;
-}
+import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 
 type AnalysisMode = 'game' | 'editor';
 type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
@@ -52,7 +46,15 @@ export default function AnalysisPage() {
   const { t } = useTranslation();
   const reviewT = useReviewCopy();
 
-  const [gameData, setGameData] = useState<GameData | null>(null);
+  // TanStack Query for fetching game data from API
+  const {
+    data: apiGameData,
+    isLoading: isLoadingApi,
+    isError: isApiError,
+    error: apiError,
+  } = useQuery(gameQueryOptions(gameId));
+
+  const [gameData, setGameData] = useState<GameAnalysisData | null>(null);
   const [mode, setMode] = useState<AnalysisMode>('game');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -149,36 +151,23 @@ export default function AnalysisPage() {
       return;
     }
 
+    // Check if gameId is an inline source that requires sessionStorage data
+    const inlineSources = ['bot', 'local'];
+    if (gameId && inlineSources.includes(gameId)) {
+      // Inline source but no sessionStorage data - show session expired error
+      setError(t('analysis.session_expired'));
+      setLoading(false);
+      return;
+    }
+
     if (gameId) {
       setMode('game');
-      fetch(`/api/game/${gameId}`)
-        .then(r => {
-          if (!r.ok) throw new Error(t('analysis.game_not_found'));
-          return r.json();
-        })
-        .then(data => {
-          if (data.moves) {
-            setGameData({
-              id: data.id,
-              moves: data.moves,
-              result: data.result || data.status,
-              resultReason: data.resultReason || '',
-              moveCount: data.moveCount || data.moves.length,
-            });
-          } else {
-            setError(t('analysis.no_moves'));
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          setError(t('analysis.game_not_found'));
-          setLoading(false);
-        });
+      // Data will be set by the apiGameData effect below
     } else {
       setMode('editor');
       setLoading(false);
     }
-  }, [gameId, searchParams, t]);
+  }, [gameId, searchParams, t, isLoadingApi, isApiError]);
 
   useEffect(() => {
     return () => {
@@ -186,6 +175,37 @@ export default function AnalysisPage() {
       workerRef.current = null;
     };
   }, []);
+
+  // Handle API game data from TanStack Query
+  useEffect(() => {
+    if (!gameId || mode !== 'game') return;
+
+    if (isLoadingApi) {
+      setLoading(true);
+      return;
+    }
+
+    if (isApiError) {
+      setError(t('analysis.game_not_found'));
+      setLoading(false);
+      return;
+    }
+
+    if (apiGameData) {
+      if (apiGameData.moves) {
+        setGameData({
+          id: apiGameData.id,
+          moves: apiGameData.moves,
+          result: apiGameData.result || apiGameData.status || 'unknown',
+          resultReason: apiGameData.resultReason || '',
+          moveCount: apiGameData.moveCount || apiGameData.moves.length,
+        });
+      } else {
+        setError(t('analysis.no_moves'));
+      }
+      setLoading(false);
+    }
+  }, [gameId, mode, apiGameData, isLoadingApi, isApiError, t]);
 
   // Run analysis when game data is loaded
   useEffect(() => {
@@ -526,7 +546,7 @@ export default function AnalysisPage() {
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
         <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center">
+          <div data-testid="analysis-loading" className="text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-text-dim">{t('analysis.loading')}</p>
           </div>
@@ -540,11 +560,11 @@ export default function AnalysisPage() {
       <div className="min-h-screen bg-surface flex flex-col">
         <Header />
         <main id="main-content" className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 max-w-md w-full text-center">
+          <div data-testid="analysis-error" className="bg-surface-alt border border-surface-hover rounded-xl p-6 max-w-md w-full text-center">
             <div className="text-4xl mb-4">⚠️</div>
-            <h2 className="text-lg font-bold text-danger mb-2">{t('game.error')}</h2>
-            <p className="text-text-dim mb-4">{error}</p>
-            <button onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold">
+            <h2 data-testid="analysis-error-title" className="text-lg font-bold text-danger mb-2">{t('game.error')}</h2>
+            <p data-testid="analysis-error-message" className="text-text-dim mb-4">{error}</p>
+            <button data-testid="analysis-back-home" onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold">
               {t('common.back_home')}
             </button>
           </div>
@@ -754,13 +774,13 @@ export default function AnalysisPage() {
   const movePairs = buildMovePairs(gameData.moves, analysis);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
+    <div data-testid="analysis-game-view" className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
       <Header subtitle={t('analysis.title')} />
 
       <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
         <div className="grid w-full max-w-[1400px] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(30rem,36rem)] xl:grid-cols-[minmax(0,1fr)_38rem] lg:items-start">
           {/* Board + Eval Bar (sticky on desktop) */}
-          <div className="flex gap-2 w-full max-w-[760px] lg:sticky lg:top-4 lg:self-start">
+          <div className="flex gap-2 w-full max-w-[760px] lg:max-w-[calc(100vh-6rem)] lg:sticky lg:top-4 lg:self-start">
             {/* Eval Bar */}
             <EvalBar eval={currentEval} />
 
@@ -1424,7 +1444,7 @@ function findCheckSquare(state: GameState): Position | null {
   return null;
 }
 
-function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
+function getAnalysisCacheKey(gameData: GameAnalysisData, movetimeMs: number): string {
   return getGameAnalysisCacheKey({
     analysisId: gameData.id,
     moves: gameData.moves,

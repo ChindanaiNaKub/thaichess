@@ -66,7 +66,11 @@ function createSocketMock(id: string, authUser: AuthUser | null = null, playerId
 function createAuthUser(id: string, email: string, username: string, fairPlayStatus: AuthUser['fair_play_status'] = 'clear'): AuthUser {
   return {
     id,
+    name: username,
     email,
+    email_verified: true,
+    twoFactorEnabled: false,
+    image: null,
     username,
     role: 'user',
     fair_play_status: fairPlayStatus,
@@ -121,7 +125,7 @@ describe('socket entry handlers', () => {
 
     socket.trigger('find_game', { timeControl: { initial: 5, increment: 0 } });
 
-    expect(socket.emit).toHaveBeenCalledWith('error', { message: 'Invalid time control.' });
+    expect(socket.emit).toHaveBeenCalledWith('error', { message: expect.stringContaining('Invalid fields:') });
   });
 
   it('creates private games with a reserved color preference and lets waiting rooms be left', () => {

@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import { routes } from '../lib/routes';
+import { usePrefetchQueries } from '../hooks/usePrefetchQueries';
 import PieceSVG from './PieceSVG';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 
 interface HeaderProps {
-  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about';
+  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | null;
   subtitle?: string;
   right?: React.ReactNode;
 }
@@ -17,16 +18,18 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   const { t, lang, setLang } = useTranslation();
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { prefetchGames, prefetchLeaderboard, prefetchAboutStats, prefetchFeedback } = usePrefetchQueries();
 
   const handleNavigate = (path: string) => {
     setMenuOpen(false);
     navigate(path);
   };
 
-  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
+  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string, onHover?: () => void) => (
     <button
       key={key}
       onClick={() => handleNavigate(path)}
+      onMouseEnter={onHover}
       className={`
         relative px-1 py-0.5 text-sm transition-colors duration-150
         ${active === key
@@ -81,12 +84,12 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
         <div className="flex items-center gap-2 sm:gap-5">
           {active !== undefined && (
             <nav className="hidden sm:flex items-center gap-5">
-              {navItem('play', routes.home, t('nav.play'))}
+              {navItem('play', routes.home, t('nav.play'), prefetchLeaderboard)}
               {navItem('watch', routes.watch, t('nav.watch'))}
               {navItem('lessons', routes.lessons, t('nav.lessons'))}
               {navItem('puzzles', routes.puzzles, t('nav.puzzles'))}
-              {navItem('games', routes.games, t('nav.games'))}
-              {navItem('about', routes.about, t('nav.about'))}
+              {navItem('games', routes.games, t('nav.games'), prefetchGames)}
+              {navItem('about', routes.about, t('nav.about'), prefetchAboutStats)}
             </nav>
           )}
 
@@ -100,6 +103,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {user.role === 'admin' && (
                   <button
                     onClick={() => handleNavigate('/feedback')}
+                    onMouseEnter={prefetchFeedback}
                     className="hidden sm:inline h-7 px-2.5 rounded-md border border-surface-hover/60 bg-surface text-text-dim hover:text-text-bright text-xs font-semibold"
                   >
                     {t('header.admin')}

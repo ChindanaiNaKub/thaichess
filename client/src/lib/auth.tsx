@@ -1,9 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { authClient } from './authClient';
 import { scheduleOnUserIntent } from './defer';
 
 export interface AuthUser {
   id: string;
+  name?: string;
   email: string;
+  email_verified?: boolean;
+  twoFactorEnabled: boolean;
+  image?: string | null;
   username: string | null;
   role: 'user' | 'admin';
   fair_play_status: 'clear' | 'restricted';
@@ -25,6 +30,8 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>;
   requestCode: (email: string) => Promise<{ ok: true }>;
   verifyCode: (email: string, code: string) => Promise<{ ok: true }>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (username: string) => Promise<AuthUser>;
 }
@@ -71,13 +78,15 @@ function shouldDeferInitialAuthRefresh() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const initialUser = readCachedUser();
+  const [initialUser] = useState<AuthUser | null>(() => readCachedUser());
   const deferInitialRefresh = !initialUser && shouldDeferInitialAuthRefresh();
   const [user, setUser] = useState<AuthUser | null>(initialUser);
   const [loading, setLoading] = useState(!initialUser && !deferInitialRefresh);
 
   async function refreshUser() {
-    const response = await fetch('/api/auth/me');
+    const response = await fetch('/api/auth/me', {
+      cache: 'no-store',
+    });
     const data = await readJsonOrThrow(response);
     const nextUser = data.user ?? null;
     setUser(nextUser);
@@ -92,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null);
             writeCachedUser(null);
           })
-          .finally(() => {});
+          .finally(() => setLoading(false));
       }, {
         timeoutMs: 12_000,
         label: 'auth_refresh',
@@ -105,10 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writeCachedUser(null);
       })
       .finally(() => setLoading(false));
-  }, [deferInitialRefresh, initialUser]);
+  }, [deferInitialRefresh]);
 
   async function requestCode(email: string) {
-    const response = await fetch('/api/auth/request-code', {
+    const response = await fetch('/api/auth/email/request-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -118,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function verifyCode(email: string, code: string) {
-    const response = await fetch('/api/auth/verify-code', {
+    const response = await fetch('/api/auth/email/verify-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code }),
@@ -130,7 +139,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true as const };
   }
 
+  async function signInWithProvider(provider: 'google' | 'facebook') {
+    const callbackURL = typeof window === 'undefined'
+      ? '/account'
+      : `${window.location.origin}/account`;
+
+    const response = await authClient.signIn.social({
+      provider,
+      callbackURL,
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to sign in.');
+    }
+  }
+
+  async function signInWithGoogle() {
+    await signInWithProvider('google');
+  }
+
+  async function signInWithFacebook() {
+    await signInWithProvider('facebook');
+  }
+
   async function logout() {
+    await authClient.signOut();
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
     writeCachedUser(null);
@@ -149,7 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, refreshUser, requestCode, verifyCode, logout, updateProfile }}>
+    <AuthContext.Provider
+      value={{ user, loading, refreshUser, requestCode, verifyCode, signInWithGoogle, signInWithFacebook, logout, updateProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );
