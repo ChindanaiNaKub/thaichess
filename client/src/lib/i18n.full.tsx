@@ -61,6 +61,10 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'common.retry': 'Retry',
   'common.new_game': 'New Game',
   'common.loading': 'Loading...',
+  'common.agree': 'Agree',
+  'common.dismiss': 'Dismiss',
+  'common.delete': 'Delete',
+  'common.confirm': 'Confirm',
   'footer.tagline': 'ThaiChess — Free & Open Source',
   'footer.inspired': 'Inspired by',
   'footer.community': 'Community',
@@ -1153,6 +1157,9 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.privacy': 'Privacy',
   'footer.terms': 'Terms',
   'footer.and': '&',
+
+  // Language
+  'lang.switch': 'TH',
 };
 
 const TH: Record<string, string> = {
@@ -1178,6 +1185,10 @@ const TH: Record<string, string> = {
   'common.retry': 'ลองใหม่',
   'common.new_game': 'เกมใหม่',
   'common.loading': 'กำลังโหลด...',
+  'common.agree': 'ยอมรับ',
+  'common.dismiss': 'เข้าใจแล้ว',
+  'common.delete': 'ลบ',
+  'common.confirm': 'ยืนยัน',
   'footer.tagline': 'ThaiChess — ฟรีและโอเพนซอร์ส',
   'footer.inspired': 'ได้แรงบันดาลใจจาก',
   'footer.community': 'ชุมชน',
