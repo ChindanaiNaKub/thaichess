@@ -68,6 +68,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.tagline': 'ThaiChess — Free & Open Source',
   'footer.inspired': 'Inspired by',
   'footer.community': 'Community',
+  'footer.discord': 'Discord',
   'footer.github': 'GitHub',
   'footer.star_github': 'Star on GitHub',
 
@@ -1224,6 +1225,7 @@ const TH: Record<string, string> = {
   'footer.tagline': 'ThaiChess — ฟรีและโอเพนซอร์ส',
   'footer.inspired': 'ได้แรงบันดาลใจจาก',
   'footer.community': 'ชุมชน',
+  'footer.discord': 'ดิสคอร์ด',
   'footer.github': 'GitHub',
   'footer.star_github': 'ติดดาวบน GitHub',
   'footer.support': 'สนับสนุน ThaiChess',
