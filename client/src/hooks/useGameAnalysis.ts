@@ -41,6 +41,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       movetimeMs,
     })
   ), [analysisId, movetimeMs, moves]);
+  const canUseWorker = typeof Worker !== 'undefined';
 
   useEffect(() => {
     return () => {
@@ -54,6 +55,17 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       workerRef.current?.terminate();
       workerRef.current = null;
       runKeyRef.current = null;
+      setAnalysis(null);
+      setAnalyzing(false);
+      setProgress(null);
+      setError(null);
+      return;
+    }
+
+    if (!canUseWorker) {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      runKeyRef.current = cacheKey;
       setAnalysis(null);
       setAnalyzing(false);
       setProgress(null);
@@ -122,7 +134,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [analysis, cacheKey, depth, enabled, movetimeMs, moves]);
+  }, [analysis, cacheKey, canUseWorker, depth, enabled, movetimeMs, moves]);
 
   return {
     analysis,
