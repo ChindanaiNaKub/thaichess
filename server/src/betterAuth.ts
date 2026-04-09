@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
+import { twoFactor } from 'better-auth/plugins';
 import { authSchema } from './authSchema';
 import { getAllowedCorsOrigins } from './security';
 import { getUserById, type AuthUser } from './database';
@@ -162,6 +163,8 @@ export const auth = betterAuth({
   },
   session: {
     modelName: 'auth_sessions',
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
     fields: {
       userId: 'user_id',
       expiresAt: 'expires_at',
@@ -201,6 +204,24 @@ export const auth = betterAuth({
       updatedAt: 'updated_at',
     },
   },
+  plugins: [
+    twoFactor({
+      issuer: 'ThaiChess',
+      allowPasswordless: true,
+      totpOptions: {
+        digits: 6,
+        period: 30,
+        allowPasswordless: true,
+      },
+      backupCodeOptions: {
+        amount: 10,
+        length: 10,
+        allowPasswordless: true,
+      },
+      twoFactorCookieMaxAge: 600,
+      trustDeviceMaxAge: 60 * 60 * 24 * 30,
+    }),
+  ],
   advanced: {
     useSecureCookies: process.env.NODE_ENV === 'production',
   },

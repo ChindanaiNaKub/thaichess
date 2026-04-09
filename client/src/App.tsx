@@ -28,6 +28,7 @@ const FeedbackMessagesPage = lazy(() => import('./components/FeedbackMessagesPag
 const FairPlayCasesPage = lazy(() => import('./components/FairPlayCasesPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 const AccountPage = lazy(() => import('./routes/AccountRoute'));
+const TwoFactorRoute = lazy(() => import('./routes/TwoFactorRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
@@ -125,6 +126,7 @@ export default function App() {
           <Route path={routes.feedback} element={<FeedbackMessagesPage />} />
           <Route path={routes.fairPlay} element={<FairPlayCasesPage />} />
           <Route path={routes.login} element={<LoginPage />} />
+          <Route path={routes.twoFactor} element={<TwoFactorRoute />} />
           <Route path={routes.account} element={<AccountPage />} />
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
         </Routes>

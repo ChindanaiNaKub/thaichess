@@ -26,6 +26,7 @@ const VALID_MIGRATION_TABLES = new Set([
   'fair_play_cases',
   'accounts',
   'auth_sessions',
+  'twoFactor',
   'verifications',
 ]);
 
@@ -35,7 +36,7 @@ const VALID_MIGRATION_COLUMNS: Record<string, Set<string>> = {
   users: new Set([
     'fair_play_status', 'rated_restricted_at', 'rated_restriction_note',
     'rating', 'rated_games', 'wins', 'losses', 'draws',
-    'name', 'image', 'email_verified',
+    'name', 'image', 'email_verified', 'twoFactorEnabled',
   ]),
   games: new Set([
     'white_user_id', 'black_user_id', 'rated', 'game_mode', 'game_type',
@@ -231,6 +232,7 @@ async function runSchemaMigration() {
         name TEXT,
         email TEXT NOT NULL UNIQUE,
         email_verified INTEGER NOT NULL DEFAULT 0,
+        twoFactorEnabled INTEGER NOT NULL DEFAULT 0,
         image TEXT,
         username TEXT UNIQUE,
         role TEXT NOT NULL DEFAULT 'user',
@@ -280,6 +282,15 @@ async function runSchemaMigration() {
     `,
     'CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
+    `
+      CREATE TABLE IF NOT EXISTS twoFactor (
+        id TEXT PRIMARY KEY,
+        secret TEXT NOT NULL,
+        backupCodes TEXT NOT NULL,
+        userId TEXT NOT NULL UNIQUE
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_twoFactor_userId ON twoFactor(userId)',
     `
       CREATE TABLE IF NOT EXISTS verifications (
         id TEXT PRIMARY KEY,
@@ -376,6 +387,7 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'name', 'TEXT');
   await ensureColumn('users', 'image', 'TEXT');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'twoFactorEnabled', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('games', 'white_user_id', 'TEXT');
   await ensureColumn('games', 'black_user_id', 'TEXT');
   await ensureColumn('games', 'rated', 'INTEGER NOT NULL DEFAULT 0');
@@ -486,6 +498,7 @@ export interface AuthUser {
   name: string;
   email: string;
   email_verified: boolean;
+  twoFactorEnabled: boolean;
   image: string | null;
   username: string | null;
   role: 'user' | 'admin';
@@ -527,6 +540,7 @@ function rowToAuthUser(row: Row): AuthUser {
     name: String(row.name ?? ''),
     email: String(row.email),
     email_verified: Boolean(Number(row.email_verified ?? 0)),
+    twoFactorEnabled: Boolean(Number(row.twoFactorEnabled ?? 0)),
     image: row.image === null || row.image === undefined ? null : String(row.image),
     username: row.username === null || row.username === undefined ? null : String(row.username),
     role: String(row.role ?? 'user') === 'admin' ? 'admin' : 'user',

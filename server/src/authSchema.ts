@@ -5,6 +5,7 @@ export const users = sqliteTable('users', {
   name: text('name'),
   email: text('email').notNull(),
   email_verified: integer('email_verified', { mode: 'boolean' }).notNull(),
+  twoFactorEnabled: integer('twoFactorEnabled', { mode: 'boolean' }).notNull(),
   image: text('image'),
   username: text('username'),
   role: text('role').notNull(),
@@ -57,9 +58,17 @@ export const verifications = sqliteTable('verifications', {
   updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const twoFactor = sqliteTable('twoFactor', {
+  id: text('id').primaryKey(),
+  secret: text('secret').notNull(),
+  backupCodes: text('backupCodes').notNull(),
+  userId: text('userId').notNull(),
+});
+
 export const authSchema = {
   users,
   accounts,
   auth_sessions: authSessions,
   verifications,
+  twoFactor,
 };
