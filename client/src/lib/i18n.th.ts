@@ -1137,22 +1137,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'cookies.description': 'เว็บไซต์นี้ใช้คุกกี้สำหรับการเข้าสู่ระบบและการตั้งค่าภาษาเท่านั้น ไม่มีการใช้เพื่อการตลาดหรือการติดตาม',
   'cookies.read_more': 'อ่านเพิ่มเติม:',
 
-  // Auth / Registration
-  'auth.sign_in': 'เข้าสู่ระบบ',
-  'auth.continue_with_google': 'ดำเนินการต่อด้วย Google',
-  'auth.signing_in': 'กำลังเข้าสู่ระบบ...',
-  'auth.or_email_fallback': 'หรือใช้อีเมล',
-  'auth.hide_email': 'ซ่อนอีเมล',
-  'auth.email_placeholder': 'you@example.com',
-  'auth.send_code': 'ส่งรหัส',
-  'auth.sending_code': 'กำลังส่งรหัส...',
-  'auth.code_sent_to': 'รหัสถูกส่งไปยัง {email}',
-  'auth.code_placeholder': 'ใส่รหัส 6 หลัก',
-  'auth.verify_code': 'ยืนยันรหัส',
-  'auth.use_another_email': 'ใช้อีเมลอื่น',
-  'auth.back_to_play': 'กลับไปเล่น',
-  'auth.send_code_failed': 'ส่งรหัสไม่สำเร็จ กรุณาลองใหม่',
-  'auth.sign_in_failed': 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่',
+  // PDPA Auth
   'auth.consent_text': 'ฉันยอมรับ',
   'auth.privacy_link': 'นโยบายความเป็นส่วนตัว',
   'auth.terms_link': 'ข้อกำหนดในการให้บริการ',
