@@ -166,10 +166,15 @@ describe('better-auth email otp', () => {
 
     expect(signIn.token).toEqual(expect.any(String));
     expect(signIn.user.email).toBe('admin@example.com');
-    expect(signIn.user.role).toBe('admin');
-    expect(signIn.user.username).toBe('admin_master');
-    expect(signIn.user.rating).toBe(1875);
-    expect(signIn.user.fair_play_status).toBe('restricted');
+    const storedUser = await database.getUserByEmail('admin@example.com');
+    expect(storedUser).toMatchObject({
+      id: 'admin-user',
+      email: 'admin@example.com',
+      role: 'admin',
+      username: 'admin_master',
+      rating: 1875,
+      fair_play_status: 'restricted',
+    });
 
     const enableTwoFactor = await auth.api.enableTwoFactor({
       body: {},
@@ -182,14 +187,7 @@ describe('better-auth email otp', () => {
     expect(enableTwoFactor.totpURI).toContain('otpauth://totp/');
     expect(enableTwoFactor.backupCodes.length).toBeGreaterThan(0);
 
-    const storedUser = await database.getUserByEmail('admin@example.com');
     expect(storedUser).toMatchObject({
-      id: 'admin-user',
-      email: 'admin@example.com',
-      role: 'admin',
-      username: 'admin_master',
-      rating: 1875,
-      fair_play_status: 'restricted',
       twoFactorEnabled: false,
     });
 

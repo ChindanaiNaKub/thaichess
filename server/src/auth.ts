@@ -1,9 +1,7 @@
 import './env';
 import crypto from 'crypto';
 import type { Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import {
-  createSession,
   deleteSessionByTokenHash,
   getUserBySessionTokenHash,
   type AuthUser,
@@ -38,10 +36,6 @@ export function normalizeGuestPlayerId(value: unknown) {
 
   const normalized = value.trim();
   return GUEST_PLAYER_ID_PATTERN.test(normalized) ? normalized : null;
-}
-
-function createSessionToken() {
-  return crypto.randomBytes(32).toString('base64url');
 }
 
 function hashAuthValue(value: string) {
@@ -89,21 +83,6 @@ function buildCookie(value: string, maxAgeSeconds: number) {
 
 export function clearSessionCookie(res: Response) {
   res.setHeader('Set-Cookie', buildCookie('', 0));
-}
-
-export async function setSessionCookie(res: Response, userId: string) {
-  const rawToken = createSessionToken();
-  const tokenHash = hashAuthValue(rawToken);
-  const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS;
-
-  await createSession({
-    id: uuidv4(),
-    userId,
-    tokenHash,
-    expiresAt,
-  });
-
-  res.setHeader('Set-Cookie', buildCookie(rawToken, SESSION_MAX_AGE_SECONDS));
 }
 
 export async function getAuthenticatedUser(req: Request): Promise<AuthUser | null> {

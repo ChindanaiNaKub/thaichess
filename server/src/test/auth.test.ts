@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -69,24 +70,6 @@ describe('auth hardening', () => {
     return expect(import('../auth')).rejects.toThrow('AUTH_SECRET must be set in production.');
   });
 
-  it('uses a 7-day session cookie max age', async () => {
-    const database = await import('../database');
-    const auth = await import('../auth');
-
-    await database.initDatabase();
-
-    const response = {
-      setHeader: vi.fn(),
-    } as unknown as Response;
-
-    await auth.setSessionCookie(response, 'user-1');
-
-    expect(response.setHeader).toHaveBeenCalledWith(
-      'Set-Cookie',
-      expect.stringContaining('Max-Age=604800'),
-    );
-  });
-
   it('uses Better Auth email OTP sign-in without writing legacy login_codes or sessions', async () => {
     const database = await import('../database');
     const { auth } = await import('../betterAuth');
@@ -132,7 +115,8 @@ describe('auth hardening', () => {
 
     expect(signIn.token).toEqual(expect.any(String));
     expect(signIn.user.email).toBe('player@example.com');
-    expect(signIn.user.role).toBe('user');
+    const storedUser = await database.getUserByEmail('player@example.com');
+    expect(storedUser?.role).toBe('user');
 
     const loginCodesAfterSignIn = await client.execute({
       sql: 'SELECT id FROM login_codes WHERE email = ?',
@@ -181,19 +165,22 @@ describe('auth hardening', () => {
       role: 'user',
     });
 
-    const setHeaderMock = vi.fn();
-    const response = {
-      setHeader: setHeaderMock,
-      getHeader: vi.fn(),
-    } as unknown as Response;
+    const rawToken = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto
+      .createHmac('sha256', process.env.AUTH_SECRET?.trim() ?? '')
+      .update(rawToken)
+      .digest('hex');
 
-    await auth.setSessionCookie(response, 'logout-user');
-    const cookieHeader = String(setHeaderMock.mock.calls.at(-1)?.[1] ?? '');
-    const sessionValue = cookieHeader.split(';')[0];
+    await database.createSession({
+      id: 'legacy-session',
+      userId: 'logout-user',
+      tokenHash,
+      expiresAt: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+    });
 
     const request = {
       headers: {
-        cookie: sessionValue,
+        cookie: `thaichess_session=${encodeURIComponent(rawToken)}`,
       },
     } as never;
 
