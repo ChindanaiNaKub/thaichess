@@ -32,6 +32,17 @@ const LEGACY_PIECE_STORAGE_KEY = 'thaichess-piece-style';
 const BOARD_STORAGE_KEY = 'thaichess-board-theme';
 
 const BoardAppearanceContext = createContext<BoardAppearanceContextValue | null>(null);
+const FALLBACK_APPEARANCE: BoardAppearanceContextValue = {
+  boardThemeId: DEFAULT_BOARD_THEME_ID,
+  setBoardThemeId: () => {},
+  boardTheme: getBoardThemeById(DEFAULT_BOARD_THEME_ID),
+  boardThemes: BOARD_THEMES,
+  pieceThemeId: DEFAULT_PIECE_THEME_ID,
+  setPieceThemeId: () => {},
+  pieceTheme: getPieceThemeById(DEFAULT_PIECE_THEME_ID),
+  pieceThemes: PIECE_THEMES,
+  corePieceShapeLabel: CORE_PIECE_SHAPE_LABEL,
+};
 
 function normalizeLegacyPieceTheme(saved: string | null): PieceThemeId {
   switch (saved) {
@@ -138,7 +149,7 @@ export const PieceStyleProvider = AppearanceProvider;
 export function useBoardAppearance() {
   const context = useContext(BoardAppearanceContext);
   if (!context) {
-    throw new Error('useBoardAppearance must be used within AppearanceProvider');
+    return FALLBACK_APPEARANCE;
   }
   return context;
 }
