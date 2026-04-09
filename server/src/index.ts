@@ -47,7 +47,7 @@ import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, hasAdminMfaAccess, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, hasAdminMfaAccess, normalizeGuestPlayerId, logoutRequest } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
@@ -58,8 +58,6 @@ import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
 import { renderSeoHtml } from './seoHtml';
 import {
-  RequestCodeSchema,
-  VerifyCodeSchema,
   UpdateProfileSchema,
   SubmitFeedbackSchema,
   ReportFairPlaySchema,
@@ -730,14 +728,6 @@ app.get('/api/live-games', (req, res) => {
   });
 });
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many authentication attempts. Please try again later.' },
-});
-
 app.get('/api/auth/me', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   if (!user) {
@@ -747,60 +737,6 @@ app.get('/api/auth/me', async (req, res) => {
   }
 
   res.json({ user });
-});
-
-const fairPlayReportLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many fair-play reports. Please try again later.' },
-});
-
-app.post('/api/auth/email/request-code', authLimiter, async (req, res) => {
-  const parseResult = RequestCodeSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    const flattened = parseResult.error.flatten();
-    const fieldError = flattened.fieldErrors.email?.[0];
-    const formError = flattened.formErrors[0];
-    const errorMessage = fieldError || formError || 'Invalid email address.';
-    res.status(400).json({ error: errorMessage });
-    return;
-  }
-
-  const { email } = parseResult.data;
-
-  try {
-    await issueLoginCode(email, req.ip);
-    res.json({ ok: true });
-  } catch (error) {
-    logError('auth_request_code_failed', error, { email });
-    res.status(503).json({ error: 'Login email is not configured yet.' });
-  }
-});
-
-app.post('/api/auth/email/verify-code', authLimiter, async (req, res) => {
-  const parseResult = VerifyCodeSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    const flattened = parseResult.error.flatten();
-    const emailError = flattened.fieldErrors.email?.[0];
-    const codeError = flattened.fieldErrors.code?.[0];
-    const formError = flattened.formErrors[0];
-    const errorMessage = emailError || codeError || formError || 'Invalid email or code.';
-    res.status(400).json({ error: errorMessage });
-    return;
-  }
-
-  const { email, code } = parseResult.data;
-
-  const result = await verifyLoginCode(email, code);
-  if (!result.ok) {
-    res.status(400).json({ error: result.error });
-    return;
-  }
-
-  await setSessionCookie(res, result.user.id);
-  res.json({ ok: true, user: result.user });
 });
 
 app.post('/api/auth/logout', requireTrustedWriteOriginMiddleware, async (req, res) => {
@@ -834,6 +770,14 @@ app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, 
 });
 
 app.all('/api/auth/*', betterAuthHandler);
+
+const fairPlayReportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many fair-play reports. Please try again later.' },
+});
 
 app.get('/api/fair-play/cases', async (req, res) => {
   const admin = await requireAdminWithMfa(req, res);
