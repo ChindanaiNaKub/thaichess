@@ -18,7 +18,9 @@ type MockResponse = {
 };
 
 function createApp() {
-  const app = express();
+  const app = express() as express.Express & {
+    handle: (req: unknown, res: unknown) => void;
+  };
   app.use(requireTrustedWriteOrigin(['https://good.example']));
 
   app.get('/write', (_req, res) => {
@@ -97,7 +99,11 @@ function createResponse(): { response: MockResponse; done: Promise<void> } {
   return { response, done };
 }
 
-async function dispatch(app: express.Express, method: string, headers: Record<string, string | undefined> = {}) {
+async function dispatch(
+  app: express.Express & { handle: (req: unknown, res: unknown) => void },
+  method: string,
+  headers: Record<string, string | undefined> = {},
+) {
   const req = createRequest(method, headers);
   const { response, done } = createResponse();
 
@@ -181,7 +187,7 @@ describe('trusted write origin middleware', () => {
   });
 
   it('pins the accepted trusted-write route scope in index.ts', () => {
-    const indexSource = fs.readFileSync(path.resolve(import.meta.dirname, '../index.ts'), 'utf8');
+    const indexSource = fs.readFileSync(path.resolve(__dirname, '../index.ts'), 'utf8');
     const protectedRoutes = [...indexSource.matchAll(
       /app\.(post|patch|delete)\('([^']+)',\s*requireTrustedWriteOriginMiddleware/g,
     )].map(([, method, routePath]) => `${method.toUpperCase()} ${routePath}`);
