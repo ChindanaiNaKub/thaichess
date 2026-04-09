@@ -7,6 +7,7 @@ import {
   createSession,
   consumeLoginCode,
   deleteSessionByTokenHash,
+  getUserByEmail,
   getLoginCodeByEmail,
   getUserBySessionTokenHash,
   type AuthUser,
@@ -17,7 +18,7 @@ import { getBetterAuthUserFromCookieHeader } from './betterAuth';
 import { logInfo, logWarn } from './logger';
 
 const SESSION_COOKIE_NAME = 'thaichess_session';
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const LOGIN_CODE_TTL_SECONDS = 60 * 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
 const GUEST_PLAYER_ID_PATTERN = /^guest_[A-Za-z0-9-]{16,128}$/;
@@ -78,6 +79,10 @@ export function hashAuthValue(value: string) {
     .createHmac('sha256', AUTH_SECRET)
     .update(value)
     .digest('hex');
+}
+
+export function hasAdminMfaAccess(user: Pick<AuthUser, 'role' | 'twoFactorEnabled'>) {
+  return user.role === 'admin' && user.twoFactorEnabled;
 }
 
 export function parseCookies(cookieHeader?: string) {
@@ -153,7 +158,19 @@ export async function logoutRequest(req: Request, res: Response) {
   const token = cookies[SESSION_COOKIE_NAME];
 
   if (token) {
+    const user = await getUserBySessionTokenHash(hashAuthValue(token));
     await deleteSessionByTokenHash(hashAuthValue(token));
+    logInfo('auth_session_terminated', {
+      userId: user?.id ?? null,
+      email: user?.email ?? null,
+      result: 'logout',
+    });
+  } else {
+    logInfo('auth_session_terminated', {
+      userId: null,
+      email: null,
+      result: 'logout_without_session',
+    });
   }
 
   clearSessionCookie(res);
@@ -173,6 +190,11 @@ export async function issueLoginCode(email: string, requestedIp?: string) {
   });
 
   await sendLoginCode(normalizedEmail, code);
+  logInfo('auth_login_code_generated', {
+    email: normalizedEmail,
+    ip: requestedIp ?? null,
+    result: 'issued',
+  });
 }
 
 export async function verifyLoginCode(email: string, code: string) {
@@ -181,17 +203,42 @@ export async function verifyLoginCode(email: string, code: string) {
   const now = Math.floor(Date.now() / 1000);
 
   if (!record || record.consumed_at || record.expires_at <= now) {
+    logWarn('auth_login_code_rejected', {
+      email: normalizedEmail,
+      result: 'expired',
+    });
     return { ok: false as const, error: 'Code expired. Please request a new one.' };
   }
 
   if (record.attempts >= LOGIN_CODE_MAX_ATTEMPTS) {
+    logWarn('auth_login_code_rejected', {
+      email: normalizedEmail,
+      result: 'too_many_attempts',
+    });
     return { ok: false as const, error: 'Too many attempts. Please request a new code.' };
   }
 
   const candidateHash = hashAuthValue(`${normalizedEmail}:${code}`);
   if (candidateHash !== record.code_hash) {
     await markLoginCodeAttempt(record.id);
+    logWarn('auth_login_code_rejected', {
+      email: normalizedEmail,
+      result: 'invalid_code',
+    });
     return { ok: false as const, error: 'Invalid code.' };
+  }
+
+  const existingUser = await getUserByEmail(normalizedEmail);
+  if (existingUser?.role === 'admin') {
+    logWarn('auth_login_code_rejected', {
+      email: normalizedEmail,
+      userId: existingUser.id,
+      result: 'admin_requires_social',
+    });
+    return {
+      ok: false as const,
+      error: 'Admin accounts must sign in with Google or Facebook to use MFA.',
+    };
   }
 
   await consumeLoginCode(record.id);
@@ -204,6 +251,12 @@ export async function verifyLoginCode(email: string, code: string) {
   if (!user) {
     return { ok: false as const, error: 'Failed to sign in.' };
   }
+
+  logInfo('auth_login_code_verified', {
+    userId: user.id,
+    email: user.email,
+    result: 'success',
+  });
 
   return { ok: true as const, user };
 }
@@ -233,7 +286,6 @@ async function sendLoginCode(email: string, code: string) {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    logInfo('auth_login_code_generated', { email, code });
     return;
   }
 

@@ -5,15 +5,37 @@ import { MemoryRouter } from 'react-router-dom';
 import AccountPage from '../components/AccountPage';
 import type { AuthUser } from '../lib/auth';
 
-const { navigateMock, logoutMock, updateProfileMock, headerPropsSpy, authState, puzzleProgressSummaryState } = vi.hoisted(() => ({
+const {
+  navigateMock,
+  logoutMock,
+  refreshUserMock,
+  updateProfileMock,
+  enableTwoFactorMock,
+  verifyTotpMock,
+  listSessionsMock,
+  revokeSessionMock,
+  revokeOtherSessionsMock,
+  useSessionMock,
+  headerPropsSpy,
+  authState,
+  puzzleProgressSummaryState,
+} = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   logoutMock: vi.fn(),
+  refreshUserMock: vi.fn(),
   updateProfileMock: vi.fn(),
+  enableTwoFactorMock: vi.fn(),
+  verifyTotpMock: vi.fn(),
+  listSessionsMock: vi.fn(),
+  revokeSessionMock: vi.fn(),
+  revokeOtherSessionsMock: vi.fn(),
+  useSessionMock: vi.fn(),
   headerPropsSpy: vi.fn(),
   authState: {
     user: {
       id: 'user-1',
       email: 'player@example.com',
+      twoFactorEnabled: false,
       username: 'player_one',
       role: 'user' as const,
       fair_play_status: 'clear' as const,
@@ -93,8 +115,22 @@ vi.mock('../lib/auth', () => ({
     user: authState.user,
     loading: authState.loading,
     logout: logoutMock,
+    refreshUser: refreshUserMock,
     updateProfile: updateProfileMock,
   }),
+}));
+
+vi.mock('../lib/authClient', () => ({
+  authClient: {
+    twoFactor: {
+      enable: enableTwoFactorMock,
+      verifyTotp: verifyTotpMock,
+    },
+    listSessions: listSessionsMock,
+    revokeSession: revokeSessionMock,
+    revokeOtherSessions: revokeOtherSessionsMock,
+    useSession: useSessionMock,
+  },
 }));
 
 vi.mock('../lib/puzzleProgress', () => ({
@@ -138,12 +174,54 @@ describe('AccountPage', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     logoutMock.mockReset();
+    refreshUserMock.mockReset();
     updateProfileMock.mockReset();
+    enableTwoFactorMock.mockReset();
+    verifyTotpMock.mockReset();
+    listSessionsMock.mockReset();
+    revokeSessionMock.mockReset();
+    revokeOtherSessionsMock.mockReset();
+    useSessionMock.mockReset();
     headerPropsSpy.mockReset();
+    enableTwoFactorMock.mockResolvedValue({
+      error: null,
+      data: {
+        totpURI: 'otpauth://totp/ThaiChess:admin@example.com',
+        backupCodes: ['backup-1', 'backup-2'],
+      },
+    });
+    verifyTotpMock.mockResolvedValue({ error: null });
+    listSessionsMock.mockResolvedValue({
+      error: null,
+      data: [
+        {
+          token: 'current-token',
+          userAgent: 'Current Browser',
+          expiresAt: '2026-04-12T10:00:00.000Z',
+          createdAt: '2026-04-09T10:00:00.000Z',
+        },
+        {
+          token: 'other-token',
+          userAgent: 'Other Device',
+          expiresAt: '2026-04-13T10:00:00.000Z',
+          createdAt: '2026-04-08T10:00:00.000Z',
+        },
+      ],
+    });
+    revokeSessionMock.mockResolvedValue({ error: null });
+    revokeOtherSessionsMock.mockResolvedValue({ error: null });
+    useSessionMock.mockReturnValue({
+      data: {
+        session: {
+          token: 'current-token',
+        },
+      },
+    });
     authState.loading = false;
     authState.user = {
       id: 'user-1',
       email: 'player@example.com',
+      twoFactorEnabled: false,
       username: 'player_one',
       role: 'user' as const,
       fair_play_status: 'clear' as const,
@@ -211,5 +289,74 @@ describe('AccountPage', () => {
 
     expect(screen.getByText('account.rated_restricted_title')).toBeInTheDocument();
     expect(screen.getByText('Restricted pending review')).toBeInTheDocument();
+  });
+
+  it('shows the admin security section when admin MFA is disabled', () => {
+    authState.user = {
+      ...authState.user,
+      email: 'admin@example.com',
+      role: 'admin',
+      twoFactorEnabled: false,
+    };
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Admin security')).toBeInTheDocument();
+    expect(screen.getByText('Status: Not enabled')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set up admin MFA' })).toBeInTheDocument();
+  });
+
+  it('starts admin MFA setup and verifies the first authenticator code', async () => {
+    authState.user = {
+      ...authState.user,
+      email: 'admin@example.com',
+      role: 'admin',
+      twoFactorEnabled: false,
+    };
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set up admin MFA' }));
+
+    expect(enableTwoFactorMock).toHaveBeenCalledWith({ issuer: 'ThaiChess' });
+    expect(await screen.findByText('otpauth://totp/ThaiChess:admin@example.com')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Authenticator code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify admin MFA' }));
+
+    expect(verifyTotpMock).toHaveBeenCalledWith({ code: '123456' });
+    expect(await screen.findByText('backup-1')).toBeInTheDocument();
+    expect(screen.getByText('backup-2')).toBeInTheDocument();
+    expect(refreshUserMock).toHaveBeenCalled();
+  });
+
+  it('lists active sessions and can sign out other devices while keeping the current one', async () => {
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show active sessions' }));
+
+    expect(listSessionsMock).toHaveBeenCalled();
+    expect(await screen.findByText('Current device')).toBeInTheDocument();
+    expect(screen.getByText('Other device')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out other devices' }));
+
+    expect(revokeOtherSessionsMock).toHaveBeenCalled();
+    expect(await screen.findByText('Current device')).toBeInTheDocument();
+    expect(screen.queryByText('Other device')).not.toBeInTheDocument();
   });
 });

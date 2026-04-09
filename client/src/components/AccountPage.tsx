@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PUZZLES } from '@shared/puzzlesRuntime';
 import Header from './Header';
 import { useAuth } from '../lib/auth';
+import { authClient } from '../lib/authClient';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 import { puzzleRoute, routes } from '../lib/routes';
@@ -19,6 +20,16 @@ function formatPuzzleActivityDate(timestamp: number, lang: string): string {
     month: 'short',
     day: 'numeric',
   }).format(new Date(timestamp * 1000));
+}
+
+function formatSessionDate(value: string | Date, lang: string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function StatTile({
@@ -68,14 +79,33 @@ function SecondaryAction({
 
 export default function AccountPage() {
   const navigate = useNavigate();
-  const { user, loading, logout, updateProfile } = useAuth();
+  const { user, loading, logout, refreshUser, updateProfile } = useAuth();
   const { t, lang } = useTranslation();
+  const betterAuthSession = authClient.useSession();
   const puzzleProgress = usePuzzleProgressSummary();
   const continuePuzzle = puzzleProgress.continuePuzzle;
   const [username, setUsername] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [adminSetupUri, setAdminSetupUri] = useState('');
+  const [adminSetupCode, setAdminSetupCode] = useState('');
+  const [pendingAdminBackupCodes, setPendingAdminBackupCodes] = useState<string[]>([]);
+  const [revealedAdminBackupCodes, setRevealedAdminBackupCodes] = useState<string[]>([]);
+  const [adminSecurityError, setAdminSecurityError] = useState('');
+  const [adminSecurityMessage, setAdminSecurityMessage] = useState('');
+  const [adminEnabling, setAdminEnabling] = useState(false);
+  const [adminVerifying, setAdminVerifying] = useState(false);
+  const [sessions, setSessions] = useState<Array<{
+    token: string;
+    userAgent?: string | null;
+    ipAddress?: string | null;
+    createdAt: string | Date;
+    expiresAt: string | Date;
+  }>>([]);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState('');
 
   useEffect(() => {
     if (user?.username) {
@@ -114,6 +144,103 @@ export default function AccountPage() {
   }
 
   const displayName = user.username || user.name || user.email.split('@')[0];
+  const adminMfaEnabled = user.twoFactorEnabled || revealedAdminBackupCodes.length > 0;
+  const currentSessionToken = betterAuthSession.data?.session.token ?? null;
+
+  async function handleAdminMfaSetup() {
+    setAdminEnabling(true);
+    setAdminSecurityError('');
+    setAdminSecurityMessage('');
+
+    try {
+      const response = await authClient.twoFactor.enable({ issuer: 'ThaiChess' });
+      if (response.error) {
+        throw response.error;
+      }
+
+      setAdminSetupUri(response.data?.totpURI ?? '');
+      setPendingAdminBackupCodes(response.data?.backupCodes ?? []);
+      setAdminSecurityMessage('Authenticator setup started. Scan the URI and verify one code to finish enabling admin MFA.');
+    } catch (setupError) {
+      setAdminSecurityError(setupError instanceof Error ? setupError.message : 'Failed to start admin MFA setup.');
+    } finally {
+      setAdminEnabling(false);
+    }
+  }
+
+  async function handleAdminMfaVerify(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAdminVerifying(true);
+    setAdminSecurityError('');
+    setAdminSecurityMessage('');
+
+    try {
+      const response = await authClient.twoFactor.verifyTotp({ code: adminSetupCode });
+      if (response.error) {
+        throw response.error;
+      }
+
+      await refreshUser();
+      setRevealedAdminBackupCodes(pendingAdminBackupCodes);
+      setPendingAdminBackupCodes([]);
+      setAdminSetupUri('');
+      setAdminSecurityMessage('Admin MFA is now enabled. Save your backup codes before leaving this page.');
+      setAdminSetupCode('');
+    } catch (verifyError) {
+      setAdminSecurityError(verifyError instanceof Error ? verifyError.message : 'Failed to verify admin MFA.');
+    } finally {
+      setAdminVerifying(false);
+    }
+  }
+
+  async function handleLoadSessions() {
+    setSessionsLoading(true);
+    setSessionsError('');
+
+    try {
+      const response = await authClient.listSessions();
+      if (response.error) {
+        throw response.error;
+      }
+
+      setSessions(response.data ?? []);
+      setSessionsLoaded(true);
+    } catch (sessionError) {
+      setSessionsError(sessionError instanceof Error ? sessionError.message : 'Failed to load active sessions.');
+    } finally {
+      setSessionsLoading(false);
+    }
+  }
+
+  async function handleRevokeSession(token: string) {
+    setSessionsError('');
+
+    try {
+      const response = await authClient.revokeSession({ token });
+      if (response.error) {
+        throw response.error;
+      }
+
+      setSessions((current) => current.filter((session) => session.token !== token));
+    } catch (sessionError) {
+      setSessionsError(sessionError instanceof Error ? sessionError.message : 'Failed to revoke the selected session.');
+    }
+  }
+
+  async function handleRevokeOtherSessions() {
+    setSessionsError('');
+
+    try {
+      const response = await authClient.revokeOtherSessions();
+      if (response.error) {
+        throw response.error;
+      }
+
+      setSessions((current) => current.filter((session) => session.token === currentSessionToken));
+    } catch (sessionError) {
+      setSessionsError(sessionError instanceof Error ? sessionError.message : 'Failed to revoke other sessions.');
+    }
+  }
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -201,7 +328,7 @@ export default function AccountPage() {
                     <SecondaryAction onClick={() => navigate(routes.leaderboard)}>
                       {t('leaderboard.title')}
                     </SecondaryAction>
-                    {user.role === 'admin' && (
+                    {user.role === 'admin' && user.twoFactorEnabled && (
                       <>
                         <SecondaryAction onClick={() => navigate(routes.feedback)}>
                           {t('account.open_feedback')}
@@ -223,6 +350,81 @@ export default function AccountPage() {
                   </div>
                 </div>
               </div>
+
+              {user.role === 'admin' && (
+                <section className="mt-6 rounded-[1.75rem] border border-primary/20 bg-primary/10 p-5 sm:p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-light">
+                    Admin security
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold text-text-bright">Two-factor authentication</h2>
+                  <p className="mt-2 text-sm leading-6 text-text-dim">
+                    Two-factor authentication is required before admin tools can be used.
+                  </p>
+                  <p className="mt-4 text-sm font-medium text-text-bright">
+                    Status: {adminMfaEnabled ? 'Enabled' : 'Not enabled'}
+                  </p>
+
+                  {!adminMfaEnabled ? (
+                    <div className="mt-4 space-y-4">
+                      <button
+                        type="button"
+                        onClick={() => void handleAdminMfaSetup()}
+                        disabled={adminEnabling}
+                        className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-60"
+                      >
+                        {adminEnabling ? 'Preparing...' : 'Set up admin MFA'}
+                      </button>
+
+                      {adminSetupUri ? (
+                        <div className="space-y-4 rounded-2xl border border-surface-hover/60 bg-surface/70 p-4">
+                          <p className="text-sm text-text-dim">
+                            Add this account to your authenticator app, then enter the first code below.
+                          </p>
+                          <code className="block overflow-x-auto rounded-xl bg-surface px-3 py-3 text-xs text-text-bright">
+                            {adminSetupUri}
+                          </code>
+                          <form className="space-y-3" onSubmit={handleAdminMfaVerify}>
+                            <label className="block">
+                              <span className="mb-2 block text-sm font-medium text-text-bright">Authenticator code</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                value={adminSetupCode}
+                                onChange={(event) => setAdminSetupCode(event.target.value)}
+                                className="w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none transition-colors focus:border-primary"
+                              />
+                            </label>
+                            <button
+                              type="submit"
+                              disabled={adminVerifying || adminSetupCode.trim().length === 0}
+                              className="rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
+                            >
+                              {adminVerifying ? 'Verifying...' : 'Verify admin MFA'}
+                            </button>
+                          </form>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {revealedAdminBackupCodes.length > 0 ? (
+                    <div className="mt-4 rounded-2xl border border-surface-hover/60 bg-surface/70 p-4">
+                      <p className="text-sm font-medium text-text-bright">Backup codes</p>
+                      <ul className="mt-3 grid gap-2 text-sm text-text-bright sm:grid-cols-2">
+                        {revealedAdminBackupCodes.map((backupCode) => (
+                          <li key={backupCode} className="rounded-xl bg-surface px-3 py-2 font-mono">
+                            {backupCode}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {adminSecurityMessage ? <p className="mt-4 text-sm text-primary">{adminSecurityMessage}</p> : null}
+                  {adminSecurityError ? <p className="mt-4 text-sm text-danger">{adminSecurityError}</p> : null}
+                </section>
+              )}
             </div>
           </section>
 
@@ -303,6 +505,73 @@ export default function AccountPage() {
             </section>
 
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-1">
+              <section className="rounded-[1.6rem] border border-surface-hover/60 bg-surface-alt/76 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-text-dim">
+                      Sessions
+                    </p>
+                    <p className="text-sm text-text-dim">
+                      Review active devices and sign out sessions you no longer trust.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadSessions()}
+                    disabled={sessionsLoading}
+                    className="rounded-xl border border-surface-hover/70 bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
+                  >
+                    {sessionsLoading ? 'Loading...' : sessionsLoaded ? 'Refresh sessions' : 'Show active sessions'}
+                  </button>
+                </div>
+
+                {sessionsLoaded ? (
+                  <div className="mt-4 space-y-3">
+                    {sessions.map((session) => {
+                      const isCurrent = session.token === currentSessionToken;
+                      return (
+                        <div key={session.token} className="rounded-xl border border-surface-hover/60 bg-surface/65 px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-text-bright">
+                                {isCurrent ? 'Current device' : 'Other device'}
+                              </p>
+                              <p className="mt-1 text-sm text-text-dim">
+                                {session.userAgent || 'Unknown device'}
+                              </p>
+                              <p className="mt-1 text-xs text-text-dim">
+                                Last active until {formatSessionDate(session.expiresAt, lang)}
+                              </p>
+                            </div>
+                            {!isCurrent ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleRevokeSession(session.token)}
+                                className="rounded-xl border border-danger/30 px-3 py-2 text-sm font-semibold text-danger transition-colors hover:bg-danger/8"
+                              >
+                                Sign out device
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {sessionsLoaded && sessions.some((session) => session.token !== currentSessionToken) ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleRevokeOtherSessions()}
+                    className="mt-4 rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60"
+                  >
+                    Sign out other devices
+                  </button>
+                ) : null}
+
+                {sessionsError ? <p className="mt-4 text-sm text-danger">{sessionsError}</p> : null}
+              </section>
+
               <section className="rounded-[1.6rem] border border-surface-hover/60 bg-surface-alt/76 p-5">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-text-dim">
                   {t('account.puzzle_last_played_label')}

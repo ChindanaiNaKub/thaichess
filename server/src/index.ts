@@ -47,7 +47,7 @@ import { getIndexablePaths } from '../../shared/seo';
 import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
-import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
+import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCookieHeader, hasAdminMfaAccess, isValidEmail, isValidUsername, issueLoginCode, logoutRequest, normalizeEmail, normalizeGuestPlayerId, normalizeUsername, setSessionCookie, verifyLoginCode } from './auth';
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
@@ -401,6 +401,16 @@ async function requireAdmin(req: express.Request, res: express.Response) {
   if (!user) return null;
   if (user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required.' });
+    return null;
+  }
+  return user;
+}
+
+async function requireAdminWithMfa(req: express.Request, res: express.Response) {
+  const user = await requireAdmin(req, res);
+  if (!user) return null;
+  if (!hasAdminMfaAccess(user)) {
+    res.status(403).json({ error: 'Admin MFA required.' });
     return null;
   }
   return user;
@@ -826,7 +836,7 @@ app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, 
 app.all('/api/auth/*', betterAuthHandler);
 
 app.get('/api/fair-play/cases', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -885,7 +895,7 @@ app.post('/api/fair-play/report', requireTrustedWriteOriginMiddleware, fairPlayR
 });
 
 app.post('/api/fair-play/cases/:id/restrict', requireTrustedWriteOriginMiddleware, async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -915,7 +925,7 @@ app.post('/api/fair-play/cases/:id/restrict', requireTrustedWriteOriginMiddlewar
 });
 
 app.post('/api/fair-play/cases/:id/dismiss', requireTrustedWriteOriginMiddleware, async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const caseId = Number(req.params.id);
@@ -945,7 +955,7 @@ app.post('/api/fair-play/cases/:id/dismiss', requireTrustedWriteOriginMiddleware
 });
 
 app.post('/api/fair-play/users/:id/clear', requireTrustedWriteOriginMiddleware, async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const userId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
@@ -1187,7 +1197,7 @@ const feedbackLimiter = rateLimit({
 });
 
 app.get('/api/feedback', async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const page = parseInt(req.query.page as string) || 0;
@@ -1228,7 +1238,7 @@ app.post('/api/feedback', feedbackLimiter, async (req, res) => {
 });
 
 app.delete('/api/feedback/:id', requireTrustedWriteOriginMiddleware, async (req, res) => {
-  const admin = await requireAdmin(req, res);
+  const admin = await requireAdminWithMfa(req, res);
   if (!admin) return;
 
   const feedbackId = Number(req.params.id);
