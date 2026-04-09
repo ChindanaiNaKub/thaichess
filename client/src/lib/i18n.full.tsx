@@ -1070,7 +1070,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'guide.cta_next': 'Go to the next guide',
 
   // Footer
-  'footer.links_label': 'Site footer links',
+  'footer.links_label': 'Footer Links',
   'footer.what_is_makruk': 'What Is Makruk?',
   'footer.how_to_play_makruk': 'How to Play Makruk',
   'footer.support': 'Support ThaiChess',
@@ -1079,8 +1079,80 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
   'footer.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
 
-  // Language
-  'lang.switch': 'TH',
+  // Privacy Policy
+  'privacy.title': 'Privacy Policy | นโยบายความเป็นส่วนตัว',
+  'privacy.last_updated': 'Last Updated: June 1, 2025 | อัปเดตล่าสุด: 1 มิถุนายน 2568',
+  'privacy.intro.title': 'Introduction | บทนำ',
+  'privacy.intro.text': 'ThaiChess ("we" "us" "our") respects your privacy. This policy explains how we collect, use, and protect your personal data when you use our online Thai chess service (the "Service"). | ThaiChess ("เรา" "พวกเรา" "ของเรา") ให้ความสำคัญกับความเป็นส่วนตัวของคุณ นโยบายนี้อธิบายว่าเรารวบรวม ใช้ และปกป้องข้อมูลส่วนบุคคลของคุณอย่างไร',
+  'privacy.collection.title': 'Data We Collect | ข้อมูลที่เรารวบรวม',
+  'privacy.collection.account.title': 'Account Information | ข้อมูลบัญชี',
+  'privacy.collection.account.text': 'When you create an account, we collect: Email address (for authentication and communication), Username (for display on leaderboards and game history) | เมื่อคุณสร้างบัญชี เรารวบรวม: อีเมล (สำหรับการยืนยันตัวตน) ชื่อผู้ใช้ (สำหรับการแสดงในตารางคะแนน)',
+  'privacy.collection.game.title': 'Game Data | ข้อมูลเกม',
+  'privacy.collection.game.text': 'We record games played on our platform to: Calculate ELO ratings and statistics, Display public game history, Improve matchmaking quality | เราบันทึกเกมที่เล่นบนแพลตฟอร์มของเราเพื่อ: คำนวณคะแนน ELO และสถิติ แสดงประวัติเกมสาธารณะ ปรับปรุงคุณภาพการจับคู่',
+  'privacy.collection.technical.title': 'Technical Data | ข้อมูลทางเทคนิค',
+  'privacy.collection.technical.text': 'We collect data necessary for service operation: IP address (for account security), User agent (for optimizing experience), Session data (for authentication) | เรารวบรวมข้อมูลที่จำเป็นสำหรับการทำงาน: ที่อยู่ IP (สำหรับความปลอดภัย) User Agent (สำหรับปรับปรุงประสบการณ์) ข้อมูลเซสชัน (สำหรับการยืนยันตัวตน)',
+  'privacy.cookies.title': 'Cookies & Local Storage | คุกกี้และการจัดเก็บข้อมูล',
+  'privacy.cookies.text': 'We only use essential cookies and localStorage necessary for service operation: User authentication (sessions), Language and theme settings, Puzzle and lesson progress (for guests). We do not use cookies for marketing or analytics. | เราใช้เฉพาะคุกกี้ที่จำเป็นสำหรับการทำงาน: การยืนยันตัวตน การตั้งค่าภาษาและธีม ความคืบหน้าปริศนา เราไม่ใช้คุกกี้เพื่อการตลาด',
+  'privacy.usage.title': 'How We Use Your Data | วิธีการใช้ข้อมูล',
+  'privacy.usage.text': 'We use your personal data to: Provide the online Thai chess service, Manage user accounts and maintain security, Calculate and display ratings, Respond to support inquiries | เราใช้ข้อมูลเพื่อ: ให้บริการหมากรุกไทยออนไลน์ จัดการบัญชีผู้ใช้ คำนวณและแสดงระบบจัดอันดับ ตอบคำถามผู้ใช้',
+  'privacy.sharing.title': 'Data Sharing | การแบ่งปันข้อมูล',
+  'privacy.sharing.text': 'We do not sell or rent your personal data. We share data when: Required for hosting providers, Required by law, To protect our rights | เราไม่ขายหรือให้เช่าข้อมูลของคุณ เราแบ่งปันเมื่อ: จำเป็นสำหรับผู้ให้บริการ ตามกฎหมายกำหนด ปกป้องสิทธิของเรา',
+  'privacy.retention.title': 'Data Retention | ระยะเวลาการเก็บข้อมูล',
+  'privacy.retention.text': 'We retain your data for: User accounts: Until you delete your account, Game history: At least 1 year (for statistical integrity), Session data: 30 days | เราเก็บข้อมูล: บัญชีผู้ใช้: จนกว่าคุณจะลบ ประวัติเกม: อย่างน้อย 1 ปี ข้อมูลเซสชัน: 30 วัน',
+  'privacy.rights.title': 'Your PDPA Rights | สิทธิของคุณตาม PDPA',
+  'privacy.rights.text': 'Under Thailand\'s PDPA B.E. 2562, you have the right to: Access your personal data, Correct inaccurate information, Delete your account and data (right to be forgotten) | ตามกฎหมาย PDPA พ.ศ. 2562 คุณมีสิทธิ: เข้าถึงข้อมูลส่วนบุคคล แก้ไขข้อมูลที่ไม่ถูกต้อง ลบบัญชีและข้อมูล',
+  'privacy.security.title': 'Data Security | ความปลอดภัย',
+  'privacy.security.text': 'We implement appropriate measures: Encrypted connections (HTTPS/TLS), Two-factor authentication (2FA) for admin accounts, Regular access monitoring | เราใช้มาตรการ: การเข้ารหัสการเชื่อมต่อ (HTTPS) การยืนยันตัวตนแบบสองปัจจัย การตรวจสอบการเข้าถึง',
+  'privacy.contact.title': 'Contact Us | ติดต่อเรา',
+  'privacy.contact.text': 'If you have questions about this privacy policy, please contact: Email: contact@thaichess.org | หากมีคำถาม กรุณาติดต่อ: อีเมล: contact@thaichess.org',
+
+  // Terms of Service
+  'terms.title': 'Terms of Service | ข้อกำหนดการใช้งาน',
+  'terms.last_updated': 'Last Updated: June 1, 2025 | อัปเดตล่าสุด: 1 มิถุนายน 2568',
+  'terms.acceptance.title': 'Acceptance of Terms | การยอมรับ',
+  'terms.acceptance.text': 'By accessing or using ThaiChess, you agree to be bound by these terms. If you disagree, please do not use our Service. | เมื่อใช้ ThaiChess คุณยอมรับข้อกำหนดเหล่านี้ หากไม่เห็นด้วย กรุณาอย่าใช้บริการ',
+  'terms.service.title': 'Our Service | บริการของเรา',
+  'terms.service.text': 'ThaiChess provides free online Thai chess including: Live online games with other players, Games against AI bots, Tactics puzzles and lessons, Rating system | ThaiChess ให้บริการหมากรุกไทยออนไลน์ฟรี: เกมออนไลน์สด เกมกับบอท AI โจทย์และบทเรียน ระบบจัดอันดับ',
+  'terms.accounts.title': 'User Accounts | บัญชีผู้ใช้',
+  'terms.accounts.text': 'You may use our Service without an account. If you create an account: You must provide accurate information, You are responsible for your credentials security | คุณอาจใช้บริการโดยไม่ต้องสมัครบัญชี หากสร้างบัญชี: ต้องให้ข้อมูลที่ถูกต้อง คุณมีหน้าที่รักษาความปลอดภัยข้อมูลประจำตัว',
+  'terms.conduct.title': 'Acceptable Use | กฎการใช้งาน',
+  'terms.conduct.text': 'You agree to: Not use unauthorized bots in gameplay, Not use offensive usernames, Not harass other players | คุณตกลงที่จะ: ไม่ใช้บอทโดยไม่ได้รับอนุญาต ไม่ใช้ชื่อผู้ใช้ที่หยาบคาย ไม่คุกคามผู้เล่นอื่น',
+  'terms.content.title': 'Content and Copyright | เนื้อหาและลิขสิทธิ์',
+  'terms.content.text': 'Thai chess is in the public domain (ancient game). Games played on our platform may be recorded and displayed publicly. | เกมหมากรุกไทยเป็นสาธารณสมบัติ เกมที่เล่นบนแพลตฟอร์มของเราอาจถูกบันทึกและแสดงต่อสาธารณะ',
+  'terms.termination.title': 'Termination | การสิ้นสุดบริการ',
+  'terms.termination.text': 'We reserve the right to suspend accounts for violations. You may delete your account at any time. | เราขอสงวนสิทธิ์ระงับบัญชีหากละเมิดกฎ คุณสามารถลบบัญชีได้ตลอดเวลา',
+  'terms.liability.title': 'Limitation of Liability | ข้อจำกัดความรับผิดชอบ',
+  'terms.liability.text': 'ThaiChess is provided "as is" without warranties. We are not liable for damages arising from use of the Service. | ThaiChess ให้บริการ "ตามสภาพ" โดยไม่มีการรับประกัน',
+  'terms.changes.title': 'Changes to Terms | การเปลี่ยนแปลง',
+  'terms.changes.text': 'We may update these terms from time to time. Continued use indicates acceptance of new terms. | เราอาจปรับปรุงข้อกำหนดเป็นครั้งคราว การใช้ต่อเนื่องแสดงว่ายอมรับข้อกำหนดใหม่',
+  'terms.law.title': 'Governing Law | กฎหมายที่ใช้บังคับ',
+  'terms.law.text': 'These terms are governed by the laws of Thailand and the PDPA B.E. 2562. | ข้อกำหนดนี้อยู่ภายใต้กฎหมายของประเทศไทยและ PDPA พ.ศ. 2562',
+
+  // Cookie Consent
+  'cookies.message': 'We use essential cookies for authentication and settings only.',
+  'cookies.dismiss': 'Got it',
+  'cookies.title': 'We use essential cookies',
+  'cookies.description': 'This site uses cookies for authentication and language settings only. No marketing or tracking cookies.',
+  'cookies.read_more': 'Read more:',
+
+  // PDPA Consent
+  'auth.consent_text': 'I agree to the | ฉันยอมรับ',
+  'auth.privacy_link': 'Privacy Policy | นโยบายความเป็นส่วนตัว',
+  'auth.terms_link': 'Terms of Service | ข้อกำหนดการใช้งาน',
+  'auth.consent_error': 'You must accept the policy and terms to create an account | คุณต้องยอมรับนโยบายและข้อกำหนด',
+
+  // Account Deletion
+  'account.delete_title': 'Delete Account | ลบบัญชี',
+  'account.delete_desc': 'Deleting your account will permanently remove all your data. This action cannot be undone. | การลบบัญชีจะลบข้อมูลทั้งหมดอย่างถาวร',
+  'account.delete_confirm': 'Yes, delete my account | ใช่ ลบบัญชีของฉัน',
+  'account.delete_warning': 'Are you sure? Your account, ratings, and all game history will be permanently deleted. | คุณแน่ใจหรือไม่? บัญชี เรตติ้ง และประวัติจะถูกลบถาวร',
+  'account.delete_success': 'Your account has been deleted | บัญชีของคุณถูกลบแล้ว',
+  'account.delete_error': 'Could not delete account. Please try again. | ไม่สามารถลบบัญชีได้',
+
+  // Footer Links
+  'footer.privacy': 'Privacy',
+  'footer.terms': 'Terms',
+  'footer.and': '&',
 };
 
 const TH: Record<string, string> = {
@@ -1763,6 +1835,10 @@ const TH: Record<string, string> = {
   'auth.use_another_email': 'ใช้อีเมลอื่น',
   'auth.send_code_failed': 'ส่งรหัสไม่สำเร็จ',
   'auth.sign_in_failed': 'เข้าสู่ระบบไม่สำเร็จ',
+  'auth.consent_text': 'ฉันยอมรับ',
+  'auth.privacy_link': 'นโยบายความเป็นส่วนตัว',
+  'auth.terms_link': 'ข้อกำหนดในการให้บริการ',
+  'auth.consent_error': 'คุณต้องยอมรับนโยบายและข้อกำหนดเพื่อสร้างบัญชี',
   'account.title': 'บัญชี',
   'account.hero_eyebrow': 'ศูนย์ผู้เล่น',
   'account.hero_desc': 'ตั้งชื่อที่ผู้เล่นคนอื่นจะเห็น แล้วกลับไปฝึกต่อจากกระดานเดียวกันได้ทันที',

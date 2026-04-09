@@ -30,7 +30,10 @@ const LoginPage = lazy(() => import('./components/LoginPage'));
 const AccountPage = lazy(() => import('./routes/AccountRoute'));
 const TwoFactorRoute = lazy(() => import('./routes/TwoFactorRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
+const PrivacyPage = lazy(() => import('./routes/PrivacyRoute'));
+const TermsPage = lazy(() => import('./routes/TermsRoute'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
+const CookieConsent = lazy(() => import('./components/CookieConsent'));
 
 function RouteFallback() {
   return (
@@ -129,6 +132,8 @@ export default function App() {
           <Route path={routes.twoFactor} element={<TwoFactorRoute />} />
           <Route path={routes.account} element={<AccountPage />} />
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
+          <Route path={routes.privacy} element={<PrivacyPage />} />
+          <Route path={routes.terms} element={<TermsPage />} />
         </Routes>
       </Suspense>
       {showFeedbackWidget ? (
@@ -136,6 +141,9 @@ export default function App() {
           <FeedbackWidget />
         </Suspense>
       ) : null}
+      <Suspense fallback={null}>
+        <CookieConsent />
+      </Suspense>
     </div>
   );
 }

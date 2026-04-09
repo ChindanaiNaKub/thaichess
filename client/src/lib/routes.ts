@@ -18,6 +18,8 @@ export const routes = {
   playMakrukOnline: '/play-makruk-online',
   feedback: '/feedback',
   fairPlay: '/fair-play',
+  privacy: '/privacy',
+  terms: '/terms',
   login: '/login',
   twoFactor: '/2fa',
   account: '/account',
