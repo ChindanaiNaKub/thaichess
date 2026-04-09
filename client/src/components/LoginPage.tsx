@@ -83,6 +83,25 @@ function LoadingSpinner({ className }: { className?: string }) {
   );
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+
+  if (typeof error === 'object' && error && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { requestCode, verifyCode, signInWithGoogle, user } = useAuth();
@@ -108,7 +127,7 @@ export default function LoginPage() {
       await requestCode(email);
       setStep('code');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.send_code_failed'));
+      setError(getErrorMessage(err, t('auth.send_code_failed')));
     } finally {
       setLoading(false);
     }
@@ -123,7 +142,7 @@ export default function LoginPage() {
       await verifyCode(email, code);
       navigate('/account', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.sign_in_failed'));
+      setError(getErrorMessage(err, t('auth.sign_in_failed')));
     } finally {
       setLoading(false);
     }
@@ -136,7 +155,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.sign_in_failed'));
+      setError(getErrorMessage(err, t('auth.sign_in_failed')));
       setGoogleLoading(false);
     }
   }

@@ -117,23 +117,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [deferInitialRefresh]);
 
   async function requestCode(email: string) {
-    const response = await fetch('/api/auth/email/request-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+    const response = await authClient.emailOtp.sendVerificationOtp({
+      email,
+      type: 'sign-in',
     });
-    await readJsonOrThrow(response);
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to send code.');
+    }
+
     return { ok: true as const };
   }
 
   async function verifyCode(email: string, code: string) {
-    const response = await fetch('/api/auth/email/verify-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code }),
+    const response = await authClient.signIn.emailOtp({
+      email,
+      otp: code,
     });
-    const data = await readJsonOrThrow(response);
-    const nextUser = data.user ?? null;
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to sign in.');
+    }
+
+    const nextUser = response.data?.user ?? null;
     setUser(nextUser);
     writeCachedUser(nextUser);
     return { ok: true as const };
