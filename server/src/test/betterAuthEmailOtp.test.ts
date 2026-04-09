@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -46,6 +47,20 @@ describe('better-auth email otp', () => {
 
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  function buildSignedSessionCookie(token: string) {
+    const secret = process.env.BETTER_AUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+    if (!secret) {
+      throw new Error('Expected a Better Auth signing secret for the test.');
+    }
+
+    const signature = crypto
+      .createHmac('sha256', secret)
+      .update(token)
+      .digest('base64');
+
+    return `better-auth.session_token=${token}.${signature}`;
+  }
 
   it('configures Better Auth with email OTP support', async () => {
     const { auth } = await import('../betterAuth');
@@ -150,6 +165,17 @@ describe('better-auth email otp', () => {
     expect(signIn.user.rating).toBe(1875);
     expect(signIn.user.fair_play_status).toBe('restricted');
 
+    const enableTwoFactor = await auth.api.enableTwoFactor({
+      body: {},
+      headers: new Headers({
+        cookie: buildSignedSessionCookie(signIn.token),
+        origin: 'http://localhost:3000',
+      }),
+    });
+
+    expect(enableTwoFactor.totpURI).toContain('otpauth://totp/');
+    expect(enableTwoFactor.backupCodes.length).toBeGreaterThan(0);
+
     const storedUser = await database.getUserByEmail('admin@example.com');
     expect(storedUser).toMatchObject({
       id: 'admin-user',
@@ -168,5 +194,15 @@ describe('better-auth email otp', () => {
 
     expect(sessions.rows.length).toBe(1);
     expect(String(sessions.rows[0].token)).toBe(signIn.token);
+
+    const twoFactor = await client.execute({
+      sql: 'SELECT userId, secret, backupCodes FROM twoFactor WHERE userId = ?',
+      args: ['admin-user'],
+    });
+
+    expect(twoFactor.rows.length).toBe(1);
+    expect(String(twoFactor.rows[0].userId)).toBe('admin-user');
+    expect(String(twoFactor.rows[0].secret)).not.toBe('');
+    expect(String(twoFactor.rows[0].backupCodes)).not.toBe('');
   });
 });
