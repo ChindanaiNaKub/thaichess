@@ -157,6 +157,9 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use email instead' })).toBeInTheDocument();
 
+    // Check the consent checkbox first
+    await user.click(screen.getByRole('checkbox', { name: /I agree to the/i }));
+
     await user.click(screen.getByRole('button', { name: 'Continue with Google' }));
     await waitFor(() => {
       expect(authClientMock.signIn.social).toHaveBeenCalledWith({
@@ -227,6 +230,10 @@ describe('LoginPage', () => {
     renderLoginPage();
 
     await screen.findByRole('heading', { name: 'Sign in' });
+    
+    // Check the consent checkbox first
+    await user.click(screen.getByRole('checkbox', { name: /I agree to the/i }));
+    
     await user.click(screen.getByRole('button', { name: 'Use email instead' }));
     await user.type(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
     await user.click(screen.getByRole('button', { name: 'Send sign-in code' }));
