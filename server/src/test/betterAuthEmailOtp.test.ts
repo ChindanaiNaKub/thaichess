@@ -2,8 +2,17 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createClient } from '@libsql/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const testState = vi.hoisted(() => ({
+  otps: new Map<string, string>(),
+}));
+
+vi.mock('../authEmailOtp', () => ({
+  sendAuthEmailOtp: vi.fn(async ({ email, otp }: { email: string; otp: string }) => {
+    testState.otps.set(email, otp);
+  }),
+}));
 
 describe('better-auth email otp', () => {
   let tempDir: string;
@@ -36,6 +45,7 @@ describe('better-auth email otp', () => {
 
   afterEach(() => {
     vi.resetModules();
+    testState.otps.clear();
 
     for (const [key, value] of Object.entries(originalEnv)) {
       if (value === undefined) {
@@ -67,14 +77,15 @@ describe('better-auth email otp', () => {
 
     expect(typeof auth.api.sendVerificationOTP).toBe('function');
     expect(typeof auth.api.signInEmailOTP).toBe('function');
-    expect(typeof auth.api.getVerificationOTP).toBe('function');
   });
 
-  it('sends a sign-in otp without touching the legacy login_codes table', async () => {
+  it('stores sign-in otp hashes without touching the legacy login_codes table', async () => {
     const database = await import('../database');
     const { auth } = await import('../betterAuth');
 
     await database.initDatabase();
+    const client = database.getDatabaseConfig().client;
+
     await database.upsertUserByEmail({
       id: 'email-otp-user',
       email: 'player@example.com',
@@ -82,7 +93,6 @@ describe('better-auth email otp', () => {
     });
 
     const headers = new Headers({ origin: 'http://localhost:3000' });
-
     const sendResult = await auth.api.sendVerificationOTP({
       body: {
         email: 'player@example.com',
@@ -93,31 +103,34 @@ describe('better-auth email otp', () => {
 
     expect(sendResult).toEqual({ success: true });
 
-    const verification = await auth.api.getVerificationOTP({
-      query: {
-        email: 'player@example.com',
-        type: 'sign-in',
-      },
-      headers,
-    });
+    const otp = testState.otps.get('player@example.com');
+    if (!otp) {
+      throw new Error('Expected OTP to be captured by the mocked sender.');
+    }
 
-    expect(verification.otp).toMatch(/^\d{6}$/);
+    const verification = await client.execute({
+      sql: 'SELECT value FROM verifications WHERE identifier = ?',
+      args: ['sign-in-otp-player@example.com'],
+    });
+    const storedValue = String(verification.rows[0]?.value ?? '');
+
+    expect(storedValue).not.toBe('');
+    expect(storedValue).toContain(':0');
+    expect(storedValue).not.toBe(`${otp}:0`);
     expect(await database.getLoginCodeByEmail('player@example.com')).toBeNull();
   });
 
-  it('signs in an existing admin user with email otp and creates a better-auth session', async () => {
+  it('lets an admin start 2fa setup after email otp sign-in', async () => {
     const database = await import('../database');
     const { auth } = await import('../betterAuth');
 
     await database.initDatabase();
+    const client = database.getDatabaseConfig().client;
+
     await database.upsertUserByEmail({
       id: 'admin-user',
       email: 'admin@example.com',
       role: 'admin',
-    });
-
-    const client = createClient({
-      url: `file:${path.join(tempDir, 'thaichess.db')}`,
     });
 
     await client.execute({
@@ -138,22 +151,15 @@ describe('better-auth email otp', () => {
       headers,
     });
 
-    const verification = await auth.api.getVerificationOTP({
-      query: {
-        email: 'admin@example.com',
-        type: 'sign-in',
-      },
-      headers,
-    });
-
-    if (!verification.otp) {
-      throw new Error('Expected email OTP to be retrievable for sign-in.');
+    const otp = testState.otps.get('admin@example.com');
+    if (!otp) {
+      throw new Error('Expected OTP to be captured by the mocked sender.');
     }
 
     const signIn = await auth.api.signInEmailOTP({
       body: {
         email: 'admin@example.com',
-        otp: verification.otp,
+        otp,
       },
       headers,
     });
@@ -204,5 +210,59 @@ describe('better-auth email otp', () => {
     expect(String(twoFactor.rows[0].userId)).toBe('admin-user');
     expect(String(twoFactor.rows[0].secret)).not.toBe('');
     expect(String(twoFactor.rows[0].backupCodes)).not.toBe('');
+  });
+
+  it('requires 2fa redirect for admins who already enabled two-factor', async () => {
+    const database = await import('../database');
+    const { auth } = await import('../betterAuth');
+
+    await database.initDatabase();
+    const client = database.getDatabaseConfig().client;
+
+    await database.upsertUserByEmail({
+      id: 'mfa-admin',
+      email: 'mfa-admin@example.com',
+      role: 'admin',
+    });
+
+    await client.execute({
+      sql: `
+        UPDATE users
+        SET twoFactorEnabled = 1
+        WHERE email = ?
+      `,
+      args: ['mfa-admin@example.com'],
+    });
+
+    const headers = new Headers({ origin: 'http://localhost:3000' });
+    await auth.api.sendVerificationOTP({
+      body: {
+        email: 'mfa-admin@example.com',
+        type: 'sign-in',
+      },
+      headers,
+    });
+
+    const otp = testState.otps.get('mfa-admin@example.com');
+    if (!otp) {
+      throw new Error('Expected OTP to be captured by the mocked sender.');
+    }
+
+    const result = await auth.api.signInEmailOTP({
+      body: {
+        email: 'mfa-admin@example.com',
+        otp,
+      },
+      headers,
+    });
+
+    expect(result).toEqual({ twoFactorRedirect: true });
+
+    const sessions = await client.execute({
+      sql: 'SELECT id FROM auth_sessions WHERE user_id = ?',
+      args: ['mfa-admin'],
+    });
+
+    expect(sessions.rows.length).toBe(0);
   });
 });
