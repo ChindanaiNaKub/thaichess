@@ -139,10 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(response.error.message || 'Failed to sign in.');
     }
 
+    const twoFactorRedirect = Boolean(
+      response.data
+      && typeof response.data === 'object'
+      && 'twoFactorRedirect' in response.data
+      && (response.data as { twoFactorRedirect?: unknown }).twoFactorRedirect,
+    );
+
     await refreshUser();
     return {
       ok: true as const,
-      twoFactorRedirect: Boolean(response.data?.twoFactorRedirect),
+      twoFactorRedirect,
     };
   }
 
