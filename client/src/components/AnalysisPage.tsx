@@ -17,6 +17,7 @@ import {
   type PositionAnalysisResult,
 } from '@shared/engineAdapter';
 import { buildEditorAnalysisRoute, readInlineAnalysisPayload, requestPositionAnalysis } from '../lib/analysis';
+import { DEFAULT_GAME_ANALYSIS_MOVETIME_MS, getGameAnalysisCacheKey, readCachedGameAnalysis, writeCachedGameAnalysis } from '../lib/analysisCache';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
 import { usePostGameReview } from '../hooks/usePostGameReview';
@@ -40,7 +41,7 @@ type AnalysisMode = 'game' | 'editor';
 type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
 
 const DEFAULT_EDITOR_TOOL: EditorTool = 'move';
-const REVIEW_MOVETIME_MS = 250;
+const REVIEW_MOVETIME_MS = DEFAULT_GAME_ANALYSIS_MOVETIME_MS;
 
 export default function AnalysisPage() {
   const workerRef = useRef<Worker | null>(null);
@@ -1408,8 +1409,6 @@ function getClassificationTheme(classification: MoveClassification): {
   }
 }
 
-const ANALYSIS_CACHE_VERSION = 7;
-
 function findCheckSquare(state: GameState): Position | null {
   if (!state.isCheck) return null;
 
@@ -1426,25 +1425,19 @@ function findCheckSquare(state: GameState): Position | null {
 }
 
 function getAnalysisCacheKey(gameData: GameData, movetimeMs: number): string {
-  return `analysis-cache:${ANALYSIS_CACHE_VERSION}:${gameData.id}:${movetimeMs}:${gameData.moves.length}`;
+  return getGameAnalysisCacheKey({
+    analysisId: gameData.id,
+    moves: gameData.moves,
+    movetimeMs,
+  });
 }
 
 function readCachedAnalysis(cacheKey: string): GameAnalysis | null {
-  try {
-    const raw = sessionStorage.getItem(cacheKey);
-    if (!raw) return null;
-    return JSON.parse(raw) as GameAnalysis;
-  } catch {
-    return null;
-  }
+  return readCachedGameAnalysis(cacheKey);
 }
 
 function writeCachedAnalysis(cacheKey: string, analysis: GameAnalysis): void {
-  try {
-    sessionStorage.setItem(cacheKey, JSON.stringify(analysis));
-  } catch {
-    // Ignore cache failures; analysis still works without storage.
-  }
+  writeCachedGameAnalysis(cacheKey, analysis);
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────── */

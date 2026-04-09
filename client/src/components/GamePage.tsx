@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Position, PieceColor, ClientGameState, Move, PlayerPresence, RatingChangeSummary } from '@shared/types';
+import type { Position, PieceColor, ClientGameState, Move, PlayerPresence, RatingChangeSummary, TimeControl } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLastMoveForView, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
@@ -25,6 +25,7 @@ import AppearanceSettingsButton from './AppearanceSettingsButton';
 import Header from './Header';
 import InGameShell from './InGameShell';
 import PostGameReviewPanel from './PostGameReviewPanel';
+import PostGameSharePanel from './PostGameSharePanel';
 
 const HEARTBEAT_INTERVAL_MS = 4_000;
 const IDLE_THRESHOLD_MS = 12_000;
@@ -75,6 +76,7 @@ export default function GamePage() {
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null>(null);
+  const [timeControl, setTimeControl] = useState<TimeControl | null>(null);
   const [drawOffered, setDrawOffered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +107,27 @@ export default function GamePage() {
   useEffect(() => {
     latestGameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    if (!gameId) {
+      setTimeControl(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`/api/game/${gameId}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (cancelled || !data?.timeControl) return;
+        setTimeControl(data.timeControl as TimeControl);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId]);
 
   useEffect(() => {
     latestTRef.current = t;
@@ -947,6 +970,25 @@ export default function GamePage() {
               />
             )}
 
+            {gameOverInfo && gameState.gameOver && playerColor && (
+              <PostGameSharePanel
+                analysisId={gameId}
+                board={gameState.board}
+                lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                moves={gameState.moveHistory}
+                moveCount={gameState.moveCount}
+                playerColor={playerColor}
+                whitePlayerName={whitePlayerName || t('common.white')}
+                blackPlayerName={blackPlayerName || t('common.black')}
+                winner={gameOverInfo.winner}
+                resultReason={gameOverInfo.reason}
+                gameMode={gameState.gameMode}
+                rated={gameState.rated}
+                timeControl={timeControl}
+                ratingChange={gameOverInfo.ratingChange}
+              />
+            )}
+
             {reviewActive && (
               <PostGameReviewPanel
                 mode={review.mode}
@@ -974,7 +1016,7 @@ export default function GamePage() {
               moves={gameState.moveHistory}
               initialBoard={createInitialBoard()}
               currentMoveIndex={gameState.gameOver ? review.selectedMainLineMoveIndex : viewMoveIndex ?? undefined}
-              onMoveClick={gameState.gameOver ? review.jumpToMainLine : undefined}
+              onMoveClick={gameState.gameOver ? review.jumpToMainLine : handleMoveClick}
             />
 
             {gameState.gameOver && gameState.moveHistory.length > 0 && (
