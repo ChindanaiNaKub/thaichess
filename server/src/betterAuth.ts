@@ -5,8 +5,9 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
-import { twoFactor } from 'better-auth/plugins';
+import { emailOTP, twoFactor } from 'better-auth/plugins';
 import { authSchema } from './authSchema';
+import { sendAuthEmailOtp } from './auth';
 import { getAllowedCorsOrigins } from './security';
 import { getUserById, type AuthUser } from './database';
 import { logWarn } from './logger';
@@ -205,6 +206,11 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    emailOTP({
+      sendVerificationOTP: sendAuthEmailOtp,
+      otpLength: 6,
+      expiresIn: 60 * 10,
+    }),
     twoFactor({
       issuer: 'ThaiChess',
       allowPasswordless: true,
