@@ -17,6 +17,7 @@ import {
 import { getBetterAuthUserFromCookieHeader } from './betterAuth';
 import { sendAuthEmailOtp } from './authEmailOtp';
 import { logInfo, logWarn } from './logger';
+export { sendAuthEmailOtp } from './authEmailOtp';
 
 const SESSION_COOKIE_NAME = 'thaichess_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -24,7 +25,6 @@ const LOGIN_CODE_TTL_SECONDS = 60 * 10;
 const LOGIN_CODE_MAX_ATTEMPTS = 5;
 const GUEST_PLAYER_ID_PATTERN = /^guest_[A-Za-z0-9-]{16,128}$/;
 const AUTH_SECRET = resolveAuthSecret();
-const RESEND_API_KEY = process.env.RESEND_API_KEY?.trim() || '';
 
 function resolveAuthSecret() {
   const authSecret = process.env.AUTH_SECRET?.trim();
