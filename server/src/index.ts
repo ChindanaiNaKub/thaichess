@@ -78,6 +78,7 @@ import {
 } from '../../shared/validation';
 
 const app = express();
+app.disable('x-powered-by');
 const httpServer = createServer(app);
 const startTime = Date.now();
 const moduleInitUptimeMs = Math.round(process.uptime() * 1000);
