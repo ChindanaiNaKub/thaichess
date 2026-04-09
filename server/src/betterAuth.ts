@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import './env';
 import type { Request } from 'express';
 import { createClient } from '@libsql/client';
@@ -5,8 +6,13 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
-import { twoFactor } from 'better-auth/plugins';
+import { deleteSessionCookie, expireCookie } from 'better-auth/cookies';
+import { emailOTP, twoFactor } from 'better-auth/plugins';
+import type { BetterAuthPlugin, HookEndpointContext } from 'better-auth';
+import { createAuthMiddleware } from '@better-auth/core/api';
+import { createHMAC } from '@better-auth/utils/hmac';
 import { authSchema } from './authSchema';
+import { sendAuthEmailOtp } from './authEmailOtp';
 import { getAllowedCorsOrigins } from './security';
 import { getUserById, type AuthUser } from './database';
 import { logWarn } from './logger';
@@ -77,6 +83,64 @@ if (process.env.FACEBOOK_CLIENT_ID?.trim() && process.env.FACEBOOK_CLIENT_SECRET
 }
 
 const authDb = drizzle(createLibsqlClient());
+const TRUST_DEVICE_COOKIE_NAME = 'trust_device';
+const TWO_FACTOR_COOKIE_NAME = 'two_factor';
+const TRUST_DEVICE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const TWO_FACTOR_COOKIE_MAX_AGE_SECONDS = 600;
+
+const emailOtpTwoFactorGuard = {
+  id: 'email-otp-two-factor-guard',
+  version: '1.0.0',
+  hooks: {
+    after: [{
+      matcher(context: HookEndpointContext) {
+        return context.path === '/sign-in/email-otp';
+      },
+      handler: createAuthMiddleware(async (ctx) => {
+        const data = ctx.context.newSession;
+        if (!data?.user.twoFactorEnabled) return;
+
+        const trustDeviceCookieAttrs = ctx.context.createAuthCookie(TRUST_DEVICE_COOKIE_NAME, { maxAge: TRUST_DEVICE_MAX_AGE_SECONDS });
+        const trustDeviceCookie = await ctx.getSignedCookie(trustDeviceCookieAttrs.name, ctx.context.secret);
+        if (trustDeviceCookie) {
+          const [token, trustIdentifier] = trustDeviceCookie.split('!');
+          if (token && trustIdentifier) {
+            const expected = await createHMAC('SHA-256', 'base64urlnopad').sign(ctx.context.secret, `${data.user.id}!${trustIdentifier}`);
+            if (token === expected) {
+              const verificationRecord = await ctx.context.internalAdapter.findVerificationValue(trustIdentifier);
+              if (verificationRecord && verificationRecord.value === data.user.id && verificationRecord.expiresAt > new Date()) {
+                await ctx.context.internalAdapter.deleteVerificationByIdentifier(trustIdentifier);
+                const newTrustIdentifier = `trust-device-${crypto.randomUUID()}`;
+                const newToken = await createHMAC('SHA-256', 'base64urlnopad').sign(ctx.context.secret, `${data.user.id}!${newTrustIdentifier}`);
+                await ctx.context.internalAdapter.createVerificationValue({
+                  value: data.user.id,
+                  identifier: newTrustIdentifier,
+                  expiresAt: new Date(Date.now() + TRUST_DEVICE_MAX_AGE_SECONDS * 1000),
+                });
+                const newTrustDeviceCookie = ctx.context.createAuthCookie(TRUST_DEVICE_COOKIE_NAME, { maxAge: TRUST_DEVICE_MAX_AGE_SECONDS });
+                await ctx.setSignedCookie(newTrustDeviceCookie.name, `${newToken}!${newTrustIdentifier}`, ctx.context.secret, trustDeviceCookieAttrs.attributes);
+                return;
+              }
+            }
+          }
+          expireCookie(ctx, trustDeviceCookieAttrs);
+        }
+
+        deleteSessionCookie(ctx, true);
+        await ctx.context.internalAdapter.deleteSession(data.session.token);
+        const twoFactorCookie = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE_NAME, { maxAge: TWO_FACTOR_COOKIE_MAX_AGE_SECONDS });
+        const identifier = `2fa-${crypto.randomUUID()}`;
+        await ctx.context.internalAdapter.createVerificationValue({
+          value: data.user.id,
+          identifier,
+          expiresAt: new Date(Date.now() + TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000),
+        });
+        await ctx.setSignedCookie(twoFactorCookie.name, identifier, ctx.context.secret, twoFactorCookie.attributes);
+        return ctx.json({ twoFactorRedirect: true });
+      }),
+    }],
+  },
+} satisfies BetterAuthPlugin;
 
 export const auth = betterAuth({
   appName: 'ThaiChess',
@@ -205,6 +269,12 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    emailOTP({
+      sendVerificationOTP: sendAuthEmailOtp,
+      otpLength: 6,
+      expiresIn: 60 * 10,
+      storeOTP: 'hashed',
+    }),
     twoFactor({
       issuer: 'ThaiChess',
       allowPasswordless: true,
@@ -221,6 +291,7 @@ export const auth = betterAuth({
       twoFactorCookieMaxAge: 600,
       trustDeviceMaxAge: 60 * 60 * 24 * 30,
     }),
+    emailOtpTwoFactorGuard,
   ],
   advanced: {
     useSecureCookies: process.env.NODE_ENV === 'production',
