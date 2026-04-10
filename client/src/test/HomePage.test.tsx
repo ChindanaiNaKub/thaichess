@@ -134,7 +134,7 @@ describe('HomePage', () => {
     socketMock.off.mockReset();
     socketMock.once.mockReset();
     fetchMock.mockReset();
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
       if (url.startsWith('/api/stats')) {
         return { json: async () => ({ totalGames: 42 }) };
@@ -152,6 +152,15 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper: Wrapper });
 
     expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
+  });
+
+  it('sets mobile-first Play Now expectations without promising instant pairing', () => {
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Human match when available, bot fallback when it is quiet.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /play now/i })).toBeInTheDocument();
+    expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
   });
 
   it('renders the learn section and footer guide links in Thai', async () => {
@@ -326,7 +335,7 @@ describe('HomePage', () => {
 
     expect(navigateMock).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
+    fireEvent.click(screen.getByRole('button', { name: /play now/i }));
     expect(navigateMock).toHaveBeenCalledWith('/quick-play');
 
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
@@ -343,7 +352,7 @@ describe('HomePage', () => {
   });
 
   it('exposes public live-game discovery from the homepage', async () => {
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
       if (url.startsWith('/api/stats')) {
         return { json: async () => ({ totalGames: 42 }) };

@@ -103,10 +103,10 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'appearance.comparison_after': 'Makruk now',
 
   // Home Page
-  'home.hero_title': 'Play Makruk Instantly',
-  'home.hero_desc': 'No signup required. Start a ThaiChess game in seconds, play with friends, or practice against the bot.',
+  'home.hero_title': 'Play Thai Chess Anytime',
+  'home.hero_desc': 'No signup required. Start a ThaiChess game, play with friends, or practice against the bot.',
   'home.quick_play': 'Play Now',
-  'home.quick_play_desc': 'Get paired instantly for casual or rated Makruk.',
+  'home.quick_play_desc': 'Human match when available, bot fallback when it is quiet.',
   'home.find_opponent': 'Find Opponent',
   'home.no_signup': 'No signup required',
   'home.free_to_play': 'Free to play',
@@ -143,7 +143,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'home.join_prompt': 'Have a game code?',
   'home.join_link': 'Join a game',
   'home.join_title': 'Join a Game',
-  'home.join_desc': 'Open a shared game instantly with a code from a friend.',
+  'home.join_desc': 'Open a shared game with a code from a friend.',
   'home.join_placeholder': 'Enter game code...',
   'home.join': 'Join',
   'home.training_start': 'Start puzzle track',
@@ -588,11 +588,15 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Quick Play / Matchmaking
   'quick.title': 'Quick Play',
-  'quick.desc': 'Find an opponent instantly. No link sharing needed!',
+  'quick.desc': 'Search for a human match. If nobody is around, you can switch to bot play without waiting.',
+  'quick.fallback_desc': 'Play a bot now, or keep searching for a human match.',
+  'quick.fallback_title': 'No opponent yet',
   'quick.searching': 'Finding opponent...',
   'quick.search_time': 'Searching for {time}',
   'quick.queue': '{count} player(s) in queue',
   'quick.find': 'Find Opponent',
+  'quick.keep_searching': 'Keep searching',
+  'quick.play_bot_now': 'Play bot now',
   'quick.rated_available': 'Rated Available',
   'quick.rated_unavailable': 'Rated Disabled',
   'quick.casual_only': 'Casual Only',
@@ -1195,7 +1199,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'lang.switch': 'TH',
 };
 
-const TH: Record<string, string> = {
+const _TH: Record<string, string> = {
   // Common
   'app.name': 'หมากรุก',
   'app.tagline': 'หมากรุกไทยออนไลน์',
@@ -1265,10 +1269,10 @@ const TH: Record<string, string> = {
   'appearance.comparison_after': 'หมากรุกไทยตอนนี้',
 
   // Home Page
-  'home.hero_title': 'เล่นหมากรุกได้ทันที',
-  'home.hero_desc': 'ไม่ต้องสมัคร เริ่มเกมหมากรุกไทยได้ในไม่กี่วินาที เล่นกับเพื่อน หรือฝึกกับบอท',
+  'home.hero_title': 'เล่นหมากรุกไทยได้ทุกเวลา',
+  'home.hero_desc': 'ไม่ต้องสมัคร เริ่มเกมหมากรุกไทย เล่นกับเพื่อน หรือฝึกกับบอท',
   'home.quick_play': 'เล่นเลย',
-  'home.quick_play_desc': 'จับคู่ทันทีสำหรับเกมสบาย ๆ หรือเกมจัดอันดับ',
+  'home.quick_play_desc': 'เจอผู้เล่นจริงเมื่อมีคนออนไลน์ และมีบอทให้เล่นเมื่อช่วงนั้นเงียบ',
   'home.find_opponent': 'หาคู่แข่ง',
   'home.no_signup': 'ไม่ต้องสมัคร',
   'home.free_to_play': 'เล่นฟรี',
@@ -1305,7 +1309,7 @@ const TH: Record<string, string> = {
   'home.join_prompt': 'มีรหัสเกม?',
   'home.join_link': 'เข้าร่วมเกม',
   'home.join_title': 'เข้าร่วมเกม',
-  'home.join_desc': 'เปิดเกมที่เพื่อนแชร์มาได้ทันทีด้วยรหัสเกม',
+  'home.join_desc': 'เปิดเกมที่เพื่อนแชร์มาด้วยรหัสเกม',
   'home.join_placeholder': 'ใส่รหัสเกม...',
   'home.join': 'เข้าร่วม',
   'home.training_start': 'เริ่มชุดปริศนา',
@@ -1521,11 +1525,15 @@ const TH: Record<string, string> = {
 
   // Quick Play / Matchmaking
   'quick.title': 'เล่นด่วน',
-  'quick.desc': 'หาคู่แข่งทันที ไม่ต้องแชร์ลิงก์!',
+  'quick.desc': 'ค้นหาเกมกับผู้เล่นจริง ถ้าช่วงนี้ยังไม่มีคน คุณสามารถเปลี่ยนไปเล่นกับบอทได้โดยไม่ต้องรอ',
+  'quick.fallback_desc': 'เล่นกับบอทตอนนี้ หรือค้นหาผู้เล่นจริงต่อ',
+  'quick.fallback_title': 'ยังไม่เจอคู่แข่ง',
   'quick.searching': 'กำลังหาคู่แข่ง...',
   'quick.search_time': 'กำลังค้นหามา {time}',
   'quick.queue': '{count} ผู้เล่นในคิว',
   'quick.find': 'หาคู่แข่ง',
+  'quick.keep_searching': 'ค้นหาต่อ',
+  'quick.play_bot_now': 'เล่นกับบอทตอนนี้',
   'quick.rated_available': 'จัดอันดับได้',
   'quick.rated_unavailable': 'ปิดเกมจัดอันดับ',
   'quick.casual_only': 'เกมทั่วไป',
