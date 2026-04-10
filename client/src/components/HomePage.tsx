@@ -7,7 +7,7 @@ import {
   loadQuickPlayRoute,
 } from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
-import { homeStatsQueryOptions, type HomeStats } from '../queries/stats';
+import { homeStatsQueryOptions } from '../queries/stats';
 
 import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
@@ -335,7 +335,7 @@ export default function HomePage() {
                     onFocus={() => void loadQuickPlayRoute()}
                     className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
                   >
-                    {t('home.find_opponent')}
+                    {t('home.quick_play')}
                   </button>
                   <button
                     onClick={() => navigate(routes.leaderboard)}
