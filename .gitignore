@@ -40,6 +40,9 @@ Thumbs.db
 # OpenAgent/OpenCoder context files
 .opencode/
 
+# Git worktrees
+.worktrees/
+
 # Temporary files
 *.tmp
 *.temp
