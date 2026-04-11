@@ -1,6 +1,7 @@
 import { getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove, posToAlgebraic } from './engine';
 import type { Board, GameState, Move, PieceColor, Position } from './types';
 import type { Puzzle, PuzzleMoveReference, PuzzleSolutionLine } from './puzzles';
+import { classifyMaterialGain } from './puzzleDoctrine';
 import {
   createGameStateFromPuzzle,
   findObjectivePreservingFirstMoves,
@@ -121,6 +122,24 @@ function validateTeachingFields(puzzle: Puzzle, errors: string[], warnings: stri
   }
 }
 
+function validateVerificationMetadata(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  if (!puzzle.positionKey.trim()) {
+    errors.push('Puzzle must store a stable positionKey for dedupe and audit output.');
+  }
+
+  if (puzzle.verification.onlyMoveChainLength < 1) {
+    errors.push('Puzzle verification metadata must record a positive only-move chain length.');
+  }
+
+  if (puzzle.origin === 'engine-generated' && puzzle.verification.verificationStatus === 'ambiguous') {
+    errors.push('Generated puzzle is still ambiguous after verification and cannot be shipped.');
+  }
+
+  if (puzzle.origin === 'engine-generated' && puzzle.verification.verificationStatus === 'unverified') {
+    warnings.push('Generated puzzle has not been verified yet and should stay in quarantine.');
+  }
+}
+
 function detectObjectiveFamilies(objective: string): Set<'mate' | 'draw' | 'promotion' | 'material'> {
   const text = objective.toLowerCase();
   const families = new Set<'mate' | 'draw' | 'promotion' | 'material'>();
@@ -204,6 +223,85 @@ function validateThemeAndGoal(puzzle: Puzzle, errors: string[], warnings: string
 
   if (isCountingTheme(puzzle.theme) && !puzzle.dependsOnCounting) {
     errors.push('Counting theme must set dependsOnCounting to true.');
+  }
+}
+
+function validateDoctrineCoherence(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  const hasMatePreparationTag = puzzle.tags.includes('mate-preparation') || /\bmate-preparation\b/i.test(puzzle.motif);
+
+  if (hasMatePreparationTag && puzzle.goal.kind !== 'checkmate') {
+    errors.push('Puzzle motif says mate preparation, but the verified line does not create a clear mating-net restriction.');
+  }
+
+  if (puzzle.goal.kind !== 'material-win') {
+    return;
+  }
+
+  const looksLikeSmallGainPuzzle =
+    (puzzle.goal.minMaterialSwing ?? 0) <= 100 ||
+    /\bpawn\b/i.test(`${puzzle.description} ${puzzle.objective} ${puzzle.motif}`);
+
+  if (!looksLikeSmallGainPuzzle) {
+    return;
+  }
+
+  let bestSwing = 0;
+
+  for (const line of puzzle.solutionLines) {
+    let state = createGameStateFromPuzzle(puzzle);
+    let valid = true;
+
+    for (const step of line.moves) {
+      const nextState = makeMove(state, step.from, step.to);
+      if (!nextState) {
+        valid = false;
+        break;
+      }
+      state = nextState;
+    }
+
+    if (!valid) {
+      continue;
+    }
+
+    bestSwing = Math.max(bestSwing, getMaterialSwing(puzzle, state));
+  }
+
+  if (
+    bestSwing <= 100 &&
+    !puzzle.tags.includes('structural-win') &&
+    !puzzle.tags.includes('forcing-sequence') &&
+    !puzzle.tags.includes('quiet-but-forcing') &&
+    !puzzle.dependsOnCounting
+  ) {
+    errors.push('Puzzle wins only incidental material and does not teach a meaningful conversion.');
+    return;
+  }
+
+  const gainClass = classifyMaterialGain({
+    capturedPiece: null,
+    leadsToMate: false,
+    leadsToPromotion: false,
+    countCritical: puzzle.dependsOnCounting,
+    finalMaterialSwing: bestSwing,
+  });
+
+  if (gainClass === 'incidental') {
+    if (
+      !puzzle.tags.includes('forcing-sequence') &&
+      !puzzle.tags.includes('quiet-but-forcing') &&
+      !puzzle.tags.includes('structural-win')
+    ) {
+      errors.push('Puzzle wins only incidental material and does not teach a meaningful conversion.');
+      return;
+    }
+
+    warnings.push('Material puzzle wins only a pawn-sized gain; review whether the conversion is structural enough to teach.');
+    return;
+  }
+
+  if (bestSwing <= 100 && !puzzle.tags.includes('structural-win')) {
+    warnings.push('Material puzzle wins only a pawn-sized gain; review whether the conversion is structural enough to teach.');
   }
 }
 
@@ -399,6 +497,20 @@ function validateSolutionLine(
   }
 
   if (!isThemeSatisfied(puzzle, state)) {
+    const countingExpired =
+      state.resultReason === 'counting_rule' ||
+      Boolean(
+        puzzle.dependsOnCounting &&
+        puzzle.counting?.active &&
+        puzzle.counting.countingColor === puzzle.sideToMove &&
+        puzzle.counting.currentCount >= puzzle.counting.limit,
+      );
+
+    if (countingExpired) {
+      errors.push(`Solution line "${line.id}" fails because Makruk counting expires before the claimed objective is reached.`);
+      return;
+    }
+
     switch (puzzle.goal.kind) {
       case 'checkmate':
         errors.push(`Solution line "${line.id}" does not end in checkmate.`);
@@ -576,9 +688,11 @@ export function validatePuzzle(puzzle: Puzzle): PuzzleValidationResult {
   }
 
   validateTeachingFields(puzzle, errors, warnings);
+  validateVerificationMetadata(puzzle, errors, warnings);
   validateObjectiveClarity(puzzle, errors);
   validateRuleImpact(puzzle, errors);
   validateThemeAndGoal(puzzle, errors, warnings);
+  validateDoctrineCoherence(puzzle, errors, warnings);
   validatePositionLock(puzzle, errors);
   validateAcceptedMoves(puzzle, errors);
   validateForkMotif(puzzle, errors);

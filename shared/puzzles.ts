@@ -63,9 +63,24 @@ export interface PuzzleDifficultyProfile {
   moveNature: 'forcing' | 'quiet';
 }
 
+export type PuzzleVerificationEngineSource = 'none' | 'local' | 'service' | 'binary';
+export type PuzzleVerificationStatus = 'unverified' | 'solver_verified' | 'engine_verified' | 'ambiguous' | 'count_invalid';
+export type PuzzleCountCriticality = 'none' | 'active' | 'critical';
+
+export interface PuzzleVerification {
+  engineSource: PuzzleVerificationEngineSource;
+  searchDepth: number | null;
+  searchNodes: number | null;
+  multiPvGap: number | null;
+  onlyMoveChainLength: number;
+  countCriticality: PuzzleCountCriticality;
+  verificationStatus: PuzzleVerificationStatus;
+}
+
 export type PuzzlePositionAuthority = 'explicit_piece_list' | 'replay_validated';
 export type PuzzleSolutionAuthority = 'engine_confirmed' | 'authoritative_line';
 export type PuzzleProgressionStage = 'early' | 'mid' | 'late';
+export type PuzzleStreakTier = 'foundation' | 'practical_attack' | 'forcing_conversion' | 'mate_pressure';
 export type PuzzlePool = 'standard' | 'advanced_only';
 
 export interface Puzzle {
@@ -77,13 +92,19 @@ export interface Puzzle {
   origin: PuzzleOrigin;
   sourceGameId: string | null;
   sourcePly: number | null;
+  sourceLicense: string | null;
+  sourceGameUrl: string | null;
   theme: string;
   motif: string;
   tags: string[];
+  positionKey: string;
+  verification: PuzzleVerification;
+  duplicateOf: number | null;
   difficultyScore: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   difficultyProfile: PuzzleDifficultyProfile;
   progressionStage: PuzzleProgressionStage;
+  streakTier: PuzzleStreakTier;
   pool: PuzzlePool;
   minimumStreakRequired: number;
   reviewStatus: 'ship' | 'quarantine';
@@ -131,9 +152,14 @@ export interface PuzzlePublishAuditRow {
   id: number;
   title: string;
   sourceType: 'curated' | 'generated';
+  sourceLicense: string | null;
+  positionKey: string;
+  duplicateOf: number | null;
   objective: string;
   motif: string;
   dependsOnCounting: boolean;
+  verificationStatus: PuzzleVerificationStatus;
+  multiPvGap: number | null;
   legalityStatus: 'valid' | 'invalid';
   validationErrors: string[];
   validationWarnings: string[];
@@ -538,14 +564,20 @@ function summarizeRejectionReasons(results: PuzzleValidationResult[]): Array<{ r
     .sort((left, right) => right.count - left.count || left.reason.localeCompare(right.reason));
 }
 
-export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle =>
+const PUBLISHABLE_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle =>
   isPuzzleReadyToShip(puzzle) &&
   isValidationClean(puzzle) &&
   isPuzzlePublishable(puzzle, VALIDATION_BY_ID.get(puzzle.id)),
 );
 
-export const PUBLISHABLE_CURATED_PUZZLES: Puzzle[] = PUZZLES.filter(puzzle => puzzle.origin !== 'engine-generated');
-export const PUBLISHABLE_GENERATED_PUZZLES: Puzzle[] = PUZZLES.filter(puzzle => puzzle.origin === 'engine-generated');
+function isEditorialLivePuzzle(puzzle: Puzzle): boolean {
+  return puzzle.origin === 'engine-generated' && puzzle.tags.includes('editorial-live');
+}
+
+export const PUZZLES: Puzzle[] = PUBLISHABLE_PUZZLES.filter(isEditorialLivePuzzle);
+
+export const PUBLISHABLE_CURATED_PUZZLES: Puzzle[] = PUBLISHABLE_PUZZLES.filter(puzzle => puzzle.origin !== 'engine-generated');
+export const PUBLISHABLE_GENERATED_PUZZLES: Puzzle[] = PUBLISHABLE_PUZZLES.filter(puzzle => puzzle.origin === 'engine-generated');
 
 export const QUARANTINED_PUZZLES: Puzzle[] = ALL_PUZZLES.filter(puzzle =>
   !isPuzzleReadyToShip(puzzle) ||

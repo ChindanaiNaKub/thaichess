@@ -1,6 +1,6 @@
 import { getLegalMoves } from './engine';
 import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
-import type { Board, PieceColor, Position } from './types';
+import type { Board, CountingState, PieceColor, Position } from './types';
 
 export type PuzzleOrigin =
   | 'starter-pack'
@@ -25,6 +25,28 @@ export interface PuzzleMetadataInput {
   solution: { from: Position; to: Position }[];
   tags?: string[];
   dependsOnCounting?: boolean;
+}
+
+export function buildPuzzlePositionKey(
+  board: Board,
+  toMove: PieceColor,
+  counting: CountingState | null = null,
+): string {
+  return JSON.stringify({
+    board,
+    toMove,
+    counting: counting
+      ? {
+        active: counting.active,
+        type: counting.type,
+        countingColor: counting.countingColor,
+        strongerColor: counting.strongerColor,
+        currentCount: counting.currentCount,
+        limit: counting.limit,
+        finalAttackPending: counting.finalAttackPending,
+      }
+      : null,
+  });
 }
 
 function normalizeTag(tag: string): string {

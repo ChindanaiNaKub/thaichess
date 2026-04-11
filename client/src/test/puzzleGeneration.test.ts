@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { createInitialGameState, makeMove } from '@shared/engine';
 
 import {
+  evaluateGeneratedLineDoctrine,
   classifyMaterialTheme,
+  collapseGeneratedCandidates,
   createDefaultGenerationSource,
   generatePuzzleCandidateDraftsFromMoveSequence,
+  type GeneratedPuzzleCandidate,
 } from '@shared/puzzleGeneration';
+import {
+  classifyMaterialGain,
+  isMeaningfulPreparatoryCandidate,
+} from '@shared/puzzleDoctrine';
 import {
   createConstructedPuzzleSource,
   parsePgnLikePuzzleSources,
@@ -25,6 +32,16 @@ function square(name: string): Position {
     col: name.charCodeAt(0) - 97,
     row: parseInt(name[1], 10) - 1,
   };
+}
+
+function line(...steps: string[]): { from: Position; to: Position }[] {
+  return steps.map(step => {
+    const [from, to] = step.split('-');
+    return {
+      from: square(from),
+      to: square(to),
+    };
+  });
 }
 
 describe('puzzleGeneration', () => {
@@ -178,4 +195,156 @@ describe('puzzleGeneration', () => {
     expect(sources[0]?.startingPlyNumber).toBe(9);
     expect(sources[0]?.moves).toHaveLength(4);
   });
+
+  it('collapses duplicate candidates and prefers real-game sources over fallback self-play', () => {
+    const duplicateBoard = boardFromPlacements(
+      ['c1', 'K', 'white'],
+      ['a1', 'R', 'white'],
+      ['h8', 'K', 'black'],
+      ['a8', 'R', 'black'],
+    );
+
+    const createCandidate = (
+      id: number,
+      source: string,
+      origin: 'real-game' | 'seed-game',
+      score: number,
+    ): GeneratedPuzzleCandidate => ({
+      draft: {
+        id,
+        title: `Candidate ${id}`,
+        description: 'Win the rook.',
+        explanation: 'The first move wins material immediately.',
+        source,
+        origin,
+        sourceGameId: `game-${id}`,
+        sourcePly: 12,
+        sourceLicense: origin === 'real-game' ? 'internal-real-game' : 'internal-selfplay',
+        sourceGameUrl: null,
+        theme: 'HangingPiece',
+        motif: 'duplicate test',
+        tags: ['tactic'],
+        difficultyScore: 1200,
+        difficulty: 'intermediate',
+        positionKey: 'same-position',
+        verification: {
+          engineSource: origin === 'real-game' ? 'binary' : 'local',
+          searchDepth: origin === 'real-game' ? 14 : null,
+          searchNodes: origin === 'real-game' ? 18000 : null,
+          multiPvGap: origin === 'real-game' ? 180 : 40,
+          onlyMoveChainLength: 1,
+          countCriticality: 'none',
+          verificationStatus: origin === 'real-game' ? 'engine_verified' : 'solver_verified',
+        },
+        duplicateOf: null,
+        toMove: 'white',
+        board: duplicateBoard,
+        solution: line('a1-a8'),
+      },
+      validationErrors: [],
+      validationWarnings: [],
+      windowStart: 0,
+      sourceId: `source-${id}`,
+      fingerprint: `fingerprint-${id}`,
+      score,
+    });
+
+    const collapsed = collapseGeneratedCandidates([
+      createCandidate(9100, 'Offline self-play medium vs medium (ply 12)', 'seed-game', 1200),
+      createCandidate(9101, 'Exported rated game abc123 (ply 12)', 'real-game', 1110),
+    ]);
+    const kept = collapsed[0];
+
+    expect(collapsed).toHaveLength(1);
+    expect(kept).toBeDefined();
+    expect(kept?.draft.id).toBe(9101);
+    expect(kept?.draft.origin).toBe('real-game');
+    expect(kept?.draft.positionKey).toBe('same-position');
+    expect(kept?.draft.verification?.multiPvGap).toBe(180);
+  });
+
+  it('classifies incidental pawn wins as non-publishable gains', () => {
+    expect(classifyMaterialGain({
+      capturedPiece: 'P',
+      leadsToMate: false,
+      leadsToPromotion: false,
+      countCritical: false,
+      finalMaterialSwing: 100,
+    })).toBe('incidental');
+  });
+
+  it('requires quiet first moves to create visible restriction or a forced threat', () => {
+    expect(isMeaningfulPreparatoryCandidate({
+      firstMoveIsCheck: false,
+      firstMoveIsCapture: false,
+      defenderReplyCount: 6,
+      nearOnlyMove: false,
+      createsTrap: false,
+      createsMateThreat: false,
+      countPressure: false,
+    })).toBe(false);
+  });
+
+  it('rejects quiet generated lines that do not create a forcing idea or meaningful conversion', () => {
+    expect(evaluateGeneratedLineDoctrine({
+      firstMoveIsCheck: false,
+      firstMoveIsCapture: false,
+      defenderReplyCount: 5,
+      createsTrap: false,
+      createsMateThreat: false,
+      countPressure: false,
+      capturedPiece: 'M',
+      finalMaterialSwing: 200,
+      finalTheme: 'Tactic',
+      leadsToMate: false,
+      leadsToPromotion: false,
+    })).toMatchObject({
+      accepted: false,
+      labels: [],
+      materialGainClass: 'structural',
+    });
+  });
+
+  it('keeps quiet trap lines and labels them as quiet-but-forcing doctrine ideas', () => {
+    expect(evaluateGeneratedLineDoctrine({
+      firstMoveIsCheck: false,
+      firstMoveIsCapture: false,
+      defenderReplyCount: 2,
+      createsTrap: true,
+      createsMateThreat: false,
+      countPressure: false,
+      capturedPiece: 'N',
+      finalMaterialSwing: 300,
+      finalTheme: 'TrappedPiece',
+      leadsToMate: false,
+      leadsToPromotion: false,
+    })).toMatchObject({
+      accepted: true,
+      materialGainClass: 'critical',
+    });
+    expect(evaluateGeneratedLineDoctrine({
+      firstMoveIsCheck: false,
+      firstMoveIsCapture: false,
+      defenderReplyCount: 2,
+      createsTrap: true,
+      createsMateThreat: false,
+      countPressure: false,
+      capturedPiece: 'N',
+      finalMaterialSwing: 300,
+      finalTheme: 'TrappedPiece',
+      leadsToMate: false,
+      leadsToPromotion: false,
+    }).labels).toEqual(expect.arrayContaining(['quiet-but-forcing', 'trap-conversion']));
+  });
 });
+
+function boardFromPlacements(...placements: Array<[string, PieceType, PieceColor]>): Board {
+  const board = emptyBoard();
+
+  for (const [name, type, color] of placements) {
+    const { row, col } = square(name);
+    board[row][col] = p(type, color);
+  }
+
+  return board;
+}

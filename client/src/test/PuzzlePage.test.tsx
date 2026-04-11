@@ -34,15 +34,38 @@ const {
       title: 'Checking Rua',
       description: 'White gives check and Black must respond.',
       explanation: 'Start with the forcing move.',
-      source: 'Starter pack: test fixture',
-      origin: 'starter-pack' as const,
-      sourceGameId: null,
-      sourcePly: null,
+      source: 'Exported rated game abc123 (ply 23)',
+      origin: 'generated-real-game' as const,
+      sourceGameId: 'abc123',
+      sourcePly: 23,
+      sourceLicense: 'CC BY-SA',
+      sourceGameUrl: 'https://example.com/games/abc123',
       theme: 'MateIn1' as const,
-      motif: 'Test motif',
-      tags: ['mate', 'starter-pack'],
+      motif: 'Mate preparation',
+      tags: ['mate-preparation', 'quiet-but-forcing', 'real-game'],
+      positionKey: 'test-position-77',
+      verification: {
+        engineSource: 'service' as const,
+        searchDepth: 18,
+        searchNodes: 120000,
+        multiPvGap: 128,
+        onlyMoveChainLength: 2,
+        countCriticality: 'none' as const,
+        verificationStatus: 'engine_verified' as const,
+      },
+      duplicateOf: null,
       difficultyScore: 820,
       difficulty: 'beginner' as const,
+      difficultyProfile: {
+        candidateMoveCount: 2,
+        tacticalVisibility: 'moderate' as const,
+        countingAwareness: false,
+        deceptive: true,
+        moveNature: 'quiet' as const,
+      },
+      progressionStage: 'mid' as const,
+      pool: 'standard' as const,
+      minimumStreakRequired: 0,
       sideToMove: white,
       toMove: white,
       boardOrientation: white,
@@ -53,11 +76,44 @@ const {
         duplicateRisk: 'clear' as const,
         reviewNotes: 'clear',
       },
+      positionAuthority: 'replay_validated' as const,
+      solutionAuthority: 'engine_confirmed' as const,
+      objective: 'Close the mating net before you grab material.',
+      whyPositionMatters: 'White already has pressure, but only one calm move keeps Black boxed in.',
+      dependsOnCounting: false,
+      ruleImpact: 'No active counting race yet.',
+      goal: {
+        kind: 'checkmate' as const,
+        result: 'white-win' as const,
+        reason: 'checkmate' as const,
+      },
+      acceptedMoves: [{
+        move: solution[0],
+        lineId: 'main-line',
+        explanation: 'The rook check keeps the back rank sealed.',
+      }],
+      solutionLines: [{
+        id: 'main-line',
+        label: 'Main line',
+        moves: solution,
+        outcome: {
+          result: 'white-win' as const,
+          reason: 'checkmate' as const,
+          explanation: 'Black cannot escape the mating net.',
+        },
+      }],
       board,
+      boardPosition: {
+        board,
+        counting: null,
+      },
       solution,
       hint1: 'Look for the forcing move first.',
       hint2: 'Use the rook check, not the quiet move.',
       keyIdea: 'Keep the initiative with a forcing move.',
+      commonWrongMove: { from: { row: 6, col: 3 }, to: { row: 6, col: 4 } },
+      wrongMoveExplanation: 'Greedy material wins release the king net and let Black untangle.',
+      takeaway: 'Build the net first, then collect what falls.',
     },
     {
       id: 78,
@@ -417,6 +473,52 @@ vi.mock('../lib/i18n', () => ({
           return "That wasn't the best move. Try again!";
         case 'puzzle.hint':
           return 'Hint';
+        case 'puzzle.move_now_label':
+          return 'Move now';
+        case 'puzzle.solved_label':
+          return 'Solved';
+        case 'puzzle.try_again_label':
+          return 'Try again';
+        case 'puzzle.scene_label':
+          return 'Scene';
+        case 'puzzle.task_label':
+          return 'Task';
+        case 'puzzle.coach_eye_label':
+          return "Coach's eye";
+        case 'puzzle.hint_path_label':
+          return 'Hint path';
+        case 'puzzle.tempting_mistake_label':
+          return 'Tempting mistake';
+        case 'puzzle.takeaway_label':
+          return 'Takeaway';
+        case 'puzzle.source_evidence_label':
+          return 'Source evidence';
+        case 'puzzle.position_label':
+          return 'Position';
+        case 'puzzle.try_this_instead_label':
+          return 'Try this instead';
+        case 'puzzle.hint_nudge':
+          return 'Tap hint if you want a nudge.';
+        case 'puzzle.source_game_link':
+          return 'Source game';
+        case 'puzzle.hint_label_1':
+          return 'Hint 1';
+        case 'puzzle.hint_label_2':
+          return 'Hint 2';
+        case 'puzzle.key_idea_label':
+          return 'Key idea';
+        case 'puzzle.verification_engine_verified':
+          return 'Engine verified';
+        case 'puzzle.verification_solver_verified':
+          return 'Solver verified';
+        case 'puzzle.verification_needs_review':
+          return 'Needs curator review';
+        case 'puzzle.verification_count_sensitive':
+          return 'Count-sensitive';
+        case 'puzzle.count_critical':
+          return 'Count critical';
+        case 'puzzle.count_active':
+          return 'Counting active';
         case 'puzzle.next':
           return 'Next Puzzle';
         case 'puzzle.previous':
@@ -529,6 +631,8 @@ describe('Puzzle surfaces', () => {
   it('uses streak mode as the default experience, hides difficulty labels, and auto-advances with score', async () => {
     renderStreakPage();
 
+    expect(screen.queryByTestId('streak-hero')).not.toBeInTheDocument();
+    expect(screen.getByTestId('streak-sidebar-summary')).toBeInTheDocument();
     expect(screen.getByText('Puzzle Streak')).toBeInTheDocument();
     expect(screen.getByText('Score')).toBeInTheDocument();
     expect(screen.getByText('Streak')).toBeInTheDocument();
@@ -562,21 +666,65 @@ describe('Puzzle surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
 
     expect(screen.getAllByText('Hint').length).toBeGreaterThan(0);
-    expect(screen.getByText('Look for the forcing move first.')).toBeInTheDocument();
+    expect(screen.getAllByText('Look for the forcing move first.').length).toBeGreaterThan(0);
     expect(boardPropsMock.mock.calls.at(-1)?.[0]?.selectedSquare).toEqual({ row: 6, col: 3 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
-    expect(screen.getByText('Use the rook check, not the quiet move.')).toBeInTheDocument();
+    expect(screen.getAllByText('Use the rook check, not the quiet move.').length).toBeGreaterThan(0);
+  });
+
+  it('keeps streak mode focused on a single coach card with inline hints', () => {
+    renderStreakPage();
+
+    expect(screen.getByText('Checking Rua')).toBeInTheDocument();
+    expect(screen.getByText('Mate preparation')).toBeInTheDocument();
+    expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
+    expect(screen.queryByText('Coach note')).not.toBeInTheDocument();
+    expect(screen.queryByText('Task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tempting mistake')).not.toBeInTheDocument();
+    expect(screen.queryByText('Takeaway')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
+
+    expect(screen.getByText('Look for the forcing move first.')).toBeInTheDocument();
+  });
+
+  it('uses the standard game board frame and keeps streak pulses as a compact indicator', async () => {
+    renderStreakPage();
+
+    expect(screen.getByTestId('puzzle-board-frame')).toHaveClass('lg:w-[min(100%,calc(100dvh-10rem))]');
+    expect(screen.queryByTestId('streak-hero')).not.toBeInTheDocument();
+    expect(screen.getByTestId('streak-sidebar-summary')).toBeInTheDocument();
+    expect(screen.queryByText('You’re improving. Keep the flow going.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Now facing harder puzzles. Stay sharp.')).not.toBeInTheDocument();
+
+    for (let index = 0; index < 5; index += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'from' }));
+      fireEvent.click(screen.getByRole('button', { name: 'to' }));
+
+      await act(async () => {
+        vi.advanceTimersByTime(750);
+      });
+    }
+
+    expect(screen.getByLabelText(/streak pulse/i)).toBeInTheDocument();
+    expect(screen.queryByText('You’re improving. Keep the flow going.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Now facing harder puzzles. Stay sharp.')).not.toBeInTheDocument();
   });
 
   it('passes promoted Makruk pawns through the puzzle board state as promoted Mets', () => {
     const originalBoard = puzzleListFixtures[0].board;
+    const originalBoardPosition = puzzleListFixtures[0].boardPosition;
     const promotedBoard: BoardType = Array(8).fill(null).map(() => Array(8).fill(null));
     promotedBoard[0][0] = { type: 'K', color: 'white' };
     promotedBoard[7][7] = { type: 'K', color: 'black' };
     promotedBoard[5][2] = { type: 'PM', color: 'white' };
     promotedBoard[2][5] = { type: 'PM', color: 'black' };
     puzzleListFixtures[0].board = promotedBoard;
+    puzzleListFixtures[0].boardPosition = {
+      ...(puzzleListFixtures[0].boardPosition as Record<string, unknown>),
+      board: promotedBoard,
+    };
     try {
       renderLessonPlayer();
 
@@ -585,10 +733,11 @@ describe('Puzzle surfaces', () => {
       expect(boardPropsMock.mock.calls.at(-1)?.[0]?.board[2][5]).toEqual({ type: 'PM', color: 'black' });
     } finally {
       puzzleListFixtures[0].board = originalBoard;
+      puzzleListFixtures[0].boardPosition = originalBoardPosition;
     }
   });
 
-  it('renders lesson boards with the stored board orientation instead of flipping by side to move', () => {
+  it('flips the puzzle player board to the side that must move even if legacy boardOrientation disagrees', () => {
     const originalSideToMove = puzzleListFixtures[0].sideToMove;
     const originalBoardOrientation = puzzleListFixtures[0].boardOrientation;
 
@@ -596,17 +745,42 @@ describe('Puzzle surfaces', () => {
     puzzleListFixtures[0].toMove = 'black' as const;
     puzzleListFixtures[0].boardOrientation = 'white' as const;
 
-    renderLessonPlayer();
+    try {
+      renderLessonPlayer();
 
-    expect(boardPropsMock).toHaveBeenCalled();
-    expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
-      playerColor: 'white',
-      isMyTurn: true,
-    });
+      expect(boardPropsMock).toHaveBeenCalled();
+      expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+        playerColor: 'black',
+        isMyTurn: true,
+      });
+    } finally {
+      puzzleListFixtures[0].sideToMove = originalSideToMove;
+      puzzleListFixtures[0].toMove = originalSideToMove;
+      puzzleListFixtures[0].boardOrientation = originalBoardOrientation;
+    }
+  });
 
-    puzzleListFixtures[0].sideToMove = originalSideToMove;
-    puzzleListFixtures[0].toMove = originalSideToMove;
-    puzzleListFixtures[0].boardOrientation = originalBoardOrientation;
+  it('flips the streak board to the side that must move even if legacy boardOrientation disagrees', () => {
+    const originalSideToMove = puzzleListFixtures[0].sideToMove;
+    const originalBoardOrientation = puzzleListFixtures[0].boardOrientation;
+
+    puzzleListFixtures[0].sideToMove = 'black' as const;
+    puzzleListFixtures[0].toMove = 'black' as const;
+    puzzleListFixtures[0].boardOrientation = 'white' as const;
+
+    try {
+      renderStreakPage();
+
+      expect(boardPropsMock).toHaveBeenCalled();
+      expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+        playerColor: 'black',
+        isMyTurn: true,
+      });
+    } finally {
+      puzzleListFixtures[0].sideToMove = originalSideToMove;
+      puzzleListFixtures[0].toMove = originalSideToMove;
+      puzzleListFixtures[0].boardOrientation = originalBoardOrientation;
+    }
   });
 
   it('shows the explicit sideToMove label even if the legacy toMove field disagrees', () => {
@@ -625,26 +799,32 @@ describe('Puzzle surfaces', () => {
     puzzleListFixtures[0].toMove = originalToMove;
   });
 
-  it('shows the failure state briefly, then auto-restarts the streak after a wrong move', async () => {
+  it('keeps the same puzzle active after a wrong move and lets the player solve it without retrying', async () => {
     renderStreakPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'from' }));
     fireEvent.click(screen.getByRole('button', { name: 'wrong-to' }));
 
     expect(recordPuzzleFailedMock).toHaveBeenCalledWith(77);
-    expect(screen.getAllByText('Streak ended').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Streak ended at 0').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Retry puzzle' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start a new streak' })).toBeInTheDocument();
-
-    await act(async () => {
-      vi.advanceTimersByTime(1200);
-    });
-
+    expect(screen.getByText('Not quite!')).toBeInTheDocument();
     expect(screen.queryByText('Streak ended')).not.toBeInTheDocument();
-    expect(screen.getByText('Keep the streak alive')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry puzzle' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start a new streak' })).not.toBeInTheDocument();
+    expect(screen.getByText('Greedy material wins release the king net and let Black untangle.')).toBeInTheDocument();
+    expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
     expect(screen.getByTestId('board-turn')).toHaveTextContent('true');
     expect(screen.getByTestId('board-disabled')).toHaveTextContent('false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'from' }));
+    fireEvent.click(screen.getByRole('button', { name: 'to' }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(750);
+    });
+
+    expect(markPuzzleCompletedMock).toHaveBeenCalledWith(77);
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(78);
   });
 
   it('keeps the categorized lesson tracks on a separate lessons page', () => {
@@ -676,10 +856,28 @@ describe('Puzzle surfaces', () => {
     renderLessonPlayer();
 
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('#77 · Checking Rua')).toBeInTheDocument();
+    expect(screen.getByText('Lesson #77')).toBeInTheDocument();
+    expect(screen.getByText('Checking Rua')).toBeInTheDocument();
     expect(screen.getByText('Beginner')).toBeInTheDocument();
     expect(screen.getByText('More in this theme')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play Streak' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'All Lessons' }).length).toBeGreaterThan(0);
+  });
+
+  it('renders lesson mode as an editorial coach with scene, task, mistake, and source evidence', () => {
+    renderLessonPlayer();
+
+    expect(screen.getByText('Scene')).toBeInTheDocument();
+    expect(screen.getByText('White already has pressure, but only one calm move keeps Black boxed in.')).toBeInTheDocument();
+    expect(screen.getByText('Task')).toBeInTheDocument();
+    expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
+    expect(screen.getByText("Coach's eye")).toBeInTheDocument();
+    expect(screen.getByText('Source evidence')).toBeInTheDocument();
+    expect(screen.getByText('CC BY-SA')).toBeInTheDocument();
+    expect(screen.getAllByText('Engine verified').length).toBeGreaterThan(0);
+    expect(screen.getByText('Tempting mistake')).toBeInTheDocument();
+    expect(screen.getByText('Greedy material wins release the king net and let Black untangle.')).toBeInTheDocument();
+    expect(screen.getByText('Takeaway')).toBeInTheDocument();
+    expect(screen.getByText('Build the net first, then collect what falls.')).toBeInTheDocument();
   });
 });

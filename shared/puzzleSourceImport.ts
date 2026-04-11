@@ -1,8 +1,7 @@
 import { createInitialBoard } from './engine';
 import type { Board, Move, PieceColor } from './types';
-import type { PuzzleGenerationSource } from './puzzleGeneration';
 import { validateMakrukReplay } from './makrukPositionValidation';
-import { PuzzleGenerationSourceSchema } from './validation/puzzle';
+import { PuzzleGenerationSourceSchema, type PuzzleGenerationSource } from './validation/puzzle';
 
 interface ParsedHeaders {
   id?: string;
@@ -12,6 +11,9 @@ interface ParsedHeaders {
   moveCount?: number;
   startingPlyNumber?: number;
   startingTurn?: PieceColor;
+  sourceGameId?: string;
+  sourceLicense?: string | null;
+  sourceGameUrl?: string | null;
 }
 
 function parseMoveToken(token: string): Move | null {
@@ -45,6 +47,9 @@ function buildSource(headers: ParsedHeaders, moves: Move[], index: number): Puzz
     result: headers.result,
     resultReason: headers.resultReason,
     startingPlyNumber: headers.startingPlyNumber ?? 1,
+    sourceGameId: headers.sourceGameId ?? headers.id ?? `pgnlike-${index + 1}`,
+    sourceLicense: headers.sourceLicense ?? 'imported-real-game',
+    sourceGameUrl: headers.sourceGameUrl ?? null,
   };
 }
 
@@ -127,7 +132,17 @@ export function parsePgnLikePuzzleSources(raw: string): PuzzleGenerationSource[]
           headers.startingPlyNumber = Number.parseInt(value, 10);
           break;
         case 'turn':
+        case 'startingturn':
           headers.startingTurn = value === 'black' ? 'black' : 'white';
+          break;
+        case 'sourcegameid':
+          headers.sourceGameId = value;
+          break;
+        case 'sourcelicense':
+          headers.sourceLicense = value || null;
+          break;
+        case 'sourcegameurl':
+          headers.sourceGameUrl = value || null;
           break;
       }
       continue;

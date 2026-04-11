@@ -71,6 +71,19 @@ export const PuzzleDifficultyProfileSchema = z.object({
   moveNature: z.enum(['forcing', 'quiet']),
 });
 
+export const PuzzleVerificationEngineSourceSchema = z.enum(['none', 'local', 'service', 'binary']);
+export const PuzzleVerificationStatusSchema = z.enum(['unverified', 'solver_verified', 'engine_verified', 'ambiguous', 'count_invalid']);
+export const PuzzleCountCriticalitySchema = z.enum(['none', 'active', 'critical']);
+export const PuzzleVerificationSchema = z.object({
+  engineSource: PuzzleVerificationEngineSourceSchema,
+  searchDepth: z.number().int().nullable(),
+  searchNodes: z.number().int().nullable(),
+  multiPvGap: z.number().int().nullable(),
+  onlyMoveChainLength: z.number().int().min(1),
+  countCriticality: PuzzleCountCriticalitySchema,
+  verificationStatus: PuzzleVerificationStatusSchema,
+});
+
 export const PuzzlePositionAuthoritySchema = z.enum(['explicit_piece_list', 'replay_validated']);
 export const PuzzleSolutionAuthoritySchema = z.enum(['engine_confirmed', 'authoritative_line']);
 export const PuzzleProgressionStageSchema = z.enum(['early', 'mid', 'late']);
@@ -100,9 +113,14 @@ export const PuzzleSchema = z.object({
   origin: PuzzleOriginSchema,
   sourceGameId: z.string().nullable(),
   sourcePly: z.number().int().nullable(),
+  sourceLicense: z.string().nullable(),
+  sourceGameUrl: z.string().nullable(),
   theme: z.string(),
   motif: z.string(),
   tags: z.array(z.string()),
+  positionKey: z.string().min(1),
+  verification: PuzzleVerificationSchema,
+  duplicateOf: z.number().int().positive().nullable(),
   difficultyScore: z.number().int(),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   difficultyProfile: PuzzleDifficultyProfileSchema,
@@ -166,6 +184,9 @@ export const PuzzleGenerationSourceSchema = z.object({
   moveCount: z.number().int().min(0).optional(),
   result: z.string().optional(),
   resultReason: z.string().optional(),
+  sourceGameId: z.string().optional(),
+  sourceLicense: z.string().nullable().optional(),
+  sourceGameUrl: z.string().nullable().optional(),
 });
 
 export type PuzzleGenerationSource = z.infer<typeof PuzzleGenerationSourceSchema>;

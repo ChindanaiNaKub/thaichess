@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
@@ -141,6 +141,92 @@ function getFeedbackClasses(tone: StreakFeedback['tone']): string {
     default:
       return 'border-accent/25 bg-accent/10 text-text-bright';
   }
+}
+
+function getVerificationLabel(
+  puzzle: Puzzle,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string | null {
+  switch (puzzle.verification?.verificationStatus ?? 'unverified') {
+    case 'engine_verified':
+      return t('puzzle.verification_engine_verified');
+    case 'solver_verified':
+      return t('puzzle.verification_solver_verified');
+    case 'ambiguous':
+      return t('puzzle.verification_needs_review');
+    case 'count_invalid':
+      return t('puzzle.verification_count_sensitive');
+    case 'unverified':
+    default:
+      return null;
+  }
+}
+
+function getCountCriticalityLabel(
+  puzzle: Puzzle,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string | null {
+  switch (puzzle.verification?.countCriticality ?? 'none') {
+    case 'critical':
+      return t('puzzle.count_critical');
+    case 'active':
+      return t('puzzle.count_active');
+    default:
+      return null;
+  }
+}
+
+function getPuzzleIdentityBadges(
+  puzzle: Puzzle,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string[] {
+  return [
+    t(`theme.${puzzle.theme}`),
+    puzzle.motif,
+    getPuzzleSourceLabel(puzzle.source, t),
+    getVerificationLabel(puzzle, t),
+    getCountCriticalityLabel(puzzle, t),
+  ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0));
+}
+
+function getCompactPuzzleIdentityBadges(
+  puzzle: Puzzle,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string[] {
+  return [
+    t(`theme.${puzzle.theme}`),
+    puzzle.motif,
+  ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0));
+}
+
+function CoachSection({
+  label,
+  title,
+  body,
+  tone = 'surface',
+  children,
+}: {
+  label: string;
+  title?: string | null;
+  body: string;
+  tone?: 'surface' | 'accent' | 'primary' | 'danger';
+  children?: ReactNode;
+}) {
+  const toneClasses = {
+    surface: 'border-surface-hover bg-surface-alt',
+    accent: 'border-accent/30 bg-accent/10',
+    primary: 'border-primary/30 bg-primary/10',
+    danger: 'border-danger/30 bg-danger/10',
+  }[tone];
+
+  return (
+    <section className={`rounded-2xl border p-4 ${toneClasses}`}>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-primary/80">{label}</p>
+      {title && <h3 className="mt-2 text-base font-semibold text-text-bright">{title}</h3>}
+      <p className="mt-2 text-sm leading-6 text-text-dim">{body}</p>
+      {children && <div className="mt-3 border-t border-surface-hover/70 pt-3">{children}</div>}
+    </section>
+  );
 }
 
 function PuzzleLessonsPage() {
@@ -547,7 +633,6 @@ function PuzzleStreakPage() {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [solvedCount, setSolvedCount] = useState(0);
-  const [sessionBestStreak, setSessionBestStreak] = useState(0);
   const [recentPuzzleIds, setRecentPuzzleIds] = useState<number[]>([]);
   const [adaptiveDifficultyScore, setAdaptiveDifficultyScore] = useState(() => createStartingPuzzle().startingDifficultyScore);
   const [feedback, setFeedback] = useState<StreakFeedback>(() => ({
@@ -671,7 +756,6 @@ function PuzzleStreakPage() {
     setScore(0);
     setStreak(0);
     setSolvedCount(0);
-    setSessionBestStreak(0);
     setRecentPuzzleIds([]);
     setAdaptiveDifficultyScore(nextStart.startingDifficultyScore);
     setScoreFlash(null);
@@ -685,10 +769,10 @@ function PuzzleStreakPage() {
 
     clearAutoReplyTimeout();
     clearAdvanceTimeout();
+    clearTransientTimeouts();
 
     const nextDifficultyScore = getNextStreakDifficultyScore(adaptiveDifficultyScore, 'failed', streak);
     setAdaptiveDifficultyScore(nextDifficultyScore);
-    setSessionBestStreak(previousBest => Math.max(previousBest, streak));
     setStatus('failed');
     setIsTransitioning(false);
     setFeedback({
@@ -697,12 +781,27 @@ function PuzzleStreakPage() {
       detail: getPuzzleFailureDetail(currentPuzzle, attemptedMove),
     });
     void recordPuzzleFailed(currentPuzzle.id);
+  }, [adaptiveDifficultyScore, clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, currentPuzzle, recordPuzzleFailed, streak, t]);
 
-    advanceTimeoutRef.current = window.setTimeout(() => {
-      restartStreakState();
-      advanceTimeoutRef.current = null;
-    }, 1200);
-  }, [adaptiveDifficultyScore, clearAdvanceTimeout, clearAutoReplyTimeout, currentPuzzle, recordPuzzleFailed, restartStreakState, streak, t]);
+  const registerWrongStreakAttempt = useCallback((attemptedMove: Pick<Move, 'from' | 'to'> | null = null) => {
+    if (!currentPuzzle) return;
+
+    clearAutoReplyTimeout();
+    clearAdvanceTimeout();
+    clearTransientTimeouts();
+
+    setStatus('playing');
+    setIsTransitioning(false);
+    setScoreFlash(null);
+    setMilestoneTone(null);
+    setIsStreakPulsing(false);
+    setFeedback({
+      tone: 'failed',
+      title: t('puzzle.wrong'),
+      detail: getPuzzleFailureDetail(currentPuzzle, attemptedMove),
+    });
+    void recordPuzzleFailed(currentPuzzle.id);
+  }, [clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, currentPuzzle, recordPuzzleFailed, t]);
 
   const finishStreakPuzzle = useCallback(() => {
     if (!currentPuzzle) return;
@@ -726,7 +825,6 @@ function PuzzleStreakPage() {
     setScore(nextScore);
     setStreak(nextStreak);
     setSolvedCount(nextSolvedCount);
-    setSessionBestStreak(previousBest => Math.max(previousBest, nextStreak));
     setAdaptiveDifficultyScore(nextDifficultyScore);
     setRecentPuzzleIds(nextRecentPuzzleIds);
     setFeedback({
@@ -848,7 +946,7 @@ function PuzzleStreakPage() {
         } else {
           setSelectedSquare(null);
           setLegalMoves([]);
-          endStreak({ from: selectedSquare, to: pos });
+          registerWrongStreakAttempt({ from: selectedSquare, to: pos });
         }
         return;
       }
@@ -861,7 +959,7 @@ function PuzzleStreakPage() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [currentPuzzle, endStreak, gameState, legalMoves, queueOpponentReply, selectedSquare, status]);
+  }, [currentPuzzle, gameState, legalMoves, queueOpponentReply, registerWrongStreakAttempt, selectedSquare, status]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
     if (!gameState || !currentPuzzle || status !== 'playing') return;
@@ -897,39 +995,13 @@ function PuzzleStreakPage() {
     } else {
       setSelectedSquare(null);
       setLegalMoves([]);
-      endStreak({ from, to });
+      registerWrongStreakAttempt({ from, to });
     }
-  }, [currentPuzzle, endStreak, gameState, queueOpponentReply, status]);
+  }, [currentPuzzle, gameState, queueOpponentReply, registerWrongStreakAttempt, status]);
 
   const handleRestartStreak = useCallback(() => {
     restartStreakState();
   }, [restartStreakState]);
-
-  const handleRetryPuzzle = useCallback(() => {
-    if (!currentPuzzle) return;
-
-    clearAutoReplyTimeout();
-    clearAdvanceTimeout();
-    clearTransientTimeouts();
-
-    setStreak(0);
-    setGameState(createGameStateFromPuzzle(currentPuzzle));
-    setSelectedSquare(null);
-    setLegalMoves([]);
-    setScoreFlash(null);
-    setMilestoneTone(null);
-    setIsStreakPulsing(false);
-    setHintUsed(false);
-    setHintStage(0);
-    setShowHint(false);
-    setStatus('playing');
-    setIsTransitioning(false);
-    setFeedback({
-      tone: 'neutral',
-      title: t('puzzle.streak_prompt_title'),
-      detail: t('puzzle.streak_prompt_desc'),
-    });
-  }, [clearAdvanceTimeout, clearAutoReplyTimeout, clearTransientTimeouts, currentPuzzle, t]);
 
   const handleStreakHint = useCallback(() => {
     if (!currentPuzzle || status !== 'playing') return;
@@ -964,9 +1036,9 @@ function PuzzleStreakPage() {
     : undefined;
   const hintSquare = showHint && hintMove ? hintMove.from : null;
   const revealedHints = currentPuzzle ? [
-    hintStage >= 1 ? { label: 'Hint 1', text: currentPuzzle.hint1 } : null,
-    hintStage >= 2 ? { label: 'Hint 2', text: currentPuzzle.hint2 } : null,
-    hintStage >= 3 ? { label: 'Key idea', text: currentPuzzle.keyIdea } : null,
+    hintStage >= 1 ? { label: t('puzzle.hint_label_1'), text: currentPuzzle.hint1 } : null,
+    hintStage >= 2 ? { label: t('puzzle.hint_label_2'), text: currentPuzzle.hint2 } : null,
+    hintStage >= 3 ? { label: t('puzzle.key_idea_label'), text: currentPuzzle.keyIdea } : null,
   ].filter((entry): entry is { label: string; text: string } => Boolean(entry && (entry.text ?? '').trim().length > 0)) : [];
   const checkpointProgress = ((solvedCount % STREAK_CHECKPOINT_INTERVAL) / STREAK_CHECKPOINT_INTERVAL) * 100;
   const adaptiveProgress = Math.max(10, Math.min(100, ((adaptiveDifficultyScore - 780) / (2200 - 780)) * 100));
@@ -975,7 +1047,17 @@ function PuzzleStreakPage() {
     : milestoneTone === 'improving'
       ? t('puzzle.streak_milestone_improving')
       : null;
-  const sessionBest = Math.max(sessionBestStreak, streak);
+  const streakPulseIcon = milestoneTone === 'harder' ? '🔥' : milestoneTone === 'improving' ? '⚡' : null;
+  const streakTitle = currentPuzzle ? getPublicPuzzleTitle(currentPuzzle.title) : feedback.title;
+  const streakIdentityBadges = currentPuzzle ? getCompactPuzzleIdentityBadges(currentPuzzle, t) : [];
+  const streakTask = currentPuzzle?.objective ?? t('puzzle.find_best', { color: currentTurnLabel });
+  const activeHint = revealedHints[revealedHints.length - 1]?.text ?? null;
+  const streakMessage = feedback.tone === 'failed'
+    ? feedback.detail
+    : activeHint ?? streakTask;
+  const streakSubMessage = feedback.tone === 'failed'
+    ? streakTask
+    : currentPuzzle?.whyPositionMatters ?? null;
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -993,208 +1075,153 @@ function PuzzleStreakPage() {
       />
 
       <main id="main-content" className="flex-1 px-4 py-3 sm:py-4 lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
-        <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-2.5 lg:min-h-0">
-          <section className="flex-none rounded-2xl border border-primary/20 bg-[linear-gradient(135deg,rgba(92,160,26,0.14),rgba(39,30,24,0.92)_48%,rgba(22,18,14,0.98))] p-3 sm:px-4 sm:py-3">
-            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0 max-w-xl">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-primary-light/90">{t('puzzle.streak_eyebrow')}</p>
-                  <h2 className="text-lg font-bold text-text-bright sm:text-xl">{t('puzzle.streak_title')}</h2>
-                </div>
-                <p className="mt-0.5 text-xs leading-[1.15rem] text-text-dim sm:text-sm">{t('puzzle.streak_desc')}</p>
-              </div>
-
-              <div className="grid flex-none grid-cols-3 gap-2 sm:gap-3">
-                <div className="relative min-w-0 rounded-xl border border-primary/20 bg-surface/80 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_score_label')}</p>
-                  <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{score}</p>
-                  {scoreFlash && (
-                    <span className="pointer-events-none absolute right-3 -top-4 text-sm font-semibold text-primary-light animate-scoreFloat">
-                      {scoreFlash}
-                    </span>
-                  )}
-                </div>
-                <div className={`min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2 ${isStreakPulsing ? 'animate-streakPulse' : ''}`}>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_label')}</p>
-                  <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{streak}</p>
-                </div>
-                <div className="min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_session_label')}</p>
-                  <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{solvedCount}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
-                <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
-                  <span className="font-medium text-text-bright">{t('puzzle.streak_checkpoint_label')}</span>
-                  <span className="text-text-dim">
-                    {t('puzzle.streak_checkpoint_progress', {
-                      current: solvedCount % STREAK_CHECKPOINT_INTERVAL,
-                      total: STREAK_CHECKPOINT_INTERVAL,
-                    })}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
-                  <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${checkpointProgress}%` }} />
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
-                <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
-                  <span className="font-medium text-text-bright">{t('puzzle.streak_flow_label')}</span>
-                  <span className="text-text-dim">{t('puzzle.streak_flow_desc')}</span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
-                  <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: `${adaptiveProgress}%` }} />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {milestoneMessage && (
-            <div className="flex-none rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-text-bright animate-slideUp">
-              {milestoneMessage}
-            </div>
-          )}
-
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:grid lg:grid-cols-[minmax(0,1fr)_15.5rem] lg:items-stretch">
+        <div className="mx-auto flex h-full w-full max-w-[1360px] flex-col gap-2.5 lg:min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:grid lg:grid-cols-[minmax(0,1fr)_352px] xl:grid-cols-[minmax(0,1fr)_376px] lg:items-stretch">
             <div className={`flex min-h-0 flex-1 flex-col items-center justify-center transition-opacity duration-200 lg:overflow-hidden ${isTransitioning ? 'opacity-70' : 'opacity-100'}`}>
               {currentPuzzle && gameState && (
-                <BoardErrorBoundary onRetry={handleRestartStreak}>
-                  <Board
-                    key={currentPuzzle.id}
-                    board={gameState.board}
-                    className="max-w-full lg:h-full lg:w-auto lg:max-h-full lg:max-w-full"
-                    playerColor={currentPuzzle.boardOrientation ?? 'white'}
-                    isMyTurn={status === 'playing' && gameState.turn === currentPuzzle.sideToMove}
-                    legalMoves={legalMoves}
-                    selectedSquare={selectedSquare || hintSquare}
-                    lastMove={getLastMove()}
-                    isCheck={gameState.isCheck}
-                    checkSquare={getCheckSquare()}
-                    onSquareClick={handleSquareClick}
-                    onPieceDrop={handlePieceDrop}
-                    disabled={status !== 'playing' || gameState.turn !== currentPuzzle.sideToMove}
-                  />
-                </BoardErrorBoundary>
+                <div
+                  data-testid="puzzle-board-frame"
+                  className="w-full lg:w-[min(100%,calc(100dvh-10rem))] xl:w-[min(100%,calc(100dvh-9.25rem))]"
+                >
+                  <BoardErrorBoundary onRetry={handleRestartStreak}>
+                    <Board
+                      key={currentPuzzle.id}
+                      board={gameState.board}
+                      className="mx-auto w-full"
+                      playerColor={currentPuzzle.sideToMove}
+                      isMyTurn={status === 'playing' && gameState.turn === currentPuzzle.sideToMove}
+                      legalMoves={legalMoves}
+                      selectedSquare={selectedSquare || hintSquare}
+                      lastMove={getLastMove()}
+                      isCheck={gameState.isCheck}
+                      checkSquare={getCheckSquare()}
+                      onSquareClick={handleSquareClick}
+                      onPieceDrop={handlePieceDrop}
+                      disabled={status !== 'playing' || gameState.turn !== currentPuzzle.sideToMove}
+                    />
+                  </BoardErrorBoundary>
+                </div>
               )}
             </div>
 
-            <aside className="flex w-full max-w-[720px] min-h-0 flex-col gap-2.5 lg:h-full lg:max-w-none lg:overflow-y-auto lg:pr-1">
-              <div className={`rounded-xl border px-3 py-3 ${getFeedbackClasses(feedback.tone)}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_puzzle_label', { number: solvedCount + 1 })}</p>
-                    <h3 className="mt-1 text-base font-semibold text-text-bright">{feedback.title}</h3>
+            <aside className="flex w-full max-w-[720px] min-h-0 flex-col gap-2.5 lg:h-full lg:max-w-none lg:overflow-visible">
+              <section
+                data-testid="streak-sidebar-summary"
+                className="rounded-2xl border border-primary/20 bg-[linear-gradient(155deg,rgba(92,160,26,0.14),rgba(39,30,24,0.92)_45%,rgba(22,18,14,0.98))] p-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-primary-light/90">{t('puzzle.streak_eyebrow')}</p>
+                    <h2 className="text-lg font-bold text-text-bright">{t('puzzle.streak_title')}</h2>
                   </div>
-                  <span className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim">
+                  <p className="mt-1 text-sm leading-6 text-text-dim">{t('puzzle.streak_desc')}</p>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="relative min-w-0 rounded-xl border border-primary/20 bg-surface/80 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_score_label')}</p>
+                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{score}</p>
+                    {scoreFlash && (
+                      <span className="pointer-events-none absolute right-3 -top-4 text-sm font-semibold text-primary-light animate-scoreFloat">
+                        {scoreFlash}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2 ${isStreakPulsing ? 'animate-streakPulse' : ''}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_label')}</p>
+                      {streakPulseIcon && (
+                        <span
+                          aria-label={`Streak pulse: ${milestoneMessage}`}
+                          className="pointer-events-none inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-sm leading-none text-primary-light"
+                        >
+                          {streakPulseIcon}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{streak}</p>
+                  </div>
+                  <div className="min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_session_label')}</p>
+                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{solvedCount}</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
+                      <span className="font-medium text-text-bright">{t('puzzle.streak_checkpoint_label')}</span>
+                      <span className="text-text-dim">
+                        {t('puzzle.streak_checkpoint_progress', {
+                          current: solvedCount % STREAK_CHECKPOINT_INTERVAL,
+                          total: STREAK_CHECKPOINT_INTERVAL,
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
+                      <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${checkpointProgress}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
+                      <span className="font-medium text-text-bright">{t('puzzle.streak_flow_label')}</span>
+                      <span className="text-text-dim">{t('puzzle.streak_flow_desc')}</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
+                      <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: `${adaptiveProgress}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <div className={`rounded-2xl border p-4 ${getFeedbackClasses(feedback.tone)}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_puzzle_label', { number: solvedCount + 1 })}</p>
+                    <h3 className="mt-1 text-lg font-semibold text-text-bright">{streakTitle}</h3>
+                    <p className="mt-1 text-sm text-text-dim">{feedback.title}</p>
+                  </div>
+                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
                     {t('puzzle.to_move', { color: currentTurnLabel })}
                   </span>
                 </div>
-                <p className="mt-1.5 text-sm text-text-dim">{feedback.detail}</p>
-                {status === 'playing' && currentPuzzle && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-surface-hover/70 pt-3">
-                    <button
-                      onClick={handleStreakHint}
-                      disabled={showHint}
-                      className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {t('puzzle.hint')}
-                    </button>
-                    <p className="text-xs leading-5 text-text-dim">
-                      {hintStage === 0
-                        ? currentPuzzle.hint1
-                        : hintStage === 1
-                          ? currentPuzzle.hint2
-                          : currentPuzzle.keyIdea}
-                    </p>
+                {streakIdentityBadges.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {streakIdentityBadges.map((badge) => (
+                      <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
+                        {badge}
+                      </span>
+                    ))}
                   </div>
                 )}
                 <div className="mt-3 border-t border-surface-hover/70 pt-3">
-                  <p className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/80">{t('puzzle.streak_focus_title')}</p>
-                  <p className="text-sm text-text-bright">
-                    {status === 'playing'
-                      ? t('puzzle.find_best', { color: currentTurnLabel })
-                      : t('puzzle.streak_focus_keep')}
-                  </p>
-                  <p className="mt-1.5 text-xs leading-5 text-text-dim">{t('puzzle.streak_focus_desc')}</p>
+                  <p className="text-sm leading-6 text-text-dim">{streakMessage}</p>
+
+                  {streakSubMessage && (
+                    <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-text-dim">
+                        {feedback.tone === 'failed' ? t('puzzle.try_this_instead_label') : t('puzzle.position_label')}
+                      </p>
+                      <p className="mt-1.5 text-xs leading-5 text-text-dim">{streakSubMessage}</p>
+                    </div>
+                  )}
+
+                  {status === 'playing' && currentPuzzle && (
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <button
+                        onClick={handleStreakHint}
+                        className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {t('puzzle.hint')}
+                      </button>
+                      <p className="text-xs leading-5 text-text-dim">
+                        {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {revealedHints.length > 0 && (
-                <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 animate-slideUp">
-                  <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-accent/90">{t('puzzle.hint')}</p>
-                  <div className="space-y-2">
-                    {revealedHints.map((entry) => (
-                      <div key={entry.label}>
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent/80">{entry.label}</div>
-                        <p className="text-sm leading-5 text-text">{entry.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-xl border border-surface-hover bg-surface-alt p-3">
-                <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-primary/80">{t('puzzle.streak_session_title')}</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2.5">
-                    <div className="text-text-dim">{t('puzzle.streak_best_label')}</div>
-                    <div className="mt-1 text-lg font-semibold text-text-bright">{sessionBest}</div>
-                  </div>
-                  <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2.5">
-                    <div className="text-text-dim">{t('puzzle.streak_session_label')}</div>
-                    <div className="mt-1 text-lg font-semibold text-text-bright">{solvedCount}</div>
-                  </div>
-                </div>
-                <div className="mt-3 rounded-lg border border-surface-hover bg-surface px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] text-text-dim">
-                    <span>{t('puzzle.streak_checkpoint_label')}</span>
-                    <span>{t('puzzle.streak_checkpoint_progress', {
-                      current: solvedCount % STREAK_CHECKPOINT_INTERVAL,
-                      total: STREAK_CHECKPOINT_INTERVAL,
-                    })}</span>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-alt">
-                    <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${checkpointProgress}%` }} />
-                  </div>
-                </div>
-              </div>
-
-              {status === 'failed' && (
-                <div className="rounded-xl border border-danger/35 bg-danger/10 p-3 animate-slideUp">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-danger/90">{t('puzzle.streak_end_eyebrow')}</p>
-                  <h3 className="mt-1.5 text-lg font-bold text-text-bright">{t('puzzle.streak_end_title')}</h3>
-                  <p className="mt-1.5 text-sm text-text-dim">{t('puzzle.streak_ended_at', { streak })}</p>
-                  <p className="mt-1 text-sm text-text-dim">{t('puzzle.streak_end_summary', { streak, score })}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-danger/20 bg-surface/75 px-3 py-2.5">
-                      <div className="text-xs uppercase tracking-[0.16em] text-text-dim">{t('puzzle.streak_label')}</div>
-                      <div className="mt-1 text-lg font-semibold text-text-bright">{streak}</div>
-                    </div>
-                    <div className="rounded-lg border border-danger/20 bg-surface/75 px-3 py-2.5">
-                      <div className="text-xs uppercase tracking-[0.16em] text-text-dim">{t('puzzle.streak_score_label')}</div>
-                      <div className="mt-1 text-lg font-semibold text-text-bright">{score}</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handleRetryPuzzle}
-                      className="rounded-lg border border-surface-hover bg-surface px-4 py-2.5 text-sm font-semibold text-text-bright transition-colors hover:border-primary/40 hover:text-primary-light"
-                    >
-                      {t('puzzle.retry_puzzle')}
-                    </button>
-                    <button
-                      onClick={handleRestartStreak}
-                      className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
-                    >
-                      {t('puzzle.streak_try_again')}
-                    </button>
-                  </div>
-                </div>
-              )}
             </aside>
           </div>
         </div>
@@ -1510,10 +1537,12 @@ function PuzzlePlayer() {
     })
     .slice(0, 3);
   const revealedHints = [
-    hintStage >= 1 ? { label: 'Hint 1', text: puzzle.hint1 } : null,
-    hintStage >= 2 ? { label: 'Hint 2', text: puzzle.hint2 } : null,
-    hintStage >= 3 ? { label: 'Key idea', text: puzzle.keyIdea } : null,
+    hintStage >= 1 ? { label: t('puzzle.hint_label_1'), text: puzzle.hint1 } : null,
+    hintStage >= 2 ? { label: t('puzzle.hint_label_2'), text: puzzle.hint2 } : null,
+    hintStage >= 3 ? { label: t('puzzle.key_idea_label'), text: puzzle.keyIdea } : null,
   ].filter((entry): entry is { label: string; text: string } => Boolean(entry && (entry.text ?? '').trim().length > 0));
+  const lessonIdentityBadges = getPuzzleIdentityBadges(puzzle, t);
+  const verificationLabel = getVerificationLabel(puzzle, t);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -1538,14 +1567,15 @@ function PuzzlePlayer() {
         )}
       />
 
-      <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1100px]">
-          <div className="flex flex-col items-center gap-3 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px]">
+      <main id="main-content" className="flex-1 px-4 py-4 lg:overflow-hidden">
+        <div className="mx-auto flex h-full w-full max-w-[1280px] flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+          <div className="flex flex-col items-center gap-3 lg:min-h-0 lg:overflow-hidden">
             {gameState && (
               <BoardErrorBoundary onRetry={handleRetry}>
                 <Board
                   board={gameState.board}
-                  playerColor={puzzle.boardOrientation ?? 'white'}
+                  className="max-w-full lg:h-full lg:w-auto lg:max-h-[calc(100dvh-9.5rem)]"
+                  playerColor={puzzle.sideToMove}
                   isMyTurn={status === 'playing' && gameState.turn === puzzle.sideToMove}
                   legalMoves={legalMoves}
                   selectedSquare={selectedSquare || hintSquare}
@@ -1560,71 +1590,88 @@ function PuzzlePlayer() {
             )}
           </div>
 
-          <div className="flex flex-col gap-3 lg:w-80 w-full max-w-[720px]">
-            <div className="bg-surface-alt border border-surface-hover rounded-xl p-4 sm:p-5">
-              <div className="flex items-start justify-between mb-1 gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-text-bright">
-                  #{puzzle.id} · {getPublicPuzzleTitle(puzzle.title)}
-                </h3>
-                <span className={`text-xs px-2 py-0.5 rounded border flex-shrink-0 ${getDifficultyBadgeClasses(puzzle.difficulty)}`}>
+          <aside className="flex min-h-0 flex-col gap-3 lg:overflow-y-auto lg:pr-1">
+            <div className="rounded-[28px] border border-primary/20 bg-[linear-gradient(160deg,rgba(92,160,26,0.12),rgba(32,24,19,0.95)_48%,rgba(19,15,12,0.98))] p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-primary-light/90">Lesson #{puzzle.id}</p>
+                  <h3 className="mt-2 text-xl font-bold text-text-bright">{getPublicPuzzleTitle(puzzle.title)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-text-dim">{puzzle.description}</p>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${getDifficultyBadgeClasses(puzzle.difficulty)}`}>
                   {t(`puzzle.${puzzle.difficulty}`)}
                 </span>
               </div>
-              <p className="text-text-dim text-xs sm:text-sm mb-3">{puzzle.description}</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-text-dim">
-                <span className="px-2 py-0.5 rounded bg-surface border border-surface-hover">{t(`theme.${puzzle.theme}`)}</span>
-                <span className="px-2 py-0.5 rounded bg-surface border border-surface-hover">{t('puzzle.rating_short', { score: puzzle.difficultyScore })}</span>
-                <span>{t('puzzle.to_move', { color: currentTurnLabel })}</span>
-                <span className="ml-auto rounded bg-surface px-2 py-0.5 border border-surface-hover">
-                  {getPuzzleSourceLabel(puzzle.source, t)}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-dim">
-                {puzzle.tags.map((tag) => (
-                  <span key={tag} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1">
-                    {formatPuzzleTag(tag)}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {lessonIdentityBadges.map((badge) => (
+                  <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
+                    {badge}
                   </span>
                 ))}
+                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
+                  {t('puzzle.rating_short', { score: puzzle.difficultyScore })}
+                </span>
+                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
+                  {t('puzzle.to_move', { color: currentTurnLabel })}
+                </span>
               </div>
             </div>
 
             {status === 'playing' && (
-              <div className="bg-primary/10 border border-primary/30 rounded-lg px-4 py-3 text-center">
-                <p className="text-primary-light font-semibold text-sm">
-                  {isSolverTurn
-                    ? t('puzzle.find_best', { color: solverColorLabel })
-                    : t('puzzle.to_move', { color: currentTurnLabel })}
-                </p>
-                <p className="text-text-dim text-xs mt-1">
-                  {t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}
-                </p>
-              </div>
+              <CoachSection
+                label={t('puzzle.move_now_label')}
+                body={isSolverTurn
+                  ? t('puzzle.find_best', { color: solverColorLabel })
+                  : t('puzzle.to_move', { color: currentTurnLabel })}
+                tone="primary"
+              >
+                <p className="text-xs text-text-dim">{t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}</p>
+              </CoachSection>
             )}
 
             {status === 'success' && (
-              <div className="bg-primary/20 border border-primary/30 rounded-lg px-4 py-4 text-center animate-slideUp">
-                <div className="text-3xl mb-2">🎉</div>
-                <p className="text-primary-light font-bold text-lg">{t('puzzle.correct')}</p>
-                <p className="text-text-dim text-sm">
-                  {hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean')}
-                </p>
-                <p className="mt-3 text-left text-sm text-text leading-relaxed">
-                  <span className="font-semibold text-text-bright">{t('puzzle.lesson')}:</span> {puzzle.takeaway}
-                </p>
-              </div>
+              <CoachSection
+                label={t('puzzle.solved_label')}
+                title={t('puzzle.correct')}
+                body={hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean')}
+                tone="primary"
+              >
+                <p className="text-sm leading-6 text-text">{puzzle.takeaway}</p>
+              </CoachSection>
             )}
 
             {status === 'failed' && (
-              <div className="bg-danger/20 border border-danger/30 rounded-lg px-4 py-4 text-center animate-slideUp">
-                <div className="text-3xl mb-2">✗</div>
-                <p className="text-danger font-bold text-lg">{t('puzzle.wrong')}</p>
-                <p className="text-text-dim text-sm">{failureDetail ?? t('puzzle.wrong_desc')}</p>
-              </div>
+              <CoachSection
+                label={t('puzzle.try_again_label')}
+                title={t('puzzle.wrong')}
+                body={failureDetail ?? t('puzzle.wrong_desc')}
+                tone="danger"
+              />
             )}
 
+            <CoachSection label={t('puzzle.scene_label')} body={puzzle.whyPositionMatters} />
+
+            <CoachSection
+              label={t('puzzle.task_label')}
+              body={puzzle.objective}
+              tone="accent"
+            >
+              {status === 'playing' && (
+                <button
+                  onClick={handleHint}
+                  className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {t('puzzle.hint')}
+                </button>
+              )}
+            </CoachSection>
+
+            <CoachSection label={t('puzzle.coach_eye_label')} body={puzzle.keyIdea} tone="primary">
+              <p className="text-sm leading-6 text-text-dim">{puzzle.explanation}</p>
+            </CoachSection>
+
             {revealedHints.length > 0 && (
-              <div className="rounded-xl border border-accent/30 bg-accent/10 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-accent/90 mb-2">{t('puzzle.hint')}</p>
+              <CoachSection label={t('puzzle.hint_path_label')} body={revealedHints[revealedHints.length - 1]?.text ?? ''} tone="accent">
                 <div className="space-y-2">
                   {revealedHints.map((entry) => (
                     <div key={entry.label}>
@@ -1633,12 +1680,47 @@ function PuzzlePlayer() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </CoachSection>
             )}
 
-            <div className="rounded-xl border border-surface-hover bg-surface-alt p-4">
+            <CoachSection label={t('puzzle.tempting_mistake_label')} body={puzzle.wrongMoveExplanation} tone={status === 'failed' ? 'danger' : 'surface'} />
+
+            <CoachSection label={t('puzzle.takeaway_label')} body={puzzle.takeaway} tone={status === 'success' ? 'primary' : 'surface'} />
+
+            <CoachSection
+              label={t('puzzle.source_evidence_label')}
+              body={puzzle.ruleImpact}
+            >
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                  {getPuzzleSourceLabel(puzzle.source, t)}
+                </span>
+                {puzzle.sourceLicense && (
+                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                    {puzzle.sourceLicense}
+                  </span>
+                )}
+                {verificationLabel && (
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
+                    {verificationLabel}
+                  </span>
+                )}
+                {puzzle.sourceGameUrl && (
+                  <a
+                    href={puzzle.sourceGameUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text hover:text-text-bright"
+                  >
+                    {t('puzzle.source_game_link')}
+                  </a>
+                )}
+              </div>
+            </CoachSection>
+
+            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
               <p className="text-xs uppercase tracking-[0.16em] text-primary/80 mb-2">{t('puzzle.activity_title')}</p>
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap gap-2 mb-4">
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
                   {t('puzzle.activity_status_label')}: {activityStatusLabel}
                 </span>
@@ -1672,7 +1754,7 @@ function PuzzlePlayer() {
                     <button
                       key={relatedPuzzle.id}
                       onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
-                      className="w-full rounded-lg border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                      className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
                     >
                       <div className="text-sm font-medium text-text-bright">
                         #{relatedPuzzle.id} · {getPublicPuzzleTitle(relatedPuzzle.title)}
@@ -1692,15 +1774,6 @@ function PuzzlePlayer() {
             </div>
 
             <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-              {status === 'playing' && (
-                <button
-                  onClick={handleHint}
-                  disabled={showHint}
-                  className="flex-1 min-w-0 py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors disabled:opacity-50"
-                >
-                  💡 {t('puzzle.hint')}
-                </button>
-              )}
               {status !== 'playing' && (
                 <button
                   onClick={handleRetry}
@@ -1743,7 +1816,7 @@ function PuzzlePlayer() {
                 </button>
               )}
             </div>
-          </div>
+          </aside>
         </div>
       </main>
     </div>

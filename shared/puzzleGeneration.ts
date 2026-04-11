@@ -10,9 +10,14 @@ import type { Puzzle } from './puzzles';
 import type { PuzzleCandidateDraft } from './puzzleImportQueue';
 import { validatePuzzle } from './puzzleValidation';
 import { finalizePuzzle } from './puzzleCatalog';
+import {
+  classifyMaterialGain,
+  type PuzzleMaterialGainClass,
+  isMeaningfulPreparatoryCandidate,
+  type PuzzleDoctrineLabel,
+} from './puzzleDoctrine';
 import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
-import { derivePuzzleTags, estimatePuzzleDifficultyScore, isMiddlegameRichBoard } from './puzzleMetadata';
-import { PuzzleSchema } from './validation/puzzle';
+import { buildPuzzlePositionKey, derivePuzzleTags, estimatePuzzleDifficultyScore, isMiddlegameRichBoard } from './puzzleMetadata';
 import { isValidPuzzle } from './puzzlePipelineValidation';
 
 export interface PuzzleGenerationSource {
@@ -67,6 +72,112 @@ interface ThemeAnalysis {
   theme: GeneratedTheme;
   materialSwing: number;
   tags: string[];
+}
+
+function deriveDoctrineLabels(args: {
+  firstMoveIsCheck: boolean;
+  firstMoveIsCapture: boolean;
+  defenderReplyCount: number;
+  createsTrap: boolean;
+  createsMateThreat: boolean;
+  countPressure: boolean;
+}): PuzzleDoctrineLabel[] {
+  const labels: PuzzleDoctrineLabel[] = [];
+
+  if (args.firstMoveIsCheck || args.firstMoveIsCapture) {
+    labels.push('forcing');
+  }
+
+  if (isMeaningfulPreparatoryCandidate({
+    ...args,
+    nearOnlyMove: args.defenderReplyCount <= 2,
+  })) {
+    if (!args.firstMoveIsCheck && !args.firstMoveIsCapture) {
+      labels.push('quiet-but-forcing');
+    }
+    if (args.createsTrap) {
+      labels.push('trap-conversion');
+    }
+    if (args.createsMateThreat) {
+      labels.push('mate-preparation');
+    }
+    if (args.countPressure) {
+      labels.push('count-pressure');
+    }
+  }
+
+  return labels;
+}
+
+export function evaluateGeneratedLineDoctrine(args: {
+  firstMoveIsCheck: boolean;
+  firstMoveIsCapture: boolean;
+  defenderReplyCount: number;
+  createsTrap: boolean;
+  createsMateThreat: boolean;
+  countPressure: boolean;
+  capturedPiece: 'R' | 'N' | 'S' | 'M' | 'PM' | 'P' | null;
+  finalMaterialSwing: number;
+  finalTheme: GeneratedTheme;
+  leadsToMate: boolean;
+  leadsToPromotion: boolean;
+}): {
+  accepted: boolean;
+  labels: PuzzleDoctrineLabel[];
+  materialGainClass: PuzzleMaterialGainClass;
+} {
+  const labels = deriveDoctrineLabels({
+    firstMoveIsCheck: args.firstMoveIsCheck,
+    firstMoveIsCapture: args.firstMoveIsCapture,
+    defenderReplyCount: args.defenderReplyCount,
+    createsTrap: args.createsTrap,
+    createsMateThreat: args.createsMateThreat,
+    countPressure: args.countPressure,
+  });
+  const materialGainClass = classifyMaterialGain({
+    capturedPiece: args.capturedPiece,
+    leadsToMate: args.leadsToMate,
+    leadsToPromotion: args.leadsToPromotion,
+    countCritical: args.countPressure,
+    finalMaterialSwing: args.finalMaterialSwing,
+  });
+
+  if (args.leadsToMate || args.leadsToPromotion) {
+    if (materialGainClass === 'structural') {
+      labels.push('structural-win');
+    }
+    return {
+      accepted: labels.length > 0 || args.firstMoveIsCheck || args.firstMoveIsCapture,
+      labels,
+      materialGainClass,
+    };
+  }
+
+  if (!labels.includes('forcing') && !labels.includes('quiet-but-forcing')) {
+    return {
+      accepted: false,
+      labels,
+      materialGainClass,
+    };
+  }
+
+  if (materialGainClass === 'incidental') {
+    return {
+      accepted: false,
+      labels,
+      materialGainClass,
+    };
+  }
+
+  if (materialGainClass === 'structural') {
+    labels.push('structural-win');
+  }
+
+  return {
+    accepted: true,
+    labels,
+    materialGainClass,
+  };
 }
 
 const DEFAULT_MIN_PLIES = 3;
@@ -133,6 +244,28 @@ function createGameState(board: Board, turn: PieceColor): GameState {
     lastMoveTime: 0,
     moveCount: 0,
   };
+}
+
+function getAllLegalMovesForColor(board: Board, color: PieceColor): Move[] {
+  const moves: Move[] = [];
+
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      const piece = board[row]?.[col];
+      if (!piece || piece.color !== color) {
+        continue;
+      }
+
+      for (const target of getLegalMoves(board, { row, col })) {
+        moves.push({
+          from: { row, col },
+          to: { ...target },
+        });
+      }
+    }
+  }
+
+  return moves;
 }
 
 function resolveGenerationStartState(input: PuzzleGenerationSource): GameState | null {
@@ -270,6 +403,14 @@ function piecePriority(type: PieceType): number {
     case 'P': return 1;
     case 'K': return 0;
   }
+}
+
+function normalizeDoctrineCapturedPiece(type: PieceType | null): 'R' | 'N' | 'S' | 'M' | 'PM' | 'P' | null {
+  if (!type || type === 'K') {
+    return null;
+  }
+
+  return type;
 }
 
 function getOpponent(color: PieceColor): PieceColor {
@@ -596,10 +737,48 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
   const firstMoveCapture = firstMove
     ? Boolean(board[firstMove.to.row]?.[firstMove.to.col])
     : false;
+  const firstCapturedPiece = firstMove && firstMoveCapture
+    ? board[firstMove.to.row]?.[firstMove.to.col]?.type ?? null
+    : null;
+  const firstState = firstMove
+    ? makeMove(initialState, firstMove.from, firstMove.to)
+    : null;
+  const defenderReplyCount = firstState
+    ? getAllLegalMovesForColor(firstState.board, firstState.turn).length
+    : 0;
 
   if (!finalState) return null;
   if (finalState.isCheckmate) {
     const theme = solution.length <= 1 ? 'MateIn1' : solution.length <= 3 ? 'MateIn2' : 'MateIn3';
+    const doctrine = evaluateGeneratedLineDoctrine({
+      firstMoveIsCheck: Boolean(firstState?.isCheck),
+      firstMoveIsCapture: firstMoveCapture,
+      defenderReplyCount,
+      createsTrap: false,
+      createsMateThreat: true,
+      countPressure: false,
+      capturedPiece: normalizeDoctrineCapturedPiece(firstCapturedPiece),
+      finalMaterialSwing: getMaterialSwing(
+        createPlaceholderPuzzle(
+          board,
+          toMove,
+          solution,
+          'Tactic',
+          'tmp',
+          'tmp',
+          'tmp',
+          'tmp',
+          'tmp',
+        ),
+        finalState,
+      ),
+      finalTheme: theme,
+      leadsToMate: true,
+      leadsToPromotion: false,
+    });
+    if (!doctrine.accepted) {
+      return null;
+    }
     return {
       theme,
       materialSwing: getMaterialSwing(
@@ -624,10 +803,40 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
         board,
         toMove,
         solution,
+        tags: doctrine.labels,
       }),
     };
   }
   if (finalState.moveHistory[finalState.moveHistory.length - 1]?.promoted) {
+    const doctrine = evaluateGeneratedLineDoctrine({
+      firstMoveIsCheck: Boolean(firstState?.isCheck),
+      firstMoveIsCapture: firstMoveCapture,
+      defenderReplyCount,
+      createsTrap: false,
+      createsMateThreat: false,
+      countPressure: false,
+      capturedPiece: normalizeDoctrineCapturedPiece(firstCapturedPiece),
+      finalMaterialSwing: getMaterialSwing(
+        createPlaceholderPuzzle(
+          board,
+          toMove,
+          solution,
+          'Tactic',
+          'tmp',
+          'tmp',
+          'tmp',
+          'tmp',
+          'tmp',
+        ),
+        finalState,
+      ),
+      finalTheme: 'Promotion',
+      leadsToMate: false,
+      leadsToPromotion: true,
+    });
+    if (!doctrine.accepted) {
+      return null;
+    }
     return {
       theme: 'Promotion',
       materialSwing: getMaterialSwing(
@@ -652,6 +861,7 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
         board,
         toMove,
         solution,
+        tags: doctrine.labels,
       }),
     };
   }
@@ -684,6 +894,23 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
     return null;
   }
 
+  const doctrine = evaluateGeneratedLineDoctrine({
+    firstMoveIsCheck: Boolean(firstState?.isCheck),
+    firstMoveIsCapture: firstMoveCapture,
+    defenderReplyCount,
+    createsTrap: theme === 'TrappedPiece',
+    createsMateThreat: false,
+    countPressure: false,
+    capturedPiece: normalizeDoctrineCapturedPiece(firstCapturedPiece),
+    finalMaterialSwing: swing,
+    finalTheme: theme,
+    leadsToMate: false,
+    leadsToPromotion: false,
+  });
+  if (!doctrine.accepted) {
+    return null;
+  }
+
   return {
     theme,
     materialSwing: swing,
@@ -695,7 +922,10 @@ function analyzeTheme(board: Board, toMove: PieceColor, solution: Move[]): Theme
       board,
       toMove,
       solution,
-      tags: firstMoveCapture ? [] : ['quiet-first-move'],
+      tags: [
+        ...(firstMoveCapture ? [] : ['quiet-first-move']),
+        ...doctrine.labels,
+      ],
     }),
   };
 }
@@ -873,9 +1103,22 @@ function toDraft(
     origin: sourceLabel.toLowerCase().startsWith('exported') ? 'real-game' : 'seed-game',
     sourceGameId: sourceId,
     sourcePly: plyLabel,
+    sourceLicense: sourceLabel.toLowerCase().startsWith('exported') ? 'internal-real-game' : 'internal-selfplay',
+    sourceGameUrl: null,
     theme: analysis.theme,
     motif: copy.motif,
     tags,
+    positionKey: buildPuzzlePositionKey(board, toMove, null),
+    verification: {
+      engineSource: 'local',
+      searchDepth: null,
+      searchNodes: null,
+      multiPvGap: Math.max(0, solution.length * 20 - (analysis.theme === 'HangingPiece' ? 10 : 0)),
+      onlyMoveChainLength: solution.length,
+      countCriticality: 'none',
+      verificationStatus: 'solver_verified',
+    },
+    duplicateOf: null,
     difficultyScore,
     difficulty,
     toMove,
@@ -893,6 +1136,67 @@ function toDraft(
 
 function dedupeKey(board: Board, solution: Move[], toMove: PieceColor): string {
   return JSON.stringify({ board, solution, toMove });
+}
+
+function sourcePriority(draft: PuzzleCandidateDraft): number {
+  switch (draft.origin) {
+    case 'real-game':
+      return 4;
+    case 'seed-game':
+      return 3;
+    case 'engine-generated':
+      return 2;
+    case 'curated-manual':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function verificationPriority(draft: PuzzleCandidateDraft): number {
+  switch (draft.verification?.verificationStatus) {
+    case 'engine_verified':
+      return 4;
+    case 'solver_verified':
+      return 3;
+    case 'count_invalid':
+      return 2;
+    case 'ambiguous':
+      return 1;
+    case 'unverified':
+    default:
+      return 0;
+  }
+}
+
+function compareCandidateStrength(left: GeneratedPuzzleCandidate, right: GeneratedPuzzleCandidate): number {
+  return (
+    sourcePriority(right.draft) - sourcePriority(left.draft) ||
+    verificationPriority(right.draft) - verificationPriority(left.draft) ||
+    (right.draft.verification?.multiPvGap ?? Number.NEGATIVE_INFINITY) - (left.draft.verification?.multiPvGap ?? Number.NEGATIVE_INFINITY) ||
+    right.score - left.score ||
+    left.draft.id - right.draft.id
+  );
+}
+
+export function collapseGeneratedCandidates(candidates: GeneratedPuzzleCandidate[]): GeneratedPuzzleCandidate[] {
+  const bestByPosition = new Map<string, GeneratedPuzzleCandidate>();
+
+  for (const candidate of candidates) {
+    const key = candidate.draft.positionKey || candidate.fingerprint;
+    const existing = bestByPosition.get(key);
+    if (!existing || compareCandidateStrength(existing, candidate) > 0) {
+      bestByPosition.set(key, candidate);
+    }
+  }
+
+  return [...bestByPosition.values()].sort((left, right) =>
+    right.score - left.score ||
+    left.draft.theme.localeCompare(right.draft.theme) ||
+    left.sourceId.localeCompare(right.sourceId) ||
+    left.windowStart - right.windowStart ||
+    left.draft.id - right.draft.id,
+  );
 }
 
 function scoreCandidate(
@@ -915,8 +1219,28 @@ function scoreCandidate(
   const boardComplexityBonus = Math.min(120, pieceCount * 12);
   const gameLengthBonus = Math.min(120, Math.max(0, sourceMoveCount - 12) * 4);
   const warningPenalty = validationWarnings.length * 80;
+  const uniquenessBonus = Math.min(140, Math.max(0, draft.verification?.multiPvGap ?? 0));
+  const countingBonus = draft.verification?.countCriticality === 'critical'
+    ? 140
+    : draft.verification?.countCriticality === 'active'
+      ? 60
+      : 0;
 
-  return themeBase + boardComplexityBonus + gameLengthBonus - warningPenalty;
+  return themeBase + boardComplexityBonus + gameLengthBonus + uniquenessBonus + countingBonus - warningPenalty;
+}
+
+function getMaterialAdvantage(board: Board, color: PieceColor): number {
+  let score = 0;
+
+  for (const row of board) {
+    for (const piece of row) {
+      if (!piece || piece.type === 'K') continue;
+      const value = piecePriority(piece.type) * 100;
+      score += piece.color === color ? value : -value;
+    }
+  }
+
+  return score;
 }
 
 function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boolean {
@@ -958,6 +1282,14 @@ function passesQualityGate(state: GameState, draft: PuzzleCandidateDraft): boole
     return false;
   }
 
+  if (
+    draft.theme === 'HangingPiece' &&
+    solution.length <= 1 &&
+    getMaterialAdvantage(state.board, state.turn) >= 700
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -972,7 +1304,6 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
   const minSourceMoves = options.minSourceMoves ?? DEFAULT_MIN_SOURCE_MOVES;
   const rejectReasons = new Set(options.rejectResultReasons ?? [...DEFAULT_REJECT_RESULT_REASONS]);
   const allowReasons = options.allowResultReasons ? new Set(options.allowResultReasons) : null;
-  const seen = new Set<string>();
   const generated: GeneratedPuzzleCandidate[] = [];
   const sourceMoveCount = input.moveCount ?? input.moves.length;
   const startingPlyNumber = input.startingPlyNumber ?? 1;
@@ -1025,9 +1356,6 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
       if (!draft) continue;
       if (!passesQualityGate(state, draft)) continue;
 
-      const key = dedupeKey(draft.board, solution, draft.toMove);
-      if (seen.has(key)) continue;
-
       const puzzle = createPlaceholderPuzzle(
         draft.board,
         draft.toMove,
@@ -1063,11 +1391,6 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
         fingerprint,
         score,
       });
-      seen.add(fingerprint);
-
-      if (generated.length >= maxCandidates) {
-        return generated;
-      }
     }
 
     const nextState = makeMove(state, input.moves[index].from, input.moves[index].to);
@@ -1078,7 +1401,7 @@ export function generatePuzzleCandidateDraftsFromMoveSequence(
     state = nextState;
   }
 
-  return generated;
+  return collapseGeneratedCandidates(generated).slice(0, maxCandidates);
 }
 
 export function formatDraftAsPrettyJson(draft: PuzzleCandidateDraft): string {

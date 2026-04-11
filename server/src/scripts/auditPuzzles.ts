@@ -7,7 +7,7 @@ const rows = auditPuzzles(ALL_PUZZLES)
 for (const row of rows) {
   const flags = row.flags.length > 0 ? ` | ${row.flags.join('; ')}` : '';
   console.log(
-    `#${row.puzzleId} [${row.reviewStatus}] score=${row.qualityScore} family=${row.family} motif=${row.motif}${flags}`,
+    `#${row.puzzleId} [${row.reviewStatus}] score=${row.qualityScore} family=${row.family} motif=${row.motif} verify=${row.verificationStatus} gap=${row.multiPvGap ?? 'n/a'} key=${row.positionKey}${flags}`,
   );
 }
 

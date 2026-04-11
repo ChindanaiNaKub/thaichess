@@ -11,6 +11,10 @@ export interface PuzzleAuditRow {
   reviewStatus: Puzzle['reviewStatus'];
   motif: string;
   family: string;
+  positionKey: string;
+  duplicateOf: number | null;
+  verificationStatus: Puzzle['verification']['verificationStatus'];
+  multiPvGap: number | null;
   qualityScore: number;
   flags: string[];
 }
@@ -66,6 +70,39 @@ export function auditPuzzles(puzzles: Puzzle[]): PuzzleAuditRow[] {
       flags.push(`overrepresented family: ${family}`);
     }
 
+    if (puzzle.duplicateOf !== null) {
+      qualityScore -= 2;
+      flags.push(`duplicate of #${puzzle.duplicateOf}`);
+    }
+
+    if (puzzle.verification.verificationStatus === 'ambiguous') {
+      qualityScore -= 2;
+      flags.push('verification ambiguous');
+    }
+
+    if (puzzle.verification.verificationStatus === 'unverified') {
+      qualityScore -= 1;
+      flags.push('verification missing');
+    }
+
+    if (puzzle.verification.countCriticality === 'critical') {
+      qualityScore += 1;
+      flags.push('count-critical');
+    }
+
+    if (puzzle.tags.includes('quiet-but-forcing')) {
+      qualityScore += 1;
+      flags.push('quiet forcing idea');
+    }
+
+    if (puzzle.tags.includes('mate-preparation')) {
+      flags.push('mate preparation');
+    }
+
+    if (puzzle.goal.kind === 'material-win' && (puzzle.goal.minMaterialSwing ?? 0) <= 100) {
+      flags.push('review small material gain');
+    }
+
     if (!hasPassingReviewChecklist(puzzle)) {
       const checklist = puzzle.reviewChecklist;
       const incomplete = checklist.themeClarity === 'unreviewed' ||
@@ -89,6 +126,10 @@ export function auditPuzzles(puzzles: Puzzle[]): PuzzleAuditRow[] {
       reviewStatus: puzzle.reviewStatus,
       motif: puzzle.motif,
       family,
+      positionKey: puzzle.positionKey,
+      duplicateOf: puzzle.duplicateOf,
+      verificationStatus: puzzle.verification.verificationStatus,
+      multiPvGap: puzzle.verification.multiPvGap,
       qualityScore,
       flags,
     };

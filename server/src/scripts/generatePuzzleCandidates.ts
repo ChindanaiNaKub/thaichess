@@ -13,6 +13,15 @@ import { parsePgnLikePuzzleSources } from '../../../shared/puzzleSourceImport';
 import { SEED_PUZZLE_SOURCES } from '../../../shared/puzzleSeedSources';
 
 const DEFAULT_SEED_LABEL = 'seed corpus';
+const DOCTRINE_TAGS = new Set([
+  'forcing',
+  'quiet-but-forcing',
+  'mate-preparation',
+  'restriction',
+  'trap-conversion',
+  'count-pressure',
+  'structural-win',
+]);
 
 interface ScriptOptions {
   limit: number;
@@ -212,6 +221,7 @@ function writeMarkdownReview(
     const warnings = candidate.validationWarnings.length > 0
       ? candidate.validationWarnings.join(' | ')
       : 'none';
+    const doctrine = (candidate.draft.tags ?? []).filter(tag => DOCTRINE_TAGS.has(tag));
 
     return [
       `## #${candidate.draft.id} ${candidate.draft.theme} score=${candidate.score}`,
@@ -219,6 +229,7 @@ function writeMarkdownReview(
       `- source: ${candidate.sourceId}`,
       `- ply: ${candidate.windowStart + 1}`,
       `- motif: ${candidate.draft.motif}`,
+      `- doctrine: ${doctrine.length > 0 ? doctrine.join(', ') : 'none'}`,
       `- warnings: ${warnings}`,
       '',
       '```json',
@@ -284,8 +295,10 @@ async function main() {
   }
 
   for (const candidate of allGenerated) {
+    const doctrine = (candidate.draft.tags ?? []).filter(tag => DOCTRINE_TAGS.has(tag));
     console.log(`#${candidate.draft.id} from ${candidate.sourceId} at ply ${candidate.windowStart + 1}`);
     console.log(`score=${candidate.score} theme=${candidate.draft.theme} motif=${candidate.draft.motif}`);
+    console.log(`doctrine=${doctrine.length > 0 ? doctrine.join(', ') : 'none'}`);
     if (candidate.validationWarnings.length > 0) {
       console.log(`warnings=${candidate.validationWarnings.join(' | ')}`);
     }

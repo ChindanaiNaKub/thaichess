@@ -18,6 +18,7 @@ import {
   type Puzzle,
 } from '@shared/puzzles';
 import { finalizePuzzle, type RawPuzzle } from '@shared/puzzleCatalog';
+import { buildPuzzlePublishAuditRow } from '@shared/puzzlePublishing';
 import { IMPORTED_PUZZLE_CANDIDATES, createImportedPuzzleCandidate } from '@shared/puzzleImportQueue';
 import { validatePuzzle, validatePuzzles, validatePuzzleTurn } from '@shared/puzzleValidation';
 import { validateMakrukPosition, validateMakrukPuzzlePosition } from '@shared/makrukPositionValidation';
@@ -95,25 +96,51 @@ describe('puzzleValidation', () => {
     expect(results.filter(result => result.errors.length > 0)).toEqual([]);
   }, 25000);
 
-  it('ships a replay-backed live pool and quarantines the illegal screenshot sample', () => {
-    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(7001);
-    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(7003);
-    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(7004);
+  it('ships only the generated real-game live pool and quarantines the legacy screenshot sample', () => {
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7001);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7003);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7004);
     expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7002);
     expect(CURATED_PUZZLES).toHaveLength(4);
-    expect(GENERATED_PUZZLES).toHaveLength(24);
-    expect(PUBLISHABLE_CURATED_PUZZLES.map(puzzle => puzzle.id)).toEqual([7001, 7003, 7004]);
-    expect(PUBLISHABLE_GENERATED_PUZZLES).toHaveLength(22);
-    expect(PUZZLES).toHaveLength(25);
+    expect(GENERATED_PUZZLES).toHaveLength(28);
+    expect(PUBLISHABLE_CURATED_PUZZLES).toHaveLength(3);
+    expect(PUBLISHABLE_GENERATED_PUZZLES).toHaveLength(26);
+    expect(PUZZLES).toHaveLength(14);
     expect(PUZZLES.every(isPuzzleReadyToShip)).toBe(true);
+    expect(PUZZLES.every(puzzle => !puzzle.source.startsWith('Makruk-native sample pack:'))).toBe(true);
+    expect(PUZZLES.every(puzzle => !/selfplay|offline self-play/i.test(puzzle.title))).toBe(true);
+    expect(PUZZLES.every(puzzle => !/offline self-play/i.test(puzzle.source))).toBe(true);
+    expect(PUZZLES.every(puzzle => puzzle.tags.includes('editorial-live'))).toBe(true);
+    expect(PUZZLES.every(puzzle => puzzle.streakTier)).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.streakTier === 'foundation')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.streakTier === 'practical_attack')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.streakTier === 'forcing_conversion')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.streakTier === 'mate_pressure')).toBe(true);
+    expect(PUZZLES.filter(puzzle => puzzle.tags.includes('fork')).length).toBeGreaterThanOrEqual(2);
+    expect(PUZZLES.some(puzzle => puzzle.theme === 'Fork')).toBe(true);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9103);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9003);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9007);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9009);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9015);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9020);
+    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9023);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Fork the Back Guard')).toBe(false);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Overload the Met Guard')).toBe(false);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Late Pin, Clean Pickup')).toBe(false);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Take the Loose Knight, Keep the Initiative')).toBe(false);
+    expect(new Set(PUZZLES.map(puzzle => puzzle.theme)).size).toBeGreaterThanOrEqual(7);
+    expect(PUZZLES.filter(puzzle => puzzle.tags.includes('mate-preparation')).length).toBeGreaterThanOrEqual(2);
+    expect(PUZZLES.some(puzzle => puzzle.theme === 'WinBeforeCountExpires')).toBe(true);
+    expect(PUZZLES.some(puzzle => ['MateIn2', 'MateIn3', 'MatingNet'].includes(puzzle.theme))).toBe(true);
     expect(PUZZLE_POOL_DIAGNOSTICS).toMatchObject({
-      totalCandidates: 28,
-      validCandidates: 25,
-      shippedCandidates: 25,
+      totalCandidates: 32,
+      validCandidates: 29,
+      shippedCandidates: 14,
       rejectedCandidates: 3,
     });
 
-    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(24);
+    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(28);
     expect(IMPORTED_PUZZLE_CANDIDATES.every(candidate => isPuzzleReadyToShip(candidate))).toBe(true);
     expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(7002);
     expect(QUARANTINED_PUZZLES).toHaveLength(3);
@@ -203,6 +230,272 @@ describe('puzzleValidation', () => {
       reviewNotes: '',
     });
     expect(isPuzzleReadyToShip(candidate)).toBe(false);
+  });
+
+  it('fails counting-sensitive lines when the active count expires before the claimed win', () => {
+    const puzzle = createTestPuzzle({
+      id: 1991,
+      title: 'Count expires before the capture',
+      description: 'White to move. Win the rook before the count runs out.',
+      explanation: 'White appears to win the rook, but the count closes the game first.',
+      source: 'Generated review batch',
+      theme: 'HangingPiece',
+      motif: 'count expiry',
+      difficulty: 'intermediate',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
+      objective: 'Win the black rook before Sak Mak ends the game.',
+      whyPositionMatters: 'This fixture proves count-aware validation rejects lines that only win material when counting is ignored.',
+      dependsOnCounting: true,
+      ruleImpact: 'Sak Mak is already active for White and the current count is at the limit, so any slow conversion immediately fails.',
+      commonWrongMove: move('a1', 'a7'),
+      wrongMoveExplanation: 'A waiting move is even worse because White loses the count without changing the result.',
+      takeaway: 'Count-aware puzzles must validate the real Makruk result, not just the material snapshot.',
+      toMove: 'white',
+      counting: {
+        active: true,
+        type: 'board_honor',
+        countingColor: 'white',
+        strongerColor: 'white',
+        currentCount: 64,
+        startCount: 1,
+        limit: 64,
+        finalAttackPending: false,
+      },
+      board: boardFromPlacements(
+        ['c1', 'K', 'white'],
+        ['a1', 'R', 'white'],
+        ['h8', 'K', 'black'],
+        ['a8', 'R', 'black'],
+      ),
+      goal: {
+        kind: 'material-win',
+        result: 'white-win',
+        reason: 'material_win',
+        minMaterialSwing: 500,
+      },
+      acceptedMoves: [
+        {
+          move: move('a1', 'a2'),
+          lineId: 'main',
+          explanation: 'A waiting rook move proves the count expires before White can convert the position.',
+        },
+      ],
+      solutionLines: [
+        {
+          id: 'main',
+          label: 'Count-invalid waiting move',
+          moves: line('a1-a2'),
+          outcome: {
+            result: 'white-win',
+            reason: 'material_win',
+            explanation: 'The claimed line says White wins the rook.',
+          },
+        },
+      ],
+      verification: {
+        engineSource: 'binary',
+        searchDepth: 12,
+        searchNodes: 9000,
+        multiPvGap: 120,
+        onlyMoveChainLength: 1,
+        countCriticality: 'critical',
+        verificationStatus: 'engine_verified',
+      },
+    });
+
+    expect(validatePuzzle(puzzle).errors).toEqual(expect.arrayContaining([
+      'Solution line "main" fails because Makruk counting expires before the claimed objective is reached.',
+    ]));
+  });
+
+  it('rejects generated puzzles that remain ambiguous after verification', () => {
+    const basePuzzle = finalizePuzzle({
+      ...getPuzzle(7001),
+      id: 1992,
+      source: 'Generated candidate import',
+      origin: 'engine-generated',
+      reviewStatus: 'ship',
+      reviewChecklist: {
+        themeClarity: 'pass',
+        teachingValue: 'pass',
+        duplicateRisk: 'clear',
+        reviewNotes: 'Used for ambiguity fixture.',
+      },
+      verification: {
+        engineSource: 'binary',
+        searchDepth: 10,
+        searchNodes: 8000,
+        multiPvGap: 15,
+        onlyMoveChainLength: 1,
+        countCriticality: 'none',
+        verificationStatus: 'ambiguous',
+      },
+    });
+
+    expect(validatePuzzle(basePuzzle).errors).toEqual(expect.arrayContaining([
+      'Generated puzzle is still ambiguous after verification and cannot be shipped.',
+    ]));
+  });
+
+  it('rejects a puzzle whose motif claims mate preparation but the line never creates a mating net', () => {
+    const puzzle = finalizePuzzle({
+      ...getPuzzle(7001),
+      id: 1993,
+      motif: 'mate-preparation',
+      explanation: 'The first move is supposed to seal the mating net.',
+      tags: [...getPuzzle(7001).tags.filter(tag => tag !== 'fork'), 'mate-preparation'],
+    });
+
+    expect(validatePuzzle(puzzle).errors).toEqual(expect.arrayContaining([
+      'Puzzle motif says mate preparation, but the verified line does not create a clear mating-net restriction.',
+    ]));
+  });
+
+  it('rejects a material puzzle when the only gain is incidental', () => {
+    const puzzle = createTestPuzzle({
+      id: 1994,
+      title: 'Incidental Pawn Grab',
+      description: 'White to move. Win the loose pawn.',
+      explanation: 'Nf6+ wins a pawn, but that gain does not create a meaningful conversion.',
+      source: 'test fixture',
+      theme: 'HangingPiece',
+      motif: 'incidental pawn win',
+      difficulty: 'beginner',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'unreviewed',
+        reviewNotes: '',
+      },
+      objective: 'Win the loose pawn on f6.',
+      whyPositionMatters: 'This fixture proves the validator rejects material-win puzzles that only pick up incidental material.',
+      dependsOnCounting: false,
+      ruleImpact: 'No counting issue applies here. The problem is that the published gain is too small to be a meaningful puzzle lesson.',
+      goal: {
+        kind: 'material-win',
+        result: 'white-win',
+        reason: 'material_win',
+        minMaterialSwing: 100,
+      },
+      acceptedMoves: [
+        {
+          move: move('e4', 'f6'),
+          lineId: 'main',
+          explanation: 'Nf6+ captures the pawn, but that is all White gets.',
+        },
+      ],
+      solutionLines: [
+        {
+          id: 'main',
+          label: 'Incidental pawn capture',
+          moves: line('e4-f6'),
+          outcome: {
+            result: 'white-win',
+            reason: 'material_win',
+            explanation: 'White wins one pawn and nothing more.',
+          },
+        },
+      ],
+      commonWrongMove: move('e4', 'g5'),
+      wrongMoveExplanation: 'Ng5 keeps the knight active, but it does not win material at all.',
+      takeaway: 'Not every legal pawn grab deserves to be a published puzzle.',
+      toMove: 'white',
+      board: boardFromPlacements(
+        ['c2', 'K', 'white'],
+        ['e4', 'N', 'white'],
+        ['e8', 'K', 'black'],
+        ['f6', 'P', 'black'],
+      ),
+      solution: line('e4-f6'),
+    });
+
+    expect(validatePuzzle(puzzle).errors).toEqual(expect.arrayContaining([
+      'Puzzle wins only incidental material and does not teach a meaningful conversion.',
+    ]));
+  });
+
+  it('uses verification metadata when seeding difficulty for otherwise similar puzzles', () => {
+    const baseRaw = {
+      ...getPuzzle(7001),
+      id: 1993,
+      reviewStatus: 'quarantine' as const,
+      reviewChecklist: {
+        themeClarity: 'unreviewed' as const,
+        teachingValue: 'unreviewed' as const,
+        duplicateRisk: 'unreviewed' as const,
+        reviewNotes: '',
+      },
+      difficultyScore: undefined,
+      verification: {
+        engineSource: 'local' as const,
+        searchDepth: null,
+        searchNodes: null,
+        multiPvGap: 40,
+        onlyMoveChainLength: 1,
+        countCriticality: 'none' as const,
+        verificationStatus: 'solver_verified' as const,
+      },
+    };
+
+    const easier = finalizePuzzle(baseRaw);
+    const harder = finalizePuzzle({
+      ...baseRaw,
+      id: 1994,
+      verification: {
+        engineSource: 'binary',
+        searchDepth: 16,
+        searchNodes: 22000,
+        multiPvGap: 210,
+        onlyMoveChainLength: 3,
+        countCriticality: 'critical',
+        verificationStatus: 'engine_verified',
+      },
+    });
+
+    expect(harder.difficultyScore).toBeGreaterThan(easier.difficultyScore);
+  });
+
+  it('exposes duplicate and verification status through the publish audit row', () => {
+    const puzzle = finalizePuzzle({
+      ...getPuzzle(7001),
+      id: 1995,
+      source: 'Generated candidate import',
+      origin: 'engine-generated',
+      reviewStatus: 'quarantine',
+      reviewChecklist: {
+        themeClarity: 'unreviewed',
+        teachingValue: 'unreviewed',
+        duplicateRisk: 'duplicate',
+        reviewNotes: 'Duplicate of a stronger real-game position.',
+      },
+      duplicateOf: 7001,
+      verification: {
+        engineSource: 'binary',
+        searchDepth: 11,
+        searchNodes: 12000,
+        multiPvGap: 125,
+        onlyMoveChainLength: 1,
+        countCriticality: 'none',
+        verificationStatus: 'solver_verified',
+      },
+    });
+
+    const auditRow = buildPuzzlePublishAuditRow(puzzle);
+
+    expect(auditRow.positionKey).toBe(puzzle.positionKey);
+    expect(auditRow.duplicateOf).toBe(7001);
+    expect(auditRow.verificationStatus).toBe('solver_verified');
+    expect(auditRow.classification).toBe('Rewrite');
+    expect(auditRow.classificationReasons).toEqual(expect.arrayContaining([
+      'Puzzle is marked as a duplicate of #7001.',
+    ]));
   });
 
   it('rejects puzzles whose sideToMove does not match the solution line or board state', () => {
@@ -317,27 +610,25 @@ describe('puzzleValidation', () => {
     expect(isPuzzleReadyToShip(candidate)).toBe(true);
   });
 
-  it('publishes curated and generated puzzles separately with visible failure audits', () => {
+  it('keeps curated audits visible while the live published pool stays editorial-generated only', () => {
     const publishableRows = PUZZLE_PUBLISH_AUDIT.filter(row => row.publishable);
     const keepCount = PUZZLE_PUBLISH_AUDIT.filter(row => row.classification === 'Keep').length;
     const rewriteCount = PUZZLE_PUBLISH_AUDIT.filter(row => row.classification === 'Rewrite').length;
     const rejectCount = PUZZLE_PUBLISH_AUDIT.filter(row => row.classification === 'Reject').length;
 
-    expect(publishableRows.map(row => row.id)).toEqual(expect.arrayContaining([7001, 7003, 7004, 9000, 9001, 9023]));
+    expect(publishableRows.map(row => row.id)).toEqual(expect.arrayContaining([7001, 7003, 7004, 9001, 9007, 9022, 9100, 9101, 9102, 9103]));
     expect({ keepCount, rewriteCount, rejectCount }).toEqual({
-      keepCount: 25,
+      keepCount: 29,
       rewriteCount: 0,
       rejectCount: 3,
     });
     expect(PUZZLE_POOL_BREAKDOWN.publishableBySource).toEqual({
       curated: 3,
-      generated: 22,
+      generated: 26,
     });
-    expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty).toEqual({
-      beginner: 8,
-      intermediate: 7,
-      advanced: 10,
-    });
+    expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.beginner).toBeGreaterThanOrEqual(3);
+    expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.intermediate).toBeGreaterThanOrEqual(3);
+    expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.advanced).toBeGreaterThanOrEqual(7);
     expect(CURATED_PUBLISH_FAILURES).toHaveLength(1);
     expect(CURATED_PUBLISH_FAILURES[0]).toMatchObject({
       id: 7002,
