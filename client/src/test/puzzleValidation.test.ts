@@ -102,7 +102,7 @@ describe('puzzleValidation', () => {
     expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7004);
     expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(7002);
     expect(CURATED_PUZZLES).toHaveLength(4);
-    expect(GENERATED_PUZZLES).toHaveLength(28);
+    expect(GENERATED_PUZZLES).toHaveLength(29);
     expect(PUBLISHABLE_CURATED_PUZZLES).toHaveLength(3);
     expect(PUBLISHABLE_GENERATED_PUZZLES).toHaveLength(26);
     expect(PUZZLES).toHaveLength(14);
@@ -134,16 +134,20 @@ describe('puzzleValidation', () => {
     expect(PUZZLES.some(puzzle => puzzle.theme === 'WinBeforeCountExpires')).toBe(true);
     expect(PUZZLES.some(puzzle => ['MateIn2', 'MateIn3', 'MatingNet'].includes(puzzle.theme))).toBe(true);
     expect(PUZZLE_POOL_DIAGNOSTICS).toMatchObject({
-      totalCandidates: 32,
+      totalCandidates: 33,
       validCandidates: 29,
       shippedCandidates: 14,
-      rejectedCandidates: 3,
+      rejectedCandidates: 4,
     });
 
-    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(28);
-    expect(IMPORTED_PUZZLE_CANDIDATES.every(candidate => isPuzzleReadyToShip(candidate))).toBe(true);
+    expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(29);
+    expect(IMPORTED_PUZZLE_CANDIDATES.filter(candidate => isPuzzleReadyToShip(candidate))).toHaveLength(28);
+    expect(IMPORTED_PUZZLE_CANDIDATES.find(candidate => candidate.id === 9200)).toMatchObject({
+      reviewStatus: 'quarantine',
+    });
     expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(7002);
-    expect(QUARANTINED_PUZZLES).toHaveLength(3);
+    expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(9200);
+    expect(QUARANTINED_PUZZLES).toHaveLength(4);
   });
 
   it('aligns every live puzzle sideToMove with its first solution move', () => {
@@ -620,7 +624,7 @@ describe('puzzleValidation', () => {
     expect({ keepCount, rewriteCount, rejectCount }).toEqual({
       keepCount: 29,
       rewriteCount: 0,
-      rejectCount: 3,
+      rejectCount: 4,
     });
     expect(PUZZLE_POOL_BREAKDOWN.publishableBySource).toEqual({
       curated: 3,
@@ -629,13 +633,21 @@ describe('puzzleValidation', () => {
     expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.beginner).toBeGreaterThanOrEqual(3);
     expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.intermediate).toBeGreaterThanOrEqual(3);
     expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.advanced).toBeGreaterThanOrEqual(7);
-    expect(CURATED_PUBLISH_FAILURES).toHaveLength(1);
+    expect(CURATED_PUBLISH_FAILURES).toHaveLength(2);
     expect(CURATED_PUBLISH_FAILURES[0]).toMatchObject({
       id: 7002,
       sourceType: 'curated',
       classification: 'Reject',
       classificationReasons: expect.arrayContaining([
         'Black bia cannot be behind its starting rank.',
+      ]),
+    });
+    expect(CURATED_PUBLISH_FAILURES[1]).toMatchObject({
+      id: 9200,
+      sourceType: 'curated',
+      classification: 'Reject',
+      classificationReasons: expect.arrayContaining([
+        'Solution line "main" does not end in checkmate.',
       ]),
     });
     expect(GENERATED_PUBLISH_FAILURES.map(row => row.id)).toEqual([9002, 9004]);
@@ -669,6 +681,24 @@ describe('puzzleValidation', () => {
     expect(result.errors).toContain('Black bia cannot be behind its starting rank.');
     expect(PUZZLES.map(candidate => candidate.id)).not.toContain(7002);
     expect(QUARANTINED_PUZZLES.map(candidate => candidate.id)).toContain(7002);
+  });
+
+  it('stores the imported image-based black mating candidate in quarantine until its line is reviewed', () => {
+    const puzzleId = 9200;
+    const quarantined = QUARANTINED_PUZZLES.find(candidate => candidate.id === puzzleId);
+
+    expect(quarantined).toBeDefined();
+    expect(quarantined).toMatchObject({
+      id: puzzleId,
+      reviewStatus: 'quarantine',
+      toMove: 'black',
+      sideToMove: 'black',
+      theme: 'MateIn3',
+      motif: 'Mate over material from imported board image',
+    });
+    expect(quarantined?.source).toContain('image intake');
+    expect(quarantined?.tags).toEqual(expect.arrayContaining(['image-import', 'candidate-from-photo', 'mate-candidate']));
+    expect(PUZZLES.map(candidate => candidate.id)).not.toContain(puzzleId);
   });
 
   it('accepts only the immediate mate in the counting-aware sample', () => {

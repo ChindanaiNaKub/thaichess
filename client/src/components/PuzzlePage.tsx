@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
-import { PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
+import { ALL_PUZZLES, PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import {
   getCheckpointFeedbackTone,
@@ -1236,7 +1236,8 @@ function PuzzlePlayer() {
   const { progressRecords, completedPuzzleSet, recordPuzzleVisited, recordPuzzleFailed, markPuzzleCompleted } = usePuzzleProgress();
   const { id } = useParams<{ id: string }>();
   const puzzleId = parseInt(id || '1', 10);
-  const puzzle = PUZZLES.find(p => p.id === puzzleId);
+  const puzzle = PUZZLES.find(p => p.id === puzzleId) ?? ALL_PUZZLES.find(p => p.id === puzzleId);
+  const navigationPool = puzzle?.reviewStatus === 'ship' ? PUZZLES : (puzzle ? [puzzle] : PUZZLES);
   const autoReplyTimeoutRef = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -1462,14 +1463,14 @@ function PuzzlePlayer() {
   };
 
   const getNextPuzzle = (): number | null => {
-    const idx = PUZZLES.findIndex(p => p.id === puzzleId);
-    if (idx >= 0 && idx < PUZZLES.length - 1) return PUZZLES[idx + 1].id;
+    const idx = navigationPool.findIndex(p => p.id === puzzleId);
+    if (idx >= 0 && idx < navigationPool.length - 1) return navigationPool[idx + 1].id;
     return null;
   };
 
   const getPrevPuzzle = (): number | null => {
-    const idx = PUZZLES.findIndex(p => p.id === puzzleId);
-    if (idx > 0) return PUZZLES[idx - 1].id;
+    const idx = navigationPool.findIndex(p => p.id === puzzleId);
+    if (idx > 0) return navigationPool[idx - 1].id;
     return null;
   };
 

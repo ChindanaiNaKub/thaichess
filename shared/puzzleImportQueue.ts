@@ -58,6 +58,7 @@ export interface PuzzleCandidateDraft extends Omit<
   difficultyScore?: number;
   streakTier?: PuzzleStreakTier;
   sideToMove?: Puzzle['sideToMove'];
+  boardOrientation?: Puzzle['boardOrientation'];
   counting?: Puzzle['counting'];
   dependsOnCounting?: boolean;
   solution?: Puzzle['solution'];
@@ -313,6 +314,10 @@ type EditorialLiveOverride = Pick<
 type EditorialLiveManualDraft = PuzzleCandidateDraft & {
   tags: string[];
   streakTier: PuzzleStreakTier;
+};
+
+type ManualReviewDraft = PuzzleCandidateDraft & {
+  tags: string[];
 };
 
 const EDITORIAL_LIVE_OVERRIDES = new Map<number, EditorialLiveOverride>([
@@ -739,6 +744,87 @@ const EDITORIAL_MANUAL_DRAFTS: EditorialLiveManualDraft[] = [
   },
 ];
 
+const MANUAL_REVIEW_DRAFTS: ManualReviewDraft[] = [
+  {
+    id: 9200,
+    title: 'Imported Black Mate Candidate: Met Takes Ma',
+    description: 'Black to move. Start with the met capture on f3, allow White to grab on e6, then continue the rook attack to mate.',
+    explanation: 'Imported from a board image for manual review. The intended practical line is Mxf3, Rxe6, rook check, king retreat, then the rightmost rook finishes the mate.',
+    source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate',
+    theme: 'MateIn3',
+    motif: 'Mate over material from imported board image',
+    difficulty: 'advanced',
+    difficultyScore: 1560,
+    streakTier: 'mate_pressure',
+    verification: {
+      engineSource: 'none',
+      searchDepth: null,
+      searchNodes: null,
+      multiPvGap: null,
+      onlyMoveChainLength: 3,
+      countCriticality: 'none',
+      verificationStatus: 'unverified',
+    },
+    objective: 'Black to move. Begin with met takes ma and continue the intended attacking line to checkmate White.',
+    whyPositionMatters: 'This draft comes from a user-supplied board image where the practical question is whether Black should cash out with the met capture because the mating net still survives afterwards.',
+    dependsOnCounting: false,
+    ruleImpact: 'No counting issue is part of the image intake yet. This draft is quarantined until the exact mating replay is reviewed against Makruk movement.',
+    goal: {
+      kind: 'checkmate',
+      result: 'black-win',
+      reason: 'checkmate',
+    },
+    acceptedMoves: [
+      {
+        move: candidateMove('e4', 'f3'),
+        lineId: 'main',
+        explanation: 'The imported idea starts with the met capture on f3.',
+      },
+    ],
+    solutionLines: [
+      {
+        id: 'main',
+        label: 'Imported image line',
+        moves: candidateLine('e4-f3', 'e3-e6', 'g3-g2', 'c3-b2', 'h3-h2'),
+        outcome: {
+          result: 'black-win',
+          reason: 'checkmate',
+          explanation: 'Intended user-supplied mating net from the imported board image. This line remains under manual review.',
+        },
+      },
+    ],
+    solution: candidateLine('e4-f3', 'e3-e6', 'g3-g2', 'c3-b2', 'h3-h2'),
+    hint1: 'Do not stop at the material count. The imported idea starts with the met capture because the attack is supposed to keep going.',
+    hint2: 'After White grabs on e6, look for the rook check that keeps the king boxed in for the final rook move.',
+    keyIdea: 'This candidate is about mate over material even though the first move is still a capture.',
+    commonWrongMove: candidateMove('g3', 'f3'),
+    wrongMoveExplanation: 'A rook capture on f3 also wins the ma, but this imported draft is preserving the user-supplied idea that the met capture keeps the mating net tighter.',
+    takeaway: 'Imported image candidates should keep the practical attacking idea, then wait in quarantine until the exact replay is confirmed.',
+    toMove: 'black',
+    sideToMove: 'black',
+    boardOrientation: 'black',
+    board: candidateBoard(
+      ['f2', 'S', 'white'],
+      ['b3', 'M', 'white'],
+      ['c3', 'K', 'white'],
+      ['e3', 'R', 'white'],
+      ['f3', 'N', 'white'],
+      ['a4', 'P', 'white'],
+      ['b4', 'P', 'white'],
+      ['e4', 'M', 'black'],
+      ['b5', 'P', 'black'],
+      ['g3', 'R', 'black'],
+      ['h3', 'R', 'black'],
+      ['b6', 'S', 'black'],
+      ['c6', 'P', 'black'],
+      ['e6', 'S', 'black'],
+      ['c7', 'K', 'black'],
+    ),
+    tags: ['image-import', 'candidate-from-photo', 'mate-candidate', 'material-vs-mate', 'needs-line-review'],
+    origin: 'curated-manual',
+  },
+];
+
 function createEditorialLivePuzzleCandidate(
   draft: PuzzleCandidateDraft,
   override: EditorialLiveOverride,
@@ -780,6 +866,7 @@ const CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
     ...draft,
     origin: 'engine-generated' as const,
   })),
+  ...MANUAL_REVIEW_DRAFTS,
 ];
 
 const REVIEWED_IMPORT_IDS = new Set<number>();
@@ -792,5 +879,7 @@ export const IMPORTED_PUZZLE_CANDIDATES: Puzzle[] = CANDIDATE_DRAFTS.map(draft =
       draft,
       'Promoted into the curated tactical pack because the motif is clear, legal, and worth replaying.',
     )
+    : draft.origin === 'curated-manual'
+    ? createImportedPuzzleCandidate(draft)
     : createGeneratedPuzzleCandidate(draft),
 );

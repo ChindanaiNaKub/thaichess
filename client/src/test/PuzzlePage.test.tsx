@@ -9,6 +9,7 @@ const {
   boardPropsMock,
   navigateMock,
   puzzleListFixtures,
+  quarantinedPuzzleFixture,
   markPuzzleCompletedMock,
   recordPuzzleVisitedMock,
   recordPuzzleFailedMock,
@@ -207,10 +208,29 @@ const {
     },
   ];
 
+  const quarantinedPuzzleFixture: PuzzleFixture = {
+    ...puzzleListFixtures[0],
+    id: 9200,
+    title: 'Imported Black Mate Candidate: Met Takes Ma',
+    description: 'Black to move. Imported from board image for local review.',
+    explanation: 'Preview this quarantined draft locally before promoting it.',
+    source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate',
+    origin: 'curated-manual' as const,
+    difficulty: 'advanced' as const,
+    difficultyScore: 1560,
+    sideToMove: 'black' as const,
+    toMove: 'black' as const,
+    boardOrientation: 'black' as const,
+    reviewStatus: 'quarantine' as const,
+    motif: 'Mate over material from imported board image',
+    tags: ['image-import', 'candidate-from-photo', 'mate-candidate'],
+  };
+
   return {
     boardPropsMock: vi.fn(),
     navigateMock: vi.fn(),
     puzzleListFixtures,
+    quarantinedPuzzleFixture,
     markPuzzleCompletedMock: vi.fn(async () => {}),
     recordPuzzleVisitedMock: vi.fn(async () => {}),
     recordPuzzleFailedMock: vi.fn(async () => {}),
@@ -244,6 +264,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@shared/puzzlesRuntime', () => ({
+  ALL_PUZZLES: [...puzzleListFixtures, quarantinedPuzzleFixture],
   PUZZLES: puzzleListFixtures,
   PUZZLE_POOL_DIAGNOSTICS: {
     totalCandidates: puzzleListFixtures.length,
@@ -608,6 +629,16 @@ function renderLessonPlayer() {
   );
 }
 
+function renderQuarantinedLessonPlayer() {
+  return render(
+    <MemoryRouter initialEntries={['/puzzle/9200']}>
+      <Routes>
+        <Route path="/puzzle/:id" element={<PuzzlePlayer />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('Puzzle surfaces', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -879,5 +910,19 @@ describe('Puzzle surfaces', () => {
     expect(screen.getByText('Greedy material wins release the king net and let Black untangle.')).toBeInTheDocument();
     expect(screen.getByText('Takeaway')).toBeInTheDocument();
     expect(screen.getByText('Build the net first, then collect what falls.')).toBeInTheDocument();
+  });
+
+  it('opens quarantined draft puzzles directly for local review without adding them to the shipped pool', () => {
+    renderQuarantinedLessonPlayer();
+
+    expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(9200);
+    expect(screen.getByText('Imported Black Mate Candidate: Met Takes Ma')).toBeInTheDocument();
+    expect(screen.queryByText('puzzle.not_found')).not.toBeInTheDocument();
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
+      playerColor: 'black',
+      isMyTurn: true,
+    });
+    expect(screen.queryByRole('button', { name: 'Next Puzzle' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Previous' })).not.toBeInTheDocument();
   });
 });
