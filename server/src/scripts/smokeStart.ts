@@ -3,9 +3,10 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { setTimeout as delay } from 'timers/promises';
 import { spawn } from 'child_process';
+import { resolveSmokeStartTimeoutMs } from './smokeStartConfig';
 
 const PORT = 3100;
-const START_TIMEOUT_MS = 15_000;
+const START_TIMEOUT_MS = resolveSmokeStartTimeoutMs(process.env);
 const POLL_INTERVAL_MS = 250;
 const serverEntry = path.resolve(__dirname, '../index.js');
 const tempDataDir = mkdtempSync(path.join(tmpdir(), 'thaichess-smoke-'));
