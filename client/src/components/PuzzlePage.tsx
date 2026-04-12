@@ -1062,7 +1062,7 @@ function PuzzleStreakPage() {
     ? streakTask
     : currentPuzzle?.whyPositionMatters ?? null;
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
       <Header
         active="puzzles"
         subtitle={t('puzzle.streak_nav')}
@@ -1076,8 +1076,8 @@ function PuzzleStreakPage() {
         )}
       />
 
-      <main id="main-content" className="flex-1 px-4 py-3 sm:py-4 lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
-        <div className="mx-auto flex h-full w-full max-w-[1360px] flex-col gap-2.5 lg:min-h-0">
+      <main id="main-content" className="flex-1 min-h-0 px-4 py-3 sm:py-4 lg:overflow-hidden">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1360px] flex-col gap-2.5">
           <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:grid lg:grid-cols-[minmax(0,1fr)_352px] xl:grid-cols-[minmax(0,1fr)_376px] lg:items-stretch">
             <div className={`flex min-h-0 flex-1 flex-col items-center justify-center transition-opacity duration-200 lg:overflow-hidden ${isTransitioning ? 'opacity-70' : 'opacity-100'}`}>
               {currentPuzzle && gameState && (
@@ -1106,7 +1106,10 @@ function PuzzleStreakPage() {
               )}
             </div>
 
-            <aside className="flex w-full max-w-[720px] min-h-0 flex-col gap-2.5 lg:h-full lg:max-w-none lg:overflow-visible">
+            <aside
+              className="flex w-full max-w-[720px] min-h-0 flex-col gap-2.5 lg:h-full lg:max-h-full lg:max-w-none lg:overflow-y-auto lg:pr-1"
+              style={{ overflowAnchor: 'none' }}
+            >
               <section
                 data-testid="streak-sidebar-summary"
                 className="rounded-2xl border border-primary/20 bg-[linear-gradient(155deg,rgba(92,160,26,0.14),rgba(39,30,24,0.92)_45%,rgba(22,18,14,0.98))] p-4"
@@ -1548,7 +1551,7 @@ function PuzzlePlayer() {
   const verificationLabel = getVerificationLabel(puzzle, t);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
       <Header
         active="puzzles"
         subtitle={t('puzzle.lessons_nav')}
@@ -1570,9 +1573,9 @@ function PuzzlePlayer() {
         )}
       />
 
-      <main id="main-content" className="flex-1 px-4 py-4 lg:overflow-hidden">
-        <div className="mx-auto flex h-full w-full max-w-[1280px] flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-          <div className="flex flex-col items-center gap-3 lg:min-h-0 lg:overflow-hidden">
+      <main id="main-content" className="flex-1 min-h-0 px-4 py-4 lg:overflow-hidden">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div className="flex min-h-0 flex-col items-center justify-center gap-3 lg:overflow-hidden">
             {gameState && (
               <BoardErrorBoundary onRetry={handleRetry}>
                 <Board
@@ -1593,7 +1596,10 @@ function PuzzlePlayer() {
             )}
           </div>
 
-          <aside className="flex min-h-0 flex-col gap-3 lg:overflow-y-auto lg:pr-1">
+          <aside
+            className="flex min-h-0 flex-col gap-3 lg:max-h-full lg:overflow-y-auto lg:pr-1"
+            style={{ overflowAnchor: 'none' }}
+          >
             <div className="rounded-[28px] border border-primary/20 bg-[linear-gradient(160deg,rgba(92,160,26,0.12),rgba(32,24,19,0.95)_48%,rgba(19,15,12,0.98))] p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
