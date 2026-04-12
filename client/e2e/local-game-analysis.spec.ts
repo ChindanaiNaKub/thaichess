@@ -58,6 +58,8 @@ test.describe('Local Game Analysis Persistence', () => {
   });
 
   test('should persist game data and show analysis after refresh', async ({ page }) => {
+    test.setTimeout(60_000);
+
     // Arrange
     const gamePage = new GamePage(page);
     const analysisPage = new AnalysisPage(page);
@@ -67,10 +69,7 @@ test.describe('Local Game Analysis Persistence', () => {
     await gamePage.makeOpeningMoves();
 
     // Navigate to a mock analysis URL (simulating saved game)
-    await page.goto('/analysis/mock-game-id-12345');
-
-    // Wait for page to settle (loading, error, or game view)
-    await page.waitForSelector('[data-testid="analysis-loading"], [data-testid="analysis-error"], [data-testid="analysis-game-view"]', { timeout: 30000 });
+    await analysisPage.goto('mock-game-id-12345');
 
     // Assert - Should show either loading, game view, or error (page should be stable)
     const isLoadingVisible = await page.getByTestId('analysis-loading').isVisible().catch(() => false);

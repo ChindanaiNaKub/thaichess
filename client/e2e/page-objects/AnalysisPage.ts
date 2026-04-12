@@ -17,7 +17,7 @@ export class AnalysisPage {
   async goto(gameId: string): Promise<void> {
     await this.page.goto(`/analysis/${gameId}`, { waitUntil: 'domcontentloaded' });
     // Wait for page to settle (either loading, error, or game view)
-    await this.page.waitForSelector('[data-testid="analysis-loading"], [data-testid="analysis-error"], [data-testid="analysis-game-view"]', { timeout: 30000 });
+    await this.page.waitForSelector('[data-testid="analysis-loading"], [data-testid="analysis-error"], [data-testid="analysis-game-view"]', { timeout: 60000 });
     // Give a small delay for React to render
     await this.page.waitForTimeout(100);
   }

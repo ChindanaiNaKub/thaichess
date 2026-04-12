@@ -163,13 +163,27 @@ function resolveLocalDatabasePath() {
   };
 }
 
-export function getDatabaseConfig() {
+export function getLibsqlConnectionOptions() {
   if (TURSO_DATABASE_URL) {
     return {
-      client: createClient({
-        url: TURSO_DATABASE_URL,
-        authToken: TURSO_AUTH_TOKEN,
-      }),
+      url: TURSO_DATABASE_URL,
+      authToken: TURSO_AUTH_TOKEN || undefined,
+    };
+  }
+
+  const localDatabase = resolveLocalDatabasePath();
+
+  return {
+    url: `file:${localDatabase.activePath}`,
+  };
+}
+
+export function getDatabaseConfig() {
+  const clientOptions = getLibsqlConnectionOptions();
+
+  if (TURSO_DATABASE_URL) {
+    return {
+      client: createClient(clientOptions),
       mode: 'turso' as const,
       location: TURSO_DATABASE_URL,
     };
@@ -178,9 +192,7 @@ export function getDatabaseConfig() {
   const localDatabase = resolveLocalDatabasePath();
 
   return {
-    client: createClient({
-      url: `file:${localDatabase.activePath}`,
-    }),
+    client: createClient(clientOptions),
     mode: 'local' as const,
     location: localDatabase.activePath,
   };
