@@ -53,7 +53,8 @@ export default function FeedbackWidget() {
       ? 'feedback.placeholder_feature'
       : 'feedback.placeholder_other';
 
-  const shouldHideLauncher = location.pathname === routes.login || location.pathname === routes.feedback;
+  const isPuzzleRoute = location.pathname === routes.puzzles || location.pathname.startsWith('/puzzle/');
+  const shouldHideLauncher = location.pathname === routes.login || location.pathname === routes.feedback || isPuzzleRoute;
 
   if (shouldHideLauncher) {
     return null;

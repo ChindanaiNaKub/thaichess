@@ -36,6 +36,7 @@ vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     lang: 'en',
     setLang: vi.fn(),
+    t: (key: string) => key,
   }),
 }));
 

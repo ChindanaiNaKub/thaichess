@@ -1,13 +1,15 @@
 import { getLegalMoves, isInCheck, makeMove } from './engine';
 import {
+  buildPuzzlePositionKey,
   derivePuzzleOrigin,
   derivePuzzleSourceReference,
   derivePuzzleTags,
   type PuzzleOrigin,
 } from './puzzleMetadata';
 import { boardToPieceList } from './puzzlePosition';
-import { isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
+import { isCountingTheme, isMateTheme, isPromotionTheme, isTacticalTheme } from './puzzleThemes';
 import type {
+  PuzzleCountCriticality,
   Puzzle,
   PuzzleAcceptedMove,
   PuzzleBoardPosition,
@@ -15,6 +17,8 @@ import type {
   PuzzleGoal,
   PuzzleMoveReference,
   PuzzleSolutionLine,
+  PuzzleVerification,
+  PuzzleStreakTier,
 } from './puzzles';
 import type { Board, CountingState, PieceColor } from './types';
 
@@ -32,10 +36,16 @@ export type RawPuzzle = Omit<
   | 'origin'
   | 'sourceGameId'
   | 'sourcePly'
+  | 'sourceLicense'
+  | 'sourceGameUrl'
   | 'tags'
+  | 'positionKey'
+  | 'verification'
+  | 'duplicateOf'
   | 'difficultyScore'
   | 'difficultyProfile'
   | 'progressionStage'
+  | 'streakTier'
   | 'pool'
   | 'minimumStreakRequired'
   | 'boardPosition'
@@ -64,10 +74,16 @@ export type RawPuzzle = Omit<
   origin?: PuzzleOrigin;
   sourceGameId?: string | null;
   sourcePly?: number | null;
+  sourceLicense?: string | null;
+  sourceGameUrl?: string | null;
   tags?: string[];
+  positionKey?: string;
+  verification?: PuzzleVerification;
+  duplicateOf?: number | null;
   difficultyScore?: number;
   difficultyProfile?: PuzzleDifficultyProfile;
   progressionStage?: Puzzle['progressionStage'];
+  streakTier?: PuzzleStreakTier;
   pool?: Puzzle['pool'];
   minimumStreakRequired?: number;
   boardPosition?: PuzzleBoardPosition;
@@ -325,6 +341,14 @@ function deriveDifficultyProfile(
 }
 
 function estimateDifficultyScore(profile: PuzzleDifficultyProfile, solutionLines: PuzzleSolutionLine[]): number {
+  return estimateDifficultyScoreWithVerification(profile, solutionLines, null);
+}
+
+function estimateDifficultyScoreWithVerification(
+  profile: PuzzleDifficultyProfile,
+  solutionLines: PuzzleSolutionLine[],
+  verification: PuzzleVerification | null,
+): number {
   const longestLine = solutionLines.reduce((best, line) => Math.max(best, line.moves.length), 0);
   let score = 760;
 
@@ -337,11 +361,87 @@ function estimateDifficultyScore(profile: PuzzleDifficultyProfile, solutionLines
   if (profile.tacticalVisibility === 'moderate') score += 60;
   if (profile.tacticalVisibility === 'hidden') score += 130;
 
+  if (verification) {
+    score += Math.min(120, Math.max(0, verification.onlyMoveChainLength - 1) * 45);
+    score += Math.min(110, Math.max(0, verification.searchDepth ?? 0) * 6);
+    score += Math.min(100, Math.max(0, verification.multiPvGap ?? 0) / 3);
+
+    if (verification.countCriticality === 'active') score += 80;
+    if (verification.countCriticality === 'critical') score += 170;
+
+    if (verification.verificationStatus === 'engine_verified') score += 40;
+    if (verification.verificationStatus === 'ambiguous') score -= 80;
+  }
+
   return Math.max(650, Math.min(2400, score));
+}
+
+function deriveSourceLicense(origin: PuzzleOrigin, source: string): string | null {
+  if (origin === 'real-game') return 'internal-real-game';
+  if (origin === 'engine-generated' || /^offline self-play/i.test(source)) return 'internal-selfplay';
+  if (origin === 'seed-game') return 'seed-corpus';
+  if (origin === 'curated-manual') return 'curated-manual';
+  if (origin === 'starter-pack') return 'starter-pack';
+  if (origin === 'review-batch') return 'review-batch';
+  return null;
+}
+
+function deriveStreakTier(puzzle: RawPuzzle): PuzzleStreakTier {
+  if (puzzle.streakTier) return puzzle.streakTier;
+  if (puzzle.tags?.includes('editorial-live')) {
+    throw new Error(`Editorial live puzzle ${puzzle.id} is missing streakTier metadata.`);
+  }
+  if (puzzle.tags?.includes('mate-preparation') || isMateTheme(puzzle.theme) || isCountingTheme(puzzle.theme)) {
+    return 'mate_pressure';
+  }
+
+  if (puzzle.difficulty === 'beginner') {
+    return 'foundation';
+  }
+
+  if (puzzle.difficulty === 'intermediate') {
+    return 'practical_attack';
+  }
+
+  return isTacticalTheme(puzzle.theme) || puzzle.tags?.includes('forcing-sequence')
+    ? 'forcing_conversion'
+    : 'practical_attack';
+}
+
+function deriveCountCriticality(
+  counting: CountingState | null,
+  dependsOnCounting: boolean,
+): PuzzleCountCriticality {
+  if (!counting && !dependsOnCounting) return 'none';
+  if (counting?.active && counting.currentCount >= Math.max(0, counting.limit - 1)) {
+    return 'critical';
+  }
+  return counting || dependsOnCounting ? 'active' : 'none';
+}
+
+function deriveVerification(
+  puzzle: RawPuzzle,
+  solutionLines: PuzzleSolutionLine[],
+  counting: CountingState | null,
+): PuzzleVerification {
+  const onlyMoveChainLength = puzzle.verification?.onlyMoveChainLength ??
+    Math.max(1, solutionLines.reduce((best, line) => Math.max(best, line.moves.length), 1));
+  const dependsOnCounting = puzzle.dependsOnCounting ?? Boolean(counting);
+
+  return {
+    engineSource: puzzle.verification?.engineSource ?? 'local',
+    searchDepth: puzzle.verification?.searchDepth ?? null,
+    searchNodes: puzzle.verification?.searchNodes ?? null,
+    multiPvGap: puzzle.verification?.multiPvGap ?? null,
+    onlyMoveChainLength,
+    countCriticality: puzzle.verification?.countCriticality ?? deriveCountCriticality(counting, dependsOnCounting),
+    verificationStatus: puzzle.verification?.verificationStatus ?? 'solver_verified',
+  };
 }
 
 export function finalizePuzzle(puzzle: RawPuzzle): Puzzle {
   const sourceReference = derivePuzzleSourceReference(puzzle.source);
+  const origin = puzzle.origin ?? derivePuzzleOrigin(puzzle.source);
   const board = cloneBoard(puzzle.boardPosition?.board ?? puzzle.board);
   const counting = puzzle.boardPosition?.counting ?? puzzle.counting ?? null;
   const progressionStage = puzzle.progressionStage ?? (
@@ -361,6 +461,7 @@ export function finalizePuzzle(puzzle: RawPuzzle): Puzzle {
   const solutionLines = deriveSolutionLines(puzzle.solutionLines, puzzle.solution, goal);
   const acceptedMoves = deriveAcceptedMoves(puzzle.acceptedMoves, solutionLines);
   const commonWrongMove = deriveCommonWrongMove(board, sideToMove, acceptedMoves, puzzle.commonWrongMove);
+  const verification = deriveVerification(puzzle, solutionLines, counting);
   const difficultyProfile = puzzle.difficultyProfile ?? deriveDifficultyProfile(
     board,
     sideToMove,
@@ -373,9 +474,11 @@ export function finalizePuzzle(puzzle: RawPuzzle): Puzzle {
 
   return {
     ...puzzle,
-    origin: puzzle.origin ?? derivePuzzleOrigin(puzzle.source),
+    origin,
     sourceGameId: puzzle.sourceGameId ?? sourceReference.sourceGameId,
     sourcePly: puzzle.sourcePly ?? sourceReference.sourcePly,
+    sourceLicense: puzzle.sourceLicense ?? deriveSourceLicense(origin, puzzle.source),
+    sourceGameUrl: puzzle.sourceGameUrl ?? null,
     tags: derivePuzzleTags({
       theme: puzzle.theme,
       difficulty: puzzle.difficulty,
@@ -387,9 +490,13 @@ export function finalizePuzzle(puzzle: RawPuzzle): Puzzle {
       tags: puzzle.tags,
       dependsOnCounting: puzzle.dependsOnCounting,
     }),
-    difficultyScore: puzzle.difficultyScore ?? estimateDifficultyScore(difficultyProfile, solutionLines),
+    positionKey: puzzle.positionKey ?? buildPuzzlePositionKey(board, sideToMove, counting),
+    verification,
+    duplicateOf: puzzle.duplicateOf ?? null,
+    difficultyScore: puzzle.difficultyScore ?? estimateDifficultyScoreWithVerification(difficultyProfile, solutionLines, verification),
     difficultyProfile,
     progressionStage,
+    streakTier: deriveStreakTier(puzzle),
     pool: puzzle.pool ?? 'standard',
     minimumStreakRequired: puzzle.minimumStreakRequired ?? (progressionStage === 'late' ? 6 : 0),
     positionAuthority: puzzle.positionAuthority ?? (setupMoves && setupMoves.length > 0 ? 'replay_validated' : 'explicit_piece_list'),

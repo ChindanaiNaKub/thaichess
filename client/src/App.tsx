@@ -141,9 +141,11 @@ export default function App() {
           <FeedbackWidget />
         </Suspense>
       ) : null}
-      <Suspense fallback={null}>
-        <CookieConsent />
-      </Suspense>
+      {!isAutomatedBrowser() ? (
+        <Suspense fallback={null}>
+          <CookieConsent />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

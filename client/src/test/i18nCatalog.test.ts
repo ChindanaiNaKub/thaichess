@@ -54,4 +54,12 @@ describe('i18n catalogs', () => {
       blankThai: [],
     });
   });
+
+  it('uses Makruk-first Thai terms for key puzzle labels', () => {
+    expect(TH_TRANSLATIONS['puzzle.streak_title']).toBe('สตรีคโจทย์');
+    expect(TH_TRANSLATIONS['puzzle.source_tactical_motif']).toBe('รูปแท็กติก');
+    expect(TH_TRANSLATIONS['theme.Fork']).toBe('ส้อม');
+    expect(TH_TRANSLATIONS['theme.HangingPiece']).toBe('หมากลอย');
+    expect(TH_TRANSLATIONS['theme.TrappedPiece']).toBe('หมากติดกับ');
+  });
 });

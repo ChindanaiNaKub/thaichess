@@ -72,12 +72,12 @@ describe('shared SEO routes', () => {
   });
 
   it('uses the published puzzle catalog for puzzle metadata', () => {
-    const puzzle = SEO_PUZZLES.find((entry) => entry.id === 7001);
+    const puzzle = SEO_PUZZLES[0];
     expect(puzzle).toBeDefined();
 
-    const seo = getPublicSeoRoute('/puzzle/7001', 'https://thaichess.dev');
+    const seo = getPublicSeoRoute(`/puzzle/${puzzle?.id}`, 'https://thaichess.dev');
 
-    expect(seo.title).toBe('Ma Fork Through the Shell | ThaiChess Puzzle 7001');
+    expect(seo.title).toBe(`${puzzle?.title} | ThaiChess Puzzle ${puzzle?.id}`);
     expect(seo.description).toContain(puzzle?.description ?? '');
   });
 

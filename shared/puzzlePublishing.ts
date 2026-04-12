@@ -43,6 +43,18 @@ function classifyPuzzle(
     rewriteReasons.push('Review checklist is incomplete or failed.');
   }
 
+  if (puzzle.duplicateOf !== null) {
+    rewriteReasons.push(`Puzzle is marked as a duplicate of #${puzzle.duplicateOf}.`);
+  }
+
+  if (puzzle.verification.verificationStatus === 'unverified') {
+    rewriteReasons.push('Puzzle has not been verified yet.');
+  }
+
+  if (puzzle.verification.verificationStatus === 'ambiguous') {
+    rewriteReasons.push('Puzzle verification still marks the position as ambiguous.');
+  }
+
   if (validationResult.warnings.length > 0) {
     rewriteReasons.push(...validationResult.warnings);
   }
@@ -61,16 +73,24 @@ export function buildPuzzlePublishAuditRow(
   const publishable = legalityErrors.length === 0 &&
     validationResult.errors.length === 0 &&
     puzzle.reviewStatus === 'ship' &&
-    hasPassingReviewChecklist(puzzle);
+    hasPassingReviewChecklist(puzzle) &&
+    puzzle.duplicateOf === null &&
+    puzzle.verification.verificationStatus !== 'unverified' &&
+    puzzle.verification.verificationStatus !== 'ambiguous';
   const classification = classifyPuzzle(puzzle, validationResult, publishable, legalityErrors);
 
   return {
     id: puzzle.id,
     title: puzzle.title,
     sourceType: puzzle.origin === 'engine-generated' ? 'generated' : 'curated',
+    sourceLicense: puzzle.sourceLicense,
+    positionKey: puzzle.positionKey,
+    duplicateOf: puzzle.duplicateOf,
     objective: puzzle.objective,
     motif: puzzle.motif,
     dependsOnCounting: puzzle.dependsOnCounting,
+    verificationStatus: puzzle.verification.verificationStatus,
+    multiPvGap: puzzle.verification.multiPvGap,
     legalityStatus: legalityErrors.length === 0 ? 'valid' : 'invalid',
     validationErrors: validationResult.errors,
     validationWarnings: validationResult.warnings,

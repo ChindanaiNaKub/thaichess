@@ -11,6 +11,7 @@ import {
   selectNextStreakPuzzle,
 } from '../lib/puzzleStreak';
 import { PUZZLES } from '@shared/puzzles';
+import { PUZZLES as RUNTIME_PUZZLES, STREAK_SURFACE_PUZZLES } from '@shared/puzzlesRuntime';
 
 describe('puzzle streak helpers', () => {
   beforeEach(() => {
@@ -105,37 +106,132 @@ describe('puzzle streak helpers', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps the capstone puzzle out of early streak selection until its unlock threshold', () => {
-    const capstone = PUZZLES.find(puzzle => puzzle.id === 7004);
-
-    expect(capstone).toBeDefined();
-    expect(isPuzzleUnlockedForStreak(capstone!, 0)).toBe(false);
-    expect(isPuzzleUnlockedForStreak(capstone!, 7)).toBe(false);
-    expect(isPuzzleUnlockedForStreak(capstone!, 8)).toBe(true);
+  it('keeps the live generated pool immediately available instead of hiding old capstone samples', () => {
+    expect(PUZZLES.every(puzzle => puzzle.pool !== 'advanced_only')).toBe(true);
+    expect(PUZZLES.every(puzzle => isPuzzleUnlockedForStreak(puzzle, 0))).toBe(true);
 
     const earlySelection = selectNextStreakPuzzle({
       adaptiveDifficultyScore: 1200,
       solvedCount: 0,
       recentPuzzleIds: [],
     });
-    const lateSelection = selectNextStreakPuzzle({
-      adaptiveDifficultyScore: 1600,
-      solvedCount: 8,
+
+    expect(earlySelection).toBeDefined();
+  });
+
+  it('keeps the client runtime pool aligned to the generated live pool without legacy sample-pack puzzles', () => {
+    expect(RUNTIME_PUZZLES.map(puzzle => puzzle.id)).toEqual(PUZZLES.map(puzzle => puzzle.id));
+    expect(RUNTIME_PUZZLES.every((puzzle) => !puzzle.source.startsWith('Makruk-native sample pack:'))).toBe(true);
+  });
+
+  it('keeps imported photo candidates available for the puzzle surface without mixing them into the shipped runtime list', () => {
+    const featuredDraft = STREAK_SURFACE_PUZZLES.find((puzzle) => puzzle.id === 9200);
+
+    expect(featuredDraft).toBeDefined();
+    expect(RUNTIME_PUZZLES.map((puzzle) => puzzle.id)).not.toContain(9200);
+  });
+
+  it('keeps both white-to-move and black-to-move puzzles available in streak rotation', () => {
+    const seenIds: number[] = [];
+    const selections = Array.from({ length: 8 }, (_, index) => {
+      const puzzle = selectNextStreakPuzzle({
+        adaptiveDifficultyScore: 920 + index * 70,
+        solvedCount: 2 + index,
+        currentPuzzleId: seenIds.at(-1) ?? null,
+        recentPuzzleIds: seenIds,
+      });
+      seenIds.push(puzzle.id);
+      return puzzle;
+    });
+
+    expect(new Set(PUZZLES.map(puzzle => puzzle.sideToMove))).toEqual(new Set(['white', 'black']));
+    expect(new Set(selections.map(puzzle => puzzle.sideToMove)).size).toBeGreaterThan(1);
+  });
+
+  it('starts streaks from foundation and keeps early selections away from mate pressure', () => {
+    const openingPuzzle = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 2200,
+      solvedCount: 0,
       recentPuzzleIds: [],
     });
 
-    expect(earlySelection.id).not.toBe(7004);
-    expect(lateSelection.id).toBeDefined();
+    const secondPuzzle = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 2200,
+      solvedCount: 1,
+      currentPuzzleId: openingPuzzle.id,
+      recentPuzzleIds: [openingPuzzle.id],
+    });
+
+    expect(openingPuzzle.streakTier).toBe('foundation');
+    expect(secondPuzzle.streakTier).not.toBe('mate_pressure');
   });
 
-  it('keeps streak selection on white-to-move puzzles whenever an eligible white pool exists', () => {
-    const selections = Array.from({ length: 6 }, (_, index) => selectNextStreakPuzzle({
-      adaptiveDifficultyScore: 980 + index * 20,
+  it('keeps solved counts 0 through 2 in the foundation tier', () => {
+    const foundationSelection = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 1600,
       solvedCount: 2,
       recentPuzzleIds: [],
-    }));
+    });
 
-    expect(selections.length).toBeGreaterThan(0);
-    expect(selections.every(puzzle => puzzle.sideToMove === 'white')).toBe(true);
+    expect(foundationSelection.streakTier).toBe('foundation');
+  });
+
+  it('falls back to an adjacent tier before replaying a recent puzzle from the target tier', () => {
+    const foundationIds = PUZZLES.filter(puzzle => puzzle.streakTier === 'foundation').map(puzzle => puzzle.id);
+
+    const adjacentTierFallback = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 2200,
+      solvedCount: 0,
+      currentPuzzleId: foundationIds[0],
+      recentPuzzleIds: foundationIds,
+    });
+
+    expect(adjacentTierFallback.streakTier).toBe('practical_attack');
+  });
+
+  it('opens practical attack before forcing conversion, then reaches mate pressure late', () => {
+    const practicalAttackPuzzle = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 1350,
+      solvedCount: 5,
+      recentPuzzleIds: [],
+    });
+
+    const forcingConversionPuzzle = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 1650,
+      solvedCount: 8,
+      recentPuzzleIds: [practicalAttackPuzzle.id],
+      currentPuzzleId: practicalAttackPuzzle.id,
+    });
+
+    const matePressurePuzzle = selectNextStreakPuzzle({
+      adaptiveDifficultyScore: 1900,
+      solvedCount: 9,
+      recentPuzzleIds: [forcingConversionPuzzle.id],
+      currentPuzzleId: forcingConversionPuzzle.id,
+    });
+
+    expect(practicalAttackPuzzle.streakTier).toBe('practical_attack');
+    expect(forcingConversionPuzzle.streakTier).toBe('forcing_conversion');
+    expect(matePressurePuzzle.streakTier).toBe('mate_pressure');
+  });
+
+  it('keeps tier-first picks from repeating the same puzzle while still varying colors over time', () => {
+    const solvedCounts = [0, 1, 2, 5, 6, 7, 8, 9];
+    const selections = solvedCounts.reduce<Array<(typeof PUZZLES)[number]>>((picked, solvedCount, index) => {
+      const currentPuzzleId = picked.at(-1)?.id ?? null;
+      const recentPuzzleIds = picked.map(puzzle => puzzle.id);
+      picked.push(
+        selectNextStreakPuzzle({
+          adaptiveDifficultyScore: 900 + index * 150,
+          solvedCount,
+          currentPuzzleId,
+          recentPuzzleIds,
+        }),
+      );
+      return picked;
+    }, []);
+
+    expect(new Set(selections.map(puzzle => puzzle.id)).size).toBe(selections.length);
+    expect(new Set(selections.map(puzzle => puzzle.sideToMove)).size).toBeGreaterThan(1);
   });
 });

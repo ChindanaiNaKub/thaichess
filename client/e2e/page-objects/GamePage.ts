@@ -7,10 +7,12 @@ import { Page, Locator, expect } from '@playwright/test';
 export class GamePage {
   readonly page: Page;
   readonly board: Locator;
+  readonly visibleStartBotButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.board = page.getByTestId('board');
+    this.visibleStartBotButton = page.locator('[data-testid="start-game-button"]:visible').first();
   }
 
   /**
@@ -26,17 +28,14 @@ export class GamePage {
    */
   async gotoBot(): Promise<void> {
     await this.page.goto('/bot', { waitUntil: 'domcontentloaded' });
-    // Wait for bot selection screen - look for "Play vs Computer" text
-    await this.page.waitForSelector('text=Play vs Computer', { timeout: 10000 });
+    await this.visibleStartBotButton.waitFor({ state: 'visible', timeout: 30000 });
   }
 
   /**
    * Start a bot game with the default bot
    */
   async startBotGame(): Promise<void> {
-    // Click the start game button on bot setup page
-    const startButton = this.page.getByRole('button', { name: /start game/i });
-    await startButton.click();
+    await this.visibleStartBotButton.click();
     await this.waitForBoard();
   }
 

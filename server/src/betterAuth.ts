@@ -14,7 +14,7 @@ import { createHMAC } from '@better-auth/utils/hmac';
 import { authSchema } from './authSchema';
 import { sendAuthEmailOtp } from './authEmailOtp';
 import { getAllowedCorsOrigins } from './security';
-import { getUserById, type AuthUser } from './database';
+import { getLibsqlConnectionOptions, getUserById, type AuthUser } from './database';
 import { logWarn } from './logger';
 
 function resolveBetterAuthUrl() {
@@ -50,20 +50,7 @@ function resolveBetterAuthSecret() {
 }
 
 function createLibsqlClient() {
-  const databaseUrl = process.env.TURSO_DATABASE_URL?.trim();
-  const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
-
-  if (databaseUrl) {
-    return createClient({
-      url: databaseUrl,
-      authToken: authToken || undefined,
-    });
-  }
-
-  const dataDir = process.env.DATA_DIR?.trim() || 'data';
-  return createClient({
-    url: `file:${dataDir}/thaichess.db`,
-  });
+  return createClient(getLibsqlConnectionOptions());
 }
 
 const socialProviders: Record<string, { clientId: string; clientSecret: string }> = {};

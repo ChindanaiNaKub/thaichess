@@ -5,6 +5,7 @@ export const STREAK_RECENT_WINDOW = 8;
 export const STREAK_START_DIFFICULTY = 900;
 export const STREAK_MIN_DIFFICULTY = 780;
 export const STREAK_MAX_DIFFICULTY = 2200;
+const STREAK_TIER_ORDER: Puzzle['streakTier'][] = ['foundation', 'practical_attack', 'forcing_conversion', 'mate_pressure'];
 
 let hasLoggedPoolDiagnostics = false;
 let hasWarnedAboutSmallPool = false;
@@ -50,8 +51,38 @@ export function isPuzzleUnlockedForStreak(puzzle: Puzzle, solvedCount: number): 
 }
 
 function getPreferredPerspectivePool(pool: Puzzle[]): Puzzle[] {
-  const whiteToMove = pool.filter(candidate => candidate.sideToMove === 'white');
-  return whiteToMove.length > 0 ? whiteToMove : pool;
+  return pool;
+}
+
+function getTargetStreakTier(solvedCount: number): Puzzle['streakTier'] {
+  if (solvedCount <= 2) {
+    return 'foundation';
+  }
+
+  if (solvedCount <= 5) {
+    return 'practical_attack';
+  }
+
+  if (solvedCount <= 8) {
+    return 'forcing_conversion';
+  }
+
+  return 'mate_pressure';
+}
+
+function getTierFallbackOrder(targetTier: Puzzle['streakTier']): Puzzle['streakTier'][] {
+  const tierIndex = STREAK_TIER_ORDER.indexOf(targetTier);
+  const order: Puzzle['streakTier'][] = [targetTier];
+
+  if (tierIndex > 0) {
+    order.push(STREAK_TIER_ORDER[tierIndex - 1]);
+  }
+
+  if (tierIndex < STREAK_TIER_ORDER.length - 1) {
+    order.push(STREAK_TIER_ORDER[tierIndex + 1]);
+  }
+
+  return order;
 }
 
 export interface PuzzleStreakSelectionInput {
@@ -69,6 +100,46 @@ function clampDifficulty(score: number): number {
 
 function getFallbackPuzzle(currentPuzzleId?: number | null, pool: Puzzle[] = PUZZLES): Puzzle {
   return pool.find((candidate) => candidate.id !== currentPuzzleId) ?? pool[0] ?? PUZZLES[0];
+}
+
+function chooseCandidateWithinTier(
+  candidates: Puzzle[],
+  targetScore: number,
+  solvedCount: number,
+  recentWindow: number[],
+  themeRecency: Map<string, number>,
+): Puzzle | null {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const rankCandidate = (candidate: Puzzle): number => {
+    const distance = Math.abs(candidate.difficultyScore - targetScore);
+    const warmupCap = solvedCount < 2 ? 900 : solvedCount < 3 ? 1080 : Number.POSITIVE_INFINITY;
+    const warmupPenalty = candidate.difficultyScore > warmupCap ? candidate.difficultyScore - warmupCap : 0;
+    const advancedPenalty = solvedCount < 5 && candidate.difficulty === 'advanced' ? 160 : 0;
+    const themePenalty = themeRecency.get(candidate.theme) ?? 0;
+    return distance + warmupPenalty + advancedPenalty + themePenalty;
+  };
+
+  const ranked = [...candidates].sort((left, right) => {
+    const leftScore = rankCandidate(left);
+    const rightScore = rankCandidate(right);
+
+    if (leftScore !== rightScore) return leftScore - rightScore;
+    if (left.difficultyScore !== right.difficultyScore) return left.difficultyScore - right.difficultyScore;
+    return left.id - right.id;
+  });
+
+  const topScore = rankCandidate(ranked[0]);
+  const shortlist = ranked.filter(candidate => rankCandidate(candidate) <= topScore + 40).slice(0, 4);
+
+  if (shortlist.length === 0) {
+    return ranked[0] ?? null;
+  }
+
+  const rotationSeed = recentWindow.reduce((sum, puzzleId) => sum + puzzleId, solvedCount + targetScore);
+  return shortlist[rotationSeed % shortlist.length] ?? ranked[0] ?? null;
 }
 
 export function getInitialStreakDifficultyScore(recommendedDifficultyScore: number, attemptCount: number): number {
@@ -162,48 +233,40 @@ export function selectNextStreakPuzzle({
     return themes;
   }, new Map<string, number>());
 
-  let candidates = streakPool.filter((candidate) => candidate.id !== currentPuzzleId && !recentSet.has(candidate.id));
-  if (candidates.length === 0) {
+  const targetTier = getTargetStreakTier(solvedCount);
+  const tierFallbackOrder = getTierFallbackOrder(targetTier);
+  const strictTierCandidates = tierFallbackOrder
+    .map((tier) => streakPool.filter((candidate) => candidate.streakTier === tier && candidate.id !== currentPuzzleId && !recentSet.has(candidate.id)))
+    .find((candidates) => candidates.length > 0);
+
+  if (strictTierCandidates) {
+    const picked = chooseCandidateWithinTier(strictTierCandidates, targetScore, solvedCount, recentWindow, themeRecency);
+    if (picked) {
+      return picked;
+    }
+  }
+
+  const relaxedTierCandidates = tierFallbackOrder
+    .map((tier) => streakPool.filter((candidate) => candidate.streakTier === tier && candidate.id !== currentPuzzleId))
+    .find((candidates) => candidates.length > 0);
+
+  if (relaxedTierCandidates) {
     console.warn('[puzzle-streak] recent-history fallback activated', {
       currentPuzzleId,
       recentWindow,
       poolSize: streakPool.length,
+      targetTier,
     });
-    candidates = streakPool.filter((candidate) => candidate.id !== currentPuzzleId);
-  }
-  if (candidates.length === 0) {
-    console.warn('[puzzle-streak] falling back to any available puzzle because the live pool is exhausted', {
-      currentPuzzleId,
-      poolSize: streakPool.length,
-    });
-    return getFallbackPuzzle(currentPuzzleId, streakPool);
+    const picked = chooseCandidateWithinTier(relaxedTierCandidates, targetScore, solvedCount, recentWindow, themeRecency);
+    if (picked) {
+      return picked;
+    }
   }
 
-  const rankCandidate = (candidate: Puzzle): number => {
-    const distance = Math.abs(candidate.difficultyScore - targetScore);
-    const warmupCap = solvedCount < 2 ? 900 : solvedCount < 3 ? 1080 : Number.POSITIVE_INFINITY;
-    const warmupPenalty = candidate.difficultyScore > warmupCap ? candidate.difficultyScore - warmupCap : 0;
-    const advancedPenalty = solvedCount < 5 && candidate.difficulty === 'advanced' ? 160 : 0;
-    const themePenalty = themeRecency.get(candidate.theme) ?? 0;
-    return distance + warmupPenalty + advancedPenalty + themePenalty;
-  };
-
-  const ranked = [...candidates].sort((left, right) => {
-    const leftScore = rankCandidate(left);
-    const rightScore = rankCandidate(right);
-
-    if (leftScore !== rightScore) return leftScore - rightScore;
-    if (left.difficultyScore !== right.difficultyScore) return left.difficultyScore - right.difficultyScore;
-    return left.id - right.id;
+  console.warn('[puzzle-streak] falling back to any available puzzle because the live pool is exhausted', {
+    currentPuzzleId,
+    poolSize: streakPool.length,
+    targetTier,
   });
-
-  const topScore = ranked[0] ? rankCandidate(ranked[0]) : Number.POSITIVE_INFINITY;
-  const shortlist = ranked.filter(candidate => rankCandidate(candidate) <= topScore + 40).slice(0, 4);
-
-  if (shortlist.length === 0) {
-    return ranked[0] ?? getFallbackPuzzle(currentPuzzleId, streakPool);
-  }
-
-  const rotationSeed = recentWindow.reduce((sum, puzzleId) => sum + puzzleId, solvedCount + targetScore);
-  return shortlist[rotationSeed % shortlist.length] ?? ranked[0] ?? getFallbackPuzzle(currentPuzzleId, streakPool);
+  return getFallbackPuzzle(currentPuzzleId, streakPool);
 }

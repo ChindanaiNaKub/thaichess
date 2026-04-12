@@ -22,7 +22,21 @@ interface ExportedPuzzleSource {
   rated: boolean;
   gameMode: string;
   finishedAt: number;
+  sourceGameId: string;
+  sourceLicense: string;
+  sourceGameUrl: string;
 }
+
+type ExportableRecentGame = {
+  id: string;
+  rated: number;
+  game_mode: string;
+  moves: string;
+  move_count: number;
+  result: string;
+  result_reason: string;
+  finished_at: number;
+};
 
 function parseOptions(argv: string[]): ScriptOptions {
   const options: ScriptOptions = {
@@ -73,8 +87,27 @@ function parseOptions(argv: string[]): ScriptOptions {
   return options;
 }
 
-async function main() {
-  const options = parseOptions(process.argv.slice(2));
+export function mapRecentGameToExportedPuzzleSource(game: ExportableRecentGame): ExportedPuzzleSource {
+  const isRated = game.rated === 1;
+
+  return {
+    id: game.id,
+    source: `Exported ${isRated ? 'rated' : 'casual'} game ${game.id}`,
+    moves: JSON.parse(game.moves) as Move[],
+    moveCount: game.move_count,
+    result: game.result,
+    resultReason: game.result_reason,
+    rated: isRated,
+    gameMode: game.game_mode,
+    finishedAt: game.finished_at,
+    sourceGameId: game.id,
+    sourceLicense: 'internal-real-game',
+    sourceGameUrl: `/games/${game.id}`,
+  };
+}
+
+export async function runExportPuzzleSources(argv: string[] = process.argv.slice(2)) {
+  const options = parseOptions(argv);
   await initDatabase();
 
   const recentGames = await getRecentGames(options.limit, 0, options.filter);
@@ -83,17 +116,7 @@ async function main() {
   const exported: ExportedPuzzleSource[] = recentGames
     .filter(game => game.move_count >= options.minSourceMoves)
     .filter(game => !rejectedReasons.has(game.result_reason))
-    .map(game => ({
-      id: game.id,
-      source: `Exported ${game.rated ? 'rated' : 'casual'} game ${game.id}`,
-      moves: JSON.parse(game.moves) as Move[],
-      moveCount: game.move_count,
-      result: game.result,
-      resultReason: game.result_reason,
-      rated: game.rated === 1,
-      gameMode: game.game_mode,
-      finishedAt: game.finished_at,
-    }));
+    .map(game => mapRecentGameToExportedPuzzleSource(game));
 
   const absoluteOutputPath = path.resolve(options.outputPath);
   fs.mkdirSync(path.dirname(absoluteOutputPath), { recursive: true });
@@ -109,7 +132,11 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isDirectExecution = (process.argv[1] ? path.parse(process.argv[1]).name : '') === 'exportPuzzleSources';
+
+if (isDirectExecution) {
+  runExportPuzzleSources().catch(error => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
