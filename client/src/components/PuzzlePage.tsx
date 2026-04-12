@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
-import { ALL_PUZZLES, PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
+import { ALL_PUZZLES, PUZZLES, STREAK_SURFACE_PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import { createGameStateFromPuzzle, getForcingMoves, getPliesRemaining, isThemeSatisfied } from '@shared/puzzleSolver';
 import {
   getCheckpointFeedbackTone,
@@ -612,10 +612,13 @@ function PuzzleStreakPage() {
       recommendedDifficultyScore,
       attemptCount,
     );
+    const featuredDraft = STREAK_SURFACE_PUZZLES.find((candidate) =>
+      candidate.reviewStatus !== 'ship' && candidate.tags.includes('candidate-from-photo'),
+    );
 
     return {
       startingDifficultyScore,
-      puzzle: selectNextStreakPuzzle({
+      puzzle: featuredDraft ?? selectNextStreakPuzzle({
         adaptiveDifficultyScore: startingDifficultyScore,
         solvedCount: 0,
         recentPuzzleIds: [],
@@ -1058,7 +1061,6 @@ function PuzzleStreakPage() {
   const streakSubMessage = feedback.tone === 'failed'
     ? streakTask
     : currentPuzzle?.whyPositionMatters ?? null;
-
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <Header

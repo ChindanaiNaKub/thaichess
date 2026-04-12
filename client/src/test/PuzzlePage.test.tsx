@@ -10,6 +10,7 @@ const {
   navigateMock,
   puzzleListFixtures,
   quarantinedPuzzleFixture,
+  streakSurfaceFixtures,
   markPuzzleCompletedMock,
   recordPuzzleVisitedMock,
   recordPuzzleFailedMock,
@@ -211,7 +212,7 @@ const {
   const quarantinedPuzzleFixture: PuzzleFixture = {
     ...puzzleListFixtures[0],
     id: 9200,
-    title: 'Imported Black Mate Candidate: Met Takes Ma',
+    title: 'Imported Black Mate Candidate: Met Takes Ma, Then Ruea',
     description: 'Black to move. Imported from board image for local review.',
     explanation: 'Preview this quarantined draft locally before promoting it.',
     source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate',
@@ -222,7 +223,7 @@ const {
     toMove: 'black' as const,
     boardOrientation: 'black' as const,
     reviewStatus: 'quarantine' as const,
-    motif: 'Mate over material from imported board image',
+    motif: 'Met takes ma, then rook mate from imported board image',
     tags: ['image-import', 'candidate-from-photo', 'mate-candidate'],
   };
 
@@ -231,6 +232,7 @@ const {
     navigateMock: vi.fn(),
     puzzleListFixtures,
     quarantinedPuzzleFixture,
+    streakSurfaceFixtures: [...puzzleListFixtures] as PuzzleFixture[],
     markPuzzleCompletedMock: vi.fn(async () => {}),
     recordPuzzleVisitedMock: vi.fn(async () => {}),
     recordPuzzleFailedMock: vi.fn(async () => {}),
@@ -265,6 +267,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@shared/puzzlesRuntime', () => ({
   ALL_PUZZLES: [...puzzleListFixtures, quarantinedPuzzleFixture],
+  STREAK_SURFACE_PUZZLES: streakSurfaceFixtures,
   PUZZLES: puzzleListFixtures,
   PUZZLE_POOL_DIAGNOSTICS: {
     totalCandidates: puzzleListFixtures.length,
@@ -650,6 +653,7 @@ describe('Puzzle surfaces', () => {
     progressState.progressRecords = [];
     progressState.completedPuzzleIds = [];
     progressState.loading = false;
+    streakSurfaceFixtures.splice(0, streakSurfaceFixtures.length, ...puzzleListFixtures);
     puzzleSummaryState.nextPuzzle = puzzleListFixtures[1] as any;
     puzzleSummaryState.continuePuzzle = puzzleListFixtures[1] as any;
     puzzleSummaryState.favoriteTheme = 'Fork';
@@ -718,6 +722,15 @@ describe('Puzzle surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
 
     expect(screen.getByText('Look for the forcing move first.')).toBeInTheDocument();
+  });
+
+  it('surfaces the imported image candidate directly inside the streak flow instead of a separate review card', () => {
+    streakSurfaceFixtures.splice(0, streakSurfaceFixtures.length, quarantinedPuzzleFixture, ...puzzleListFixtures);
+    renderStreakPage();
+
+    expect(screen.getByText('Imported Black Mate Candidate: Met Takes Ma, Then Ruea')).toBeInTheDocument();
+    expect(screen.queryByText('Latest draft')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review draft puzzle' })).not.toBeInTheDocument();
   });
 
   it('uses the standard game board frame and keeps streak pulses as a compact indicator', async () => {
@@ -916,7 +929,7 @@ describe('Puzzle surfaces', () => {
     renderQuarantinedLessonPlayer();
 
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(9200);
-    expect(screen.getByText('Imported Black Mate Candidate: Met Takes Ma')).toBeInTheDocument();
+    expect(screen.getByText('Imported Black Mate Candidate: Met Takes Ma, Then Ruea')).toBeInTheDocument();
     expect(screen.queryByText('puzzle.not_found')).not.toBeInTheDocument();
     expect(boardPropsMock.mock.calls.at(-1)?.[0]).toMatchObject({
       playerColor: 'black',

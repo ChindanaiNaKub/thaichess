@@ -11,7 +11,7 @@ import {
   selectNextStreakPuzzle,
 } from '../lib/puzzleStreak';
 import { PUZZLES } from '@shared/puzzles';
-import { PUZZLES as RUNTIME_PUZZLES } from '@shared/puzzlesRuntime';
+import { PUZZLES as RUNTIME_PUZZLES, STREAK_SURFACE_PUZZLES } from '@shared/puzzlesRuntime';
 
 describe('puzzle streak helpers', () => {
   beforeEach(() => {
@@ -122,6 +122,13 @@ describe('puzzle streak helpers', () => {
   it('keeps the client runtime pool aligned to the generated live pool without legacy sample-pack puzzles', () => {
     expect(RUNTIME_PUZZLES.map(puzzle => puzzle.id)).toEqual(PUZZLES.map(puzzle => puzzle.id));
     expect(RUNTIME_PUZZLES.every((puzzle) => !puzzle.source.startsWith('Makruk-native sample pack:'))).toBe(true);
+  });
+
+  it('keeps imported photo candidates available for the puzzle surface without mixing them into the shipped runtime list', () => {
+    const featuredDraft = STREAK_SURFACE_PUZZLES.find((puzzle) => puzzle.id === 9200);
+
+    expect(featuredDraft).toBeDefined();
+    expect(RUNTIME_PUZZLES.map((puzzle) => puzzle.id)).not.toContain(9200);
   });
 
   it('keeps both white-to-move and black-to-move puzzles available in streak rotation', () => {
