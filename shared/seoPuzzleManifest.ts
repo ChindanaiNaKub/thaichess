@@ -1,4 +1,4 @@
-import { PUZZLES } from './puzzles';
+import { PUZZLES } from './puzzlesRuntime';
 
 export type SeoPuzzleDifficulty = 'beginner' | 'intermediate' | 'advanced';
 

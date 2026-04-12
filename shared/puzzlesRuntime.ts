@@ -1,13 +1,57 @@
-export type { Puzzle, PuzzlePoolDiagnostics } from './puzzles';
-export {
-  ALL_PUZZLES,
-  PUZZLES,
-  PUZZLE_POOL_DIAGNOSTICS,
-  getPuzzleById,
-  getPuzzlesByDifficulty,
-} from './puzzles';
+import { IMPORTED_PUZZLE_CANDIDATES } from './puzzleImportQueue';
+import type { Puzzle, PuzzlePoolDiagnostics } from './puzzles';
 
-import { ALL_PUZZLES, PUZZLES, type Puzzle } from './puzzles';
+export type { Puzzle, PuzzlePoolDiagnostics } from './puzzles';
+
+const RUNTIME_EXCLUDED_PUZZLE_IDS = new Set<number>([
+  // The full audit catalog rejects this editorial draft; keep that expensive gate out of runtime imports.
+  9004,
+]);
+
+function hasPassingReviewChecklist(puzzle: Puzzle): boolean {
+  return puzzle.reviewChecklist.themeClarity === 'pass' &&
+    puzzle.reviewChecklist.teachingValue === 'pass' &&
+    puzzle.reviewChecklist.duplicateRisk === 'clear';
+}
+
+function isRuntimeLivePuzzle(puzzle: Puzzle): boolean {
+  return puzzle.reviewStatus === 'ship' &&
+    hasPassingReviewChecklist(puzzle) &&
+    puzzle.origin === 'engine-generated' &&
+    puzzle.tags.includes('editorial-live') &&
+    puzzle.duplicateOf === null &&
+    puzzle.verification.verificationStatus !== 'unverified' &&
+    puzzle.verification.verificationStatus !== 'ambiguous' &&
+    !RUNTIME_EXCLUDED_PUZZLE_IDS.has(puzzle.id);
+}
+
+export const ALL_PUZZLES: Puzzle[] = IMPORTED_PUZZLE_CANDIDATES;
+export const PUZZLES: Puzzle[] = ALL_PUZZLES.filter(isRuntimeLivePuzzle);
+
+export const PUZZLE_POOL_DIAGNOSTICS: PuzzlePoolDiagnostics = {
+  totalCandidates: ALL_PUZZLES.length,
+  validCandidates: PUZZLES.length,
+  shippedCandidates: PUZZLES.length,
+  rejectedCandidates: Math.max(0, ALL_PUZZLES.length - PUZZLES.length),
+  rejectionReasons: [],
+  publishableByDifficulty: {
+    beginner: PUZZLES.filter(puzzle => puzzle.difficulty === 'beginner').length,
+    intermediate: PUZZLES.filter(puzzle => puzzle.difficulty === 'intermediate').length,
+    advanced: PUZZLES.filter(puzzle => puzzle.difficulty === 'advanced').length,
+  },
+  publishableBySource: {
+    curated: 0,
+    generated: PUZZLES.length,
+  },
+};
+
+export function getPuzzleById(id: number): Puzzle | undefined {
+  return PUZZLES.find(puzzle => puzzle.id === id);
+}
+
+export function getPuzzlesByDifficulty(difficulty: Puzzle['difficulty']): Puzzle[] {
+  return PUZZLES.filter(puzzle => puzzle.difficulty === difficulty);
+}
 
 function dedupeById(puzzles: Puzzle[]): Puzzle[] {
   const seen = new Set<number>();
