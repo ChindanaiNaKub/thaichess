@@ -1,5 +1,7 @@
-import { useState, useCallback, useRef, memo } from 'react';
+import { useState, useCallback, useRef, memo, type CSSProperties, type MouseEvent, type TouchEvent } from 'react';
 import type { Board as BoardType, Position, PieceColor, Move } from '@shared/types';
+import { getBoardFileLabel, getBoardRankLabel } from '../lib/boardNotation';
+import { useCurrentLanguage } from '../lib/i18n';
 import { useBoardAppearance } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
 
@@ -46,7 +48,6 @@ export default memo(function Board({
   board,
   playerColor,
   draggableColor: draggableColorProp,
-  isMyTurn,
   legalMoves,
   selectedSquare,
   lastMove,
@@ -64,6 +65,7 @@ export default memo(function Board({
   className,
 }: BoardProps) {
   const { boardTheme } = useBoardAppearance();
+  const lang = useCurrentLanguage();
   const [dragPiece, setDragPiece] = useState<Position | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
@@ -141,7 +143,7 @@ export default memo(function Board({
     return { row: getBoardRow(displayRow), col: getBoardCol(displayCol) };
   };
 
-  const handleMouseDown = (e: React.MouseEvent, row: number, col: number) => {
+  const handleMouseDown = (e: MouseEvent, row: number, col: number) => {
     if (e.button === 2) {
       setRightClickStart({ row, col });
       if (boardRef.current) {
@@ -171,7 +173,7 @@ export default memo(function Board({
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent) => {
     if (rightClickStart && boardRef.current) {
       const rect = boardRef.current.getBoundingClientRect();
       setRightDragPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
@@ -185,7 +187,7 @@ export default memo(function Board({
     });
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = (e: MouseEvent) => {
     if (e.button === 2 && rightClickStart) {
       const target = getSquareFromEvent(e.clientX, e.clientY);
       if (target) {
@@ -245,11 +247,11 @@ export default memo(function Board({
     onSquareClick({ row, col });
   };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
+  const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
   };
 
-  const handleTouchStart = (e: React.TouchEvent, row: number, col: number) => {
+  const handleTouchStart = (e: TouchEvent, row: number, col: number) => {
     if (disabled) return;
     const piece = board[row][col];
     if (piece && (allowAnyPieceDrag || piece.color === draggableColor)) {
@@ -267,7 +269,7 @@ export default memo(function Board({
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent) => {
     if (!dragPiece || !boardRef.current) return;
     e.preventDefault();
     const rect = boardRef.current.getBoundingClientRect();
@@ -278,7 +280,7 @@ export default memo(function Board({
     });
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     if (!dragPiece || !boardRef.current) {
       setDragPiece(null);
       setDragPos(null);
@@ -303,7 +305,7 @@ export default memo(function Board({
     setDragPos(null);
   };
 
-  const getSquareStyle = (boardRow: number, boardCol: number): React.CSSProperties | undefined => {
+  const getSquareStyle = (boardRow: number, boardCol: number): CSSProperties | undefined => {
     const hl = getSquareHighlight(boardRow, boardCol);
     if (hl) return { backgroundColor: hl };
     return undefined;
@@ -344,7 +346,7 @@ export default memo(function Board({
     '--board-legal-dot': boardTheme.legalDot,
     '--board-legal-capture': boardTheme.legalCapture,
     '--board-check-overlay': boardTheme.checkOverlay,
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   const renderArrowSvg = () => {
     const allArrows = [...arrows];
@@ -454,15 +456,23 @@ export default memo(function Board({
             onClick={() => handleClick(boardRow, boardCol)}
           >
             {displayCol === 0 && (
-              <span className="absolute top-0.5 left-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: 'var(--board-coordinate)' }}>
-                {boardRow + 1}
+              <span
+                className="board-coordinate board-coordinate-rank top-0.5 left-1"
+                data-testid={`board-rank-label-${boardRow}`}
+                aria-hidden="true"
+                style={{ color: 'var(--board-coordinate)' }}
+              >
+                {getBoardRankLabel(boardRow)}
               </span>
             )}
             {displayRow === 7 && (
-              <span className="absolute bottom-0.5 right-1 text-[10px] font-bold opacity-50 pointer-events-none select-none"
-                style={{ color: 'var(--board-coordinate)' }}>
-                {String.fromCharCode(97 + boardCol)}
+              <span
+                className="board-coordinate board-coordinate-file bottom-0.5 right-1"
+                data-testid={`board-file-label-${boardCol}`}
+                aria-hidden="true"
+                style={{ color: 'var(--board-coordinate)' }}
+              >
+                {getBoardFileLabel(boardCol, lang)}
               </span>
             )}
 

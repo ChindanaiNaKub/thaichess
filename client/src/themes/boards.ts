@@ -35,6 +35,7 @@ interface RawBoardTheme {
 
 export interface BoardThemeValidation {
   gridContrast: number;
+  coordinateContrast: number;
   weakestPieceContrast: number;
 }
 
@@ -65,6 +66,7 @@ export interface BoardThemeConfig {
 
 const MIN_GRID_CONTRAST = 1.18;
 const MAX_GRID_CONTRAST = 2.45;
+const MIN_COORDINATE_CONTRAST = 4.5;
 const MIN_PIECE_CONTRAST = 2.35;
 
 const RAW_BOARD_THEMES: RawBoardTheme[] = [
@@ -297,9 +299,12 @@ function buildFrameBackground(base: string, accent: string, material: BoardMater
 }
 
 function getCoordinateColor(base: string, grid: string) {
-  return relativeLuminance(base) > 0.45
-    ? mix(grid, '#3d2d1f', 0.48)
-    : mix(grid, '#fff6e9', 0.38);
+  const dark = mix(grid, '#120d09', 0.9);
+  const light = mix(grid, '#fffaf2', 0.9);
+  const darkContrast = contrastRatio(base, dark);
+  const lightContrast = contrastRatio(base, light);
+
+  return darkContrast >= lightContrast ? dark : light;
 }
 
 function getPieceVisibility(base: string) {
@@ -385,6 +390,12 @@ function buildBoardTheme(theme: RawBoardTheme): BoardThemeConfig {
   const lastMoveBackground = `linear-gradient(180deg, rgba(255,255,255,0.08), transparent 42%), ${mix(tuned.base, '#d8b777', 0.18)}`;
   const premoveBackground = `linear-gradient(180deg, rgba(255,255,255,0.08), transparent 42%), ${mix(tuned.base, '#93a276', 0.16)}`;
   const legalColor = relativeLuminance(tuned.base) > 0.52 ? 'rgba(41, 31, 21, 0.34)' : 'rgba(250, 243, 230, 0.44)';
+  const coordinateColor = getCoordinateColor(tuned.base, tuned.grid);
+  const coordinateContrast = contrastRatio(tuned.base, coordinateColor);
+
+  if (coordinateContrast < MIN_COORDINATE_CONTRAST) {
+    throw new Error(`Board theme failed coordinate contrast validation (${tuned.base} / ${coordinateColor}).`);
+  }
 
   return {
     id: theme.id,
@@ -396,7 +407,7 @@ function buildBoardTheme(theme: RawBoardTheme): BoardThemeConfig {
     gridColor: tuned.grid,
     surfaceBackground: buildSurfaceBackground(tuned.base, theme.material),
     frameBackground: buildFrameBackground(tuned.base, theme.accent, theme.material),
-    coordinateColor: getCoordinateColor(tuned.base, tuned.grid),
+    coordinateColor,
     hoverBackground,
     selectedBackground,
     selectedRing: mix(theme.accent, '#f4e4b6', 0.34),
@@ -408,7 +419,10 @@ function buildBoardTheme(theme: RawBoardTheme): BoardThemeConfig {
     checkOverlay: 'radial-gradient(ellipse at center, rgba(174, 60, 47, 0.7) 0%, rgba(122, 33, 25, 0.3) 58%, transparent 84%)',
     legacyPreviewLight: mix(tuned.base, '#fff2d7', 0.34),
     legacyPreviewDark: mix(tuned.base, relativeLuminance(tuned.base) > 0.56 ? '#6f5337' : '#4d5560', 0.28),
-    validation: tuned.validation,
+    validation: {
+      ...tuned.validation,
+      coordinateContrast,
+    },
   };
 }
 

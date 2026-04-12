@@ -355,3 +355,7 @@ export function useTranslation() {
   if (!ctx) throw new Error('useTranslation must be used within I18nProvider');
   return ctx;
 }
+
+export function useCurrentLanguage(): Language {
+  return useContext(I18nContext)?.lang ?? detectLanguage();
+}

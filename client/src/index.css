@@ -138,6 +138,18 @@
     transition: background 180ms ease, box-shadow 180ms ease;
   }
 
+  .board-coordinate {
+    position: absolute;
+    z-index: 3;
+    pointer-events: none;
+    user-select: none;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.68;
+    text-shadow: 0 1px 1px rgb(255 248 232 / 0.24);
+  }
+
   .board-square-neutral:hover {
     background: var(--board-hover-background, rgb(255 255 255 / 0.08));
   }

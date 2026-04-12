@@ -60,6 +60,7 @@ const createProps = (overrides: any = {}): any => ({
 describe('Board Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.removeItem('thaichess-lang');
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
       x: 0,
       y: 0,
@@ -107,6 +108,35 @@ describe('Board Component', () => {
 
       expect(container.querySelector('[data-testid="piece-PM-white"]')).toBeInTheDocument();
       expect(container.querySelector('[data-testid="piece-PM-black"]')).toBeInTheDocument();
+    });
+
+    it('should render English file labels by default', () => {
+      const { getByTestId } = render(<Board {...createProps()} />);
+
+      expect(getByTestId('board-file-label-0')).toHaveTextContent('a');
+      expect(getByTestId('board-file-label-1')).toHaveTextContent('b');
+      expect(getByTestId('board-file-label-7')).toHaveTextContent('h');
+      expect(getByTestId('board-rank-label-0')).toHaveTextContent('1');
+      expect(getByTestId('board-rank-label-7')).toHaveTextContent('8');
+    });
+
+    it('should render Thai file labels when Thai is selected', () => {
+      window.localStorage.setItem('thaichess-lang', 'th');
+
+      const { getByTestId } = render(<Board {...createProps()} />);
+
+      expect(getByTestId('board-file-label-0')).toHaveTextContent('ก');
+      expect(getByTestId('board-file-label-1')).toHaveTextContent('ข');
+      expect(getByTestId('board-file-label-2')).toHaveTextContent('ค');
+      expect(getByTestId('board-file-label-7')).toHaveTextContent('ญ');
+    });
+
+    it('should keep file labels oriented with the black side view', () => {
+      const { container } = render(<Board {...createProps({ playerColor: 'black' })} />);
+
+      const visibleFiles = [...container.querySelectorAll('.board-coordinate-file')]
+        .map((label) => label.textContent);
+      expect(visibleFiles).toEqual(['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']);
     });
   });
 

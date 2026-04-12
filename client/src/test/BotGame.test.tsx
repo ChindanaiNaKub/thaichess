@@ -33,6 +33,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('../lib/i18n', () => ({
+  useCurrentLanguage: () => 'en',
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === 'bot.level_short') return `Level ${params?.level ?? ''}`.trim();
