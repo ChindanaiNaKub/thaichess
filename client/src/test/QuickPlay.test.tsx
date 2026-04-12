@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -213,6 +213,88 @@ describe('QuickPlay', () => {
     expect(navigateMock).toHaveBeenCalledWith('/game/matched-room');
 
     expect(screen.queryByText('Finding opponent...')).not.toBeInTheDocument();
+  });
+
+  it('offers an honest bot fallback after 12 seconds of searching', () => {
+    socketMock.connected = true;
+
+    render(<QuickPlay />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
+
+    const matchmakingStartedHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'matchmaking_started')?.[1];
+    act(() => {
+      matchmakingStartedHandler();
+    });
+
+    expect(screen.queryByRole('button', { name: /play bot now/i })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(12_000);
+    });
+
+    expect(screen.getByText('No opponent yet')).toBeInTheDocument();
+    expect(screen.getByText('Play a bot now, or keep searching for a human match.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /play bot now/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /keep searching/i })).toBeInTheDocument();
+  });
+
+  it('cancels matchmaking and navigates to bot play when the fallback is chosen', () => {
+    socketMock.connected = true;
+
+    render(<QuickPlay />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
+
+    const matchmakingStartedHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'matchmaking_started')?.[1];
+    act(() => {
+      matchmakingStartedHandler();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(12_000);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /play bot now/i }));
+
+    expect(socketMock.emit).toHaveBeenCalledWith('cancel_matchmaking');
+    expect(navigateMock).toHaveBeenCalledWith('/bot?source=matchmaking_fallback');
+  });
+
+  it('keeps matchmaking active when the user chooses to keep searching', () => {
+    socketMock.connected = true;
+
+    render(<QuickPlay />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
+
+    const matchmakingStartedHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'matchmaking_started')?.[1];
+    act(() => {
+      matchmakingStartedHandler();
+    });
+    socketMock.emit.mockClear();
+
+    act(() => {
+      vi.advanceTimersByTime(12_000);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /keep searching/i }));
+
+    expect(socketMock.emit).not.toHaveBeenCalledWith('cancel_matchmaking');
+    expect(screen.queryByText('No opponent yet')).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2_000);
+    });
+
+    expect(screen.getByText('Searching for 14s')).toBeInTheDocument();
+  });
+
+  it('uses measured copy that does not promise instant human pairing', () => {
+    render(<QuickPlay />, { wrapper });
+
+    expect(screen.getByText('Search for a human match. If nobody is around, you can switch to bot play without waiting.')).toBeInTheDocument();
+    expect(screen.queryByText(/find an opponent instantly/i)).not.toBeInTheDocument();
   });
 
   it('recovers from matchmaking errors and lets the user return home', () => {

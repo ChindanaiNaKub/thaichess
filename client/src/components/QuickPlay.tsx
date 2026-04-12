@@ -19,6 +19,8 @@ const TIME_PRESETS = [
   { label: '30+0', nameKey: 'time.classical', initial: 1800, increment: 0 },
 ];
 
+const BOT_FALLBACK_SECONDS = 12;
+
 export default function QuickPlay() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -29,6 +31,7 @@ export default function QuickPlay() {
   const [searchTime, setSearchTime] = useState(0);
   const [queueSize, setQueueSize] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackDismissed, setFallbackDismissed] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const searchingRef = useRef(false);
@@ -48,6 +51,7 @@ export default function QuickPlay() {
     const handleMatchFound = ({ gameId }: { gameId: string; color: PieceColor }) => {
       setSearching(false);
       setRequestPending(false);
+      setFallbackDismissed(false);
       setError(null);
       navigate(liveGameRoute(gameId));
     };
@@ -55,17 +59,20 @@ export default function QuickPlay() {
     const handleMatchmakingStarted = () => {
       setSearching(true);
       setRequestPending(false);
+      setFallbackDismissed(false);
       setError(null);
     };
 
     const handleMatchmakingCancelled = () => {
       setSearching(false);
       setRequestPending(false);
+      setFallbackDismissed(false);
     };
 
     const handleError = ({ message }: { message: string }) => {
       setRequestPending(false);
       setSearching(false);
+      setFallbackDismissed(false);
       setError(message || latestTRef.current('quick.load_failed'));
     };
 
@@ -117,6 +124,7 @@ export default function QuickPlay() {
 
     connectSocket();
     setRequestPending(true);
+    setFallbackDismissed(false);
     setError(null);
 
     const emitSearch = () => {
@@ -142,6 +150,19 @@ export default function QuickPlay() {
     socket.emit('cancel_matchmaking');
     setSearching(false);
     setRequestPending(false);
+    setFallbackDismissed(false);
+  };
+
+  const handlePlayBotFallback = () => {
+    if (connectHandlerRef.current) {
+      socket.off('connect', connectHandlerRef.current);
+      connectHandlerRef.current = null;
+    }
+    socket.emit('cancel_matchmaking');
+    setSearching(false);
+    setRequestPending(false);
+    setFallbackDismissed(false);
+    navigate(`${routes.bot}?source=matchmaking_fallback`);
   };
 
   const formatSearchTime = (seconds: number) => {
@@ -151,6 +172,7 @@ export default function QuickPlay() {
   };
 
   const ratedEligible = user?.fair_play_status === 'clear';
+  const showBotFallback = searching && searchTime >= BOT_FALLBACK_SECONDS && !fallbackDismissed;
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -171,6 +193,26 @@ export default function QuickPlay() {
               <p className="text-text-dim text-xs mb-4">
                 {t('quick.queue', { count: queueSize })}
               </p>
+            )}
+            {showBotFallback && (
+              <div className="mt-5 rounded-lg border border-primary/25 bg-primary/10 px-4 py-3 text-left">
+                <h3 className="text-sm font-semibold text-text-bright">{t('quick.fallback_title')}</h3>
+                <p className="mt-1 text-xs leading-5 text-text-dim">{t('quick.fallback_desc')}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    onClick={handlePlayBotFallback}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light"
+                  >
+                    {t('quick.play_bot_now')}
+                  </button>
+                  <button
+                    onClick={() => setFallbackDismissed(true)}
+                    className="rounded-lg border border-surface-hover bg-surface px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                  >
+                    {t('quick.keep_searching')}
+                  </button>
+                </div>
+              </div>
             )}
             <div className="flex gap-3 mt-6">
               <button

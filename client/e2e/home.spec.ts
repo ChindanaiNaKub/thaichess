@@ -4,13 +4,13 @@ test.describe('Homepage', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#main-content')).toBeVisible();
-    await expect(page.locator('#main-content').getByRole('button', { name: /find opponent/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /play makruk instantly/i })).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('button', { name: /play now/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /play thai chess anytime/i })).toBeVisible();
   });
 
   test('has correct title and heading', async ({ page }) => {
     await expect(page).toHaveTitle(/ThaiChess/);
-    await expect(page.getByRole('heading', { name: /play makruk instantly/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /play thai chess anytime/i })).toBeVisible();
   });
 
   test('reveals the private game setup on demand', async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe('Homepage', () => {
   });
 
   test('navigates to quick play', async ({ page }) => {
-    await page.locator('#main-content').getByRole('button', { name: /find opponent/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /play now/i }).click();
     await expect(page).toHaveURL('/quick-play');
     await expect(page.getByText(/^time control$/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible();

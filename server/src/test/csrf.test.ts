@@ -195,6 +195,7 @@ describe('trusted write origin middleware', () => {
     expect(protectedRoutes).toEqual([
       'POST /api/auth/logout',
       'PATCH /api/auth/profile',
+      'DELETE /api/auth/user',
       'POST /api/fair-play/report',
       'POST /api/fair-play/cases/:id/restrict',
       'POST /api/fair-play/cases/:id/dismiss',

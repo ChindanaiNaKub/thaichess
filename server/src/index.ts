@@ -37,6 +37,7 @@ import {
   restrictUserForFairPlay,
   clearFairPlayRestriction,
   getUserById,
+  deleteUser,
   type AuthUser,
   type FairPlayCaseStatus,
   type PuzzleProgressRecord,
@@ -767,6 +768,29 @@ app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, 
   }
 
   res.json({ ok: true, user: updated });
+});
+
+app.delete('/api/auth/user', requireTrustedWriteOriginMiddleware, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  try {
+    // Delete user from database
+    const deleted = await deleteUser(user.id);
+    
+    if (!deleted) {
+      res.status(500).json({ error: 'Failed to delete account' });
+      return;
+    }
+    
+    // Clear session cookie
+    clearSessionCookie(res);
+    
+    res.json({ ok: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete user:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
 });
 
 app.all('/api/auth/*', betterAuthHandler);

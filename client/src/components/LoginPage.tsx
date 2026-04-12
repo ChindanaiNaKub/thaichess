@@ -105,7 +105,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { requestCode, verifyCode, signInWithGoogle, user } = useAuth();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'email' | 'code'>('email');
@@ -113,6 +113,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentError, setConsentError] = useState(false);
 
   if (user) {
     return <Navigate to="/account" replace />;
@@ -151,8 +153,13 @@ export default function LoginPage() {
   }
 
   async function handleSocialSignIn() {
+    if (!consentChecked) {
+      setConsentError(true);
+      return;
+    }
     setGoogleLoading(true);
     setError('');
+    setConsentError(false);
 
     try {
       await signInWithGoogle();
@@ -160,6 +167,15 @@ export default function LoginPage() {
       setError(getErrorMessage(err, t('auth.sign_in_failed')));
       setGoogleLoading(false);
     }
+  }
+
+  async function handleEmailSubmit(e: React.FormEvent) {
+    if (!consentChecked) {
+      setConsentError(true);
+      return;
+    }
+    setConsentError(false);
+    await handleRequestCode(e);
   }
 
   return (
@@ -172,6 +188,40 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-text-bright tracking-tight">
               {t('auth.sign_in')}
             </h1>
+          </div>
+
+          {/* Consent Checkbox - Required by PDPA */}
+          <div className={`mb-6 rounded-xl border ${consentError ? 'border-danger bg-danger/5' : 'border-surface-hover bg-surface-alt/50'} p-4 transition-colors`}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => {
+                  setConsentChecked(e.target.checked);
+                  if (e.target.checked) setConsentError(false);
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-surface-hover text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-text-dim">
+                {lang === 'th' ? 'ฉันยอมรับ' : 'I agree to the'}{' '}
+                <a
+                  href={routes.privacy}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary-bright underline"
+                >
+                  {lang === 'th' ? 'นโยบายความเป็นส่วนตัว' : 'Privacy Policy'}
+                </a>{' '}{lang === 'th' ? 'และ' : 'and'}{' '}
+                <a
+                  href={routes.terms}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary-bright underline"
+                >
+                  {lang === 'th' ? 'ข้อกำหนดในการให้บริการ' : 'Terms of Service'}
+                </a>
+              </span>
+            </label>
           </div>
 
           {/* Primary Action - Google Sign In */}
@@ -214,7 +264,7 @@ export default function LoginPage() {
             <div className="mt-6 animate-slideUp">
               <div className="rounded-xl border border-surface-hover bg-surface-alt p-5">
                 {step === 'email' ? (
-                  <form onSubmit={handleRequestCode} className="space-y-4">
+                  <form onSubmit={handleEmailSubmit} className="space-y-4">
                     <input
                       type="email"
                       value={email}
