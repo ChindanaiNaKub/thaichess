@@ -123,6 +123,7 @@ vi.mock('../lib/toast', () => ({
 }));
 
 vi.mock('../lib/i18n', () => ({
+  useCurrentLanguage: () => 'en',
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
       if (!params) return key;

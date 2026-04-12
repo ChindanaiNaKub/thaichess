@@ -16,6 +16,7 @@ describe('Makruk board themes', () => {
     BOARD_THEMES.forEach((theme) => {
       expect(theme.validation.gridContrast).toBeGreaterThanOrEqual(1.18);
       expect(theme.validation.gridContrast).toBeLessThanOrEqual(2.45);
+      expect(theme.validation.coordinateContrast).toBeGreaterThanOrEqual(4.5);
       expect(theme.validation.weakestPieceContrast).toBeGreaterThanOrEqual(2.35);
     });
   });

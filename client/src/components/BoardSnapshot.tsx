@@ -1,4 +1,6 @@
 import type { Board as BoardType, Move, PieceColor } from '@shared/types';
+import { getBoardFileLabel, getBoardRankLabel } from '../lib/boardNotation';
+import { useCurrentLanguage } from '../lib/i18n';
 import { useBoardAppearance } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
 
@@ -18,6 +20,7 @@ export default function BoardSnapshot({
   size,
 }: BoardSnapshotProps) {
   const { boardTheme } = useBoardAppearance();
+  const lang = useCurrentLanguage();
   const flipped = playerColor === 'black';
   const squares = [];
 
@@ -41,6 +44,26 @@ export default function BoardSnapshot({
             background: isLastMoveSquare ? boardTheme.lastMoveBackground : 'transparent',
           }}
         >
+          {displayCol === 0 && (
+            <span
+              className="board-coordinate board-coordinate-rank top-0.5 left-1"
+              data-testid={`board-snapshot-rank-label-${row}`}
+              aria-hidden="true"
+              style={{ color: boardTheme.coordinateColor }}
+            >
+              {getBoardRankLabel(row)}
+            </span>
+          )}
+          {displayRow === 7 && (
+            <span
+              className="board-coordinate board-coordinate-file bottom-0.5 right-1"
+              data-testid={`board-snapshot-file-label-${col}`}
+              aria-hidden="true"
+              style={{ color: boardTheme.coordinateColor }}
+            >
+              {getBoardFileLabel(col, lang)}
+            </span>
+          )}
           {piece && (
             <div className="absolute inset-[11%] flex items-center justify-center drop-shadow-[0_6px_12px_rgba(0,0,0,0.18)]">
               <PieceSVG type={piece.type} color={piece.color} className="h-full w-full" />
