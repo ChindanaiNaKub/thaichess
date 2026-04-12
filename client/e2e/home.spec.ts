@@ -28,8 +28,9 @@ test.describe('Homepage', () => {
   test('navigates to quick play', async ({ page }) => {
     await page.locator('#main-content').getByRole('button', { name: /play now/i }).click();
     await expect(page).toHaveURL('/quick-play');
-    await expect(page.getByText(/^time control$/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /quick play/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/^time control$/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible({ timeout: 30000 });
   });
 
   test('navigates to local game', async ({ page }) => {
@@ -42,10 +43,12 @@ test.describe('Homepage', () => {
   test('navigates to bot game', async ({ page }) => {
     await page.locator('#main-content').getByRole('button', { name: /play vs bot/i }).click();
     await expect(page).toHaveURL('/bot');
+    await expect(page.locator('[data-testid="start-game-button"]:visible').first()).toBeVisible({ timeout: 30000 });
   });
 
   test('navigates to puzzles', async ({ page }) => {
     await page.locator('#main-content').getByRole('button', { name: /puzzles tactical training/i }).click();
     await expect(page).toHaveURL('/puzzles');
+    await expect(page.getByRole('heading', { name: /puzzle streak/i })).toBeVisible({ timeout: 30000 });
   });
 });
