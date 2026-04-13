@@ -504,9 +504,13 @@ export default memo(function Board({
                   width: '36%',
                   height: '36%',
                   backgroundColor: annotation.bgColor,
+                  color: '#20170b',
                   zIndex: 60,
-                  fontSize: '60%',
+                  fontSize: '72%',
+                  fontWeight: 800,
+                  fontFamily: '"Noto Sans Thai", "Noto Sans", "DejaVu Sans", system-ui, sans-serif',
                   lineHeight: 1,
+                  textShadow: '0 1px 0 rgba(255,255,255,0.35)',
                 }}
               >
                 {annotation.icon}

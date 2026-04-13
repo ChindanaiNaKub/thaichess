@@ -548,11 +548,13 @@ export default function AnalysisPage() {
     if (review.mode !== 'mainLine' || !analysis || currentPlyIndex < 0 || currentPlyIndex >= analysis.moves.length) return [];
     const analyzed = analysis.moves[currentPlyIndex];
     const cls = analyzed.classification;
+    const primaryIcon = getClassificationIcon(cls);
+    const primaryColor = getClassificationColor(cls);
 
     const annotations: SquareAnnotation[] = [{
       pos: analyzed.move.to,
-      icon: getClassificationIcon(cls),
-      bgColor: getClassificationColor(cls),
+      icon: primaryIcon,
+      bgColor: primaryColor,
     }];
 
     if (showBestMove && analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder')) {

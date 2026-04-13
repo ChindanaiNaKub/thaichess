@@ -358,7 +358,7 @@ export function getClassificationSymbol(classification: MoveClassification): str
 export function getClassificationIcon(classification: MoveClassification): string {
   switch (classification) {
     case 'best': return '⭐';
-    case 'excellent': return '✦';
+    case 'excellent': return '👍';
     case 'good': return '✓';
     case 'inaccuracy': return '?!';
     case 'mistake': return '?';
