@@ -178,7 +178,7 @@ export const auth = betterAuth({
       rating: {
         type: 'number',
         required: false,
-        defaultValue: 1500,
+        defaultValue: 500,
         input: false,
       },
       rated_games: {

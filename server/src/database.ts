@@ -252,7 +252,7 @@ async function runSchemaMigration() {
         fair_play_status TEXT NOT NULL DEFAULT 'clear',
         rated_restricted_at INTEGER,
         rated_restriction_note TEXT,
-        rating INTEGER NOT NULL DEFAULT 1500,
+        rating INTEGER NOT NULL DEFAULT 500,
         rated_games INTEGER NOT NULL DEFAULT 0,
         wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0,
@@ -408,7 +408,7 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'fair_play_status', "TEXT NOT NULL DEFAULT 'clear'");
   await ensureColumn('users', 'rated_restricted_at', 'INTEGER');
   await ensureColumn('users', 'rated_restriction_note', 'TEXT');
-  await ensureColumn('users', 'rating', 'INTEGER NOT NULL DEFAULT 1500');
+  await ensureColumn('users', 'rating', 'INTEGER NOT NULL DEFAULT 500');
   await ensureColumn('users', 'rated_games', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
@@ -580,7 +580,7 @@ function rowToAuthUser(row: Row): AuthUser {
     rated_restriction_note: row.rated_restriction_note === null || row.rated_restriction_note === undefined
       ? null
       : String(row.rated_restriction_note),
-    rating: Number(row.rating ?? 1500),
+    rating: Number(row.rating ?? 500),
     rated_games: Number(row.rated_games ?? 0),
     wins: Number(row.wins ?? 0),
     losses: Number(row.losses ?? 0),
@@ -615,7 +615,7 @@ function rowToLeaderboardEntry(row: Row): LeaderboardEntry {
   return {
     id: String(row.id),
     display_name: getPublicDisplayName(username, email),
-    rating: Number(row.rating ?? 1500),
+    rating: Number(row.rating ?? 500),
     rated_games: Number(row.rated_games ?? 0),
     wins: Number(row.wins ?? 0),
     losses: Number(row.losses ?? 0),
