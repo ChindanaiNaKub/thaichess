@@ -1887,7 +1887,7 @@ const _TH: Record<string, string> = {
   'analysis.eval_before': 'ก่อน',
   'analysis.eval_after': 'หลัง',
   'analysis.best_was': 'ตาแนะนำคือ',
-  'analysis.brilliant': 'ยอดเยี่ยมพิเศษ',
+  'analysis.brilliant': 'ฉลาดหลักแหลม',
   'analysis.best': 'ดีที่สุด',
   'analysis.excellent': 'ยอดเยี่ยม',
   'analysis.good': 'ดี',
