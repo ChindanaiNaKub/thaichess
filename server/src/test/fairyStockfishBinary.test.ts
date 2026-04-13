@@ -23,6 +23,11 @@ describe('normalizeEngineFen', () => {
       .toBe('8/8/8/8/8/8/8/8 b - - 0 1');
   });
 
+  it('maps promoted pawns to Met pieces for Fairy-Stockfish makruk fen', () => {
+    expect(normalizeEngineFen('8/8/4F3/8/8/3f4/8/4K2k w'))
+      .toBe('8/8/4M3/8/8/3m4/8/4K2k w - - 0 1');
+  });
+
   it('uses a much tighter timeout budget for bot movetime searches', () => {
     expect(getEngineSearchTimeoutMs({
       variant: 'makruk',

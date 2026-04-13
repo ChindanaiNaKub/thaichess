@@ -60,11 +60,17 @@ function parseInteger(value: string | undefined): number | undefined {
 
 function normalizeEngineFen(position: string): string {
   const parts = position.trim().split(/\s+/);
-  if (parts.length >= 4) return position.trim();
+  if (!parts[0]) return position.trim();
+
+  // Fairy-Stockfish's makruk variant uses M/m for Met movement and does not
+  // accept our internal F/f marker for promoted pawns. For engine analysis a
+  // promoted pawn can be represented as a Met because it has the same moves.
+  const board = parts[0].replaceAll('F', 'M').replaceAll('f', 'm');
+  if (parts.length >= 4) return [board, ...parts.slice(1)].join(' ');
   if (parts.length === 2) {
-    return `${parts[0]} ${parts[1]} - - 0 1`;
+    return `${board} ${parts[1]} - - 0 1`;
   }
-  return position.trim();
+  return [board, ...parts.slice(1)].join(' ');
 }
 
 function parseInfoLine(line: string): ParsedInfo {
