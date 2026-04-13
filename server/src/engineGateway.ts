@@ -1,7 +1,6 @@
 import type { Move } from '../../shared/types';
 import { createInitialGameState, getAllPieces, getLegalMoves, isInCheck, makeMove } from '../../shared/engine';
 import {
-  analyzeGame,
   classifyMove,
   computeAccuracy,
   createEmptySummary,
@@ -46,6 +45,10 @@ const REVIEW_ANALYSIS_MIN_TIMEOUT_MS = 1400;
 const REVIEW_ANALYSIS_TIMEOUT_BUFFER_MS = 900;
 const REVIEW_LOCAL_FALLBACK_DEADLINE_BUFFER_MS = 1800;
 const LEVEL10_ENGINE_OVERRIDE_DELTA = 140;
+
+interface EngineAnalysisOptions {
+  allowLocalFallback?: boolean;
+}
 
 interface Level10BotSearchPlan {
   search: EngineServiceAnalyzeRequest['search'];
@@ -389,6 +392,7 @@ export function resolvePositionAnalysisResult(
   search: EngineServiceAnalyzeRequest['search'],
   result: EngineServiceAnalyzeResponse,
   source: 'service' | 'binary',
+  options: EngineAnalysisOptions = {},
 ): PositionAnalysisResult {
   const parsedMove = result.bestMoveUci ? uciToMove(result.bestMoveUci) : null;
   const resolved = resolveValidatedAnalysisMove(snapshot, parsedMove);
@@ -399,6 +403,9 @@ export function resolvePositionAnalysisResult(
       bestMoveUci: result.bestMoveUci,
       reason: parsedMove ? 'illegal_move' : 'missing_or_unparseable_move',
     });
+    if (options.allowLocalFallback === false) {
+      throw new Error(`Fairy-Stockfish returned an unusable move: ${result.bestMoveUci}`);
+    }
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
@@ -437,6 +444,7 @@ export async function analyzePositionWithEngine(
   snapshot: AnalysisPositionSnapshot,
   search: EngineServiceAnalyzeRequest['search'],
   multipv: number = 1,
+  options: EngineAnalysisOptions = {},
 ): Promise<PositionAnalysisResult> {
   const serialized = serializeAnalysisPosition(snapshot);
   const request: EngineServiceAnalyzeRequest = {
@@ -452,10 +460,13 @@ export async function analyzePositionWithEngine(
   const result = remote ?? binary;
 
   if (!result) {
+    if (options.allowLocalFallback === false) {
+      throw new Error('Fairy-Stockfish analysis is unavailable.');
+    }
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
-  return resolvePositionAnalysisResult(snapshot, search, result, remote ? 'service' : 'binary');
+  return resolvePositionAnalysisResult(snapshot, search, result, remote ? 'service' : 'binary', options);
 }
 
 export async function analyzeGameWithEngine(
@@ -466,7 +477,7 @@ export async function analyzeGameWithEngine(
   const movetimeMs = getReviewMovetime(moves.length, options?.movetimeMs);
 
   if (!hasExternalEngineSupport()) {
-    return analyzeGame(moves, options?.depth ?? getFallbackDepth({ movetimeMs }), onProgress);
+    throw new Error('Fairy-Stockfish is not configured for game review.');
   }
 
   const evaluatedMoves: AnalyzedMove[] = [];
@@ -492,12 +503,14 @@ export async function analyzeGameWithEngine(
           totalBudgetMs: getReviewTotalBudgetMs(moves.length),
         });
       }
-      return buildLocalPositionAnalysis(snapshot, { movetimeMs: REVIEW_MIN_MOVETIME_MS });
+      throw new Error('Fairy-Stockfish review timed out before all positions were analyzed.');
     }
 
     return analyzePositionWithEngine(
       snapshot,
       createReviewSearch(movetimeMs, remainingPositions, remainingBudgetMs),
+      1,
+      { allowLocalFallback: false },
     );
   };
 

@@ -1,4 +1,4 @@
-import { analyzeGame, type AnalysisProgress, type GameAnalysis } from '@shared/analysis';
+import type { AnalysisProgress, GameAnalysis } from '@shared/analysis';
 import type { Move } from '@shared/types';
 import { requestGameAnalysis } from '../lib/analysis';
 
@@ -114,11 +114,8 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
           depth: event.data.depth,
           movetimeMs: event.data.movetimeMs,
         });
-      } catch {
-        analysis = analyzeGame(event.data.moves, event.data.depth ?? 2, (progress) => {
-          const message: ProgressMessage = { type: 'progress', progress };
-          self.postMessage(message);
-        });
+      } catch (requestError) {
+        throw requestError instanceof Error ? requestError : new Error('Analysis request failed');
       }
     }
 
