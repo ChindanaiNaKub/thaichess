@@ -135,6 +135,11 @@ export function normalizeEngineEvaluation(evalCp: number, turn: AnalysisPosition
   return turn === 'white' ? evalCp : -evalCp;
 }
 
+export function normalizeEngineMate(mate: number | null | undefined, turn: AnalysisPositionSnapshot['turn']): number | null {
+  if (mate === undefined || mate === null) return null;
+  return turn === 'white' ? mate : -mate;
+}
+
 function isSnapshotEndgame(snapshot: AnalysisPositionSnapshot): boolean {
   let remainingNonPawnMaterial = 0;
 
@@ -411,6 +416,7 @@ export function resolvePositionAnalysisResult(
 
   return {
     evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
+    mate: normalizeEngineMate(result.mate, snapshot.turn),
     bestMove: resolved.move,
     principalVariation: result.pvUci ?? [],
     stats: {
@@ -657,6 +663,7 @@ export async function getBotMoveWithEngine(
       return {
         move: validated.move,
         evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
+        mate: normalizeEngineMate(result.mate, snapshot.turn),
         bestMove: validated.move,
         principalVariation: validated.source === 'local' ? [moveToUci(validated.move)] : result.pvUci ?? [],
         stats: {

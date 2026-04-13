@@ -8,6 +8,7 @@ import {
   getReviewMovetime,
   getReviewTotalBudgetMs,
   normalizeEngineEvaluation,
+  normalizeEngineMate,
   resolveBotMoveCandidate,
   resolvePositionAnalysisResult,
 } from '../engineGateway';
@@ -140,6 +141,13 @@ describe('normalizeEngineFen', () => {
     expect(normalizeEngineEvaluation(-340, 'black')).toBe(340);
   });
 
+  it('normalizes engine mate distance to white perspective', () => {
+    expect(normalizeEngineMate(5, 'white')).toBe(5);
+    expect(normalizeEngineMate(5, 'black')).toBe(-5);
+    expect(normalizeEngineMate(-3, 'black')).toBe(3);
+    expect(normalizeEngineMate(null, 'white')).toBeNull();
+  });
+
   it('flips engine review scores when black is to move', () => {
     const state = createInitialGameState(0, 0);
     const snapshot = {
@@ -153,10 +161,12 @@ describe('normalizeEngineFen', () => {
       bestMoveUci: moveToUci(legalMove),
       pvUci: [moveToUci(legalMove)],
       evalCp: 280,
+      mate: 5,
       depth: 14,
     }, 'binary');
 
     expect(result.evaluation).toBe(-280);
+    expect(result.mate).toBe(-5);
     expect(result.bestMove).toEqual(legalMove);
   });
 

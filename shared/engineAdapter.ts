@@ -23,6 +23,7 @@ export interface EngineStats {
 
 export interface PositionAnalysisResult {
   evaluation: number;
+  mate?: number | null;
   bestMove: { from: Position; to: Position } | null;
   principalVariation: string[];
   stats: EngineStats;
