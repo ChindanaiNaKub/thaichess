@@ -1,4 +1,4 @@
-import { forwardRef, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { forwardRef, useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, Move, Board as BoardType, GameState } from '@shared/types';
@@ -75,9 +75,7 @@ export default function AnalysisPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLElement | null>(null);
   const setActiveMoveElement = useCallback((node: HTMLElement | null) => {
-    if (node) {
-      activeMoveRef.current = node;
-    }
+    activeMoveRef.current = node;
   }, []);
 
   // Load game from URL params (local) or API
@@ -291,37 +289,81 @@ export default function AnalysisPage() {
     ? review.analysisRootMoveIndex ?? review.selectedMainLineMoveIndex
     : review.selectedMainLineMoveIndex;
 
+  const navigateBackward = useCallback(() => {
+    if (review.mode === 'analysis' && review.selectedAnalysisMoveIndex < 0) {
+      const rootIndex = review.analysisRootMoveIndex ?? review.selectedMainLineMoveIndex;
+      review.jumpToAnalysisRoot(rootIndex - 1);
+      return;
+    }
+
+    review.stepBackward();
+  }, [review]);
+
+  const navigateForward = useCallback(() => {
+    if (
+      review.mode === 'analysis'
+      && review.selectedAnalysisMoveIndex < 0
+      && review.analysisLine.length === 0
+    ) {
+      const rootIndex = review.analysisRootMoveIndex ?? review.selectedMainLineMoveIndex;
+      review.jumpToAnalysisRoot(rootIndex + 1);
+      return;
+    }
+
+    review.stepForward();
+  }, [review]);
+
+  const navigateToStart = useCallback(() => {
+    if (review.mode === 'analysis') {
+      review.jumpToAnalysisRoot(-1);
+      return;
+    }
+
+    review.jumpToStart();
+  }, [review]);
+
+  const navigateToEnd = useCallback(() => {
+    if (review.mode === 'analysis') {
+      review.jumpToAnalysisRoot((gameData?.moves.length ?? 0) - 1);
+      return;
+    }
+
+    review.jumpToEnd();
+  }, [gameData?.moves.length, review]);
+
   // Keyboard navigation
   useEffect(() => {
     if (!gameData) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isEditableKeyboardTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return;
+
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
-        review.stepBackward();
+        navigateBackward();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        review.stepForward();
+        navigateForward();
       } else if (e.key === 'Home') {
         e.preventDefault();
-        review.jumpToStart();
+        navigateToStart();
       } else if (e.key === 'End') {
         e.preventDefault();
-        review.jumpToEnd();
+        navigateToEnd();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameData, review]);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [gameData, navigateBackward, navigateForward, navigateToEnd, navigateToStart]);
 
-  // Auto-scroll active move within the move list container only (never scroll the page)
-  useEffect(() => {
+  // Auto-scroll active move within the move list container only (never scroll the page).
+  useLayoutEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
 
     // When viewing the initial position, reset move list to top
-    if (currentPlyIndex < 0) {
+    if (review.mode === 'mainLine' && currentPlyIndex < 0) {
       container.scrollTop = 0;
       return;
     }
@@ -329,20 +371,30 @@ export default function AnalysisPage() {
     const el = activeMoveRef.current;
     if (!el) return;
 
-    // Use bounding boxes (not offsetTop) to avoid incorrect math when
-    // grid/contents layout changes the offset parent.
-    const elRect = el.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+    const frame = window.requestAnimationFrame(() => {
+      // Use bounding boxes (not offsetTop) to avoid incorrect math when
+      // grid/contents layout changes the offset parent.
+      const elRect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
 
-    const topDelta = elRect.top - containerRect.top;
-    const bottomDelta = elRect.bottom - containerRect.bottom;
+      const topDelta = elRect.top - containerRect.top;
+      const bottomDelta = elRect.bottom - containerRect.bottom;
 
-    if (topDelta < 0) {
-      container.scrollTop += topDelta - 4;
-    } else if (bottomDelta > 0) {
-      container.scrollTop += bottomDelta + 4;
-    }
-  }, [currentPlyIndex]);
+      if (topDelta < 0) {
+        container.scrollTop += topDelta - 12;
+      } else if (bottomDelta > 0) {
+        container.scrollTop += bottomDelta + 12;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    currentPlyIndex,
+    highlightedMainLineMoveIndex,
+    review.analysisLine.length,
+    review.mode,
+    review.selectedAnalysisMoveIndex,
+  ]);
 
   const currentReviewSnapshot = useMemo<AnalysisPositionSnapshot | null>(() => (
     gameData
@@ -772,6 +824,28 @@ export default function AnalysisPage() {
   if (!gameData) return null;
 
   const movePairs = buildMovePairs(gameData.moves, analysis);
+  const analysisVariationsByRoot = new Map(
+    review.analysisVariations.map((variation) => [variation.rootMoveIndex, variation.line]),
+  );
+  const renderVariationLine = (rootMoveIndex: number) => {
+    const analysisLine = analysisVariationsByRoot.get(rootMoveIndex);
+    if (!analysisLine) return null;
+
+    const isActiveVariation = review.mode === 'analysis' && review.analysisRootMoveIndex === rootMoveIndex;
+
+    return (
+      <div key={`variation-${rootMoveIndex}`} className="col-span-3 pb-1">
+        <VariationLine
+          ref={isActiveVariation && review.selectedAnalysisMoveIndex >= 0 ? setActiveMoveElement : undefined}
+          rootMoveIndex={rootMoveIndex}
+          analysisLine={analysisLine}
+          selectedMoveIndex={isActiveVariation ? review.selectedAnalysisMoveIndex : -1}
+          onSelectMove={(moveIndex) => review.jumpToAnalysisVariationMove(rootMoveIndex, moveIndex)}
+          t={reviewT}
+        />
+      </div>
+    );
+  };
 
   return (
     <div data-testid="analysis-game-view" className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
@@ -832,25 +906,25 @@ export default function AnalysisPage() {
               {/* Nav buttons */}
               <div className="flex items-center justify-center gap-1 rounded-lg border border-surface-hover bg-surface-alt/80 px-2 py-1.5">
                 <button
-                  onClick={review.jumpToStart}
+                  onClick={navigateToStart}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ⏮
                 </button>
                 <button
-                  onClick={review.stepBackward}
+                  onClick={navigateBackward}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ◀
                 </button>
                 <button
-                  onClick={review.stepForward}
+                  onClick={navigateForward}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ▶
                 </button>
                 <button
-                  onClick={review.jumpToEnd}
+                  onClick={navigateToEnd}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ⏭
@@ -860,9 +934,9 @@ export default function AnalysisPage() {
           </div>
 
           {/* Side Panel */}
-          <div className="flex min-w-0 flex-col gap-2 w-full max-w-[760px] lg:self-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
-            <div className="rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-              <div className="px-3 py-2 border-b border-surface-hover flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-col gap-2 w-full max-w-[760px] lg:h-[calc(100dvh-6rem)] lg:self-start lg:sticky lg:top-4 lg:overflow-hidden">
+            <div className="flex min-h-0 flex-col rounded-xl border border-white/10 bg-surface overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.16)] lg:flex-1">
+              <div className="shrink-0 px-3 py-2 border-b border-surface-hover flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <h3 className="text-sm font-semibold text-text-bright">{t('moves.title')}</h3>
                     {review.mode === 'analysis' && (
@@ -885,25 +959,25 @@ export default function AnalysisPage() {
                   )}
                   <div className="hidden sm:flex items-center gap-1">
                     <button
-                      onClick={review.jumpToStart}
+                      onClick={navigateToStart}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ⏮
                     </button>
                     <button
-                      onClick={review.stepBackward}
+                      onClick={navigateBackward}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ◀
                     </button>
                     <button
-                      onClick={review.stepForward}
+                      onClick={navigateForward}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ▶
                     </button>
                     <button
-                      onClick={review.jumpToEnd}
+                      onClick={navigateToEnd}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ⏭
@@ -911,28 +985,18 @@ export default function AnalysisPage() {
                   </div>
                 </div>
               </div>
-              <div ref={scrollRef} className="max-h-[460px] lg:max-h-[calc(100vh-18rem)] overflow-y-auto p-1.5">
+              <div ref={scrollRef} data-testid="analysis-move-list" className="max-h-[460px] min-h-[12rem] overflow-y-auto p-1.5 lg:min-h-0 lg:max-h-none lg:flex-1">
                 {movePairs.length === 0 ? (
                   <div className="text-text-dim text-sm text-center py-4">{t('moves.empty')}</div>
                 ) : (
                   <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-[15px] leading-6">
-                    {review.analysisRootMoveIndex === -1 && review.analysisLine.length > 0 && (
-                      <div className="col-span-3 pb-1">
-                        <VariationLine
-                          ref={review.selectedAnalysisMoveIndex >= 0 ? setActiveMoveElement : undefined}
-                          rootMoveIndex={review.analysisRootMoveIndex}
-                          analysisLine={review.analysisLine}
-                          selectedMoveIndex={review.selectedAnalysisMoveIndex}
-                          onSelectMove={review.jumpToAnalysisMove}
-                          t={reviewT}
-                        />
-                      </div>
-                    )}
+                    {renderVariationLine(-1)}
                     {movePairs.map(({ num, white, black, whiteIdx, blackIdx, whiteClass, blackClass }, pairIndex) => (
                       <div key={num} className="contents">
                         <span className="text-text px-2 py-1 text-right">{num}.</span>
                         <span
                           ref={highlightedMainLineMoveIndex === whiteIdx ? setActiveMoveElement : undefined}
+                          data-testid={`analysis-main-move-${whiteIdx}`}
                           className={`px-2 py-1 font-mono rounded cursor-pointer transition-colors ${
                             highlightedMainLineMoveIndex === whiteIdx ? 'move-active shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable'
                           }`}
@@ -947,6 +1011,7 @@ export default function AnalysisPage() {
                         </span>
                         <span
                           ref={highlightedMainLineMoveIndex === blackIdx ? setActiveMoveElement : undefined}
+                          data-testid={black ? `analysis-main-move-${blackIdx}` : undefined}
                           className={`px-2 py-1 font-mono rounded ${
                             black
                               ? highlightedMainLineMoveIndex === blackIdx ? 'move-active cursor-pointer shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable cursor-pointer'
@@ -965,27 +1030,15 @@ export default function AnalysisPage() {
                             </>
                           )}
                         </span>
-                        {review.analysisRootMoveIndex !== null
-                          && review.analysisRootMoveIndex >= 0
-                          && review.analysisLine.length > 0
-                          && pairIndex === Math.floor(review.analysisRootMoveIndex / 2) && (
-                            <div className="col-span-3 pb-1">
-                              <VariationLine
-                                ref={review.selectedAnalysisMoveIndex >= 0 ? setActiveMoveElement : undefined}
-                                rootMoveIndex={review.analysisRootMoveIndex}
-                                analysisLine={review.analysisLine}
-                                selectedMoveIndex={review.selectedAnalysisMoveIndex}
-                                onSelectMove={review.jumpToAnalysisMove}
-                                t={reviewT}
-                              />
-                            </div>
-                        )}
+                        {review.analysisVariations
+                          .filter((variation) => variation.rootMoveIndex >= 0 && Math.floor(variation.rootMoveIndex / 2) === pairIndex)
+                          .map((variation) => renderVariationLine(variation.rootMoveIndex))}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-              <div className="border-t border-surface-hover px-2.5 py-2 flex flex-wrap items-center gap-2">
+              <div className="shrink-0 border-t border-surface-hover px-2.5 py-2 flex flex-wrap items-center gap-2">
                 {review.mode === 'analysis' ? (
                   <>
                     <button
@@ -1006,6 +1059,7 @@ export default function AnalysisPage() {
                   <button
                     onClick={review.enterAnalysis}
                     disabled={!review.canEnterAnalysis}
+                    data-testid="analysis-enter-analysis"
                     className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-50"
                   >
                     {reviewT('review.enter_analysis')}
@@ -1014,28 +1068,30 @@ export default function AnalysisPage() {
               </div>
             </div>
 
-            <CompactEnginePanel
-              currentPlyIndex={currentPlyIndex}
-              moveCount={gameData.moves.length}
-              currentEval={currentEval}
-              winningChances={currentWinningChances}
-              turn={review.currentState.turn}
-              bestMoveText={currentBestMoveText}
-              principalVariation={currentPositionAnalysis?.principalVariation ?? []}
-              analyzing={currentPositionAnalyzing}
-              error={currentPositionError}
-              reviewMode={review.mode}
-              currentAnalyzedMove={currentAnalyzedMove}
-              reviewIsProvisional={reviewIsProvisional}
-              analyzingGame={analyzing}
-              progress={progress}
-              analysisElapsedSeconds={analysisElapsedSeconds}
-              t={t}
-              reviewT={reviewT}
-            />
+            <div className="shrink-0">
+              <CompactEnginePanel
+                currentPlyIndex={currentPlyIndex}
+                moveCount={gameData.moves.length}
+                currentEval={currentEval}
+                winningChances={currentWinningChances}
+                turn={review.currentState.turn}
+                bestMoveText={currentBestMoveText}
+                principalVariation={currentPositionAnalysis?.principalVariation ?? []}
+                analyzing={currentPositionAnalyzing}
+                error={currentPositionError}
+                reviewMode={review.mode}
+                currentAnalyzedMove={currentAnalyzedMove}
+                reviewIsProvisional={reviewIsProvisional}
+                analyzingGame={analyzing}
+                progress={progress}
+                analysisElapsedSeconds={analysisElapsedSeconds}
+                t={t}
+                reviewT={reviewT}
+              />
+            </div>
 
             {analysis && analysis.evaluations.length > 1 && (
-              <div className="rounded-xl border border-white/10 bg-surface p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+              <div className="shrink-0 rounded-xl border border-white/10 bg-surface p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <EvalGraph
                   evaluations={analysis.evaluations}
                   moves={analysis.moves}
@@ -1460,6 +1516,15 @@ function writeCachedAnalysis(cacheKey: string, analysis: GameAnalysis): void {
   writeCachedGameAnalysis(cacheKey, analysis);
 }
 
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  if (target.isContentEditable) return true;
+
+  const tagName = target.tagName.toLowerCase();
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+}
+
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
 interface MovePair {
@@ -1491,6 +1556,8 @@ const VariationLine = forwardRef<HTMLDivElement, {
   return (
     <div
       ref={ref}
+      data-testid="analysis-variation-line"
+      data-root-move-index={rootMoveIndex ?? ''}
       className="ml-6 border-l border-primary/25 pl-3 py-1 text-[12px] text-text"
     >
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono">
@@ -1503,6 +1570,8 @@ const VariationLine = forwardRef<HTMLDivElement, {
             <button
               type="button"
               onClick={() => onSelectMove(token.moveIndex)}
+              data-testid={token.isSelected ? 'analysis-active-variation-move' : undefined}
+              aria-current={token.isSelected ? 'step' : undefined}
               className={`rounded px-1.5 py-0.5 text-left transition-colors ${
                 token.isSelected
                   ? 'bg-primary/25 text-text-bright ring-1 ring-primary/30'

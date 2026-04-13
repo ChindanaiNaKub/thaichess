@@ -39,6 +39,11 @@ interface AnalysisBranch {
   nodes: Record<string, AnalysisNode>;
 }
 
+interface AnalysisVariation {
+  rootMoveIndex: number;
+  line: Move[];
+}
+
 interface UsePostGameReviewOptions {
   enabled: boolean;
   mainLine: Move[];
@@ -54,6 +59,7 @@ interface UsePostGameReviewResult {
   selectedMainLineMoveIndex: number;
   analysisRootMoveIndex: number | null;
   analysisLine: Move[];
+  analysisVariations: AnalysisVariation[];
   selectedAnalysisMoveIndex: number;
   canStepBackward: boolean;
   canStepForward: boolean;
@@ -62,6 +68,7 @@ interface UsePostGameReviewResult {
   jumpToMainLine: (moveIndex: number) => void;
   jumpToAnalysisRoot: (moveIndex: number) => void;
   jumpToAnalysisMove: (moveIndex: number) => void;
+  jumpToAnalysisVariationMove: (rootMoveIndex: number, moveIndex: number) => void;
   stepBackward: () => void;
   stepForward: () => void;
   jumpToStart: () => void;
@@ -297,6 +304,18 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
       .filter((move): move is Move => Boolean(move))
       .map(cloneMove);
   }, [preferredAnalysisNodes]);
+  const analysisVariations = useMemo(() => {
+    return Object.values(branches)
+      .map((branch) => ({
+        rootMoveIndex: branch.rootMoveIndex,
+        line: getPreferredBranchLine(branch)
+          .map((node) => node.move)
+          .filter((move): move is Move => Boolean(move))
+          .map(cloneMove),
+      }))
+      .filter((variation) => variation.line.length > 0)
+      .sort((left, right) => left.rootMoveIndex - right.rootMoveIndex);
+  }, [branches]);
   const selectedAnalysisMoveIndex = useMemo(() => {
     if (!activeBranch || !activeAnalysisNode) return -1;
     return preferredAnalysisNodes.findIndex((node) => node.id === activeAnalysisNode.id);
@@ -393,6 +412,36 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
       };
     });
   }, [activeBranch, analysisRootMoveIndex, preferredAnalysisNodes]);
+
+  const jumpToAnalysisVariationMove = useCallback((rootMoveIndex: number, moveIndex: number) => {
+    if (!enabled) return;
+
+    const branchKey = String(rootMoveIndex);
+    const branch = branches[branchKey];
+    if (!branch) return;
+
+    setMode('analysis');
+    setSelectedMainLineMoveIndex(branch.rootMoveIndex);
+    setAnalysisRootMoveIndex(branch.rootMoveIndex);
+    setBranches((current) => {
+      const currentBranch = current[branchKey];
+      if (!currentBranch) return current;
+
+      const currentPreferredNodes = getPreferredBranchLine(currentBranch);
+      const nextIndex = Math.max(-1, Math.min(currentPreferredNodes.length - 1, moveIndex));
+      const nextNodeId = nextIndex < 0
+        ? currentBranch.rootNodeId
+        : currentPreferredNodes[nextIndex]?.id ?? currentBranch.rootNodeId;
+
+      return {
+        ...current,
+        [branchKey]: {
+          ...currentBranch,
+          currentNodeId: nextNodeId,
+        },
+      };
+    });
+  }, [branches, enabled]);
 
   const enterAnalysis = useCallback(() => {
     jumpToAnalysisRoot(selectedMainLineMoveIndex);
@@ -638,6 +687,7 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     selectedMainLineMoveIndex,
     analysisRootMoveIndex,
     analysisLine,
+    analysisVariations,
     selectedAnalysisMoveIndex,
     canStepBackward: mode === 'analysis'
       ? Boolean(activeAnalysisNode?.parentId)
@@ -650,6 +700,7 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     jumpToMainLine,
     jumpToAnalysisRoot,
     jumpToAnalysisMove,
+    jumpToAnalysisVariationMove,
     stepBackward,
     stepForward,
     jumpToStart,

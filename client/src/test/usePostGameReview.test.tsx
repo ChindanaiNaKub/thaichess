@@ -55,6 +55,11 @@ describe('usePostGameReview', () => {
     expect(result.current.selectedMainLineMoveIndex).toBe(1);
     expect(result.current.analysisRootMoveIndex).toBe(1);
     expect(result.current.analysisLine).toHaveLength(0);
+    expect(result.current.analysisVariations).toHaveLength(1);
+    expect(result.current.analysisVariations[0]).toMatchObject({
+      rootMoveIndex: 0,
+      line: [{ from: { row: 5, col: 1 }, to: { row: 4, col: 1 } }],
+    });
     expect(result.current.currentMoveHistory).toHaveLength(finalState.moveHistory.length);
 
     act(() => {
@@ -157,6 +162,7 @@ describe('usePostGameReview', () => {
 
     expect(result.current.mode).toBe('analysis');
     expect(result.current.analysisLine).toHaveLength(0);
+    expect(result.current.analysisVariations).toHaveLength(0);
     expect(result.current.currentMoveHistory).toHaveLength(afterWhite.moveHistory.length);
   });
 });
