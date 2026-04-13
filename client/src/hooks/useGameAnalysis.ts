@@ -125,6 +125,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
 
     worker.postMessage({
       type: 'analyze',
+      analysisId,
       moves,
       movetimeMs,
       depth,

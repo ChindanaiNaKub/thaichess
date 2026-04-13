@@ -31,8 +31,11 @@ import {
 } from '../../shared/engineAdapter';
 import { logInfo, logWarn } from './logger';
 import { analyzeBotWithBinaryEngine, analyzeWithBinaryEngine, hasBinaryEngineConfigured } from './fairyStockfishBinary';
+import { getCachedGameAnalysis, saveCachedGameAnalysis } from './database';
 
 const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
+const GAME_ANALYSIS_CACHE_VERSION = 3;
+const POSITION_ANALYSIS_CACHE_MAX = 1200;
 
 const BOT_LEVEL_MOVETIMES_MS = [50, 60, 70, 80, 95, 110, 130, 150, 170, 190] as const;
 const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 1450, 1550, 5200] as const;
@@ -50,6 +53,21 @@ interface EngineAnalysisOptions {
   allowLocalFallback?: boolean;
 }
 
+interface GameAnalysisOptions {
+  analysisId?: string | null;
+  movetimeMs?: number;
+  depth?: number;
+}
+
+interface ExternalPositionAnalysisResult {
+  response: EngineServiceAnalyzeResponse;
+  source: 'service' | 'binary';
+}
+
+const positionAnalysisCache = new Map<string, ExternalPositionAnalysisResult>();
+const positionAnalysisInFlight = new Map<string, Promise<ExternalPositionAnalysisResult | null>>();
+const gameAnalysisInFlight = new Map<string, Promise<GameAnalysis>>();
+
 interface Level10BotSearchPlan {
   search: EngineServiceAnalyzeRequest['search'];
   localValidation: BotSearchOptions;
@@ -62,6 +80,81 @@ function getServiceUrl(pathname: string): string | null {
 
 export function hasExternalEngineSupport(): boolean {
   return Boolean(SERVICE_URL) || hasBinaryEngineConfigured();
+}
+
+function serializeMoveForCache(move: Move): string {
+  return [
+    move.from.row,
+    move.from.col,
+    move.to.row,
+    move.to.col,
+    move.promotion ?? '',
+    move.promoted ? '1' : '0',
+  ].join('');
+}
+
+function hashText(text: string): string {
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getMovesHash(moves: Move[]): string {
+  return `${moves.length}-${hashText(moves.map(serializeMoveForCache).join('|'))}`;
+}
+
+function getGameAnalysisCacheKey(params: {
+  analysisId?: string | null;
+  moves: Move[];
+  movetimeMs: number;
+  depth?: number;
+}): { cacheKey: string; movesHash: string } {
+  const movesHash = getMovesHash(params.moves);
+  const normalizedId = params.analysisId?.trim() || `moves-${movesHash}`;
+  return {
+    movesHash,
+    cacheKey: [
+      'game-analysis',
+      GAME_ANALYSIS_CACHE_VERSION,
+      normalizedId,
+      movesHash,
+      params.movetimeMs,
+      params.depth ?? 'auto',
+    ].join(':'),
+  };
+}
+
+function getPositionAnalysisCacheKey(request: EngineServiceAnalyzeRequest): string {
+  return JSON.stringify({
+    engine: SERVICE_URL || 'binary',
+    variant: request.variant,
+    position: request.position,
+    counting: request.counting ?? null,
+    search: request.search,
+    multipv: request.multipv ?? 1,
+  });
+}
+
+function getCachedPositionAnalysis(cacheKey: string): ExternalPositionAnalysisResult | null {
+  const cached = positionAnalysisCache.get(cacheKey);
+  if (!cached) return null;
+  positionAnalysisCache.delete(cacheKey);
+  positionAnalysisCache.set(cacheKey, cached);
+  return cached;
+}
+
+function writeCachedPositionAnalysis(cacheKey: string, result: ExternalPositionAnalysisResult): void {
+  if (positionAnalysisCache.has(cacheKey)) {
+    positionAnalysisCache.delete(cacheKey);
+  }
+  positionAnalysisCache.set(cacheKey, result);
+  while (positionAnalysisCache.size > POSITION_ANALYSIS_CACHE_MAX) {
+    const oldest = positionAnalysisCache.keys().next().value as string | undefined;
+    if (!oldest) break;
+    positionAnalysisCache.delete(oldest);
+  }
 }
 
 function clampBotLevel(level: number): number {
@@ -317,6 +410,43 @@ async function callService(
   }
 }
 
+async function requestExternalPositionAnalysis(
+  request: EngineServiceAnalyzeRequest,
+  timeoutMs: number,
+): Promise<ExternalPositionAnalysisResult | null> {
+  const cacheKey = getPositionAnalysisCacheKey(request);
+  const cached = getCachedPositionAnalysis(cacheKey);
+  if (cached) return cached;
+
+  const inFlight = positionAnalysisInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const requestPromise = (async (): Promise<ExternalPositionAnalysisResult | null> => {
+    const remote = await callService('/analyze', request, { timeoutMs });
+    if (remote) {
+      const result: ExternalPositionAnalysisResult = { response: remote, source: 'service' };
+      writeCachedPositionAnalysis(cacheKey, result);
+      return result;
+    }
+
+    const binary = await analyzeWithBinaryEngine(request);
+    if (binary) {
+      const result: ExternalPositionAnalysisResult = { response: binary, source: 'binary' };
+      writeCachedPositionAnalysis(cacheKey, result);
+      return result;
+    }
+
+    return null;
+  })();
+
+  positionAnalysisInFlight.set(cacheKey, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    positionAnalysisInFlight.delete(cacheKey);
+  }
+}
+
 function buildLocalPositionAnalysis(
   snapshot: AnalysisPositionSnapshot,
   search: EngineServiceAnalyzeRequest['search'],
@@ -461,9 +591,7 @@ export async function analyzePositionWithEngine(
     multipv,
   };
 
-  const remote = await callService('/analyze', request, { timeoutMs: getReviewAnalysisTimeoutMs(search) });
-  const binary = remote ? null : await analyzeWithBinaryEngine(request);
-  const result = remote ?? binary;
+  const result = await requestExternalPositionAnalysis(request, getReviewAnalysisTimeoutMs(search));
 
   if (!result) {
     if (options.allowLocalFallback === false) {
@@ -472,15 +600,74 @@ export async function analyzePositionWithEngine(
     return buildLocalPositionAnalysis(snapshot, search);
   }
 
-  return resolvePositionAnalysisResult(snapshot, search, result, remote ? 'service' : 'binary', options);
+  return resolvePositionAnalysisResult(snapshot, search, result.response, result.source, options);
 }
 
 export async function analyzeGameWithEngine(
   moves: Move[],
-  options?: { movetimeMs?: number; depth?: number },
+  options?: GameAnalysisOptions,
   onProgress?: (progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = getReviewMovetime(moves.length, options?.movetimeMs);
+  const cacheMeta = getGameAnalysisCacheKey({
+    analysisId: options?.analysisId,
+    moves,
+    movetimeMs,
+    depth: options?.depth,
+  });
+  const cached = await getCachedGameAnalysis(cacheMeta.cacheKey);
+  if (cached) {
+    logInfo('game_analysis_cache_hit', {
+      cacheKey: cacheMeta.cacheKey,
+      gameId: options?.analysisId ?? null,
+      movesHash: cacheMeta.movesHash,
+      moveCount: moves.length,
+    });
+    onProgress?.({ current: moves.length, total: moves.length, done: true });
+    return cached.analysis;
+  }
+
+  const inFlight = gameAnalysisInFlight.get(cacheMeta.cacheKey);
+  if (inFlight) {
+    logInfo('game_analysis_in_flight_joined', {
+      cacheKey: cacheMeta.cacheKey,
+      gameId: options?.analysisId ?? null,
+      movesHash: cacheMeta.movesHash,
+      moveCount: moves.length,
+    });
+    return inFlight;
+  }
+
+  const analysisPromise = analyzeGameWithEngineUncached(
+    moves,
+    { ...options, movetimeMs },
+    onProgress,
+  ).then(async (analysis) => {
+    await saveCachedGameAnalysis({
+      cacheKey: cacheMeta.cacheKey,
+      gameId: options?.analysisId ?? null,
+      movesHash: cacheMeta.movesHash,
+      movetimeMs,
+      depth: options?.depth ?? null,
+      analysis,
+    });
+    return analysis;
+  });
+
+  gameAnalysisInFlight.set(cacheMeta.cacheKey, analysisPromise);
+  try {
+    return await analysisPromise;
+  } finally {
+    gameAnalysisInFlight.delete(cacheMeta.cacheKey);
+  }
+}
+
+async function analyzeGameWithEngineUncached(
+  moves: Move[],
+  options: GameAnalysisOptions & { movetimeMs: number },
+  onProgress?: (progress: { current: number; total: number; done: boolean }) => void,
+): Promise<GameAnalysis> {
+  const movetimeMs = options.movetimeMs;
 
   if (!hasExternalEngineSupport()) {
     throw new Error('Fairy-Stockfish is not configured for game review.');
@@ -690,6 +877,26 @@ export async function getBotMoveWithEngine(
     engineSourceTried: preferredSource,
   });
   return fallback;
+}
+
+export async function warmUpReviewEngine(): Promise<void> {
+  if (!hasExternalEngineSupport()) return;
+
+  const state = createInitialGameState(0, 0);
+  const startedAt = Date.now();
+  try {
+    await analyzePositionWithEngine({
+      board: state.board,
+      turn: state.turn,
+      counting: state.counting,
+    }, { nodes: 1000 }, 1, { allowLocalFallback: false });
+    logInfo('review_engine_warmed', { elapsedMs: Date.now() - startedAt });
+  } catch (error) {
+    logWarn('review_engine_warmup_failed', {
+      elapsedMs: Date.now() - startedAt,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function remoteEngineLabel(): string {

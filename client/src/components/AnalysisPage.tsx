@@ -256,7 +256,13 @@ export default function AnalysisPage() {
       if (workerRef.current === worker) workerRef.current = null;
     };
 
-    worker.postMessage({ type: 'analyze', moves: gameData.moves, movetimeMs: REVIEW_MOVETIME_MS, depth: 2 });
+    worker.postMessage({
+      type: 'analyze',
+      analysisId: gameData.id,
+      moves: gameData.moves,
+      movetimeMs: REVIEW_MOVETIME_MS,
+      depth: 2,
+    });
 
     return () => {
       worker.terminate();

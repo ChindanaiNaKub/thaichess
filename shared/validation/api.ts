@@ -156,6 +156,12 @@ export type SaveLocalGamePayload = z.infer<typeof SaveLocalGameSchema>;
 // ============================================
 
 export const AnalyzeGameSchema = z.object({
+  analysisId: z.string()
+    .min(1)
+    .max(100)
+    .regex(/^[A-Za-z0-9:_-]+$/, 'Invalid analysis ID format')
+    .optional()
+    .nullable(),
   moves: z.array(z.any()).min(1, 'Moves are required'),
   depth: z.number().int().min(1).max(30).optional(),
   movetimeMs: z.number().int().min(100).max(30000).optional(),

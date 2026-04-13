@@ -4,6 +4,7 @@ import { requestGameAnalysis } from '../lib/analysis';
 
 interface AnalyzeMessage {
   type: 'analyze';
+  analysisId?: string | null;
   moves: Move[];
   depth?: number;
   movetimeMs?: number;
@@ -31,6 +32,7 @@ async function requestGameAnalysisStream(payload: AnalyzeMessage): Promise<GameA
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      analysisId: payload.analysisId,
       moves: payload.moves,
       depth: payload.depth,
       movetimeMs: payload.movetimeMs,
@@ -110,6 +112,7 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
     } catch {
       try {
         analysis = await requestGameAnalysis({
+          analysisId: event.data.analysisId,
           moves: event.data.moves,
           depth: event.data.depth,
           movetimeMs: event.data.movetimeMs,

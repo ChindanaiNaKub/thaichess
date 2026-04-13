@@ -52,7 +52,7 @@ import { clearSessionCookie, getAuthenticatedUser, getAuthenticatedUserFromCooki
 import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
 import { shouldServeSpaShell } from './spa';
 import { normalizeLeaderboardLimit, normalizeLeaderboardPage } from './leaderboardPagination';
-import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine } from './engineGateway';
+import { analyzeGameWithEngine, analyzePositionWithEngine, getBotMoveWithEngine, warmUpReviewEngine } from './engineGateway';
 import { betterAuthHandler } from './betterAuth';
 import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
@@ -458,30 +458,36 @@ app.get('/api/game/:id', async (req, res) => {
 app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
   if (await enforceAnalysisFairPlayPolicy(req, res)) return;
 
-  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
-  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
-  const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
-
-  if (!moves) {
-    res.status(400).json({ error: 'moves is required.' });
+  const parseResult = AnalyzeGameSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: 'Invalid analysis request.' });
     return;
   }
 
-  const analysis = await analyzeGameWithEngine(moves, { depth, movetimeMs });
-  res.json({ analysis });
+  const { analysisId, moves, depth, movetimeMs } = parseResult.data;
+  try {
+    const analysis = await analyzeGameWithEngine(moves as Move[], { analysisId, depth, movetimeMs });
+    res.json({ analysis });
+  } catch (error) {
+    logError('analysis_game_failed', error, {
+      moveCount: moves.length,
+      depth: depth ?? null,
+      movetimeMs: movetimeMs ?? null,
+      ip: req.ip,
+    });
+    res.status(503).json({ error: 'Analysis failed. Please try again later.' });
+  }
 });
 
 app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
   if (await enforceAnalysisFairPlayPolicy(req, res)) return;
 
-  const moves = Array.isArray(req.body?.moves) ? req.body.moves as Move[] : null;
-  const depth = Number.isFinite(req.body?.depth) ? Number(req.body.depth) : undefined;
-  const movetimeMs = Number.isFinite(req.body?.movetimeMs) ? Number(req.body.movetimeMs) : undefined;
-
-  if (!moves) {
-    res.status(400).json({ error: 'moves is required.' });
+  const parseResult = AnalyzeGameSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: 'Invalid analysis request.' });
     return;
   }
+  const { analysisId, moves, depth, movetimeMs } = parseResult.data;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -501,8 +507,8 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
 
   try {
     const analysis = await analyzeGameWithEngine(
-      moves,
-      { depth, movetimeMs },
+      moves as Move[],
+      { analysisId, depth, movetimeMs },
       progress => writeEvent('progress', { progress }),
     );
     writeEvent('result', { analysis });
@@ -1355,6 +1361,7 @@ async function startServer() {
     await initDatabase();
     startupState = 'ready';
     startupError = null;
+    void warmUpReviewEngine();
     logInfo('server_ready', {
       port: normalizedPort,
       host: HOST || '0.0.0.0',
