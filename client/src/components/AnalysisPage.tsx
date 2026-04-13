@@ -548,11 +548,13 @@ export default function AnalysisPage() {
     if (review.mode !== 'mainLine' || !analysis || currentPlyIndex < 0 || currentPlyIndex >= analysis.moves.length) return [];
     const analyzed = analysis.moves[currentPlyIndex];
     const cls = analyzed.classification;
+    const primaryIcon = getClassificationIcon(cls);
+    const primaryColor = getClassificationColor(cls);
 
     const annotations: SquareAnnotation[] = [{
       pos: analyzed.move.to,
-      icon: getClassificationIcon(cls),
-      bgColor: getClassificationColor(cls),
+      icon: primaryIcon,
+      bgColor: primaryColor,
     }];
 
     if (showBestMove && analyzed.bestMove && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder')) {
@@ -1161,7 +1163,7 @@ function AccuracyCard({
   summary: Record<MoveClassification, number>;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
-  const classifications: MoveClassification[] = ['best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder'];
+  const classifications: MoveClassification[] = ['brilliant', 'best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder'];
 
   return (
     <div className="rounded-xl border border-white/8 bg-surface-hover/70 p-3">
@@ -1251,7 +1253,7 @@ function EvalGraph({
         const pt = points[i + 1];
         if (!pt) return null;
         const cls = m.classification;
-        if (cls === 'best' || cls === 'excellent' || cls === 'good') return null;
+        if (cls === 'brilliant' || cls === 'best' || cls === 'excellent' || cls === 'good') return null;
         return (
           <circle
             key={i}
@@ -1450,6 +1452,17 @@ function getClassificationTheme(classification: MoveClassification): {
   buttonText: string;
 } {
   switch (classification) {
+    case 'brilliant':
+      return {
+        iconBg: '#35c8c3',
+        iconBorder: '#8fe5e1',
+        iconText: '#0f2f2d',
+        pillBg: 'rgba(43, 183, 179, 0.2)',
+        pillBorder: 'rgba(127, 226, 221, 0.38)',
+        pillText: '#8fe5e1',
+        buttonBg: '#1b4d4a',
+        buttonText: '#9beae6',
+      };
     case 'best':
     case 'excellent':
     case 'good':

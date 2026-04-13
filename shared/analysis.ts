@@ -5,7 +5,7 @@ import {
 } from './engine';
 import type { EngineStats } from './engineAdapter';
 
-export type MoveClassification = 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+export type MoveClassification = 'brilliant' | 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
 export interface AnalyzedMove {
   move: Move;
@@ -179,6 +179,10 @@ interface ScoredMove {
   score: number;
 }
 
+interface RankedMove extends ScoredMove {
+  state: GameState;
+}
+
 function getAllMovesForColor(board: Board, color: PieceColor): ScoredMove[] {
   const moves: ScoredMove[] = [];
   const pieces = getAllPieces(board, color);
@@ -280,6 +284,97 @@ export function findBestMove(
   return { move: bestMove, eval: bestEval };
 }
 
+function rankMoves(state: GameState, depth: number): RankedMove[] {
+  let moves = getAllMovesForColor(state.board, state.turn);
+  if (moves.length === 0) return [];
+
+  moves = orderMoves(moves, state.board);
+
+  const ranked: RankedMove[] = [];
+  for (const move of moves) {
+    const newState = makeMove(state, move.from, move.to);
+    if (!newState) continue;
+    const val = minimax(newState, depth - 1, -Infinity, Infinity, false, state.turn);
+    ranked.push({ ...move, score: val, state: newState });
+  }
+
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
+function isSquareReachableByColor(board: Board, target: Position, color: PieceColor): boolean {
+  const pieces = getAllPieces(board, color);
+  for (const { pos } of pieces) {
+    const legalMoves = getLegalMoves(board, pos);
+    if (legalMoves.some((move) => move.row === target.row && move.col === target.col)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function canOpponentCaptureSquare(state: GameState, target: Position, movingColor: PieceColor): boolean {
+  const opponent = movingColor === 'white' ? 'black' : 'white';
+  return isSquareReachableByColor(state.board, target, opponent);
+}
+
+function getCheapestAttackerValue(state: GameState, target: Position, attackerColor: PieceColor): number | null {
+  const pieces = getAllPieces(state.board, attackerColor);
+  let minValue: number | null = null;
+  for (const { pos, piece } of pieces) {
+    const legalMoves = getLegalMoves(state.board, pos);
+    if (legalMoves.some((move) => move.row === target.row && move.col === target.col)) {
+      const value = PIECE_VALUES[piece.type];
+      minValue = minValue === null ? value : Math.min(minValue, value);
+    }
+  }
+  return minValue;
+}
+
+function getCheapestDefenderValue(state: GameState, target: Position, defenderColor: PieceColor): number | null {
+  return getCheapestAttackerValue(state, target, defenderColor);
+}
+
+function isBrilliantMove(params: {
+  rankedMoves: RankedMove[];
+  playedMove: Move;
+  movingColor: PieceColor;
+  classification: MoveClassification;
+  bestWinPercent: number;
+}): boolean {
+  const { rankedMoves, playedMove, movingColor, classification, bestWinPercent } = params;
+  if (classification !== 'best') return false;
+  if (bestWinPercent < 70) return false;
+
+  const topMove = rankedMoves[0];
+  if (!topMove) return false;
+
+  const isExactBestMove =
+    topMove.from.row === playedMove.from.row &&
+    topMove.from.col === playedMove.from.col &&
+    topMove.to.row === playedMove.to.row &&
+    topMove.to.col === playedMove.to.col;
+  if (!isExactBestMove) return false;
+
+  const winningMoves = rankedMoves.filter((move) => centipawnToWinPercent(move.score) >= 70);
+  if (winningMoves.length !== 1) return false;
+
+  const isQuiet = !playedMove.captured && !topMove.state.isCheck;
+  if (!isQuiet) return false;
+
+  const movedPiece = topMove.state.board[playedMove.to.row]?.[playedMove.to.col];
+  if (!movedPiece) return false;
+
+  const opponent = movingColor === 'white' ? 'black' : 'white';
+  if (!canOpponentCaptureSquare(topMove.state, playedMove.to, movingColor)) return false;
+
+  const movedPieceValue = PIECE_VALUES[movedPiece.type];
+  const cheapestAttackerValue = getCheapestAttackerValue(topMove.state, playedMove.to, opponent);
+  if (cheapestAttackerValue === null) return false;
+
+  const cheapestDefenderValue = getCheapestDefenderValue(topMove.state, playedMove.to, movingColor);
+  return movedPieceValue > cheapestAttackerValue && (cheapestDefenderValue === null || cheapestDefenderValue > cheapestAttackerValue);
+}
+
 function clampCentipawns(rawEval: number): number {
   if (rawEval >= 90000) return WIN_PERCENT_CP_CLAMP;
   if (rawEval <= -90000) return -WIN_PERCENT_CP_CLAMP;
@@ -335,6 +430,7 @@ export function classifyMove(moveAccuracy: number, isExactBestMove: boolean): Mo
 
 export function getClassificationColor(classification: MoveClassification): string {
   switch (classification) {
+    case 'brilliant': return '#2bb7b3';
     case 'best': return '#96bc4b';
     case 'excellent': return '#96bc4b';
     case 'good': return '#96bc4b';
@@ -346,6 +442,7 @@ export function getClassificationColor(classification: MoveClassification): stri
 
 export function getClassificationSymbol(classification: MoveClassification): string {
   switch (classification) {
+    case 'brilliant': return '!!';
     case 'best': return '!!';
     case 'excellent': return '!';
     case 'good': return '';
@@ -357,8 +454,9 @@ export function getClassificationSymbol(classification: MoveClassification): str
 
 export function getClassificationIcon(classification: MoveClassification): string {
   switch (classification) {
+    case 'brilliant': return '‼';
     case 'best': return '⭐';
-    case 'excellent': return '✦';
+    case 'excellent': return '👍';
     case 'good': return '✓';
     case 'inaccuracy': return '?!';
     case 'mistake': return '?';
@@ -367,7 +465,7 @@ export function getClassificationIcon(classification: MoveClassification): strin
 }
 
 export function createEmptySummary(): Record<MoveClassification, number> {
-  return { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  return { brilliant: 0, best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
 }
 
 function harmonicMean(values: number[]): number {
@@ -471,7 +569,10 @@ export function analyzeGame(
     const color = state.turn;
     const evalBefore = evaluatePosition(state.board, 'white');
 
-    const best = findBestMove(state, analysisDepth);
+    const rankedMoves = rankMoves(state, analysisDepth);
+    const best = rankedMoves.length > 0
+      ? { move: rankedMoves[0], eval: rankedMoves[0].score }
+      : { move: null, eval: 0 };
 
     const newState = makeMove(state, move.from, move.to);
     if (!newState) break;
@@ -505,7 +606,16 @@ export function analyzeGame(
     const { before: winPercentBefore, after: winPercentAfter } = getMoveWinPercents(evalBefore, evalAfter, color);
     const { best: bestWinPercent, played: playedWinPercent } = getMoveQualityWinPercents(bestEvalNormalized, evalAfter, color);
     const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(bestWinPercent, playedWinPercent);
-    const classification = classifyMove(moveAccuracy, isExactBestMove);
+    let classification = classifyMove(moveAccuracy, isExactBestMove);
+    if (isBrilliantMove({
+      rankedMoves,
+      playedMove: move,
+      movingColor: color,
+      classification,
+      bestWinPercent,
+    })) {
+      classification = 'brilliant';
+    }
 
     analyzedMoves.push({
       move,

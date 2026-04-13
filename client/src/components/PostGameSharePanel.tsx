@@ -76,7 +76,7 @@ export default function PostGameSharePanel({
     if (!analysis) return [];
 
     const summary = playerColor === 'white' ? analysis.summary.white : analysis.summary.black;
-    const preferred: MoveClassification[] = ['best', 'excellent', 'good', 'inaccuracy'];
+    const preferred: MoveClassification[] = ['brilliant', 'best', 'excellent', 'good', 'inaccuracy'];
 
     return preferred
       .map((classification) => ({
