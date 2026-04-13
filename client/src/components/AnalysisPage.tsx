@@ -569,6 +569,7 @@ export default function AnalysisPage() {
   }, [analysis, currentPlyIndex]);
 
   const currentEval = currentPositionAnalysis?.evaluation ?? fallbackEval;
+  const currentMate = currentPositionAnalysis?.mate ?? null;
   const currentWinningChances = useMemo(() => {
     const white = Math.round(centipawnToWinPercent(currentEval));
     return {
@@ -642,7 +643,7 @@ export default function AnalysisPage() {
         <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 sm:gap-6 w-full max-w-[1200px]">
             <div className="flex gap-2 w-full lg:flex-1 lg:max-w-[calc(100vh-140px)] max-w-[720px] lg:sticky lg:top-4 lg:self-start">
-              <EvalBar eval={positionAnalysis?.evaluation ?? 0} />
+              <EvalBar eval={positionAnalysis?.evaluation ?? 0} mate={positionAnalysis?.mate ?? null} />
 
               <div className="flex flex-col items-center gap-2 flex-1">
                 <div className="flex items-center gap-2 text-sm w-full justify-between">
@@ -661,7 +662,7 @@ export default function AnalysisPage() {
                       {t('analysis.editor.turn_to_move', { color: t('common.black') })}
                     </button>
                   </div>
-                  <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0)}</div>
+                  <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0, positionAnalysis?.mate)}</div>
                 </div>
 
                 <BoardErrorBoundary onRetry={() => window.location.reload()}>
@@ -768,7 +769,7 @@ export default function AnalysisPage() {
                   <div className="space-y-2 text-sm text-text">
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.eval')}</span>
-                      <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation)}</span>
+                        <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation, positionAnalysis.mate)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.best_move')}</span>
@@ -856,7 +857,7 @@ export default function AnalysisPage() {
           {/* Board + Eval Bar (sticky on desktop) */}
           <div className="flex gap-2 w-full max-w-[760px] lg:max-w-[calc(100vh-6rem)] lg:sticky lg:top-4 lg:self-start">
             {/* Eval Bar */}
-            <EvalBar eval={currentEval} />
+            <EvalBar eval={currentEval} mate={currentMate} />
 
             <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
               {/* View controls */}
@@ -877,7 +878,7 @@ export default function AnalysisPage() {
                   </button>
                 </div>
                 <div className="text-text-dim text-xs">
-                  {formatEval(currentEval)}
+                  {formatEval(currentEval, currentMate)}
                 </div>
               </div>
 
@@ -1073,6 +1074,7 @@ export default function AnalysisPage() {
                 currentPlyIndex={currentPlyIndex}
                 moveCount={gameData.moves.length}
                 currentEval={currentEval}
+                currentMate={currentMate}
                 winningChances={currentWinningChances}
                 turn={review.currentState.turn}
                 bestMoveText={currentBestMoveText}
@@ -1109,7 +1111,7 @@ export default function AnalysisPage() {
 
 /* ─── Sub-components ─────────────────────────────────────────────── */
 
-function EvalBar({ eval: rawEval }: { eval: number }) {
+function EvalBar({ eval: rawEval, mate }: { eval: number; mate?: number | null }) {
   const clamped = Math.max(-2000, Math.min(2000, rawEval));
   const whitePercent = 50 + (clamped / 2000) * 50;
   const isWhiteAdvantage = rawEval >= 0;
@@ -1134,7 +1136,7 @@ function EvalBar({ eval: rawEval }: { eval: number }) {
             transform: 'rotate(180deg)',
           }}
         >
-          {formatEval(rawEval)}
+          {formatEval(rawEval, mate)}
         </span>
       </div>
     </div>
@@ -1263,6 +1265,7 @@ function CompactEnginePanel({
   currentPlyIndex,
   moveCount,
   currentEval,
+  currentMate,
   winningChances,
   turn,
   bestMoveText,
@@ -1281,6 +1284,7 @@ function CompactEnginePanel({
   currentPlyIndex: number;
   moveCount: number;
   currentEval: number;
+  currentMate: number | null;
   winningChances: { white: number; black: number };
   turn: PieceColor;
   bestMoveText: string;
@@ -1343,7 +1347,7 @@ function CompactEnginePanel({
       <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
           <div className="text-[11px] text-text-dim">{t('analysis.editor.eval')}</div>
-          <div className="font-mono text-lg font-semibold text-text-bright">{formatEval(currentEval)}</div>
+          <div className="font-mono text-lg font-semibold text-text-bright">{formatEval(currentEval, currentMate)}</div>
         </div>
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
           <div className="text-[11px] text-text-dim">{t('analysis.editor.best_move')}</div>

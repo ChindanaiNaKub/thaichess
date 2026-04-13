@@ -184,7 +184,7 @@ export default function PostGameReviewPanel({
           <div className="space-y-2 text-sm text-text">
             <div className="flex items-center justify-between gap-3">
               <span>{t('analysis.editor.eval')}</span>
-              <span className="font-mono text-text-bright">{formatEval(engineAnalysis.evaluation)}</span>
+              <span className="font-mono text-text-bright">{formatEval(engineAnalysis.evaluation, engineAnalysis.mate)}</span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span>{t('analysis.editor.best_move')}</span>

@@ -5,6 +5,7 @@ import {
   centipawnToWinPercent,
   classifyMove,
   computeAccuracy,
+  formatEval,
   getMoveQualityWinPercents,
   moveAccuracyFromWinPercent,
   type AnalyzedMove,
@@ -67,6 +68,13 @@ describe('analysis accuracy model', () => {
     expect(classifyMove(80, false)).toBe('inaccuracy');
     expect(classifyMove(60, false)).toBe('mistake');
     expect(classifyMove(10, false)).toBe('blunder');
+  });
+
+  it('formats forced mate distances with M notation', () => {
+    expect(formatEval(99995, 5)).toBe('M5');
+    expect(formatEval(-99997, -3)).toBe('-M3');
+    expect(formatEval(100000)).toBe('M');
+    expect(formatEval(-100000)).toBe('-M');
   });
 
   it('computes game accuracy from analyzed moves instead of forgiving labels', () => {

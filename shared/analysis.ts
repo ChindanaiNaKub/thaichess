@@ -552,9 +552,12 @@ export function normalizeEval(rawEval: number): number {
   return Math.max(-1000, Math.min(1000, rawEval)) / 1000;
 }
 
-export function formatEval(rawEval: number): string {
-  if (rawEval >= 90000) return '#';
-  if (rawEval <= -90000) return '#';
+export function formatEval(rawEval: number, mate?: number | null): string {
+  if (mate !== undefined && mate !== null) {
+    return `${mate < 0 ? '-' : ''}M${Math.abs(mate)}`;
+  }
+  if (rawEval >= 90000) return 'M';
+  if (rawEval <= -90000) return '-M';
   const pawnValue = rawEval / 100;
   const sign = pawnValue > 0 ? '+' : '';
   return `${sign}${pawnValue.toFixed(1)}`;
