@@ -58,6 +58,7 @@ export default function AnalysisPage() {
   const [mode, setMode] = useState<AnalysisMode>('game');
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [gameAnalysisError, setGameAnalysisError] = useState<string | null>(null);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
   const [analysisElapsedMs, setAnalysisElapsedMs] = useState(0);
@@ -85,6 +86,7 @@ export default function AnalysisPage() {
     analysisRunKeyRef.current = null;
     setAnalysis(null);
     setAnalyzing(false);
+    setGameAnalysisError(null);
     setProgress(null);
     setAnalysisStartedAt(null);
     setAnalysisElapsedMs(0);
@@ -215,6 +217,7 @@ export default function AnalysisPage() {
     analysisRunKeyRef.current = cacheKey;
 
     setAnalyzing(true);
+    setGameAnalysisError(null);
     setProgress(null);
     setAnalysisStartedAt(Date.now());
     setAnalysisElapsedMs(0);
@@ -241,6 +244,7 @@ export default function AnalysisPage() {
         writeCachedAnalysis(cacheKey, message.analysis);
         setAnalysis(message.analysis);
         setAnalyzing(false);
+        setGameAnalysisError(null);
         setProgress(null);
         setAnalysisStartedAt(null);
         worker.terminate();
@@ -248,7 +252,7 @@ export default function AnalysisPage() {
         return;
       }
 
-      setError(message.message || t('analysis.failed'));
+      setGameAnalysisError(message.message || t('analysis.failed'));
       setAnalyzing(false);
       setProgress(null);
       setAnalysisStartedAt(null);
@@ -256,7 +260,13 @@ export default function AnalysisPage() {
       if (workerRef.current === worker) workerRef.current = null;
     };
 
-    worker.postMessage({ type: 'analyze', moves: gameData.moves, movetimeMs: REVIEW_MOVETIME_MS, depth: 2 });
+    worker.postMessage({
+      type: 'analyze',
+      analysisId: gameData.id,
+      moves: gameData.moves,
+      movetimeMs: REVIEW_MOVETIME_MS,
+      depth: 2,
+    });
 
     return () => {
       worker.terminate();
@@ -1080,7 +1090,7 @@ export default function AnalysisPage() {
                 bestMoveText={currentBestMoveText}
                 principalVariation={currentPositionAnalysis?.principalVariation ?? []}
                 analyzing={currentPositionAnalyzing}
-                error={currentPositionError}
+                error={currentPositionError || gameAnalysisError}
                 reviewMode={review.mode}
                 currentAnalyzedMove={currentAnalyzedMove}
                 reviewIsProvisional={reviewIsProvisional}

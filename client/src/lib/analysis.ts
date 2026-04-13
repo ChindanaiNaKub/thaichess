@@ -9,6 +9,7 @@ import {
 } from '@shared/engineAdapter';
 
 interface AnalyzeGameRequest {
+  analysisId?: string | null;
   moves: Move[];
   depth?: number;
   movetimeMs?: number;
@@ -58,11 +59,11 @@ export function writeInlineAnalysisPayload(payload: InlineAnalysisPayload): stri
   }
 }
 
-export async function requestGameAnalysis({ moves, depth, movetimeMs }: AnalyzeGameRequest): Promise<GameAnalysis> {
+export async function requestGameAnalysis({ analysisId, moves, depth, movetimeMs }: AnalyzeGameRequest): Promise<GameAnalysis> {
   const response = await fetch('/api/analysis/game', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ moves, depth, movetimeMs }),
+    body: JSON.stringify({ analysisId, moves, depth, movetimeMs }),
   });
 
   if (!response.ok) {

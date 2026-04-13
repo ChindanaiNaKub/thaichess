@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient, type Client, type InStatement, type Row } from '@libsql/client';
+import type { GameAnalysis } from '../../shared/analysis';
 import type { Move, Board, TimeControl, RatingChangeSummary, PieceColor } from '../../shared/types';
 import { logError, logInfo, logWarn } from './logger';
 import './env';
@@ -377,6 +378,22 @@ async function runSchemaMigration() {
     `,
     'CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email)',
     'CREATE INDEX IF NOT EXISTS idx_login_codes_expires_at ON login_codes(expires_at)',
+    `
+      CREATE TABLE IF NOT EXISTS game_analyses (
+        cache_key TEXT PRIMARY KEY,
+        game_id TEXT,
+        moves_hash TEXT NOT NULL,
+        movetime_ms INTEGER,
+        depth INTEGER,
+        engine_label TEXT NOT NULL,
+        engine_source TEXT NOT NULL,
+        analysis_json TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch())
+      )
+    `,
+    'CREATE INDEX IF NOT EXISTS idx_game_analyses_game_id ON game_analyses(game_id, updated_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_game_analyses_moves_hash ON game_analyses(moves_hash, updated_at DESC)',
   ];
 
   for (const statement of statements) {
@@ -943,6 +960,86 @@ export async function getGame(id: string): Promise<SavedGame | null> {
   } catch (err) {
     logError('database_get_game_failed', err, { gameId: id });
     return null;
+  }
+}
+
+export interface GameAnalysisCacheRecord {
+  cacheKey: string;
+  gameId: string | null;
+  movesHash: string;
+  analysis: GameAnalysis;
+  updatedAt: number;
+}
+
+export async function getCachedGameAnalysis(cacheKey: string): Promise<GameAnalysisCacheRecord | null> {
+  try {
+    const result = await db.execute({
+      sql: `
+        SELECT cache_key, game_id, moves_hash, analysis_json, updated_at
+        FROM game_analyses
+        WHERE cache_key = ?
+        LIMIT 1
+      `,
+      args: [cacheKey],
+    });
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return {
+      cacheKey: String(row.cache_key),
+      gameId: row.game_id === null || row.game_id === undefined ? null : String(row.game_id),
+      movesHash: String(row.moves_hash),
+      analysis: JSON.parse(String(row.analysis_json)) as GameAnalysis,
+      updatedAt: Number(row.updated_at ?? 0),
+    };
+  } catch (err) {
+    logError('database_get_cached_game_analysis_failed', err, { cacheKey });
+    return null;
+  }
+}
+
+export async function saveCachedGameAnalysis(data: {
+  cacheKey: string;
+  gameId?: string | null;
+  movesHash: string;
+  movetimeMs?: number | null;
+  depth?: number | null;
+  analysis: GameAnalysis;
+}): Promise<void> {
+  try {
+    await db.execute({
+      sql: `
+        INSERT INTO game_analyses (
+          cache_key, game_id, moves_hash, movetime_ms, depth, engine_label, engine_source, analysis_json, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+        ON CONFLICT(cache_key) DO UPDATE SET
+          game_id = excluded.game_id,
+          moves_hash = excluded.moves_hash,
+          movetime_ms = excluded.movetime_ms,
+          depth = excluded.depth,
+          engine_label = excluded.engine_label,
+          engine_source = excluded.engine_source,
+          analysis_json = excluded.analysis_json,
+          updated_at = unixepoch()
+      `,
+      args: [
+        data.cacheKey,
+        data.gameId ?? null,
+        data.movesHash,
+        data.movetimeMs ?? null,
+        data.depth ?? null,
+        data.analysis.engine?.label ?? 'unknown',
+        data.analysis.engine?.source ?? 'local',
+        JSON.stringify(data.analysis),
+      ],
+    });
+  } catch (err) {
+    logError('database_save_cached_game_analysis_failed', err, {
+      cacheKey: data.cacheKey,
+      gameId: data.gameId ?? null,
+      movesHash: data.movesHash,
+    });
   }
 }
 

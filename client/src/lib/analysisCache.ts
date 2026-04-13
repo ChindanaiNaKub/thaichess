@@ -1,7 +1,7 @@
 import type { GameAnalysis } from '@shared/analysis';
 import type { Move } from '@shared/types';
 
-export const ANALYSIS_CACHE_VERSION = 9;
+export const ANALYSIS_CACHE_VERSION = 10;
 export const DEFAULT_GAME_ANALYSIS_MOVETIME_MS = 250;
 
 function serializeMove(move: Move): string {
