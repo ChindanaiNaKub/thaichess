@@ -1,8 +1,12 @@
-# ThaiChess — The Ancient Art of Chess ♟
+# ThaiChess - The Ancient Art of Chess ♟
 
-A free, open-source ThaiChess platform inspired by [Lichess](https://lichess.org). Play with friends online — no registration required.
+A free, open-source ThaiChess platform inspired by [Lichess](https://lichess.org). Play with friends online - no registration required.
 
-> **Our mission:** Make ThaiChess famous worldwide. Thai chess is one of the oldest board games in existence — it deserves a world-class online platform.
+> **Our mission:** Make ThaiChess famous worldwide. Thai chess is one of the oldest board games in existence - it deserves a world-class online platform.
+
+## Play Online
+
+🎮 **[Play ThaiChess](https://thaichess.app)** — No registration required, start playing instantly!
 
 ## Features
 
@@ -11,15 +15,20 @@ A free, open-source ThaiChess platform inspired by [Lichess](https://lichess.org
 - **Local Play** — Practice on the same screen at `/local`
 - **Time Controls** — Bullet, Blitz, Rapid, and Classical presets
 - **Full ThaiChess Rules** — Complete game engine with all 6 piece types
-- **Game History** — All completed games saved and browsable at `/games`
 - **Beautiful UI** — Lichess-inspired dark theme with custom SVG pieces
-- **Drag & Drop** — Move pieces by dragging or clicking
 - **Mobile Friendly** — Touch support, responsive design, installable as PWA
-- **Sound Effects** — Audio feedback for moves, captures, and checks
-- **Game Controls** — Draw offers, resignation, and rematch
 - **100% Free** — No ads, no paywall, no registration
+- **AI Opponent** — Play against bot at various difficulty levels
+- **Puzzles & Tactics Trainer** — Learn through guided puzzle practice
+- **Game Analysis** — Analyze games with move annotations
+- **Lessons & Learning** — Guided learning system to improve your game
+- **Player Accounts & ELO Rating** — Optional accounts with competitive rating (anonymous play always available)
+- **Spectator Mode** — Watch live games from other players
+- **Game Controls** — Draw offers, resignation, and rematch
 
-## Quick Start (Development)
+## Quick Start
+
+### Play Locally
 
 ```bash
 npm install
@@ -28,143 +37,79 @@ npm run dev
 
 This starts both the server (port 3000) and client (port 5173). Open http://localhost:5173 to play.
 
-## Fairy-Stockfish Integration
+### For Developers
 
-The app can use a real Fairy-Stockfish engine for bot play and game review without bundling the engine binary into this repo.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, and contribution guidelines.
 
-Supported engine modes:
+## How to Play
 
-- `FAIRY_STOCKFISH_SERVICE_URL` — point to a separate HTTP engine service
-- `FAIRY_STOCKFISH_BINARY_PATH` — point directly to a locally installed Fairy-Stockfish executable
-
-Optional tuning:
-
-- `FAIRY_STOCKFISH_THREADS`
-- `FAIRY_STOCKFISH_HASH_MB`
-
-Example local setup:
-
-```bash
-export FAIRY_STOCKFISH_BINARY_PATH=/absolute/path/to/fairy-stockfish
-export FAIRY_STOCKFISH_THREADS=1
-export FAIRY_STOCKFISH_HASH_MB=64
-npm run dev
-```
-
-If neither engine mode is configured, the app falls back to the built-in local evaluator and bot.
-
-Live bot games now prioritize consistent response time over maximum search time. All bot levels are tuned to answer quickly, and if the external engine does not respond within the live-play budget the server falls back to the built-in local bot instead of letting the move stall.
-
-### Render deployment
-
-The checked-in `render.yaml` can also install the Makruk Fairy-Stockfish binary at build time for Render deployments.
-
-Important environment variables for Render:
-
-- `INSTALL_FAIRY_STOCKFISH=true`
-- `FAIRY_STOCKFISH_BINARY_PATH=./bin/fairy-stockfish-makruk`
-- `FAIRY_STOCKFISH_THREADS=1`
-- `FAIRY_STOCKFISH_HASH_MB=64`
-
-On Render free web services, this gives you real Fairy-Stockfish-backed bot and review analysis, but it will be slower than a local machine and the service still spins down after idle time.
-
-## ThaiChess Rules
-
-ThaiChess (หมากรุก) is the traditional chess of Thailand, closely related to the ancient Indian game Chaturanga.
-
-| Piece | Thai Name | Movement |
-|-------|-----------|----------|
-| Khun (King) | ขุน | 1 square in any direction |
-| Met (Queen) | เม็ด | 1 square diagonally |
-| Khon (Bishop) | โคน | 1 square diagonally or 1 forward |
-| Rua (Rook) | เรือ | Any distance horizontally/vertically |
-| Ma (Knight) | ม้า | L-shape (same as chess) |
-| Bia (Pawn) | เบี้ย | 1 forward; captures diagonally |
-
-**Key differences from Western Chess:**
-- Pawns start on the 3rd rank and promote on the 6th rank (to Met)
-- No castling, no en passant, no double pawn step
-- The Queen only moves 1 square diagonally (much weaker)
-- The Bishop moves 1 diagonally or 1 forward
+ThaiChess (หมากรุก) is the traditional chess of Thailand, closely related to the ancient Indian game Chaturanga. For detailed rules and piece movements, see [How to Play Guide](docs/how-to-play.md).
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | React 19, TypeScript, Vite 6, Tailwind CSS 4 |
-| Backend | Node.js, Express, Socket.IO 4 |
-| Database | Turso/libSQL in production, local SQLite fallback in development |
+| Frontend | React 19, TypeScript 5.7, Vite 6, Tailwind CSS 4 |
+| Routing | React Router 7 |
+| Data Fetching | TanStack React Query 5 |
+| Authentication | Better Auth 1.6 |
+| Backend | Node.js 22, Express 4, Socket.IO 4 |
+| Database | Drizzle ORM, Turso.tech (production), SQLite (development) |
 | Game Engine | Custom TypeScript ThaiChess engine |
 
 ## Project Structure
 
 ```
-├── shared/            # Shared types and game engine
-│   ├── types.ts       # TypeScript type definitions
-│   └── engine.ts      # ThaiChess game engine
-├── server/            # Backend server
-│   └── src/
-│       ├── index.ts         # Express + Socket.IO server
-│       ├── gameManager.ts   # Game room & clock management
-│       └── database.ts      # Turso/libSQL persistence with local fallback
-├── client/            # React frontend
-│   └── src/
-│       ├── components/      # Board, pieces, pages
-│       └── lib/             # Socket client, sounds
-├── Dockerfile         # Container deployment
-└── package.json       # Workspace root
+├── client/                # React frontend
+│   ├── src/
+│   │   ├── components/    # React components (pages, boards, panels)
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── lib/           # Socket.IO client, auth, utilities
+│   │   ├── queries/       # TanStack Query hooks
+│   │   ├── routes/        # Route definitions
+│   │   ├── test/          # Unit tests (Vitest)
+│   │   ├── themes/        # Design tokens & theming
+│   │   ├── workers/       # Web workers
+│   │   ├── App.tsx        # Main app component
+│   │   └── main.tsx       # Entry point
+│   ├── e2e/               # Playwright end-to-end tests
+│   └── public/            # Static assets, PWA manifest
+├── server/                # Express + Socket.IO backend
+│   ├── src/
+│   │   ├── index.ts       # Express + Socket.IO setup
+│   │   ├── betterAuth.ts  # Better Auth configuration
+│   │   ├── database.ts    # Drizzle ORM & Turso queries
+│   │   ├── gameManager.ts # Game room & clock management
+│   │   ├── socketHandlers.ts  # Real-time game events
+│   │   ├── engineGateway.ts   # Fairy-Stockfish integration
+│   │   ├── scripts/       # Utility scripts (puzzles, etc.)
+│   │   └── test/          # Unit tests (Vitest)
+├── shared/                # Shared types & game engine
+├── docs/                  # ADRs and guides
+├── Dockerfile             # Container deployment
+└── package.json           # Workspace root
 ```
 
 ## Documentation
 
-- [ADR: realtime identity and rated-game persistence](docs/adr-2026-03-26-realtime-identity-and-rated-game-persistence.md)
+- [ADR: realtime identity and rated-game persistence](docs/adr-2026-03-26-realtime-identity-and-rated-game-persistence.md) — Architecture decision for realtime state management
+- [How to Play](docs/how-to-play.md) — Rules, piece movements, and strategy tips
+- [Game Engine System](docs/makruk-rule-engine-system.md) — How the ThaiChess game engine works
+- [Lesson System](docs/makruk-native-lesson-system.md) — Architecture of the lesson and learning features
+- [Zod Validation System](docs/zod-validation-system.md) — Schema validation patterns used throughout the app
 - [TanStack Query Patterns Guide](docs/tanstack-query-patterns.md) — Data fetching, caching, and state management patterns
 - [TanStack Query Quick Reference](docs/tanstack-query-quick-reference.md) — Fast lookup for common patterns
-
-## Automatic Deploys
-
-GitHub Actions can deploy `main` to the DigitalOcean VPS after the push build and unit/integration suite pass.
-
-Required GitHub repository secrets:
-
-- `DEPLOY_HOST` — droplet public IP or hostname
-- `DEPLOY_USER` — SSH user on the server
-- `DEPLOY_SSH_KEY` — private key for that user
-- `DEPLOY_PORT` — SSH port, usually `22`
-
-Server prerequisites:
-
-- the app lives at `/var/www/thaichess`
-- the systemd service is named `thaichess`
-- the deploy user can run `sudo systemctl restart thaichess` without a password
-- the server checkout is on the `main` branch
-
-Deploy behavior:
-
-- GitHub builds the release bundle in Actions
-- the VPS only receives built `client/dist` and `server/dist`
-- runtime dependencies are reinstalled on the server only when `package-lock.json` changes
-
-Example sudoers entry:
-
-```bash
-sudo visudo -f /etc/sudoers.d/thaichess-deploy
-```
-
-```text
-prab ALL=(root) NOPASSWD:/bin/systemctl restart thaichess,/bin/systemctl status thaichess
-```
 
 ## Contributing
 
 We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-1. **Star this repo** — helps others discover it
-2. **Play and share** — invite your friends
-3. **Report bugs** — [open an issue](../../issues/new?template=bug_report.md)
-4. **Request features** — [suggest ideas](../../issues/new?template=feature_request.md)
-5. **Submit PRs** — code contributions welcome
-6. **Translate** — help us add Thai and other languages
+1. **Star this repo** - helps others discover it
+2. **Play and share** - invite your friends
+3. **Report bugs** - [open an issue](../../issues/new?template=bug_report.md)
+4. **Request features** - [suggest ideas](../../issues/new?template=feature_request.md)
+5. **Submit PRs** - code contributions welcome
+6. **Translate** - help us add Thai and other languages
 
 ## Roadmap
 
@@ -176,11 +121,11 @@ We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.
 - [x] AI opponent
 - [ ] Tournaments
 - [x] ThaiChess counting rules (full implementation)
-- [X] Spectator mode improvements
+- [x] Spectator mode improvements
 
 ## License
 
-MIT — free to use, modify, and distribute.
+MIT - free to use, modify, and distribute.
 
 ---
 
