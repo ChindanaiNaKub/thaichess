@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
 import { ALL_PUZZLES, PUZZLES, STREAK_SURFACE_PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
@@ -1328,13 +1328,16 @@ function PuzzleStreakPage() {
 
 function PuzzlePlayer() {
   const { t, lang } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { progressRecords, completedPuzzleSet, recordPuzzleVisited, recordPuzzleFailed, markPuzzleCompleted } = usePuzzleProgress();
   const { id } = useParams<{ id: string }>();
   const puzzleId = parseInt(id || '1', 10);
   const puzzle = PUZZLES.find(p => p.id === puzzleId) ?? ALL_PUZZLES.find(p => p.id === puzzleId);
   const navigationPool = puzzle?.reviewStatus === 'ship' ? PUZZLES : (puzzle ? [puzzle] : PUZZLES);
+  const isRandomMode = new URLSearchParams(location.search).get('mode') === 'random';
   const autoReplyTimeoutRef = useRef<number | null>(null);
+  const autoAdvanceTimeoutRef = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
@@ -1350,6 +1353,10 @@ function PuzzlePlayer() {
     if (autoReplyTimeoutRef.current !== null) {
       window.clearTimeout(autoReplyTimeoutRef.current);
       autoReplyTimeoutRef.current = null;
+    }
+    if (autoAdvanceTimeoutRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
     }
 
     if (puzzle) {
@@ -1368,6 +1375,10 @@ function PuzzlePlayer() {
       if (autoReplyTimeoutRef.current !== null) {
         window.clearTimeout(autoReplyTimeoutRef.current);
         autoReplyTimeoutRef.current = null;
+      }
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
       }
     };
   }, [puzzle, puzzleId]);
@@ -1588,13 +1599,29 @@ function PuzzlePlayer() {
     jumpToMove(baseIndex + delta);
   }, [gameState, jumpToMove, reviewMoveIndex]);
 
+  const getPuzzleUrl = useCallback((targetPuzzleId: number): string => {
+    const basePath = puzzleRoute(String(targetPuzzleId));
+    return isRandomMode ? `${basePath}?mode=random` : basePath;
+  }, [isRandomMode]);
+
+  const getRandomPuzzleId = useCallback((): number | null => {
+    const candidates = PUZZLES.filter(candidate => candidate.id !== puzzleId);
+    if (candidates.length === 0) return null;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    return picked?.id ?? null;
+  }, [puzzleId]);
+
   const getNextPuzzle = (): number | null => {
+    if (isRandomMode) {
+      return getRandomPuzzleId();
+    }
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
     if (idx >= 0 && idx < navigationPool.length - 1) return navigationPool[idx + 1].id;
     return null;
   };
 
   const getPrevPuzzle = (): number | null => {
+    if (isRandomMode) return null;
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
     if (idx > 0) return navigationPool[idx - 1].id;
     return null;
@@ -1680,6 +1707,32 @@ function PuzzlePlayer() {
   const verificationLabel = getVerificationLabel(puzzle, t);
 
   useEffect(() => {
+    if (
+      !isRandomMode ||
+      status !== 'success' ||
+      !nextPuzzle
+    ) {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    autoAdvanceTimeoutRef.current = window.setTimeout(() => {
+      navigate(getPuzzleUrl(nextPuzzle));
+      autoAdvanceTimeoutRef.current = null;
+    }, 900);
+
+    return () => {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+    };
+  }, [getPuzzleUrl, isRandomMode, navigate, nextPuzzle, status]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
@@ -1713,13 +1766,13 @@ function PuzzlePlayer() {
 
       if ((event.key === 'n' || event.key === 'N') && nextPuzzle) {
         event.preventDefault();
-        navigate(puzzleRoute(String(nextPuzzle)));
+        navigate(getPuzzleUrl(nextPuzzle));
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleHint, handleRetry, navigate, nextPuzzle, stepReviewBy]);
+  }, [getPuzzleUrl, handleHint, handleRetry, navigate, nextPuzzle, stepReviewBy]);
 
   return (
     <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
@@ -1849,7 +1902,7 @@ function PuzzlePlayer() {
                 </button>
                 {nextPuzzle && (
                   <button
-                    onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
+                    onClick={() => navigate(getPuzzleUrl(nextPuzzle))}
                     className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
                   >
                     {t('puzzle.next')} →
@@ -2014,7 +2067,7 @@ function PuzzlePlayer() {
               </button>
               {nextPuzzle && (
                 <button
-                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
+                  onClick={() => navigate(getPuzzleUrl(nextPuzzle))}
                   className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                 >
                   {t('puzzle.next')} →

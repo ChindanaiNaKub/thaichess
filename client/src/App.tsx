@@ -80,7 +80,7 @@ function PerfRouteLogger() {
 function RandomPuzzleRedirect() {
   const randomPuzzle = PUZZLES[Math.floor(Math.random() * PUZZLES.length)] ?? PUZZLES[0];
   const fallbackId = randomPuzzle?.id ?? 1;
-  return <Navigate to={puzzleRoute(String(fallbackId))} replace />;
+  return <Navigate to={`${puzzleRoute(String(fallbackId))}?mode=random`} replace />;
 }
 
 export default function App() {
