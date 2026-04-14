@@ -117,6 +117,7 @@ describe('auth hardening', () => {
     expect(signIn.user.email).toBe('player@example.com');
     const storedUser = await database.getUserByEmail('player@example.com');
     expect(storedUser?.role).toBe('user');
+    expect(storedUser?.rating).toBe(500);
 
     const loginCodesAfterSignIn = await client.execute({
       sql: 'SELECT id FROM login_codes WHERE email = ?',

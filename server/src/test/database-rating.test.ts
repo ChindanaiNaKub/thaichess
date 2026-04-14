@@ -34,6 +34,32 @@ describe('database rated game persistence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  it('starts newly inserted users at 500 rating', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    const directUser = await database.upsertUserByEmail({
+      id: 'direct-user',
+      email: 'direct@example.com',
+      role: 'user',
+    });
+
+    expect(directUser?.rating).toBe(500);
+
+    const client = database.getDatabaseConfig().client;
+    await client.execute({
+      sql: `
+        INSERT INTO users (id, email, rating)
+        VALUES (?, ?, ?)
+      `,
+      args: ['legacy-default-user', 'legacy-default@example.com', 1500],
+    });
+
+    const legacyDefaultUser = await database.getUserById('legacy-default-user');
+    expect(legacyDefaultUser?.rating).toBe(500);
+  });
+
   it('applies Elo exactly once for rated quick-play games', async () => {
     const database = await import('../database');
 
@@ -50,8 +76,8 @@ describe('database rated game persistence', () => {
       role: 'user',
     });
 
-    expect(white?.rating).toBe(1500);
-    expect(black?.rating).toBe(1500);
+    expect(white?.rating).toBe(500);
+    expect(black?.rating).toBe(500);
 
     await database.saveCompletedGame({
       id: 'rated-game-1',
@@ -71,18 +97,18 @@ describe('database rated game persistence', () => {
     const blackAfterFirst = await database.getUserById('black-user');
     const savedGame = await database.getGame('rated-game-1');
 
-    expect(whiteAfterFirst?.rating).toBe(1512);
-    expect(blackAfterFirst?.rating).toBe(1488);
+    expect(whiteAfterFirst?.rating).toBe(512);
+    expect(blackAfterFirst?.rating).toBe(488);
     expect(whiteAfterFirst?.rated_games).toBe(1);
     expect(blackAfterFirst?.rated_games).toBe(1);
     expect(whiteAfterFirst?.wins).toBe(1);
     expect(blackAfterFirst?.losses).toBe(1);
     expect(savedGame?.rated).toBe(1);
     expect(savedGame?.game_mode).toBe('quick_play');
-    expect(savedGame?.white_rating_before).toBe(1500);
-    expect(savedGame?.black_rating_before).toBe(1500);
-    expect(savedGame?.white_rating_after).toBe(1512);
-    expect(savedGame?.black_rating_after).toBe(1488);
+    expect(savedGame?.white_rating_before).toBe(500);
+    expect(savedGame?.black_rating_before).toBe(500);
+    expect(savedGame?.white_rating_after).toBe(512);
+    expect(savedGame?.black_rating_after).toBe(488);
 
     await database.saveCompletedGame({
       id: 'rated-game-1',
@@ -101,8 +127,8 @@ describe('database rated game persistence', () => {
     const whiteAfterSecond = await database.getUserById('white-user');
     const blackAfterSecond = await database.getUserById('black-user');
 
-    expect(whiteAfterSecond?.rating).toBe(1512);
-    expect(blackAfterSecond?.rating).toBe(1488);
+    expect(whiteAfterSecond?.rating).toBe(512);
+    expect(blackAfterSecond?.rating).toBe(488);
     expect(whiteAfterSecond?.rated_games).toBe(1);
     expect(blackAfterSecond?.rated_games).toBe(1);
   });
@@ -149,24 +175,24 @@ describe('database rated game persistence', () => {
     const blackAfter = await database.getUserById('black-user');
     const savedGame = await database.getGame('rated-game-race');
 
-    expect(whiteAfter?.rating).toBe(1512);
-    expect(blackAfter?.rating).toBe(1488);
+    expect(whiteAfter?.rating).toBe(512);
+    expect(blackAfter?.rating).toBe(488);
     expect(whiteAfter?.rated_games).toBe(1);
     expect(blackAfter?.rated_games).toBe(1);
-    expect(savedGame?.white_rating_after).toBe(1512);
-    expect(savedGame?.black_rating_after).toBe(1488);
+    expect(savedGame?.white_rating_after).toBe(512);
+    expect(savedGame?.black_rating_after).toBe(488);
     expect([first.ratingChange, second.ratingChange]).toEqual([
       {
-        whiteBefore: 1500,
-        blackBefore: 1500,
-        whiteAfter: 1512,
-        blackAfter: 1488,
+        whiteBefore: 500,
+        blackBefore: 500,
+        whiteAfter: 512,
+        blackAfter: 488,
       },
       {
-        whiteBefore: 1500,
-        blackBefore: 1500,
-        whiteAfter: 1512,
-        blackAfter: 1488,
+        whiteBefore: 500,
+        blackBefore: 500,
+        whiteAfter: 512,
+        blackAfter: 488,
       },
     ]);
   });
@@ -199,7 +225,7 @@ describe('database rated game persistence', () => {
     const whiteAfter = await database.getUserById('white-user');
     const savedGame = await database.getGame('casual-game-1');
 
-    expect(whiteAfter?.rating).toBe(1500);
+    expect(whiteAfter?.rating).toBe(500);
     expect(whiteAfter?.rated_games).toBe(0);
     expect(savedGame?.rated).toBe(0);
     expect(savedGame?.white_rating_after).toBeNull();
@@ -244,7 +270,7 @@ describe('database rated game persistence', () => {
     expect(leaderboard[0]).toMatchObject({
       id: 'top-user',
       display_name: 'Champion',
-      rating: 1512,
+      rating: 512,
       rated_games: 1,
       wins: 1,
       losses: 0,
@@ -253,7 +279,7 @@ describe('database rated game persistence', () => {
     expect(leaderboard[1]).toMatchObject({
       id: 'second-user',
       display_name: 'se***',
-      rating: 1488,
+      rating: 488,
       rated_games: 1,
       wins: 0,
       losses: 1,
