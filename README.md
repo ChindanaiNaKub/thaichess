@@ -6,7 +6,7 @@ A free, open-source ThaiChess platform inspired by [Lichess](https://lichess.org
 
 ## Play Online
 
-🎮 **[Play ThaiChess](https://thaichess.app)** — No registration required, start playing instantly!
+🎮 **[Play ThaiChess](https://thaichess.dev)** — No registration required, start playing instantly!
 
 ## Features
 
