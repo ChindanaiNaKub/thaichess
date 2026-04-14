@@ -353,7 +353,7 @@ export default function HomePage() {
             <aside className="grid gap-2.5 content-start">
               <button
                 type="button"
-                onClick={() => navigate(routes.puzzles)}
+                onClick={() => navigate(routes.puzzleStreak)}
                 aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
                 className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
               >

@@ -43,7 +43,7 @@ export default function LessonCoursePage() {
         subtitle={t('nav.lessons')}
         right={(
           <button
-            onClick={() => navigate(routes.puzzles)}
+            onClick={() => navigate(routes.puzzleStreak)}
             className="text-sm text-text-dim hover:text-text-bright transition-colors"
           >
             {t('puzzle.streak_nav')}

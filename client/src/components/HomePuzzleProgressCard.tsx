@@ -22,7 +22,7 @@ function HomePuzzleProgressCardContent() {
   return (
     <button
       type="button"
-      onClick={() => navigate(routes.puzzles)}
+      onClick={() => navigate(routes.puzzleStreak)}
       aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
       className="bg-primary/10 border border-primary/25 rounded-xl px-4 py-4 text-left transition-colors hover:bg-primary/15"
     >

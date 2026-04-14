@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
@@ -19,6 +19,7 @@ import { puzzleRoute, routes } from '../lib/routes';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
+import MoveHistory from './MoveHistory';
 
 type PuzzleStatus = 'playing' | 'success' | 'failed';
 type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
@@ -90,6 +91,25 @@ function getPuzzleSourceLabel(
   }
 
   return source;
+}
+
+function getPuzzleOriginLabel(
+  puzzle: Puzzle,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (puzzle.origin === 'engine-generated') {
+    return t('puzzle.source_generated');
+  }
+
+  return t('puzzle.source_community');
+}
+
+function getPuzzleOriginBadgeClasses(origin: Puzzle['origin']): string {
+  if (origin === 'engine-generated') {
+    return 'border-accent/35 bg-accent/12 text-accent';
+  }
+
+  return 'border-primary/35 bg-primary/12 text-primary-light';
 }
 
 function formatActivityDate(timestamp: number, lang: string): string {
@@ -197,6 +217,34 @@ function getCompactPuzzleIdentityBadges(
     t(`theme.${puzzle.theme}`),
     puzzle.motif,
   ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0));
+}
+
+function buildReplayState(
+  puzzle: Puzzle,
+  liveState: GameState,
+  reviewMoveIndex: number | null,
+): GameState {
+  if (reviewMoveIndex === null) {
+    return liveState;
+  }
+
+  let replayState = createGameStateFromPuzzle(puzzle);
+  if (reviewMoveIndex < 0) {
+    return replayState;
+  }
+
+  const cappedIndex = Math.min(reviewMoveIndex, liveState.moveHistory.length - 1);
+  for (let index = 0; index <= cappedIndex; index += 1) {
+    const move = liveState.moveHistory[index];
+    const nextState = makeMove(replayState, move.from, move.to);
+    if (!nextState) {
+      return liveState;
+    }
+
+    replayState = nextState;
+  }
+
+  return replayState;
 }
 
 function CoachSection({
@@ -321,7 +369,7 @@ function PuzzleLessonsPage() {
         subtitle={t('puzzle.lessons_nav')}
         right={(
           <button
-            onClick={() => navigate(routes.puzzles)}
+            onClick={() => navigate(routes.puzzleStreak)}
             className="text-sm text-text-dim hover:text-text-bright transition-colors"
           >
             {t('puzzle.play_streak')}
@@ -435,7 +483,7 @@ function PuzzleLessonsPage() {
             <p className="text-sm text-text-dim mt-1">{t('puzzle.lessons_tracks_desc')}</p>
           </div>
           <button
-            onClick={() => navigate(routes.puzzles)}
+            onClick={() => navigate(routes.puzzleStreak)}
             className="rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15"
           >
             {t('puzzle.play_streak')}
@@ -580,6 +628,9 @@ function PuzzleLessonsPage() {
                         {formatPuzzleTag(tag)}
                       </span>
                     ))}
+                    <span className={`text-xs px-2 py-0.5 rounded border ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                      {getPuzzleOriginLabel(puzzle, t)}
+                    </span>
                     <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
                       {getPuzzleSourceLabel(puzzle.source, t)}
                     </span>
@@ -1183,7 +1234,9 @@ function PuzzleStreakPage() {
               <div className={`rounded-2xl border p-4 ${getFeedbackClasses(feedback.tone)}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_puzzle_label', { number: solvedCount + 1 })}</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">
+                      {t('puzzle.streak_puzzle_label', { number: currentPuzzle?.id ?? solvedCount + 1 })}
+                    </p>
                     <h3 className="mt-1 text-lg font-semibold text-text-bright">{streakTitle}</h3>
                     <p className="mt-1 text-sm text-text-dim">{feedback.title}</p>
                   </div>
@@ -1212,21 +1265,59 @@ function PuzzleStreakPage() {
                     </div>
                   )}
 
-                  {status === 'playing' && currentPuzzle && (
-                    <div className="mt-3 flex items-center justify-between gap-3">
+                  {currentPuzzle && (
+                    <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-text-dim">{t('puzzle.source_evidence_label')}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(currentPuzzle.origin)}`}>
+                          {getPuzzleOriginLabel(currentPuzzle, t)}
+                        </span>
+                        <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                          {getPuzzleSourceLabel(currentPuzzle.source, t)}
+                        </span>
+                        {currentPuzzle.sourceGameUrl && (
+                          <a
+                            href={currentPuzzle.sourceGameUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text hover:text-text-bright"
+                          >
+                            {t('puzzle.source_game_link')}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 p-2.5">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleStreakHint}
+                        disabled={status !== 'playing' || !currentPuzzle}
                         className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {t('puzzle.hint')}
                       </button>
-                      <p className="text-xs leading-5 text-text-dim">
-                        {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
-                      </p>
+                      <button
+                        onClick={handleRestartStreak}
+                        className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                      >
+                        ↺ {t('common.new_game')}
+                      </button>
                     </div>
-                  )}
+                    <p className="mt-2 text-xs leading-5 text-text-dim">
+                      {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {currentPuzzle && gameState && (
+                <MoveHistory
+                  moves={gameState.moveHistory}
+                  initialBoard={currentPuzzle.board}
+                />
+              )}
             </aside>
           </div>
         </div>
@@ -1253,6 +1344,7 @@ function PuzzlePlayer() {
   const [hintStage, setHintStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
+  const [reviewMoveIndex, setReviewMoveIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1269,6 +1361,7 @@ function PuzzlePlayer() {
       setHintStage(0);
       setShowHint(false);
       setFailureDetail(null);
+      setReviewMoveIndex(null);
     }
 
     return () => {
@@ -1337,6 +1430,7 @@ function PuzzlePlayer() {
       }
 
       setGameState(replyState);
+      setReviewMoveIndex(null);
 
       const lastMove = replyState.moveHistory[replyState.moveHistory.length - 1];
       if (replyState.isCheck) playCheckSound();
@@ -1355,7 +1449,7 @@ function PuzzlePlayer() {
   }, [failPuzzle, finishPuzzle, puzzle]);
 
   const handleSquareClick = useCallback((pos: Position) => {
-    if (!gameState || !puzzle || status !== 'playing') return;
+    if (!gameState || !puzzle || status !== 'playing' || reviewMoveIndex !== null) return;
     if (gameState.turn !== puzzle.sideToMove) return;
 
     const piece = gameState.board[pos.row][pos.col];
@@ -1376,6 +1470,7 @@ function PuzzlePlayer() {
           const newState = makeMove(gameState, selectedSquare, pos);
           if (newState) {
             setGameState(newState);
+            setReviewMoveIndex(null);
             setSelectedSquare(null);
             setLegalMoves([]);
 
@@ -1402,10 +1497,10 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [failPuzzle, gameState, legalMoves, puzzle, queueOpponentReply, selectedSquare, status]);
+  }, [failPuzzle, gameState, legalMoves, puzzle, queueOpponentReply, reviewMoveIndex, selectedSquare, status]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
-    if (!gameState || !puzzle || status !== 'playing') return;
+    if (!gameState || !puzzle || status !== 'playing' || reviewMoveIndex !== null) return;
     if (gameState.turn !== puzzle.sideToMove) return;
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== puzzle.sideToMove) return;
@@ -1425,6 +1520,7 @@ function PuzzlePlayer() {
       const newState = makeMove(gameState, from, to);
       if (newState) {
         setGameState(newState);
+        setReviewMoveIndex(null);
         setSelectedSquare(null);
         setLegalMoves([]);
 
@@ -1440,7 +1536,7 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [failPuzzle, gameState, puzzle, queueOpponentReply, status]);
+  }, [failPuzzle, gameState, puzzle, queueOpponentReply, reviewMoveIndex, status]);
 
   const handleRetry = () => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1455,6 +1551,7 @@ function PuzzlePlayer() {
       setHintStage(0);
       setShowHint(false);
       setFailureDetail(null);
+      setReviewMoveIndex(null);
     }
   };
 
@@ -1466,6 +1563,30 @@ function PuzzlePlayer() {
     setShowHint(true);
     window.setTimeout(() => setShowHint(false), 3000);
   };
+
+  const jumpToMove = useCallback((index: number) => {
+    if (!gameState) return;
+    const lastIndex = gameState.moveHistory.length - 1;
+
+    if (index < 0) {
+      setReviewMoveIndex(-1);
+      return;
+    }
+
+    if (index >= lastIndex) {
+      setReviewMoveIndex(null);
+      return;
+    }
+
+    setReviewMoveIndex(index);
+  }, [gameState]);
+
+  const stepReviewBy = useCallback((delta: number) => {
+    if (!gameState || gameState.moveHistory.length === 0) return;
+    const liveIndex = gameState.moveHistory.length - 1;
+    const baseIndex = reviewMoveIndex ?? liveIndex;
+    jumpToMove(baseIndex + delta);
+  }, [gameState, jumpToMove, reviewMoveIndex]);
 
   const getNextPuzzle = (): number | null => {
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
@@ -1479,17 +1600,17 @@ function PuzzlePlayer() {
     return null;
   };
 
-  const getLastMove = (): Move | null => {
-    if (!gameState || gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+  const getLastMove = (state: GameState | null): Move | null => {
+    if (!state || state.moveHistory.length === 0) return null;
+    return state.moveHistory[state.moveHistory.length - 1];
   };
 
-  const getCheckSquare = (): Position | null => {
-    if (!gameState?.isCheck) return null;
+  const getCheckSquare = (state: GameState | null): Position | null => {
+    if (!state?.isCheck) return null;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const piece = gameState.board[row][col];
-        if (piece && piece.type === 'K' && piece.color === gameState.turn) {
+        const piece = state.board[row][col];
+        if (piece && piece.type === 'K' && piece.color === state.turn) {
           return { row, col };
         }
       }
@@ -1523,6 +1644,14 @@ function PuzzlePlayer() {
   const currentTurnLabel = puzzle.sideToMove === 'white' ? t('common.white') : t('common.black');
   const isSolverTurn = status === 'playing' && gameState?.turn === puzzle.sideToMove;
   const currentStep = gameState ? Math.min(gameState.moveHistory.length + 1, puzzle.solution.length) : 1;
+  const activeGameState = useMemo(
+    () => (gameState ? buildReplayState(puzzle, gameState, reviewMoveIndex) : null),
+    [gameState, puzzle, reviewMoveIndex],
+  );
+  const isReviewingPosition = reviewMoveIndex !== null;
+  const activeMoveIndex = gameState
+    ? (reviewMoveIndex ?? gameState.moveHistory.length - 1)
+    : -1;
   const progressRecord = progressRecords.find(record => record.puzzleId === puzzleId) ?? null;
   const completedTimestamp = progressRecord?.completedAt ?? (status === 'success' ? Math.floor(Date.now() / 1000) : null);
 
@@ -1550,6 +1679,48 @@ function PuzzlePlayer() {
   const lessonIdentityBadges = getPuzzleIdentityBadges(puzzle, t);
   const verificationLabel = getVerificationLabel(puzzle, t);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        stepReviewBy(-1);
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        stepReviewBy(1);
+        return;
+      }
+
+      if (event.key === 'h' || event.key === 'H') {
+        event.preventDefault();
+        handleHint();
+        return;
+      }
+
+      if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        handleRetry();
+        return;
+      }
+
+      if ((event.key === 'n' || event.key === 'N') && nextPuzzle) {
+        event.preventDefault();
+        navigate(puzzleRoute(String(nextPuzzle)));
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleHint, handleRetry, navigate, nextPuzzle, stepReviewBy]);
+
   return (
     <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
       <Header
@@ -1558,7 +1729,7 @@ function PuzzlePlayer() {
         right={(
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate(routes.puzzles)}
+              onClick={() => navigate(routes.puzzleStreak)}
               className="text-text-dim hover:text-text-bright transition-colors text-sm"
             >
               {t('puzzle.play_streak')}
@@ -1576,21 +1747,21 @@ function PuzzlePlayer() {
       <main id="main-content" className="flex-1 min-h-0 px-4 py-4 lg:overflow-hidden">
         <div className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div className="flex min-h-0 flex-col items-center justify-center gap-3 lg:overflow-hidden">
-            {gameState && (
+            {activeGameState && (
               <BoardErrorBoundary onRetry={handleRetry}>
                 <Board
-                  board={gameState.board}
+                  board={activeGameState.board}
                   className="max-w-full lg:h-full lg:w-auto lg:max-h-[calc(100dvh-9.5rem)]"
                   playerColor={puzzle.sideToMove}
-                  isMyTurn={status === 'playing' && gameState.turn === puzzle.sideToMove}
+                  isMyTurn={status === 'playing' && !isReviewingPosition && activeGameState.turn === puzzle.sideToMove}
                   legalMoves={legalMoves}
                   selectedSquare={selectedSquare || hintSquare}
-                  lastMove={getLastMove()}
-                  isCheck={gameState.isCheck}
-                  checkSquare={getCheckSquare()}
+                  lastMove={getLastMove(activeGameState)}
+                  isCheck={activeGameState.isCheck}
+                  checkSquare={getCheckSquare(activeGameState)}
                   onSquareClick={handleSquareClick}
                   onPieceDrop={handlePieceDrop}
-                  disabled={status !== 'playing' || gameState.turn !== puzzle.sideToMove}
+                  disabled={status !== 'playing' || isReviewingPosition || activeGameState.turn !== puzzle.sideToMove}
                 />
               </BoardErrorBoundary>
             )}
@@ -1619,6 +1790,9 @@ function PuzzlePlayer() {
                 ))}
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
                   {t('puzzle.rating_short', { score: puzzle.difficultyScore })}
+                </span>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                  {getPuzzleOriginLabel(puzzle, t)}
                 </span>
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
                   {t('puzzle.to_move', { color: currentTurnLabel })}
@@ -1657,6 +1831,44 @@ function PuzzlePlayer() {
                 tone="danger"
               />
             )}
+
+            <section className="sticky top-2 z-10 rounded-2xl border border-surface-hover bg-surface/95 p-3 backdrop-blur">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleHint}
+                  disabled={status !== 'playing' || isReviewingPosition}
+                  className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {t('puzzle.hint')}
+                </button>
+                <button
+                  onClick={handleRetry}
+                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                >
+                  ↺ {t('common.retry')}
+                </button>
+                {nextPuzzle && (
+                  <button
+                    onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+                  >
+                    {t('puzzle.next')} →
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-text-dim">
+                {isReviewingPosition
+                  ? t('puzzle.review_mode_on')
+                  : t('puzzle.review_mode_off')}
+              </p>
+            </section>
+
+            <MoveHistory
+              moves={gameState?.moveHistory ?? []}
+              initialBoard={puzzle.board}
+              currentMoveIndex={activeMoveIndex}
+              onMoveClick={jumpToMove}
+            />
 
             <CoachSection label={t('puzzle.scene_label')} body={puzzle.whyPositionMatters} />
 
@@ -1701,6 +1913,9 @@ function PuzzlePlayer() {
               body={puzzle.ruleImpact}
             >
               <div className="flex flex-wrap gap-2">
+                <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                  {getPuzzleOriginLabel(puzzle, t)}
+                </span>
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
                   {getPuzzleSourceLabel(puzzle.source, t)}
                 </span>
@@ -1783,25 +1998,6 @@ function PuzzlePlayer() {
             </div>
 
             <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-              {status !== 'playing' && (
-                <button
-                  onClick={handleRetry}
-                  className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
-                >
-                  ↺ {t('common.retry')}
-                </button>
-              )}
-              {status === 'success' && nextPuzzle && (
-                <button
-                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
-                  className="flex-1 min-w-0 py-2 px-3 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors font-semibold"
-                >
-                  {t('puzzle.next')} →
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               {prevPuzzle && (
                 <button
                   onClick={() => navigate(puzzleRoute(String(prevPuzzle)))}
@@ -1816,7 +2012,7 @@ function PuzzlePlayer() {
               >
                 {t('puzzle.all_lessons')}
               </button>
-              {nextPuzzle && status !== 'success' && (
+              {nextPuzzle && (
                 <button
                   onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
                   className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"

@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { PUZZLES } from '@shared/puzzlesRuntime';
 import CookieConsent from './components/CookieConsent';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { useTranslation } from './lib/i18n';
 import { logClientPerfEvent } from './lib/perfDebug';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
-import { routes } from './lib/routes';
+import { puzzleRoute, routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
 
 // Lazy load route components for code splitting
@@ -76,6 +77,12 @@ function PerfRouteLogger() {
   return null;
 }
 
+function RandomPuzzleRedirect() {
+  const randomPuzzle = PUZZLES[Math.floor(Math.random() * PUZZLES.length)] ?? PUZZLES[0];
+  const fallbackId = randomPuzzle?.id ?? 1;
+  return <Navigate to={puzzleRoute(String(fallbackId))} replace />;
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(
     import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
@@ -108,7 +115,9 @@ export default function App() {
           <Route path={routes.watch} element={<LiveGamesPage />} />
           <Route path={routes.local} element={<LocalGame />} />
           <Route path={routes.bot} element={<BotGame />} />
-          <Route path={routes.puzzles} element={<PuzzleStreakPage />} />
+          <Route path={routes.puzzles} element={<RandomPuzzleRedirect />} />
+          <Route path={routes.puzzleStreak} element={<PuzzleStreakPage />} />
+          <Route path={routes.puzzleThemes} element={<LessonCoursePage />} />
           <Route path={routes.lessons} element={<LessonCoursePage />} />
           <Route path={routes.course} element={<LessonCoursePage />} />
           <Route path={routes.coursePath} element={<LessonCoursePage />} />
