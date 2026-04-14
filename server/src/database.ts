@@ -14,6 +14,7 @@ type SqlExecutor = Pick<Client, 'execute'>;
 export type FairPlayStatus = 'clear' | 'restricted';
 export type FairPlayEventType = 'analysis_blocked' | 'user_reported';
 export type FairPlayCaseStatus = 'open' | 'reviewed' | 'restricted' | 'dismissed';
+export const INITIAL_USER_RATING = 500;
 
 // Valid tables and columns for schema migrations (prevents SQL injection)
 const VALID_MIGRATION_TABLES = new Set([
@@ -252,7 +253,7 @@ async function runSchemaMigration() {
         fair_play_status TEXT NOT NULL DEFAULT 'clear',
         rated_restricted_at INTEGER,
         rated_restriction_note TEXT,
-        rating INTEGER NOT NULL DEFAULT 1500,
+        rating INTEGER NOT NULL DEFAULT ${INITIAL_USER_RATING},
         rated_games INTEGER NOT NULL DEFAULT 0,
         wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0,
@@ -408,11 +409,24 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'fair_play_status', "TEXT NOT NULL DEFAULT 'clear'");
   await ensureColumn('users', 'rated_restricted_at', 'INTEGER');
   await ensureColumn('users', 'rated_restriction_note', 'TEXT');
-  await ensureColumn('users', 'rating', 'INTEGER NOT NULL DEFAULT 1500');
+  await ensureColumn('users', 'rating', `INTEGER NOT NULL DEFAULT ${INITIAL_USER_RATING}`);
   await ensureColumn('users', 'rated_games', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'draws', 'INTEGER NOT NULL DEFAULT 0');
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS set_initial_user_rating_after_insert
+    AFTER INSERT ON users
+    FOR EACH ROW
+    WHEN NEW.rating = 1500
+      AND NEW.rated_games = 0
+      AND NEW.wins = 0
+      AND NEW.losses = 0
+      AND NEW.draws = 0
+    BEGIN
+      UPDATE users SET rating = ${INITIAL_USER_RATING} WHERE id = NEW.id;
+    END
+  `);
   await ensureColumn('users', 'name', 'TEXT');
   await ensureColumn('users', 'image', 'TEXT');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
@@ -580,7 +594,7 @@ function rowToAuthUser(row: Row): AuthUser {
     rated_restriction_note: row.rated_restriction_note === null || row.rated_restriction_note === undefined
       ? null
       : String(row.rated_restriction_note),
-    rating: Number(row.rating ?? 1500),
+    rating: Number(row.rating ?? INITIAL_USER_RATING),
     rated_games: Number(row.rated_games ?? 0),
     wins: Number(row.wins ?? 0),
     losses: Number(row.losses ?? 0),
@@ -615,7 +629,7 @@ function rowToLeaderboardEntry(row: Row): LeaderboardEntry {
   return {
     id: String(row.id),
     display_name: getPublicDisplayName(username, email),
-    rating: Number(row.rating ?? 1500),
+    rating: Number(row.rating ?? INITIAL_USER_RATING),
     rated_games: Number(row.rated_games ?? 0),
     wins: Number(row.wins ?? 0),
     losses: Number(row.losses ?? 0),
@@ -1748,14 +1762,14 @@ export async function upsertUserByEmail(data: {
   try {
     await db.execute({
       sql: `
-        INSERT INTO users (id, name, email, email_verified, role, last_login_at)
-        VALUES (?, ?, ?, 1, ?, unixepoch())
+        INSERT INTO users (id, name, email, email_verified, role, rating, last_login_at)
+        VALUES (?, ?, ?, 1, ?, ?, unixepoch())
         ON CONFLICT(email) DO UPDATE SET
           updated_at = unixepoch(),
           email_verified = 1,
           last_login_at = unixepoch()
       `,
-      args: [data.id, fallbackName, normalizedEmail, data.role],
+      args: [data.id, fallbackName, normalizedEmail, data.role, INITIAL_USER_RATING],
     });
     return await getUserByEmail(normalizedEmail);
   } catch (err) {

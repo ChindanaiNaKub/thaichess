@@ -76,7 +76,7 @@ function createAuthUser(id: string, email: string, username: string, fairPlaySta
     fair_play_status: fairPlayStatus,
     rated_restricted_at: fairPlayStatus === 'restricted' ? 1 : null,
     rated_restriction_note: fairPlayStatus === 'restricted' ? 'Restricted for rated play' : null,
-    rating: 1500,
+    rating: 500,
     rated_games: 0,
     wins: 0,
     losses: 0,

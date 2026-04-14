@@ -98,7 +98,7 @@ describe('LoginPage', () => {
       fair_play_status: 'clear',
       rated_restricted_at: null,
       rated_restriction_note: null,
-      rating: 1500,
+      rating: 500,
       rated_games: 0,
       wins: 0,
       losses: 0,

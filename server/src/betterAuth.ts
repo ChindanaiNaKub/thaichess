@@ -14,7 +14,7 @@ import { createHMAC } from '@better-auth/utils/hmac';
 import { authSchema } from './authSchema';
 import { sendAuthEmailOtp } from './authEmailOtp';
 import { getAllowedCorsOrigins } from './security';
-import { getLibsqlConnectionOptions, getUserById, type AuthUser } from './database';
+import { INITIAL_USER_RATING, getLibsqlConnectionOptions, getUserById, type AuthUser } from './database';
 import { logWarn } from './logger';
 
 function resolveBetterAuthUrl() {
@@ -178,7 +178,7 @@ export const auth = betterAuth({
       rating: {
         type: 'number',
         required: false,
-        defaultValue: 1500,
+        defaultValue: INITIAL_USER_RATING,
         input: false,
       },
       rated_games: {
