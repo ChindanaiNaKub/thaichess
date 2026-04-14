@@ -6,6 +6,19 @@ import {
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
 import { resolveMakrukTimeoutOutcome } from '../../shared/makrukRules';
 
+type DeferredLock = {
+  promise: Promise<void>;
+  resolve: () => void;
+};
+
+function createDeferredLock(): DeferredLock {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 export class GameManager {
   private games: Map<string, GameRoom> = new Map();
   private playerGames: Map<string, string> = new Map(); // playerId -> gameId
@@ -14,6 +27,7 @@ export class GameManager {
   private clockIntervals: Map<string, ReturnType<typeof setInterval>> = new Map();
   private disconnectedPlayers: Map<string, number> = new Map();
   private roomLastActivity: Map<string, number> = new Map();
+  private joinGameLocks: Map<string, Promise<void>> = new Map(); // gameId -> lock promise (prevents race conditions)
   private static readonly CLOCK_TICK_MS = 500;
   private static readonly FINISHED_GAME_TTL_MS = 60 * 60 * 1000;
   private static readonly WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
@@ -82,108 +96,126 @@ export class GameManager {
     return room;
   }
 
-  joinGame(
+  async joinGame(
     gameId: string,
     socketId: string,
     options: { playerId?: string; userId?: string | null; displayName?: string | null; rating?: number | null } = {},
-  ): { room: GameRoom; color: PieceColor; reconnected: boolean } | null {
-    const room = this.games.get(gameId);
-    if (!room) return null;
-    const playerId = options.playerId ?? socketId;
+  ): Promise<{ room: GameRoom; color: PieceColor; reconnected: boolean } | null> {
+    const previousLock = this.joinGameLocks.get(gameId);
+    const waitForPreviousLock = previousLock?.catch(() => undefined) ?? Promise.resolve();
+    const currentLock = createDeferredLock();
+    const queuedLock = waitForPreviousLock.then(() => currentLock.promise);
+    this.joinGameLocks.set(gameId, queuedLock);
 
-    // Same live connection joining again.
-    if (room.white === socketId || room.black === socketId) {
-      const color = room.white === socketId ? 'white' : 'black';
-      this.socketGames.set(socketId, gameId);
-      this.setPresence(room, color, {
-        status: 'active',
-        lastSeenAt: Date.now(),
-      });
-      return { room, color, reconnected: false };
-    }
+    await waitForPreviousLock;
 
-    // Reconnection: restore the player's seat using the durable player id.
-    if (room.whitePlayerId === playerId) {
-      if (room.white && room.white !== socketId) {
-        this.socketGames.delete(room.white);
+    try {
+      const room = this.games.get(gameId);
+      if (!room) return null;
+      const playerId = options.playerId ?? socketId;
+
+      // Same live connection joining again.
+      if (room.white === socketId || room.black === socketId) {
+        const color = room.white === socketId ? 'white' : 'black';
+        this.socketGames.set(socketId, gameId);
+        this.setPresence(room, color, {
+          status: 'active',
+          lastSeenAt: Date.now(),
+        });
+        return { room, color, reconnected: false };
       }
-      room.white = socketId;
-      room.whiteUserId = options.userId ?? room.whiteUserId;
-      room.whitePlayerName = options.displayName ?? room.whitePlayerName;
-      room.whiteRating = options.rating ?? room.whiteRating;
-      this.socketGames.set(socketId, gameId);
-      this.playerGames.set(playerId, gameId);
-      this.clearDisconnectedPlayer(gameId, 'white');
-      this.setPresence(room, 'white', {
-        status: 'active',
-        lastSeenAt: Date.now(),
-      });
-      this.touchGame(gameId);
-      return { room, color: 'white', reconnected: true };
-    }
 
-    if (room.blackPlayerId === playerId) {
-      if (room.black && room.black !== socketId) {
-        this.socketGames.delete(room.black);
+      // Reconnection: restore the player's seat using the durable player id.
+      if (room.whitePlayerId === playerId) {
+        if (room.white && room.white !== socketId) {
+          this.socketGames.delete(room.white);
+        }
+        room.white = socketId;
+        room.whiteUserId = options.userId ?? room.whiteUserId;
+        room.whitePlayerName = options.displayName ?? room.whitePlayerName;
+        room.whiteRating = options.rating ?? room.whiteRating;
+        this.socketGames.set(socketId, gameId);
+        this.playerGames.set(playerId, gameId);
+        this.clearDisconnectedPlayer(gameId, 'white');
+        this.setPresence(room, 'white', {
+          status: 'active',
+          lastSeenAt: Date.now(),
+        });
+        this.touchGame(gameId);
+        return { room, color: 'white', reconnected: true };
       }
-      room.black = socketId;
-      room.blackUserId = options.userId ?? room.blackUserId;
-      room.blackPlayerName = options.displayName ?? room.blackPlayerName;
-      room.blackRating = options.rating ?? room.blackRating;
-      this.socketGames.set(socketId, gameId);
-      this.playerGames.set(playerId, gameId);
-      this.clearDisconnectedPlayer(gameId, 'black');
-      this.setPresence(room, 'black', {
-        status: 'active',
-        lastSeenAt: Date.now(),
-      });
-      this.touchGame(gameId);
-      return { room, color: 'black', reconnected: true };
-    }
 
-    if (!room.white) {
-      room.white = socketId;
-      room.whitePlayerId = playerId;
-      room.whiteUserId = options.userId ?? null;
-      room.whitePlayerName = options.displayName ?? null;
-      room.whiteRating = options.rating ?? null;
-      this.socketGames.set(socketId, gameId);
-      this.playerGames.set(playerId, gameId);
-      this.clearDisconnectedPlayer(gameId, 'white');
-      this.setPresence(room, 'white', {
-        status: 'active',
-        lastSeenAt: Date.now(),
-      });
-      if (room.status === 'waiting' && room.black) {
-        room.status = 'playing';
-        room.gameState.lastMoveTime = Date.now();
+      if (room.blackPlayerId === playerId) {
+        if (room.black && room.black !== socketId) {
+          this.socketGames.delete(room.black);
+        }
+        room.black = socketId;
+        room.blackUserId = options.userId ?? room.blackUserId;
+        room.blackPlayerName = options.displayName ?? room.blackPlayerName;
+        room.blackRating = options.rating ?? room.blackRating;
+        this.socketGames.set(socketId, gameId);
+        this.playerGames.set(playerId, gameId);
+        this.clearDisconnectedPlayer(gameId, 'black');
+        this.setPresence(room, 'black', {
+          status: 'active',
+          lastSeenAt: Date.now(),
+        });
+        this.touchGame(gameId);
+        return { room, color: 'black', reconnected: true };
       }
-      this.touchGame(gameId);
-      return { room, color: 'white', reconnected: false };
-    }
 
-    if (!room.black) {
-      room.black = socketId;
-      room.blackPlayerId = playerId;
-      room.blackUserId = options.userId ?? null;
-      room.blackPlayerName = options.displayName ?? null;
-      room.blackRating = options.rating ?? null;
-      this.socketGames.set(socketId, gameId);
-      this.playerGames.set(playerId, gameId);
-      this.clearDisconnectedPlayer(gameId, 'black');
-      this.setPresence(room, 'black', {
-        status: 'active',
-        lastSeenAt: Date.now(),
-      });
-      if (room.status === 'waiting') {
-        room.status = 'playing';
-        room.gameState.lastMoveTime = Date.now();
+      // Atomic: Try to join as white (now protected by lock)
+      if (!room.white) {
+        room.white = socketId;
+        room.whitePlayerId = playerId;
+        room.whiteUserId = options.userId ?? null;
+        room.whitePlayerName = options.displayName ?? null;
+        room.whiteRating = options.rating ?? null;
+        this.socketGames.set(socketId, gameId);
+        this.playerGames.set(playerId, gameId);
+        this.clearDisconnectedPlayer(gameId, 'white');
+        this.setPresence(room, 'white', {
+          status: 'active',
+          lastSeenAt: Date.now(),
+        });
+        if (room.status === 'waiting' && room.black) {
+          room.status = 'playing';
+          room.gameState.lastMoveTime = Date.now();
+        }
+        this.touchGame(gameId);
+        return { room, color: 'white', reconnected: false };
       }
-      this.touchGame(gameId);
-      return { room, color: 'black', reconnected: false };
-    }
 
-    return null;
+      // Atomic: Try to join as black (now protected by lock)
+      if (!room.black) {
+        room.black = socketId;
+        room.blackPlayerId = playerId;
+        room.blackUserId = options.userId ?? null;
+        room.blackPlayerName = options.displayName ?? null;
+        room.blackRating = options.rating ?? null;
+        this.socketGames.set(socketId, gameId);
+        this.playerGames.set(playerId, gameId);
+        this.clearDisconnectedPlayer(gameId, 'black');
+        this.setPresence(room, 'black', {
+          status: 'active',
+          lastSeenAt: Date.now(),
+        });
+        if (room.status === 'waiting') {
+          room.status = 'playing';
+          room.gameState.lastMoveTime = Date.now();
+        }
+        this.touchGame(gameId);
+        return { room, color: 'black', reconnected: false };
+      }
+
+      // Game is full
+      return null;
+    } finally {
+      currentLock.resolve();
+      if (this.joinGameLocks.get(gameId) === queuedLock) {
+        this.joinGameLocks.delete(gameId);
+      }
+    }
   }
 
   spectateGame(gameId: string, socketId: string): GameRoom | null {

@@ -14,12 +14,12 @@ describe('GameManager', () => {
     vi.useRealTimers();
   });
 
-  it('starts a game when the second player joins and tracks both players', () => {
+  it('starts a game when the second player joins and tracks both players', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
 
-    const whiteJoin = manager.joinGame(room.id, 'white-socket');
-    const blackJoin = manager.joinGame(room.id, 'black-socket');
+    const whiteJoin = await manager.joinGame(room.id, 'white-socket');
+    const blackJoin = await manager.joinGame(room.id, 'black-socket');
 
     expect(whiteJoin).toMatchObject({ color: 'white' });
     expect(blackJoin).toMatchObject({ color: 'black' });
@@ -28,7 +28,29 @@ describe('GameManager', () => {
     expect(manager.getGame(room.id)?.status).toBe('playing');
   });
 
-  it('reserves the creator color for private games before the game page joins', () => {
+  it('serializes concurrent joins so each player seat is claimed once', async () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+
+    const [firstJoin, secondJoin, thirdJoin] = await Promise.all([
+      manager.joinGame(room.id, 'socket-a', { playerId: 'player-a' }),
+      manager.joinGame(room.id, 'socket-b', { playerId: 'player-b' }),
+      manager.joinGame(room.id, 'socket-c', { playerId: 'player-c' }),
+    ]);
+
+    expect(firstJoin).toMatchObject({ color: 'white' });
+    expect(secondJoin).toMatchObject({ color: 'black' });
+    expect(thirdJoin).toBeNull();
+    expect(manager.getGame(room.id)).toMatchObject({
+      white: 'socket-a',
+      black: 'socket-b',
+      whitePlayerId: 'player-a',
+      blackPlayerId: 'player-b',
+      status: 'playing',
+    });
+  });
+
+  it('reserves the creator color for private games before the game page joins', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl, {
       ownerSocketId: 'creator-socket',
@@ -45,8 +67,8 @@ describe('GameManager', () => {
     expect(room.blackUserId).toBe('creator-user');
     expect(manager.getPlayerGame('creator-socket')).toBe(room.id);
 
-    const creatorJoin = manager.joinGame(room.id, 'creator-socket', { userId: 'creator-user', displayName: 'CreatorName', rating: 1675 });
-    const guestJoin = manager.joinGame(room.id, 'guest-socket', { userId: 'guest-user', displayName: 'GuestName', rating: 1520 });
+    const creatorJoin = await manager.joinGame(room.id, 'creator-socket', { userId: 'creator-user', displayName: 'CreatorName', rating: 1675 });
+    const guestJoin = await manager.joinGame(room.id, 'guest-socket', { userId: 'guest-user', displayName: 'GuestName', rating: 1520 });
 
     expect(creatorJoin).toMatchObject({ color: 'black' });
     expect(guestJoin).toMatchObject({ color: 'white' });
@@ -58,11 +80,11 @@ describe('GameManager', () => {
     expect(manager.getGame(room.id)?.blackRating).toBe(1675);
   });
 
-  it('rejects moves from non-players and from the wrong turn', () => {
+  it('rejects moves from non-players and from the wrong turn', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     expect(manager.makeMove(room.id, 'spectator', { row: 2, col: 0 }, { row: 3, col: 0 })).toEqual({
       success: false,
@@ -75,13 +97,13 @@ describe('GameManager', () => {
     });
   });
 
-  it('keeps full-game player joins separate from explicit spectator joins', () => {
+  it('keeps full-game player joins separate from explicit spectator joins', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
-    expect(manager.joinGame(room.id, 'extra-socket')).toBeNull();
+    expect(await manager.joinGame(room.id, 'extra-socket')).toBeNull();
     expect(manager.getGame(room.id)?.spectators).toEqual([]);
 
     const spectatorRoom = manager.spectateGame(room.id, 'extra-socket');
@@ -91,11 +113,11 @@ describe('GameManager', () => {
     expect(spectatorState.playerColor).toBeNull();
   });
 
-  it('creates a rematch with colors swapped', () => {
+  it('creates a rematch with colors swapped', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
     manager.resign(room.id, 'white-socket');
 
     const rematch = manager.createRematch(room.id);
@@ -106,20 +128,20 @@ describe('GameManager', () => {
     expect(rematch?.status).toBe('playing');
   });
 
-  it('rejects rematches for games that are not finished', () => {
+  it('rejects rematches for games that are not finished', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     expect(manager.createRematch(room.id)).toBeNull();
   });
 
-  it('stores a rematch offer until the opponent explicitly accepts it', () => {
+  it('stores a rematch offer until the opponent explicitly accepts it', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
     manager.resign(room.id, 'white-socket');
 
     const offered = manager.requestRematch(room.id, 'white-socket');
@@ -136,11 +158,11 @@ describe('GameManager', () => {
     expect(accepted?.room?.status).toBe('playing');
   });
 
-  it('treats rematch offers as unavailable once the opponent leaves the finished game', () => {
+  it('treats rematch offers as unavailable once the opponent leaves the finished game', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
     manager.resign(room.id, 'white-socket');
 
     manager.requestRematch(room.id, 'white-socket');
@@ -153,19 +175,19 @@ describe('GameManager', () => {
     });
   });
 
-  it('cleans up stale waiting, finished, and disconnected games', () => {
+  it('cleans up stale waiting, finished, and disconnected games', async () => {
     const manager = new GameManager();
 
     const waitingRoom = manager.createGame(timeControl);
 
     const finishedRoom = manager.createGame(timeControl);
-    manager.joinGame(finishedRoom.id, 'finished-white');
-    manager.joinGame(finishedRoom.id, 'finished-black');
+    await manager.joinGame(finishedRoom.id, 'finished-white');
+    await manager.joinGame(finishedRoom.id, 'finished-black');
     manager.resign(finishedRoom.id, 'finished-white');
 
     const disconnectedRoom = manager.createGame(timeControl);
-    manager.joinGame(disconnectedRoom.id, 'disconnect-white');
-    manager.joinGame(disconnectedRoom.id, 'disconnect-black');
+    await manager.joinGame(disconnectedRoom.id, 'disconnect-white');
+    await manager.joinGame(disconnectedRoom.id, 'disconnect-black');
     manager.handleDisconnect('disconnect-white');
 
     vi.advanceTimersByTime(61 * 60 * 1000);
@@ -177,11 +199,11 @@ describe('GameManager', () => {
     expect(manager.getPlayerGame('disconnect-black')).toBeNull();
   });
 
-  it('handles draw offers, decline, and acceptance rules correctly', () => {
+  it('handles draw offers, decline, and acceptance rules correctly', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     const offer = manager.offerDraw(room.id, 'white-socket');
     expect(offer).toMatchObject({ by: 'white' });
@@ -200,11 +222,11 @@ describe('GameManager', () => {
     expect(accepted?.gameState.resultReason).toBe('draw_agreement');
   });
 
-  it('updates reconnecting player sockets and exposes client state metadata', () => {
+  it('updates reconnecting player sockets and exposes client state metadata', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-old', { displayName: 'WhiteUser', rating: 1601 });
-    manager.joinGame(room.id, 'black-old', { displayName: 'BlackUser', rating: 1584 });
+    await manager.joinGame(room.id, 'white-old', { displayName: 'WhiteUser', rating: 1601 });
+    await manager.joinGame(room.id, 'black-old', { displayName: 'BlackUser', rating: 1584 });
 
     manager.offerDraw(room.id, 'white-old');
     manager.handleDisconnect('white-old');
@@ -226,11 +248,11 @@ describe('GameManager', () => {
     expect(clientState.blackRating).toBe(1584);
   });
 
-  it('returns null for blocking-game lookup once a game is finished', () => {
+  it('returns null for blocking-game lookup once a game is finished', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     expect(manager.getBlockingPlayerGame('white-socket')).toBe(room.id);
 
@@ -240,24 +262,24 @@ describe('GameManager', () => {
     expect(manager.getPlayerGame('white-socket')).toBeNull();
   });
 
-  it('builds a safe public live-games list from quick-play rooms only', () => {
+  it('builds a safe public live-games list from quick-play rooms only', async () => {
     const manager = new GameManager();
 
     const privateRoom = manager.createGame(timeControl, { gameMode: 'private', rated: false });
-    manager.joinGame(privateRoom.id, 'private-white', { displayName: 'Private White' });
-    manager.joinGame(privateRoom.id, 'private-black', { displayName: 'Private Black' });
+    await manager.joinGame(privateRoom.id, 'private-white', { displayName: 'Private White' });
+    await manager.joinGame(privateRoom.id, 'private-black', { displayName: 'Private Black' });
 
     const liveQuickPlay = manager.createGame(timeControl, { gameMode: 'quick_play', rated: true });
-    manager.joinGame(liveQuickPlay.id, 'live-white', { displayName: 'Rated White', rating: 1820 });
-    manager.joinGame(liveQuickPlay.id, 'live-black', { displayName: 'Rated Black', rating: 1765 });
+    await manager.joinGame(liveQuickPlay.id, 'live-white', { displayName: 'Rated White', rating: 1820 });
+    await manager.joinGame(liveQuickPlay.id, 'live-black', { displayName: 'Rated Black', rating: 1765 });
     manager.spectateGame(liveQuickPlay.id, 'spectator-a');
     const liveRoom = manager.getGame(liveQuickPlay.id)!;
     liveRoom.gameState.moveCount = 21;
     liveRoom.gameState.lastMoveTime = Date.now();
 
     const finishedQuickPlay = manager.createGame(timeControl, { gameMode: 'quick_play', rated: false });
-    manager.joinGame(finishedQuickPlay.id, 'finished-white', { displayName: 'Guest One' });
-    manager.joinGame(finishedQuickPlay.id, 'finished-black', { displayName: 'Guest Two' });
+    await manager.joinGame(finishedQuickPlay.id, 'finished-white', { displayName: 'Guest One' });
+    await manager.joinGame(finishedQuickPlay.id, 'finished-black', { displayName: 'Guest Two' });
     manager.resign(finishedQuickPlay.id, 'finished-white');
 
     const liveOnly = manager.getPublicLiveGames({ status: 'live' });
@@ -281,7 +303,7 @@ describe('GameManager', () => {
     expect(allPublic).not.toContain(privateRoom.id);
   });
 
-  it('removes waiting rooms when the only player leaves before the game starts', () => {
+  it('removes waiting rooms when the only player leaves before the game starts', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl, {
       ownerSocketId: 'creator-socket',
@@ -299,11 +321,11 @@ describe('GameManager', () => {
     expect(manager.getBlockingPlayerGame('creator-socket')).toBeNull();
   });
 
-  it('starts and stops counting only for the current player and active counting state', () => {
+  it('starts and stops counting only for the current player and active counting state', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
     const activeRoom = manager.getGame(room.id)!;
     activeRoom.gameState.counting = {
       active: false,
@@ -326,11 +348,11 @@ describe('GameManager', () => {
     expect(stopped?.gameState.counting?.active).toBe(false);
   });
 
-  it('resets the counting number when board-honor counting starts again after stopping', () => {
+  it('resets the counting number when board-honor counting starts again after stopping', async () => {
     const manager = new GameManager();
     const room = manager.createGame(timeControl);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
     const activeRoom = manager.getGame(room.id)!;
     activeRoom.gameState.counting = {
       active: false,
@@ -353,12 +375,12 @@ describe('GameManager', () => {
     });
   });
 
-  it('ends the game on timeout when the running clock expires', () => {
+  it('ends the game on timeout when the running clock expires', async () => {
     const manager = new GameManager();
     const fastTime: TimeControl = { initial: 1, increment: 0 };
     const room = manager.createGame(fastTime);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     let latestRoom = manager.getGame(room.id)!;
     manager.startClock(room.id, (updatedRoom) => {
@@ -373,12 +395,12 @@ describe('GameManager', () => {
     expect(latestRoom.gameState.winner).toBe('black');
   });
 
-  it('draws on timeout when the side with time left lacks an official winning material set', () => {
+  it('draws on timeout when the side with time left lacks an official winning material set', async () => {
     const manager = new GameManager();
     const fastTime: TimeControl = { initial: 1, increment: 0 };
     const room = manager.createGame(fastTime);
-    manager.joinGame(room.id, 'white-socket');
-    manager.joinGame(room.id, 'black-socket');
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
 
     const activeRoom = manager.getGame(room.id)!;
     activeRoom.gameState.board = Array(8).fill(null).map(() => Array(8).fill(null));
