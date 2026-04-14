@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportClientError } from '../lib/errorReporting';
 import { translate } from '../lib/i18n';
 
@@ -12,6 +12,9 @@ interface State {
 }
 
 const CHUNK_RELOAD_KEY = 'thaichess:chunk-reload-attempted';
+const FALLBACK_CHUNK_ERROR_SIGNATURE = 'unknown-chunk-load-error';
+const CHUNK_LOAD_ERROR_MESSAGE =
+  'A required app file failed to load. Reload once; if it keeps happening, disable browser extensions or content blockers for thaichess.dev.';
 
 function isRecoverableChunkLoadError(error: Error): boolean {
   const message = error.message.toLowerCase();
@@ -24,6 +27,12 @@ function isRecoverableChunkLoadError(error: Error): boolean {
   );
 }
 
+function getChunkLoadErrorSignature(error: Error): string {
+  const urlMatch = error.message.match(/https?:\/\/[^\s)]+|\/assets\/[^\s)]+/i);
+  const signature = urlMatch?.[0] ?? error.message.trim();
+  return signature || FALLBACK_CHUNK_ERROR_SIGNATURE;
+}
+
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -34,11 +43,12 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     if (isRecoverableChunkLoadError(error)) {
-      const hasRetried = window.sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1';
+      const errorSignature = getChunkLoadErrorSignature(error);
+      const hasRetried = window.sessionStorage.getItem(CHUNK_RELOAD_KEY) === errorSignature;
       if (!hasRetried) {
-        window.sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.sessionStorage.setItem(CHUNK_RELOAD_KEY, errorSignature);
         window.location.reload();
         return;
       }
@@ -64,7 +74,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <div className="text-5xl mb-4">⚠️</div>
             <h1 className="text-2xl font-bold text-text-bright mb-2">{translate('error.something_wrong')}</h1>
             <p className="text-text-dim mb-2">
-              {isChunkError ? 'The app was updated. Reload to get the latest version.' : translate('error.unexpected')}
+              {isChunkError ? CHUNK_LOAD_ERROR_MESSAGE : translate('error.unexpected')}
             </p>
             <p className="text-text-dim text-sm mb-6 font-mono bg-surface rounded p-2 break-all">
               {this.state.error?.message || translate('error.unknown')}

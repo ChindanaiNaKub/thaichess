@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo } from 'react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const { reportClientErrorMock } = vi.hoisted(() => ({
@@ -25,10 +25,6 @@ vi.mock('../lib/i18n', () => ({
     return messages[key] ?? key;
   },
 }));
-
-function renderBoundary(children: ReactNode) {
-  return render(<ErrorBoundary>{children}</ErrorBoundary>);
-}
 
 describe('ErrorBoundary', () => {
   const reloadMock = vi.fn();
@@ -59,27 +55,30 @@ describe('ErrorBoundary', () => {
   });
 
   it('reloads once for recoverable chunk-load errors', async () => {
+    const chunkUrl = 'https://thaichess.dev/assets/BotGame-DOAVuS_q.js';
     const boundary = new ErrorBoundary({ children: null });
     boundary.componentDidCatch(
-      new Error('TypeError: error loading dynamically imported module: https://thaichess.dev/assets/BotGame-DOAVuS_q.js'),
+      new Error(`TypeError: error loading dynamically imported module: ${chunkUrl}`),
       errorInfo,
     );
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
-    expect(window.sessionStorage.getItem('thaichess:chunk-reload-attempted')).toBe('1');
+    expect(window.sessionStorage.getItem('thaichess:chunk-reload-attempted')).toBe(chunkUrl);
     expect(reportClientErrorMock).not.toHaveBeenCalled();
   });
 
   it('shows a helpful message after the automatic reload was already attempted', async () => {
-    window.sessionStorage.setItem('thaichess:chunk-reload-attempted', '1');
     const error = new Error('Failed to fetch dynamically imported module');
+    window.sessionStorage.setItem('thaichess:chunk-reload-attempted', error.message);
     const boundary = new ErrorBoundary({ children: null });
 
     boundary.componentDidCatch(error, errorInfo);
     boundary.state = { hasError: true, error };
     render(<>{boundary.render()}</>);
 
-    expect(await screen.findByText('The app was updated. Reload to get the latest version.')).toBeInTheDocument();
+    expect(await screen.findByText(
+      'A required app file failed to load. Reload once; if it keeps happening, disable browser extensions or content blockers for thaichess.dev.',
+    )).toBeInTheDocument();
     expect(reloadMock).not.toHaveBeenCalled();
     expect(reportClientErrorMock).toHaveBeenCalledTimes(1);
   });
