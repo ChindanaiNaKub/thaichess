@@ -24,6 +24,14 @@ export interface InlineAnalysisPayload {
 
 const INLINE_ANALYSIS_STORAGE_PREFIX = 'inline-analysis:';
 
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  const data = await response.json().catch(() => ({})) as { error?: unknown };
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  return fallback;
+}
+
 function canUseSessionStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
 }
@@ -67,7 +75,7 @@ export async function requestGameAnalysis({ analysisId, moves, depth, movetimeMs
   });
 
   if (!response.ok) {
-    throw new Error('Analysis request failed');
+    throw new Error(await readApiError(response, 'Analysis request failed'));
   }
 
   const data = await response.json() as { analysis: GameAnalysis };
@@ -94,17 +102,19 @@ export async function requestPositionAnalysis(
   });
 
   if (!response.ok) {
-    // Provide specific error messages for common HTTP errors
     if (response.status === 429) {
-      throw new Error('429 Too Many Requests: Analysis rate limit exceeded. Please wait a moment.');
+      throw new Error(await readApiError(response, '429 Too Many Requests: Analysis rate limit exceeded. Please wait a moment.'));
+    }
+    if (response.status === 401) {
+      throw new Error(await readApiError(response, 'Sign in to use engine analysis.'));
     }
     if (response.status === 503) {
-      throw new Error('503 Service Unavailable: Analysis engine is temporarily unavailable.');
+      throw new Error(await readApiError(response, '503 Service Unavailable: Analysis engine is temporarily unavailable.'));
     }
     if (response.status >= 500) {
-      throw new Error(`Server error (${response.status}): Position analysis request failed`);
+      throw new Error(await readApiError(response, `Server error (${response.status}): Position analysis request failed`));
     }
-    throw new Error(`Position analysis request failed (${response.status})`);
+    throw new Error(await readApiError(response, `Position analysis request failed (${response.status})`));
   }
 
   return await response.json() as PositionAnalysisResult;
