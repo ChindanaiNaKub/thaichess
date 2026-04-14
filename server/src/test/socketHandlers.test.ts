@@ -10,7 +10,7 @@ import type { AuthUser } from '../database';
 const timeControl: TimeControl = { initial: 300, increment: 0 };
 
 // eslint-disable-next-line no-unused-vars
-type Handler = (...args: [] | [any]) => void;
+type Handler = (...args: [] | [any]) => void | Promise<void>;
 
 function createIoMock() {
   // eslint-disable-next-line no-unused-vars
@@ -58,7 +58,7 @@ function createSocketMock(id: string, authUser: AuthUser | null = null, playerId
       if (!handler) {
         throw new Error(`Missing handler for ${event}`);
       }
-      handler(payload);
+      return handler(payload);
     },
   };
 }
@@ -120,7 +120,7 @@ describe('socket entry handlers', () => {
     return socket;
   }
 
-  it('rejects invalid find_game payloads through the live socket handler', () => {
+  it('rejects invalid find_game payloads through the live socket handler', async () => {
     const socket = connectSocket('socket-invalid-find');
 
     socket.trigger('find_game', { timeControl: { initial: 5, increment: 0 } });
@@ -128,7 +128,7 @@ describe('socket entry handlers', () => {
     expect(socket.emit).toHaveBeenCalledWith('error', { message: expect.stringContaining('Invalid fields:') });
   });
 
-  it('creates private games with a reserved color preference and lets waiting rooms be left', () => {
+  it('creates private games with a reserved color preference and lets waiting rooms be left', async () => {
     const socket = connectSocket('socket-private', createAuthUser('user-private', 'private@example.com', 'private_user'));
 
     socket.trigger('create_game', { timeControl, colorPreference: 'black' });
@@ -153,7 +153,7 @@ describe('socket entry handlers', () => {
     expect(gameManager.getGame(createdGameId)).toBeNull();
   });
 
-  it('prevents duplicate matchmaking entries and emits cancellation when removed', () => {
+  it('prevents duplicate matchmaking entries and emits cancellation when removed', async () => {
     const socket = connectSocket('socket-queue', createAuthUser('user-queue', 'queue@example.com', 'queue_user'));
 
     socket.trigger('find_game', { timeControl });
@@ -168,7 +168,7 @@ describe('socket entry handlers', () => {
     expect(socket.emit).toHaveBeenCalledWith('matchmaking_cancelled');
   });
 
-  it('marks signed-in quick-play matches as rated and keeps player user ids', () => {
+  it('marks signed-in quick-play matches as rated and keeps player user ids', async () => {
     const whiteSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a'));
     const blackSocket = connectSocket('socket-b', createAuthUser('user-b', 'b@example.com', 'user_b'));
 
@@ -184,7 +184,7 @@ describe('socket entry handlers', () => {
     expect([room.whiteUserId, room.blackUserId].sort()).toEqual(['user-a', 'user-b']);
   });
 
-  it('keeps mixed-auth quick-play matches casual', () => {
+  it('keeps mixed-auth quick-play matches casual', async () => {
     const signedInSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a'));
     const anonymousSocket = connectSocket('socket-b');
 
@@ -200,7 +200,7 @@ describe('socket entry handlers', () => {
     expect([room.whiteUserId, room.blackUserId].filter(Boolean)).toEqual(['user-a']);
   });
 
-  it('keeps restricted users out of rated quick-play while still allowing casual pairing', () => {
+  it('keeps restricted users out of rated quick-play while still allowing casual pairing', async () => {
     const restrictedSocket = connectSocket('socket-a', createAuthUser('user-a', 'a@example.com', 'user_a', 'restricted'));
     const clearSocket = connectSocket('socket-b', createAuthUser('user-b', 'b@example.com', 'user_b'));
 
@@ -215,10 +215,10 @@ describe('socket entry handlers', () => {
     expect([room.whiteUserId, room.blackUserId].sort()).toEqual(['user-a', 'user-b']);
   });
 
-  it('does not emit rematch events for unfinished games through the socket layer', () => {
+  it('does not emit rematch events for unfinished games through the socket layer', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
 
     const socket = connectSocket('white-socket');
     socket.trigger('request_rematch');
@@ -226,10 +226,10 @@ describe('socket entry handlers', () => {
     expect(ioMock.targets.size).toBe(0);
   });
 
-  it('requires explicit confirmation from both players before creating a rematch', () => {
+  it('requires explicit confirmation from both players before creating a rematch', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
     gameManager.resign(room.id, 'white-socket');
 
     const whiteSocket = connectSocket('white-socket');
@@ -247,10 +247,10 @@ describe('socket entry handlers', () => {
     expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('game_created', { gameId: expect.any(String) });
   });
 
-  it('clears pending rematch offers when a player leaves a finished game', () => {
+  it('clears pending rematch offers when a player leaves a finished game', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
     gameManager.resign(room.id, 'white-socket');
 
     const whiteSocket = connectSocket('white-socket');
@@ -271,10 +271,10 @@ describe('socket entry handlers', () => {
     expect(ioMock.to('black-socket').emitMock).not.toHaveBeenCalledWith('game_created', expect.anything());
   });
 
-  it('notifies the opponent on disconnect from a live game', () => {
+  it('notifies the opponent on disconnect from a live game', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
 
     const socket = connectSocket('white-socket');
     socket.trigger('disconnect');
@@ -282,19 +282,19 @@ describe('socket entry handlers', () => {
     expect(ioMock.to('black-socket').emitMock).toHaveBeenCalledWith('opponent_disconnected');
   });
 
-  it('broadcasts presence heartbeat updates and marks players disconnected when the socket drops', () => {
+  it('broadcasts presence heartbeat updates and marks players disconnected when the socket drops', async () => {
     const room = gameManager.createGame(timeControl, {
       ownerSocketId: 'white-socket',
       ownerPlayerId: 'player-white',
       ownerColorPreference: 'white',
     });
-    gameManager.joinGame(room.id, 'black-socket', { playerId: 'player-black' });
+    await gameManager.joinGame(room.id, 'black-socket', { playerId: 'player-black' });
 
     const whiteSocket = connectSocket('white-socket', null, 'player-white');
     const blackSocket = connectSocket('black-socket', null, 'player-black');
 
-    whiteSocket.trigger('join_game', { gameId: room.id });
-    blackSocket.trigger('join_game', { gameId: room.id });
+    await whiteSocket.trigger('join_game', { gameId: room.id });
+    await blackSocket.trigger('join_game', { gameId: room.id });
 
     whiteSocket.emit.mockClear();
     ioMock.to('black-socket').emitMock.mockClear();
@@ -333,19 +333,19 @@ describe('socket entry handlers', () => {
     );
   });
 
-  it('restores a disconnected player seat when the same player reconnects with a new socket id', () => {
+  it('restores a disconnected player seat when the same player reconnects with a new socket id', async () => {
     const room = gameManager.createGame(timeControl, {
       ownerSocketId: 'white-old',
       ownerPlayerId: 'guest_white',
       ownerColorPreference: 'white',
     });
-    gameManager.joinGame(room.id, 'black-old', { playerId: 'guest_black' });
+    await gameManager.joinGame(room.id, 'black-old', { playerId: 'guest_black' });
 
     const disconnectedSocket = connectSocket('white-old', null, 'guest_white');
     disconnectedSocket.trigger('disconnect');
 
     const reconnectedSocket = connectSocket('white-new', null, 'guest_white');
-    reconnectedSocket.trigger('join_game', { gameId: room.id });
+    await reconnectedSocket.trigger('join_game', { gameId: room.id });
 
     expect(reconnectedSocket.emit).toHaveBeenCalledWith(
       'game_joined',
@@ -356,10 +356,10 @@ describe('socket entry handlers', () => {
     expect(ioMock.to('black-old').emitMock).toHaveBeenCalledWith('opponent_reconnected');
   });
 
-  it('lets spectators join read-only and receive live updates without becoming players', () => {
+  it('lets spectators join read-only and receive live updates without becoming players', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
 
     const spectatorSocket = connectSocket('spectator-socket');
     spectatorSocket.trigger('spectate_game', { gameId: room.id });
@@ -397,27 +397,39 @@ describe('socket entry handlers', () => {
     expect(spectatorSocket.emit).toHaveBeenCalledWith('error', { message: 'You are not in a game' });
   });
 
-  it('tells a third player to use spectator mode when a live game is already full', () => {
+  it('tells a third player to use spectator mode when a live game is already full', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
 
     const thirdSocket = connectSocket('third-socket');
-    thirdSocket.trigger('join_game', { gameId: room.id });
+    await thirdSocket.trigger('join_game', { gameId: room.id });
 
     expect(thirdSocket.emit).toHaveBeenCalledWith('error', {
       message: 'Game is full. Redirecting to spectator mode.',
     });
   });
 
-  it('prevents an active player from spectating a different live game on the same session', () => {
+  it('returns a deterministic error when joining throws', async () => {
+    const room = gameManager.createGame(timeControl);
+    vi.spyOn(gameManager, 'joinGame').mockRejectedValueOnce(new Error('join failed'));
+
+    const socket = connectSocket('join-error-socket');
+    await socket.trigger('join_game', { gameId: room.id });
+
+    expect(socket.emit).toHaveBeenCalledWith('error', {
+      message: 'Unable to join game. Please try again.',
+    });
+  });
+
+  it('prevents an active player from spectating a different live game on the same session', async () => {
     const roomA = gameManager.createGame(timeControl);
-    gameManager.joinGame(roomA.id, 'white-socket', { playerId: 'player-1' });
-    gameManager.joinGame(roomA.id, 'black-socket', { playerId: 'player-2' });
+    await gameManager.joinGame(roomA.id, 'white-socket', { playerId: 'player-1' });
+    await gameManager.joinGame(roomA.id, 'black-socket', { playerId: 'player-2' });
 
     const roomB = gameManager.createGame(timeControl);
-    gameManager.joinGame(roomB.id, 'white-b', { playerId: 'player-3' });
-    gameManager.joinGame(roomB.id, 'black-b', { playerId: 'player-4' });
+    await gameManager.joinGame(roomB.id, 'white-b', { playerId: 'player-3' });
+    await gameManager.joinGame(roomB.id, 'black-b', { playerId: 'player-4' });
 
     const activePlayerSocket = connectSocket('white-socket', null, 'player-1');
     activePlayerSocket.trigger('spectate_game', { gameId: roomB.id });
@@ -428,10 +440,10 @@ describe('socket entry handlers', () => {
     expect(gameManager.getGame(roomB.id)?.spectators).toEqual([]);
   });
 
-  it('emits updated counting state to both players when counting starts', () => {
+  it('emits updated counting state to both players when counting starts', async () => {
     const room = gameManager.createGame(timeControl);
-    gameManager.joinGame(room.id, 'white-socket');
-    gameManager.joinGame(room.id, 'black-socket');
+    await gameManager.joinGame(room.id, 'white-socket');
+    await gameManager.joinGame(room.id, 'black-socket');
     const activeRoom = gameManager.getGame(room.id)!;
     activeRoom.gameState.counting = {
       active: false,

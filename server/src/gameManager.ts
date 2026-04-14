@@ -6,6 +6,19 @@ import {
 import { createInitialGameState, makeMove, startCounting, stopCounting } from '../../shared/engine';
 import { resolveMakrukTimeoutOutcome } from '../../shared/makrukRules';
 
+type DeferredLock = {
+  promise: Promise<void>;
+  resolve: () => void;
+};
+
+function createDeferredLock(): DeferredLock {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 export class GameManager {
   private games: Map<string, GameRoom> = new Map();
   private playerGames: Map<string, string> = new Map(); // playerId -> gameId
@@ -88,18 +101,13 @@ export class GameManager {
     socketId: string,
     options: { playerId?: string; userId?: string | null; displayName?: string | null; rating?: number | null } = {},
   ): Promise<{ room: GameRoom; color: PieceColor; reconnected: boolean } | null> {
-    // Acquire lock for this game to prevent concurrent joins
-    const existingLock = this.joinGameLocks.get(gameId);
-    if (existingLock) {
-      await existingLock;
-    }
+    const previousLock = this.joinGameLocks.get(gameId);
+    const waitForPreviousLock = previousLock?.catch(() => undefined) ?? Promise.resolve();
+    const currentLock = createDeferredLock();
+    const queuedLock = waitForPreviousLock.then(() => currentLock.promise);
+    this.joinGameLocks.set(gameId, queuedLock);
 
-    // Create a new lock for this join operation
-    let resolveLock: () => void;
-    const lock = new Promise<void>((resolve) => {
-      resolveLock = resolve;
-    });
-    this.joinGameLocks.set(gameId, lock);
+    await waitForPreviousLock;
 
     try {
       const room = this.games.get(gameId);
@@ -195,7 +203,7 @@ export class GameManager {
         if (room.status === 'waiting') {
           room.status = 'playing';
           room.gameState.lastMoveTime = Date.now();
-      }
+        }
         this.touchGame(gameId);
         return { room, color: 'black', reconnected: false };
       }
@@ -203,9 +211,10 @@ export class GameManager {
       // Game is full
       return null;
     } finally {
-      // Release the lock
-      resolveLock!();
-      this.joinGameLocks.delete(gameId);
+      currentLock.resolve();
+      if (this.joinGameLocks.get(gameId) === queuedLock) {
+        this.joinGameLocks.delete(gameId);
+      }
     }
   }
 

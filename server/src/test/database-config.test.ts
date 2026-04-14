@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,11 +26,14 @@ describe('database connection config', () => {
     delete process.env.TURSO_AUTH_TOKEN;
     delete process.env.TURSO_DATABASE_URL;
 
+    vi.doMock('../env', () => ({ env: {} }));
     const database = await import('../database');
     const repoRoot = path.resolve(__dirname, '../../..');
+    const options = database.getLibsqlConnectionOptions();
+    const expectedDbFile = fs.existsSync(path.join(repoRoot, 'data', 'makruk.db')) ? 'makruk.db' : 'thaichess.db';
 
-    expect(database.getLibsqlConnectionOptions()).toEqual({
-      url: `file:${path.join(repoRoot, 'data', 'thaichess.db')}`,
+    expect(options).toEqual({
+      url: `file:${path.join(repoRoot, 'data', expectedDbFile)}`,
     });
   });
 
@@ -38,6 +42,7 @@ describe('database connection config', () => {
     delete process.env.TURSO_AUTH_TOKEN;
     delete process.env.TURSO_DATABASE_URL;
 
+    vi.doMock('../env', () => ({ env: {} }));
     const database = await import('../database');
 
     expect(database.getLibsqlConnectionOptions()).toEqual({
