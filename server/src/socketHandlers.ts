@@ -350,7 +350,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       socket.emit('game_left', { gameId: result.gameId });
     });
 
-    socket.on('join_game', (payload) => {
+    socket.on('join_game', async (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
       
       // Zod validation with user-friendly error messages
@@ -368,7 +368,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const result = deps.gameManager.joinGame(gameId, socket.id, {
+      const result = await deps.gameManager.joinGame(gameId, socket.id, {
         playerId: socket.data.playerId,
         userId: socket.data.authUser?.id ?? null,
         displayName: getSocketDisplayName(socket),
