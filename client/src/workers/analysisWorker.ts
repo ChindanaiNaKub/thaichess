@@ -39,7 +39,12 @@ async function requestGameAnalysisStream(payload: AnalyzeMessage): Promise<GameA
     }),
   });
 
-  if (!response.ok || !response.body) {
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { error?: unknown };
+    throw new Error(typeof data.error === 'string' ? data.error : 'Streamed analysis request failed');
+  }
+
+  if (!response.body) {
     throw new Error('Streamed analysis request failed');
   }
 

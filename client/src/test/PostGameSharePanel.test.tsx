@@ -7,9 +7,17 @@ import { I18nProvider } from '../lib/i18n';
 import PostGameSharePanel from '../components/PostGameSharePanel';
 
 const useGameAnalysisMock = vi.fn();
+const useAuthMock = vi.fn(() => ({
+  user: { id: 'player-1' },
+  loading: false,
+}));
 
 vi.mock('../hooks/useGameAnalysis', () => ({
   useGameAnalysis: (...args: unknown[]) => useGameAnalysisMock(...args),
+}));
+
+vi.mock('../lib/auth', () => ({
+  useAuth: () => useAuthMock(),
 }));
 
 function renderPanel(props?: Partial<ComponentProps<typeof PostGameSharePanel>>) {

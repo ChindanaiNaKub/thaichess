@@ -5,6 +5,7 @@ import { useGameAnalysis } from '../hooks/useGameAnalysis';
 import { getGameModeLabel, getPlayerOutcome, getPlayerOutcomeLabel, getResultReasonLabel, getResultScore, getSideLabel, formatTimeControl } from '../lib/gamePresentation';
 import { downloadShareCardBlob, renderShareCardBlob, shareShareCardBlob } from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
+import { useAuth } from '../lib/auth';
 import ShareCardExportCanvas, { type GameShareCardData, type ShareCardSummaryStat, type ShareCardVariant } from './ShareCardExportCanvas';
 
 interface PostGameSharePanelProps {
@@ -45,15 +46,17 @@ export default function PostGameSharePanel({
   ratingChange = null,
 }: PostGameSharePanelProps) {
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const exportRef = useRef<HTMLDivElement>(null);
   const [variant, setVariant] = useState<ShareCardVariant>('result');
   const [actionLabel, setActionLabel] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'download' | 'share' | null>(null);
   const { analysis, analyzing, error } = useGameAnalysis({
-    enabled: moves.length > 0,
+    enabled: moves.length > 0 && Boolean(user) && !authLoading,
     analysisId,
     moves,
   });
+  const analysisAuthRequired = moves.length > 0 && !authLoading && !user;
 
   const whiteName = whitePlayerName.trim() || t('common.white');
   const blackName = blackPlayerName.trim() || t('common.black');
@@ -255,7 +258,9 @@ export default function PostGameSharePanel({
           {variant === 'accuracy' && !canUseAccuracyVariant
             ? analyzing
               ? t('sharecard.accuracy_pending')
-              : error
+              : analysisAuthRequired
+                ? t('sharecard.accuracy_sign_in')
+                : error
                 ? t('sharecard.accuracy_unavailable')
                 : t('sharecard.accuracy_pending')
             : variant === 'rating' && !canUseRatingVariant

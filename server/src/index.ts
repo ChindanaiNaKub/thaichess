@@ -163,6 +163,22 @@ const analysisLimiter = rateLimit({
   message: { error: 'Too many analysis requests. Please try again later.' },
 });
 
+const gameReviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Game review limit reached. Please try again later.' },
+});
+
+const positionAnalysisLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many position analysis requests. Please slow down.' },
+});
+
 // Request logging (lightweight)
 app.use((req, _res, next) => {
   if (req.path.startsWith('/api/') && !req.path.includes('/health')) {
@@ -307,18 +323,18 @@ function isValidGameIdParam(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value.trim());
 }
 
-async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response) {
-  const user = await getAuthenticatedUser(req);
-  if (!user) return false;
+async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response, user?: AuthUser | null) {
+  const analysisUser = user ?? await getAuthenticatedUser(req);
+  if (!analysisUser) return false;
 
-  const activeGameId = gameManager.getBlockingPlayerGame(user.id);
+  const activeGameId = gameManager.getBlockingPlayerGame(analysisUser.id);
   if (!activeGameId) return false;
 
   const room = gameManager.getGame(activeGameId);
   if (!room || room.status !== 'playing' || !room.rated) return false;
 
   await recordFairPlayEvent({
-    userId: user.id,
+    userId: analysisUser.id,
     type: 'analysis_blocked',
     gameId: activeGameId,
     metadata: {
@@ -329,7 +345,7 @@ async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.
   });
 
   logWarn('fair_play_analysis_blocked', {
-    userId: user.id,
+    userId: analysisUser.id,
     gameId: activeGameId,
     path: req.path,
     ip: req.ip,
@@ -455,8 +471,10 @@ app.get('/api/game/:id', async (req, res) => {
   res.status(404).json({ error: 'Game not found' });
 });
 
-app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/game', analysisLimiter, gameReviewLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzeGameSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -479,8 +497,10 @@ app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/game/stream', analysisLimiter, gameReviewLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzeGameSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -527,8 +547,10 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/position', analysisLimiter, positionAnalysisLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzePositionSchema.safeParse(req.body);
   if (!parseResult.success) {
