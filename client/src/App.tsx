@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
+import CookieConsent from './components/CookieConsent';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { useTranslation } from './lib/i18n';
@@ -33,7 +34,6 @@ const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSetting
 const PrivacyPage = lazy(() => import('./routes/PrivacyRoute'));
 const TermsPage = lazy(() => import('./routes/TermsRoute'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
-const CookieConsent = lazy(() => import('./components/CookieConsent'));
 
 function RouteFallback() {
   return (
@@ -141,11 +141,7 @@ export default function App() {
           <FeedbackWidget />
         </Suspense>
       ) : null}
-      {!isAutomatedBrowser() ? (
-        <Suspense fallback={null}>
-          <CookieConsent />
-        </Suspense>
-      ) : null}
+      {!isAutomatedBrowser() ? <CookieConsent /> : null}
     </div>
   );
 }
