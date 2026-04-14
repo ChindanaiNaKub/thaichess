@@ -24,6 +24,87 @@ import MoveHistory from './MoveHistory';
 type PuzzleStatus = 'playing' | 'success' | 'failed';
 type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
 type StreakMilestoneTone = 'improving' | 'harder' | null;
+const RANDOM_HISTORY_STORAGE_KEY = 'thaichess-random-puzzle-history';
+const RANDOM_RESULT_HISTORY_STORAGE_KEY = 'thaichess-random-puzzle-result-history';
+const MAX_RANDOM_RESULT_HISTORY = 16;
+
+type RandomResultEntry = {
+  puzzleId: number;
+  outcome: 'success' | 'failed';
+};
+
+function readRandomPuzzleHistory(): number[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.sessionStorage.getItem(RANDOM_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is number => typeof value === 'number');
+  } catch {
+    return [];
+  }
+}
+
+function writeRandomPuzzleHistory(history: number[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(RANDOM_HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // Ignore storage errors and keep puzzle flow running.
+  }
+}
+
+function readRandomResultHistory(): RandomResultEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.sessionStorage.getItem(RANDOM_RESULT_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((entry): entry is RandomResultEntry =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as { puzzleId?: unknown }).puzzleId === 'number' &&
+      ((entry as { outcome?: unknown }).outcome === 'success' || (entry as { outcome?: unknown }).outcome === 'failed'),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeRandomResultHistory(history: RandomResultEntry[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      RANDOM_RESULT_HISTORY_STORAGE_KEY,
+      JSON.stringify(history.slice(-MAX_RANDOM_RESULT_HISTORY)),
+    );
+  } catch {
+    // Ignore storage errors and keep puzzle flow running.
+  }
+}
+
+function pickRandomPuzzleId(
+  puzzleIds: number[],
+  currentPuzzleId: number | null = null,
+): number | null {
+  if (puzzleIds.length === 0) return null;
+  const baseCandidates = puzzleIds.filter((id) => id !== currentPuzzleId);
+  const candidates = baseCandidates.length > 0 ? baseCandidates : puzzleIds;
+  const history = readRandomPuzzleHistory();
+  const unseenCandidates = candidates.filter((id) => !history.includes(id));
+  const pool = unseenCandidates.length > 0 ? unseenCandidates : candidates;
+  const picked = pool[Math.floor(Math.random() * pool.length)] ?? null;
+
+  if (picked !== null) {
+    const maxHistory = Math.max(12, Math.min(40, puzzleIds.length - 1));
+    writeRandomPuzzleHistory([...history, picked].slice(-maxHistory));
+  }
+
+  return picked;
+}
 
 interface StreakFeedback {
   tone: 'neutral' | 'success' | 'failed';
@@ -1338,6 +1419,9 @@ function PuzzlePlayer() {
   const isRandomMode = new URLSearchParams(location.search).get('mode') === 'random';
   const autoReplyTimeoutRef = useRef<number | null>(null);
   const autoAdvanceTimeoutRef = useRef<number | null>(null);
+  const [randomResultHistory, setRandomResultHistory] = useState<RandomResultEntry[]>([]);
+  const recordedOutcomeRef = useRef<string | null>(null);
+  const resolvedPuzzleIdRef = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
@@ -1370,6 +1454,11 @@ function PuzzlePlayer() {
       setFailureDetail(null);
       setReviewMoveIndex(null);
     }
+    if (isRandomMode) {
+      setRandomResultHistory(readRandomResultHistory());
+      recordedOutcomeRef.current = null;
+    }
+    resolvedPuzzleIdRef.current = null;
 
     return () => {
       if (autoReplyTimeoutRef.current !== null) {
@@ -1381,7 +1470,7 @@ function PuzzlePlayer() {
         autoAdvanceTimeoutRef.current = null;
       }
     };
-  }, [puzzle, puzzleId]);
+  }, [isRandomMode, puzzle, puzzleId]);
 
   useEffect(() => {
     if (!puzzle) return;
@@ -1393,15 +1482,17 @@ function PuzzlePlayer() {
   }, [markPuzzleCompleted, puzzleId]);
 
   const finishPuzzle = useCallback(() => {
+    resolvedPuzzleIdRef.current = puzzleId;
     setStatus('success');
     setFailureDetail(null);
     markCompleted();
     playGameOverSound();
-  }, [markCompleted]);
+  }, [markCompleted, puzzleId]);
 
   const failPuzzle = useCallback((attemptedMove: Pick<Move, 'from' | 'to'> | null = null) => {
     if (!puzzle) return;
 
+    resolvedPuzzleIdRef.current = puzzleId;
     void recordPuzzleFailed(puzzleId);
     setFailureDetail(getPuzzleFailureDetail(puzzle, attemptedMove));
     setStatus('failed');
@@ -1605,10 +1696,7 @@ function PuzzlePlayer() {
   }, [isRandomMode]);
 
   const getRandomPuzzleId = useCallback((): number | null => {
-    const candidates = PUZZLES.filter(candidate => candidate.id !== puzzleId);
-    if (candidates.length === 0) return null;
-    const picked = candidates[Math.floor(Math.random() * candidates.length)];
-    return picked?.id ?? null;
+    return pickRandomPuzzleId(PUZZLES.map((candidate) => candidate.id), puzzleId);
   }, [puzzleId]);
 
   const getNextPuzzle = (): number | null => {
@@ -1705,6 +1793,30 @@ function PuzzlePlayer() {
   ].filter((entry): entry is { label: string; text: string } => Boolean(entry && (entry.text ?? '').trim().length > 0));
   const lessonIdentityBadges = getPuzzleIdentityBadges(puzzle, t);
   const verificationLabel = getVerificationLabel(puzzle, t);
+
+  useEffect(() => {
+    if (!isRandomMode || status === 'playing' || !puzzle) return;
+    if (resolvedPuzzleIdRef.current !== puzzle.id) return;
+    const outcomeKey = `${puzzle.id}:${status}`;
+    if (recordedOutcomeRef.current === outcomeKey) return;
+
+    const entry: RandomResultEntry = {
+      puzzleId: puzzle.id,
+      outcome: status === 'success' ? 'success' : 'failed',
+    };
+    const currentHistory = readRandomResultHistory();
+    const lastEntry = currentHistory[currentHistory.length - 1];
+    if (lastEntry && lastEntry.puzzleId === entry.puzzleId && lastEntry.outcome === entry.outcome) {
+      recordedOutcomeRef.current = outcomeKey;
+      setRandomResultHistory(currentHistory);
+      return;
+    }
+
+    const nextHistory = [...currentHistory, entry].slice(-MAX_RANDOM_RESULT_HISTORY);
+    writeRandomResultHistory(nextHistory);
+    setRandomResultHistory(nextHistory);
+    recordedOutcomeRef.current = outcomeKey;
+  }, [isRandomMode, puzzle, status]);
 
   useEffect(() => {
     if (
@@ -1818,6 +1930,25 @@ function PuzzlePlayer() {
                 />
               </BoardErrorBoundary>
             )}
+            {isRandomMode && (
+              <div className="flex w-full max-w-[520px] flex-wrap items-center gap-2 px-1 pt-1">
+                {randomResultHistory.map((entry, index) => (
+                  <span
+                    key={`${entry.puzzleId}-${index}`}
+                    className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${
+                      entry.outcome === 'success'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                    }`}
+                  >
+                    {entry.outcome === 'success' ? '✓' : '✕'}
+                  </span>
+                ))}
+                <span className="h-7 min-w-[30px] rounded-lg bg-amber-600/90 px-2.5 py-1 text-sm font-semibold text-transparent">
+                  0
+                </span>
+              </div>
+            )}
           </div>
 
           <aside
@@ -1853,37 +1984,24 @@ function PuzzlePlayer() {
               </div>
             </div>
 
-            {status === 'playing' && (
-              <CoachSection
-                label={t('puzzle.move_now_label')}
-                body={isSolverTurn
-                  ? t('puzzle.find_best', { color: solverColorLabel })
-                  : t('puzzle.to_move', { color: currentTurnLabel })}
-                tone="primary"
-              >
+            <CoachSection
+              label={status === 'playing' ? t('puzzle.move_now_label') : status === 'success' ? t('puzzle.solved_label') : t('puzzle.try_again_label')}
+              title={status === 'success' ? t('puzzle.correct') : status === 'failed' ? t('puzzle.wrong') : null}
+              body={status === 'failed'
+                ? (failureDetail ?? t('puzzle.wrong_desc'))
+                : status === 'success'
+                  ? (hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean'))
+                  : (isSolverTurn
+                    ? t('puzzle.find_best', { color: solverColorLabel })
+                    : t('puzzle.to_move', { color: currentTurnLabel }))}
+              tone={status === 'failed' ? 'danger' : 'primary'}
+            >
+              {status === 'playing' ? (
                 <p className="text-xs text-text-dim">{t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}</p>
-              </CoachSection>
-            )}
-
-            {status === 'success' && (
-              <CoachSection
-                label={t('puzzle.solved_label')}
-                title={t('puzzle.correct')}
-                body={hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean')}
-                tone="primary"
-              >
+              ) : (
                 <p className="text-sm leading-6 text-text">{puzzle.takeaway}</p>
-              </CoachSection>
-            )}
-
-            {status === 'failed' && (
-              <CoachSection
-                label={t('puzzle.try_again_label')}
-                title={t('puzzle.wrong')}
-                body={failureDetail ?? t('puzzle.wrong_desc')}
-                tone="danger"
-              />
-            )}
+              )}
+            </CoachSection>
 
             <section className="sticky top-2 z-10 rounded-2xl border border-surface-hover bg-surface/95 p-3 backdrop-blur">
               <div className="flex flex-wrap gap-2">
@@ -1923,48 +2041,7 @@ function PuzzlePlayer() {
               onMoveClick={jumpToMove}
             />
 
-            <CoachSection label={t('puzzle.scene_label')} body={puzzle.whyPositionMatters} />
-
-            <CoachSection
-              label={t('puzzle.task_label')}
-              body={puzzle.objective}
-              tone="accent"
-            >
-              {status === 'playing' && (
-                <button
-                  onClick={handleHint}
-                  className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {t('puzzle.hint')}
-                </button>
-              )}
-            </CoachSection>
-
-            <CoachSection label={t('puzzle.coach_eye_label')} body={puzzle.keyIdea} tone="primary">
-              <p className="text-sm leading-6 text-text-dim">{puzzle.explanation}</p>
-            </CoachSection>
-
-            {revealedHints.length > 0 && (
-              <CoachSection label={t('puzzle.hint_path_label')} body={revealedHints[revealedHints.length - 1]?.text ?? ''} tone="accent">
-                <div className="space-y-2">
-                  {revealedHints.map((entry) => (
-                    <div key={entry.label}>
-                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-accent/80">{entry.label}</div>
-                      <p className="text-sm leading-relaxed text-text">{entry.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </CoachSection>
-            )}
-
-            <CoachSection label={t('puzzle.tempting_mistake_label')} body={puzzle.wrongMoveExplanation} tone={status === 'failed' ? 'danger' : 'surface'} />
-
-            <CoachSection label={t('puzzle.takeaway_label')} body={puzzle.takeaway} tone={status === 'success' ? 'primary' : 'surface'} />
-
-            <CoachSection
-              label={t('puzzle.source_evidence_label')}
-              body={puzzle.ruleImpact}
-            >
+            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-3">
               <div className="flex flex-wrap gap-2">
                 <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
                   {getPuzzleOriginLabel(puzzle, t)}
@@ -1993,64 +2070,85 @@ function PuzzlePlayer() {
                   </a>
                 )}
               </div>
-            </CoachSection>
-
-            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-primary/80 mb-2">{t('puzzle.activity_title')}</p>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                  {t('puzzle.activity_status_label')}: {activityStatusLabel}
-                </span>
-                {progressRecord && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.attempts_label')}: {progressRecord.attempts}
-                  </span>
-                )}
-                {progressRecord && progressRecord.attempts > 0 && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.success_rate')}: {Math.round((progressRecord.successes / progressRecord.attempts) * 100)}%
-                  </span>
-                )}
-                {progressRecord?.lastPlayedAt && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.activity_last_played', { date: formatActivityDate(progressRecord.lastPlayedAt, lang) })}
-                  </span>
-                )}
-                {completedTimestamp !== null && (
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
-                    {t('puzzle.activity_completed_on', { date: formatActivityDate(completedTimestamp, lang) })}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs uppercase tracking-[0.16em] text-primary/80 mb-2">{t('puzzle.related_theme_title')}</p>
-              {relatedThemePuzzles.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-text-dim">{t('puzzle.related_theme_desc', { theme: t(`theme.${puzzle.theme}`) })}</p>
-                  {relatedThemePuzzles.map((relatedPuzzle) => (
-                    <button
-                      key={relatedPuzzle.id}
-                      onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
-                      className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
-                    >
-                      <div className="text-sm font-medium text-text-bright">
-                        #{relatedPuzzle.id} · {getPublicPuzzleTitle(relatedPuzzle.title)}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-text-dim">
-                        <span className={getDifficultyTextClasses(relatedPuzzle.difficulty)}>{t(`puzzle.${relatedPuzzle.difficulty}`)}</span>
-                        <span>
-                          {completedPuzzleSet.has(relatedPuzzle.id) ? t('puzzle.solved_badge') : t('puzzle.new_badge')}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-text-dim">{t('puzzle.related_theme_empty', { theme: t(`theme.${puzzle.theme}`) })}</p>
-              )}
             </div>
 
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+            <details className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-text-bright">{t('puzzle.more_details')}</summary>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm font-semibold text-text">{t('puzzle.scene_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.whyPositionMatters}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.task_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.objective}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.coach_eye_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.keyIdea}</p>
+                  {revealedHints.length > 0 && (
+                    <div className="space-y-1">
+                      {revealedHints.map((entry) => (
+                        <p key={entry.label} className="text-sm text-text-dim">
+                          <span className="font-semibold text-text">{entry.label}</span>: {entry.text}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-text">{t('puzzle.tempting_mistake_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.wrongMoveExplanation}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.takeaway_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.takeaway}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.source_evidence_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.ruleImpact}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                      {t('puzzle.activity_status_label')}: {activityStatusLabel}
+                    </span>
+                    {progressRecord && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.attempts_label')}: {progressRecord.attempts}
+                      </span>
+                    )}
+                    {progressRecord && progressRecord.attempts > 0 && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.success_rate')}: {Math.round((progressRecord.successes / progressRecord.attempts) * 100)}%
+                      </span>
+                    )}
+                    {progressRecord?.lastPlayedAt && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.activity_last_played', { date: formatActivityDate(progressRecord.lastPlayedAt, lang) })}
+                      </span>
+                    )}
+                    {completedTimestamp !== null && (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
+                        {t('puzzle.activity_completed_on', { date: formatActivityDate(completedTimestamp, lang) })}
+                      </span>
+                    )}
+                  </div>
+                  {relatedThemePuzzles.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-primary/80">{t('puzzle.related_theme_title')}</p>
+                      <p className="text-xs text-text-dim">{t('puzzle.related_theme_desc', { theme: t(`theme.${puzzle.theme}`) })}</p>
+                      {relatedThemePuzzles.map((relatedPuzzle) => (
+                        <button
+                          key={relatedPuzzle.id}
+                          onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
+                          className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                        >
+                          <div className="text-sm font-medium text-text-bright">
+                            #{relatedPuzzle.id} · {getPublicPuzzleTitle(relatedPuzzle.title)}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-text-dim">
+                            <span className={getDifficultyTextClasses(relatedPuzzle.difficulty)}>{t(`puzzle.${relatedPuzzle.difficulty}`)}</span>
+                            <span>
+                              {completedPuzzleSet.has(relatedPuzzle.id) ? t('puzzle.solved_badge') : t('puzzle.new_badge')}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+            </details>
+
+            {status !== 'playing' && (
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               {prevPuzzle && (
                 <button
                   onClick={() => navigate(puzzleRoute(String(prevPuzzle)))}
@@ -2073,7 +2171,8 @@ function PuzzlePlayer() {
                   {t('puzzle.next')} →
                 </button>
               )}
-            </div>
+              </div>
+            )}
           </aside>
         </div>
       </main>
