@@ -454,18 +454,25 @@ app.get('/api/game/:id', async (req, res) => {
   // Check database for completed games
   const saved = await getDbGame(req.params.id);
   if (saved) {
-    res.json({
-      id: saved.id,
-      status: 'finished',
-      result: saved.result,
-      resultReason: saved.result_reason,
-      timeControl: { initial: saved.time_control_initial, increment: saved.time_control_increment },
-      moves: JSON.parse(saved.moves),
-      finalBoard: JSON.parse(saved.final_board),
-      moveCount: saved.move_count,
-      createdAt: saved.created_at,
-      finishedAt: saved.finished_at,
-    });
+    try {
+      const moves = JSON.parse(saved.moves);
+      const finalBoard = JSON.parse(saved.final_board);
+      res.json({
+        id: saved.id,
+        status: 'finished',
+        result: saved.result,
+        resultReason: saved.result_reason,
+        timeControl: { initial: saved.time_control_initial, increment: saved.time_control_increment },
+        moves,
+        finalBoard,
+        moveCount: saved.move_count,
+        createdAt: saved.created_at,
+        finishedAt: saved.finished_at,
+      });
+    } catch (err) {
+      logError('game_data_parse_failed', err, { gameId: req.params.id });
+      res.status(500).json({ error: 'Failed to parse game data' });
+    }
     return;
   }
   res.status(404).json({ error: 'Game not found' });
