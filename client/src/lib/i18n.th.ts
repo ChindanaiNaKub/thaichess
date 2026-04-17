@@ -238,6 +238,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'bot.bot_wins': 'บอทชนะ',
   'bot.resign': 'ยอมแพ้',
   'bot.resign_confirm': 'คุณแน่ใจหรือไม่ว่าต้องการยอมแพ้?',
+  'bot.engine_unavailable': 'Fairy-Stockfish ยังไม่พร้อมใช้งาน โปรดลองอีกครั้งในอีกสักครู่',
   'bot.vs_bot': 'กับบอท',
   'bot.learn_more': 'เรียนรู้เพิ่มเติมเกี่ยวกับ',
 

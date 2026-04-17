@@ -587,8 +587,14 @@ app.post('/api/bot/move', analysisLimiter, async (req, res) => {
     return;
   }
 
-  const result = await getBotMoveWithEngine(snapshot, level, botId);
-  res.json(result);
+  try {
+    const result = await getBotMoveWithEngine(snapshot, level, botId);
+    res.json(result);
+  } catch (error) {
+    res.status(503).json({
+      error: error instanceof Error ? error.message : 'Bot engine is unavailable.',
+    });
+  }
 });
 
 app.post('/api/games/bot', async (req, res) => {

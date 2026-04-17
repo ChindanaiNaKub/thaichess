@@ -167,6 +167,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'sharecard.result_heading': 'Result',
   'sharecard.download_png': 'Download PNG',
   'sharecard.share_image': 'Share image',
+  'bot.engine_unavailable': 'Fairy-Stockfish is unavailable. Please try again in a moment.',
   'time.blitz': 'Blitz',
   'time.bullet': 'Bullet',
   'time.classical': 'Classical',
