@@ -149,8 +149,18 @@ function buildFaqSchema(entries: Array<{ question: string; answer: string }>): R
   };
 }
 
+function normalizeSeoPath(pathname: string): string {
+  const pathOnly = pathname.split('?')[0].split('#')[0] || '/';
+
+  if (pathOnly === '/') {
+    return '/';
+  }
+
+  return pathOnly.replace(/\/+$/, '') || '/';
+}
+
 export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteData {
-  const cleanPath = pathname.split('?')[0].split('#')[0] || '/';
+  const cleanPath = normalizeSeoPath(pathname);
 
   if (cleanPath === '/') {
     return {

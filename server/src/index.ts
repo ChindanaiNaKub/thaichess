@@ -58,6 +58,7 @@ import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
 import { renderSeoHtml } from './seoHtml';
+import { getCanonicalRedirectUrl } from './urlCanonicalization';
 import {
   UpdateProfileSchema,
   SubmitFeedbackSchema,
@@ -113,32 +114,14 @@ app.set('trust proxy', 1);
 // URL Canonicalization Redirects (SEO - fix Google Search Console issues)
 // Redirects: www → non-www, HTTP → HTTPS, trailing slash normalization
 app.use((req, res, next) => {
-  const host = req.get('host') || '';
-  const protocol = req.protocol;
-  const url = req.originalUrl;
-
-  let redirectUrl: string | null = null;
-  let statusCode = 301; // Permanent redirect for SEO
-
-  // 1. Redirect www to non-www
-  if (host.startsWith('www.')) {
-    const nonWwwHost = host.slice(4);
-    redirectUrl = `https://${nonWwwHost}${url}`;
-  }
-  // 2. Redirect HTTP to HTTPS (only in production, skip localhost)
-  else if (protocol === 'http' && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-    redirectUrl = `https://${host}${url}`;
-  }
-
-  // 3. Trailing slash normalization (except for files with extensions)
-  // Remove trailing slash from URLs like /about/ → /about
-  // But keep it for root / and file paths like /assets/image.png
-  if (!redirectUrl && url.length > 1 && url.endsWith('/') && !url.match(/\/[^/]+\.[^/]+$/)) {
-    redirectUrl = `https://${host}${url.slice(0, -1)}`;
-  }
+  const redirectUrl = getCanonicalRedirectUrl({
+    host: req.get('host') || '',
+    protocol: req.protocol,
+    originalUrl: req.originalUrl,
+  });
 
   if (redirectUrl) {
-    res.redirect(statusCode, redirectUrl);
+    res.redirect(301, redirectUrl);
     return;
   }
 
