@@ -22,6 +22,7 @@ import {
   getFeedbackForAdmin,
   moderateFeedback,
   updateUsername,
+  getUsernameChangeCooldown,
   getCompletedPuzzleIdsForUser,
   getPuzzleProgressForUser,
   markPuzzlePlayed,
@@ -300,10 +301,6 @@ function buildBotName(level: number, botId?: string) {
 
 function isValidFairPlayCaseStatus(value: unknown): value is FairPlayCaseStatus {
   return value === 'open' || value === 'reviewed' || value === 'restricted' || value === 'dismissed';
-}
-
-function isValidGameIdParam(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value.trim());
 }
 
 async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response, user?: AuthUser | null) {
@@ -778,6 +775,23 @@ app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, 
   }
 
   const { username } = parseResult.data;
+  const currentUsername = user.username?.trim() ?? '';
+  if (currentUsername === username) {
+    res.json({ ok: true, user });
+    return;
+  }
+
+  const cooldown = getUsernameChangeCooldown(user, username);
+  if (cooldown) {
+    res.setHeader('Retry-After', String(cooldown.retryAfterSeconds));
+    res.status(429).json({
+      error: 'You can change your username once every 7 days.',
+      code: 'USERNAME_CHANGE_COOLDOWN',
+      nextAllowedAt: cooldown.nextAllowedAt,
+      retryAfterSeconds: cooldown.retryAfterSeconds,
+    });
+    return;
+  }
 
   const updated = await updateUsername(user.id, username);
   if (!updated) {

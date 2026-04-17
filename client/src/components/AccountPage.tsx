@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { USERNAME_CHANGE_COOLDOWN_SECONDS } from '@shared/authLimits';
 import { PUZZLES } from '@shared/puzzlesRuntime';
 import Header from './Header';
-import { useAuth } from '../lib/auth';
+import { useAuth, type ApiError } from '../lib/auth';
 import { authClient } from '../lib/authClient';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
@@ -30,6 +31,32 @@ function formatSessionDate(value: string | Date, lang: string): string {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatUsernameCooldownDate(timestamp: number, lang: string): string {
+  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(timestamp * 1000));
+}
+
+function getProfileErrorMessage(error: unknown, t: (key: string, params?: Record<string, string | number>) => string, lang: string) {
+  const apiError = error as Partial<ApiError>;
+
+  if (apiError.code === 'USERNAME_CHANGE_COOLDOWN' && typeof apiError.nextAllowedAt === 'number') {
+    return t('account.username_cooldown_until', {
+      date: formatUsernameCooldownDate(apiError.nextAllowedAt, lang),
+    });
+  }
+
+  if (typeof apiError.status === 'number' && apiError.status >= 500) {
+    return t('account.profile_server_error');
+  }
+
+  return error instanceof Error ? error.message : t('account.update_failed');
 }
 
 function StatTile({
@@ -79,7 +106,7 @@ function SecondaryAction({
 
 export default function AccountPage() {
   const navigate = useNavigate();
-  const { user, loading, logout, refreshUser, updateProfile } = useAuth();
+  const { user, loading, authError, logout, refreshUser, updateProfile } = useAuth();
   const { t, lang } = useTranslation();
   const betterAuthSession = authClient.useSession();
   const puzzleProgress = usePuzzleProgressSummary();
@@ -114,28 +141,82 @@ export default function AccountPage() {
   }, [user?.username]);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !authError) {
       navigate('/login', { replace: true });
     }
-  }, [loading, navigate, user]);
+  }, [authError, loading, navigate, user]);
 
-  async function handleSave(e: React.FormEvent) {
+  const normalizedUsername = username.trim();
+  const currentUsername = user?.username?.trim() ?? '';
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const usernameCooldownEndsAt = user?.username_updated_at && currentUsername
+    ? user.username_updated_at + USERNAME_CHANGE_COOLDOWN_SECONDS
+    : null;
+  const usernameCooldownActive = Boolean(
+    usernameCooldownEndsAt
+    && nowSeconds < usernameCooldownEndsAt
+    && normalizedUsername !== currentUsername,
+  );
+  const usernameCooldownMessage = usernameCooldownEndsAt && nowSeconds < usernameCooldownEndsAt
+    ? t('account.username_cooldown_until', {
+      date: formatUsernameCooldownDate(usernameCooldownEndsAt, lang),
+    })
+    : '';
+
+  async function handleSave(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setMessage('');
     setError('');
 
     try {
+      if (usernameCooldownActive) {
+        setError(usernameCooldownMessage);
+        return;
+      }
       await updateProfile(username);
       setMessage(t('account.profile_updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('account.update_failed'));
+      setError(getProfileErrorMessage(err, t, lang));
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading || !user) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center text-text-dim">
+        {t('common.loading')}
+      </div>
+    );
+  }
+
+  if (!user && authError) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center px-6 text-center">
+        <div className="max-w-md">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-light">
+            {t('auth.session_check_title')}
+          </p>
+          <h1 className="mt-3 text-2xl font-bold text-text-bright">
+            {t('auth.session_check_failed')}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-text">
+            {t('auth.session_check_desc')}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center text-text-dim">
         {t('common.loading')}
@@ -168,7 +249,7 @@ export default function AccountPage() {
     }
   }
 
-  async function handleAdminMfaVerify(event: React.FormEvent<HTMLFormElement>) {
+  async function handleAdminMfaVerify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAdminVerifying(true);
     setAdminSecurityError('');
@@ -281,6 +362,13 @@ export default function AccountPage() {
                 </div>
               )}
 
+              {authError && (
+                <div className="mt-6 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-red-100">
+                  <div className="font-semibold">{t('auth.session_check_failed')}</div>
+                  <p className="mt-1 text-red-100/85">{t('auth.session_check_desc')}</p>
+                </div>
+              )}
+
               <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatTile label={t('account.rating')} value={user.rating} />
                 <StatTile label={t('account.rated_games')} value={user.rated_games} />
@@ -309,9 +397,14 @@ export default function AccountPage() {
                       className="w-full rounded-xl border border-surface-hover bg-surface-alt px-4 py-3 text-text-bright outline-none transition-colors placeholder:text-text-dim/75 focus:border-primary"
                     />
                   </label>
+                  {usernameCooldownMessage && (
+                    <p className="mt-3 text-xs leading-5 text-text">
+                      {usernameCooldownMessage}
+                    </p>
+                  )}
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || usernameCooldownActive}
                     className="mt-4 w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-60"
                   >
                     {saving ? t('account.saving') : t('account.save_profile')}

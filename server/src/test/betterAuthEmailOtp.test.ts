@@ -210,6 +210,84 @@ describe('better-auth email otp', () => {
     expect(String(twoFactor.rows[0].backupCodes)).not.toBe('');
   });
 
+  it('keeps the signed-in Better Auth session valid after updating the username', async () => {
+    const database = await import('../database');
+    const appAuth = await import('../auth');
+    const { auth } = await import('../betterAuth');
+
+    await database.initDatabase();
+    await database.upsertUserByEmail({
+      id: 'profile-user',
+      email: 'profile@example.com',
+      role: 'user',
+    });
+
+    const headers = new Headers({ origin: 'http://localhost:3000' });
+    await auth.api.sendVerificationOTP({
+      body: {
+        email: 'profile@example.com',
+        type: 'sign-in',
+      },
+      headers,
+    });
+
+    const otp = testState.otps.get('profile@example.com');
+    if (!otp) {
+      throw new Error('Expected OTP to be captured by the mocked sender.');
+    }
+
+    const signIn = await auth.api.signInEmailOTP({
+      body: {
+        email: 'profile@example.com',
+        otp,
+      },
+      headers,
+    });
+    const sessionCookie = buildSignedSessionCookie(signIn.token);
+
+    const updated = await database.updateUsername('profile-user', 'new_profile_name');
+    expect(updated?.username).toBe('new_profile_name');
+    expect(updated?.username_updated_at).toEqual(expect.any(Number));
+
+    const sessionUser = await appAuth.getAuthenticatedUserFromCookieHeader(sessionCookie);
+    expect(sessionUser).toMatchObject({
+      id: 'profile-user',
+      email: 'profile@example.com',
+      username: 'new_profile_name',
+    });
+  });
+
+  it('requires seven days between username changes after the first username is set', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+    await database.upsertUserByEmail({
+      id: 'cooldown-user',
+      email: 'cooldown@example.com',
+      role: 'user',
+    });
+
+    const firstUpdate = await database.updateUsername('cooldown-user', 'first_name');
+    expect(firstUpdate?.username).toBe('first_name');
+
+    const cooldown = database.getUsernameChangeCooldown(
+      firstUpdate!,
+      'second_name',
+      firstUpdate!.username_updated_at!,
+    );
+
+    expect(cooldown).toEqual({
+      nextAllowedAt: firstUpdate!.username_updated_at! + 7 * 24 * 60 * 60,
+      retryAfterSeconds: 7 * 24 * 60 * 60,
+    });
+    expect(database.getUsernameChangeCooldown(firstUpdate!, 'first_name', firstUpdate!.username_updated_at!)).toBeNull();
+    expect(database.getUsernameChangeCooldown(
+      firstUpdate!,
+      'second_name',
+      firstUpdate!.username_updated_at! + 7 * 24 * 60 * 60,
+    )).toBeNull();
+  });
+
   it('requires 2fa redirect for admins who already enabled two-factor', async () => {
     const database = await import('../database');
     const { auth } = await import('../betterAuth');
