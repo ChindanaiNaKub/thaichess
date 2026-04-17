@@ -59,6 +59,14 @@ describe('shared SEO routes', () => {
     expect(playOnline.robots).toBeUndefined();
   });
 
+  it('normalizes trailing slash guide URLs to the canonical sitemap path', () => {
+    const howTo = getPublicSeoRoute('/how-to-play-makruk/', 'https://thaichess.dev');
+
+    expect(howTo.path).toBe(routes.howToPlayMakruk);
+    expect(howTo.title).toContain('How to Play Makruk');
+    expect(howTo.robots).toBeUndefined();
+  });
+
   it('returns dedicated metadata for the lessons section and its aliases', () => {
     const overview = getPublicSeoRoute(routes.lessons, 'https://thaichess.dev');
     const alias = getPublicSeoRoute(routes.coursePath, 'https://thaichess.dev');
