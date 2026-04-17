@@ -57,6 +57,7 @@ describe('better-auth database schema', () => {
     expect(userColumns.has('image')).toBe(true);
     expect(userColumns.has('email_verified')).toBe(true);
     expect(userColumns.has('twoFactorEnabled')).toBe(true);
+    expect(userColumns.has('username_updated_at')).toBe(true);
 
     const tables = await client.execute(`
       SELECT name

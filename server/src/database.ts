@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { createClient, type Client, type InStatement, type Row } from '@libsql/client';
 import type { GameAnalysis } from '../../shared/analysis';
+import { USERNAME_CHANGE_COOLDOWN_SECONDS } from '../../shared/authLimits';
 import type { Move, Board, TimeControl, RatingChangeSummary, PieceColor } from '../../shared/types';
 import { logError, logInfo, logWarn } from './logger';
 import './env';
@@ -38,7 +39,7 @@ const VALID_MIGRATION_COLUMNS: Record<string, Set<string>> = {
   users: new Set([
     'fair_play_status', 'rated_restricted_at', 'rated_restriction_note',
     'rating', 'rated_games', 'wins', 'losses', 'draws',
-    'name', 'image', 'email_verified', 'twoFactorEnabled',
+    'name', 'image', 'email_verified', 'twoFactorEnabled', 'username_updated_at',
   ]),
   games: new Set([
     'white_user_id', 'black_user_id', 'rated', 'game_mode', 'game_type',
@@ -249,6 +250,7 @@ async function runSchemaMigration() {
         twoFactorEnabled INTEGER NOT NULL DEFAULT 0,
         image TEXT,
         username TEXT UNIQUE,
+        username_updated_at INTEGER,
         role TEXT NOT NULL DEFAULT 'user',
         fair_play_status TEXT NOT NULL DEFAULT 'clear',
         rated_restricted_at INTEGER,
@@ -431,6 +433,7 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'image', 'TEXT');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'twoFactorEnabled', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'username_updated_at', 'INTEGER');
   await ensureColumn('games', 'white_user_id', 'TEXT');
   await ensureColumn('games', 'black_user_id', 'TEXT');
   await ensureColumn('games', 'rated', 'INTEGER NOT NULL DEFAULT 0');
@@ -544,6 +547,7 @@ export interface AuthUser {
   twoFactorEnabled: boolean;
   image: string | null;
   username: string | null;
+  username_updated_at?: number | null;
   role: 'user' | 'admin';
   fair_play_status: FairPlayStatus;
   rated_restricted_at: number | null;
@@ -586,6 +590,9 @@ function rowToAuthUser(row: Row): AuthUser {
     twoFactorEnabled: Boolean(Number(row.twoFactorEnabled ?? 0)),
     image: row.image === null || row.image === undefined ? null : String(row.image),
     username: row.username === null || row.username === undefined ? null : String(row.username),
+    username_updated_at: row.username_updated_at === null || row.username_updated_at === undefined
+      ? null
+      : Number(row.username_updated_at),
     role: String(row.role ?? 'user') === 'admin' ? 'admin' : 'user',
     fair_play_status: normalizeFairPlayStatus(row.fair_play_status),
     rated_restricted_at: row.rated_restricted_at === null || row.rated_restricted_at === undefined
@@ -1809,7 +1816,7 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
 export async function updateUsername(userId: string, username: string): Promise<AuthUser | null> {
   try {
     await db.execute({
-      sql: 'UPDATE users SET username = ?, updated_at = unixepoch() WHERE id = ?',
+      sql: 'UPDATE users SET username = ?, username_updated_at = unixepoch(), updated_at = unixepoch() WHERE id = ?',
       args: [username, userId],
     });
     return await getUserById(userId);
@@ -1817,6 +1824,32 @@ export async function updateUsername(userId: string, username: string): Promise<
     logError('database_update_username_failed', err, { userId });
     return null;
   }
+}
+
+export function getUsernameChangeCooldown(
+  user: Pick<AuthUser, 'username' | 'username_updated_at'>,
+  nextUsername: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+) {
+  const currentUsername = user.username?.trim() ?? '';
+  if (!currentUsername || currentUsername === nextUsername.trim()) {
+    return null;
+  }
+
+  const lastUpdatedAt = user.username_updated_at ?? null;
+  if (!lastUpdatedAt) {
+    return null;
+  }
+
+  const nextAllowedAt = lastUpdatedAt + USERNAME_CHANGE_COOLDOWN_SECONDS;
+  if (nowSeconds >= nextAllowedAt) {
+    return null;
+  }
+
+  return {
+    nextAllowedAt,
+    retryAfterSeconds: nextAllowedAt - nowSeconds,
+  };
 }
 
 function normalizePuzzleIds(puzzleIds: number[]): number[] {
