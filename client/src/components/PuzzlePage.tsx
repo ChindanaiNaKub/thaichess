@@ -15,6 +15,7 @@ import {
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgress, usePuzzleProgressSummary } from '../lib/puzzleProgress';
+import { pickRandomPuzzleId, rememberRandomPuzzleVisit } from '../lib/randomPuzzles';
 import { puzzleRoute, routes } from '../lib/routes';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
@@ -24,7 +25,6 @@ import MoveHistory from './MoveHistory';
 type PuzzleStatus = 'playing' | 'success' | 'failed';
 type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
 type StreakMilestoneTone = 'improving' | 'harder' | null;
-const RANDOM_HISTORY_STORAGE_KEY = 'thaichess-random-puzzle-history';
 const RANDOM_RESULT_HISTORY_STORAGE_KEY = 'thaichess-random-puzzle-result-history';
 const MAX_RANDOM_RESULT_HISTORY = 16;
 
@@ -32,28 +32,6 @@ type RandomResultEntry = {
   puzzleId: number;
   outcome: 'success' | 'failed';
 };
-
-function readRandomPuzzleHistory(): number[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.sessionStorage.getItem(RANDOM_HISTORY_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((value): value is number => typeof value === 'number');
-  } catch {
-    return [];
-  }
-}
-
-function writeRandomPuzzleHistory(history: number[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.setItem(RANDOM_HISTORY_STORAGE_KEY, JSON.stringify(history));
-  } catch {
-    // Ignore storage errors and keep puzzle flow running.
-  }
-}
 
 function readRandomResultHistory(): RandomResultEntry[] {
   if (typeof window === 'undefined') return [];
@@ -84,26 +62,6 @@ function writeRandomResultHistory(history: RandomResultEntry[]): void {
   } catch {
     // Ignore storage errors and keep puzzle flow running.
   }
-}
-
-function pickRandomPuzzleId(
-  puzzleIds: number[],
-  currentPuzzleId: number | null = null,
-): number | null {
-  if (puzzleIds.length === 0) return null;
-  const baseCandidates = puzzleIds.filter((id) => id !== currentPuzzleId);
-  const candidates = baseCandidates.length > 0 ? baseCandidates : puzzleIds;
-  const history = readRandomPuzzleHistory();
-  const unseenCandidates = candidates.filter((id) => !history.includes(id));
-  const pool = unseenCandidates.length > 0 ? unseenCandidates : candidates;
-  const picked = pool[Math.floor(Math.random() * pool.length)] ?? null;
-
-  if (picked !== null) {
-    const maxHistory = Math.max(12, Math.min(40, puzzleIds.length - 1));
-    writeRandomPuzzleHistory([...history, picked].slice(-maxHistory));
-  }
-
-  return picked;
 }
 
 interface StreakFeedback {
@@ -448,14 +406,6 @@ function PuzzleLessonsPage() {
       <Header
         active="puzzles"
         subtitle={t('puzzle.lessons_nav')}
-        right={(
-          <button
-            onClick={() => navigate(routes.puzzleStreak)}
-            className="text-sm text-text-dim hover:text-text-bright transition-colors"
-          >
-            {t('puzzle.play_streak')}
-          </button>
-        )}
       />
 
       <main id="main-content" className="flex-1 px-4 py-6 sm:py-8 max-w-5xl mx-auto w-full">
@@ -1198,14 +1148,6 @@ function PuzzleStreakPage() {
       <Header
         active="puzzles"
         subtitle={t('puzzle.streak_nav')}
-        right={(
-          <button
-            onClick={handleRestartStreak}
-            className="text-sm text-text-dim hover:text-text-bright transition-colors"
-          >
-            {t('common.new_game')}
-          </button>
-        )}
       />
 
       <main id="main-content" className="flex-1 min-h-0 px-4 py-3 sm:py-4 lg:overflow-hidden">
@@ -1432,6 +1374,7 @@ function PuzzlePlayer() {
   const [showHint, setShowHint] = useState(false);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
   const [reviewMoveIndex, setReviewMoveIndex] = useState<number | null>(null);
+  const [randomNextPuzzleId, setRandomNextPuzzleId] = useState<number | null>(null);
 
   useEffect(() => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1455,8 +1398,16 @@ function PuzzlePlayer() {
       setReviewMoveIndex(null);
     }
     if (isRandomMode) {
+      if (puzzle) {
+        rememberRandomPuzzleVisit(puzzle.id, PUZZLES.length);
+        setRandomNextPuzzleId(pickRandomPuzzleId(PUZZLES, puzzle.id));
+      } else {
+        setRandomNextPuzzleId(null);
+      }
       setRandomResultHistory(readRandomResultHistory());
       recordedOutcomeRef.current = null;
+    } else {
+      setRandomNextPuzzleId(null);
     }
     resolvedPuzzleIdRef.current = null;
 
@@ -1695,13 +1646,14 @@ function PuzzlePlayer() {
     return isRandomMode ? `${basePath}?mode=random` : basePath;
   }, [isRandomMode]);
 
-  const getRandomPuzzleId = useCallback((): number | null => {
-    return pickRandomPuzzleId(PUZZLES.map((candidate) => candidate.id), puzzleId);
-  }, [puzzleId]);
+  const openRandomResultPuzzle = useCallback((targetPuzzleId: number) => {
+    if (!isRandomMode || targetPuzzleId === puzzleId) return;
+    navigate(getPuzzleUrl(targetPuzzleId));
+  }, [getPuzzleUrl, isRandomMode, navigate, puzzleId]);
 
   const getNextPuzzle = (): number | null => {
     if (isRandomMode) {
-      return getRandomPuzzleId();
+      return randomNextPuzzleId;
     }
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
     if (idx >= 0 && idx < navigationPool.length - 1) return navigationPool[idx + 1].id;
@@ -1805,13 +1757,6 @@ function PuzzlePlayer() {
       outcome: status === 'success' ? 'success' : 'failed',
     };
     const currentHistory = readRandomResultHistory();
-    const lastEntry = currentHistory[currentHistory.length - 1];
-    if (lastEntry && lastEntry.puzzleId === entry.puzzleId && lastEntry.outcome === entry.outcome) {
-      recordedOutcomeRef.current = outcomeKey;
-      setRandomResultHistory(currentHistory);
-      return;
-    }
-
     const nextHistory = [...currentHistory, entry].slice(-MAX_RANDOM_RESULT_HISTORY);
     writeRandomResultHistory(nextHistory);
     setRandomResultHistory(nextHistory);
@@ -1891,22 +1836,6 @@ function PuzzlePlayer() {
       <Header
         active="puzzles"
         subtitle={t('puzzle.lessons_nav')}
-        right={(
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(routes.puzzleStreak)}
-              className="text-text-dim hover:text-text-bright transition-colors text-sm"
-            >
-              {t('puzzle.play_streak')}
-            </button>
-            <button
-              onClick={() => navigate(routes.lessons)}
-              className="text-text-dim hover:text-text-bright transition-colors text-sm"
-            >
-              {t('puzzle.all_lessons')}
-            </button>
-          </div>
-        )}
       />
 
       <main id="main-content" className="flex-1 min-h-0 px-4 py-4 lg:overflow-hidden">
@@ -1933,16 +1862,20 @@ function PuzzlePlayer() {
             {isRandomMode && (
               <div className="flex w-full max-w-[520px] flex-wrap items-center gap-2 px-1 pt-1">
                 {randomResultHistory.map((entry, index) => (
-                  <span
+                  <button
                     key={`${entry.puzzleId}-${index}`}
+                    type="button"
+                    onClick={() => openRandomResultPuzzle(entry.puzzleId)}
+                    disabled={entry.puzzleId === puzzle.id}
+                    title={`#${entry.puzzleId}`}
                     className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${
                       entry.outcome === 'success'
                         ? 'bg-green-600 text-white'
                         : 'bg-red-600 text-white'
-                    }`}
+                    } ${entry.puzzleId === puzzle.id ? 'cursor-default ring-2 ring-amber-300/80' : 'cursor-pointer hover:brightness-110'}`}
                   >
                     {entry.outcome === 'success' ? '✓' : '✕'}
-                  </span>
+                  </button>
                 ))}
                 <span className="h-7 min-w-[30px] rounded-lg bg-amber-600/90 px-2.5 py-1 text-sm font-semibold text-transparent">
                   0

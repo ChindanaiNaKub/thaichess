@@ -48,7 +48,8 @@ export default function Footer() {
           <div>
             <p className="text-text-bright font-semibold mb-2 text-sm">{t('nav.puzzles')}</p>
             <ul className="space-y-2 text-text-dim text-xs">
-              <li><a href={routes.puzzles} className="footer-link hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+              <li><a href={routes.puzzles} className="footer-link hover:text-primary transition-colors">{t('nav.puzzles_random')}</a></li>
+              <li><a href={routes.puzzleStreak} className="footer-link hover:text-primary transition-colors">{t('nav.puzzles_streak')}</a></li>
             </ul>
           </div>
           {/* About */}

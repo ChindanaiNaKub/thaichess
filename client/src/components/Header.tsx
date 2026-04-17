@@ -106,9 +106,11 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               >
                 {navItem('puzzles', routes.puzzles, t('nav.puzzles'))}
                 {puzzleMenuOpen && (
-                  <div className="absolute left-0 top-[calc(100%+10px)] z-50 min-w-[200px] overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
-                    {puzzleMenuItem('random', routes.puzzles, t('nav.puzzles_random'))}
-                    {puzzleMenuItem('streak', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                  <div className="absolute left-0 top-full z-50 min-w-[200px] pt-2">
+                    <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
+                      {puzzleMenuItem('random', routes.puzzles, t('nav.puzzles_random'))}
+                      {puzzleMenuItem('streak', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                    </div>
                   </div>
                 )}
               </div>

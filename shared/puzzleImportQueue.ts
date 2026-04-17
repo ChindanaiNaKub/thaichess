@@ -293,6 +293,7 @@ function createReviewedImportedPuzzleCandidate(draft: PuzzleCandidateDraft, revi
   return finalizePuzzle({
     ...draft,
     sideToMove: draft.sideToMove ?? draft.toMove,
+    origin: 'engine-generated',
     reviewStatus: 'ship',
     reviewChecklist: {
       themeClarity: 'pass',
@@ -832,7 +833,7 @@ const MANUAL_REVIEW_DRAFTS: ManualReviewDraft[] = [
     title: 'Imported Black Mate Candidate: Met Takes Ma, Then Ruea',
     description: 'Black to move. Begin with met takes ma, then continue the imported rook attack toward mate.',
     explanation: 'Imported from a board image for manual review. The current user-supplied branch starts with met takes ma. If White grabs on e6, Black checks with the rook on g2 and the second rook swings to h1 for mate.',
-    source: 'Facebook group source (credited by community contributor)',
+    source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate (Facebook group source credited by community contributor)',
     sourceGameUrl: 'https://www.facebook.com/groups/351651509523917/permalink/1670793417609713/',
     sourceLicense: 'community-attribution',
     theme: 'MateIn3',
@@ -953,7 +954,9 @@ const CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
   ...MANUAL_REVIEW_DRAFTS,
 ];
 
-const REVIEWED_IMPORT_IDS = new Set<number>();
+const REVIEWED_IMPORT_IDS = new Set<number>([
+  9102, // Verified community puzzle promoted to live runtime pool.
+]);
 
 export const IMPORTED_PUZZLE_CANDIDATES: Puzzle[] = CANDIDATE_DRAFTS.map(draft =>
   EDITORIAL_LIVE_OVERRIDES.has(draft.id)

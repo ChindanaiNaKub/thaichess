@@ -34,11 +34,23 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible({ timeout: 30000 });
   });
 
-  test('navigates to puzzles', async ({ page }) => {
+  test('navigates to puzzle streak', async ({ page }) => {
     await gotoHome(page);
 
     await page.locator('#main-content').getByRole('button', { name: /puzzles tactical training/i }).click();
-    await expect(page).toHaveURL('/puzzles');
+    await expect(page).toHaveURL('/puzzles/streak');
+    await expect(page.getByRole('heading', { name: /puzzle streak/i })).toBeVisible({ timeout: 30000 });
+  });
+
+  test('keeps the puzzles dropdown open while moving to puzzle streak', async ({ page }) => {
+    await gotoHome(page);
+
+    const nav = page.getByRole('navigation');
+    await nav.getByRole('button', { name: /^puzzles$/i }).hover();
+    await expect(page.getByRole('button', { name: /^random puzzle$/i })).toBeVisible();
+
+    await page.getByRole('button', { name: /^puzzle streak$/i }).click();
+    await expect(page).toHaveURL('/puzzles/streak');
     await expect(page.getByRole('heading', { name: /puzzle streak/i })).toBeVisible({ timeout: 30000 });
   });
 

@@ -9,6 +9,7 @@ import { logClientPerfEvent } from './lib/perfDebug';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
 import { puzzleRoute, routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
+import { pickRandomPuzzleId } from './lib/randomPuzzles';
 
 // Lazy load route components for code splitting
 const GamePage = lazy(() => import('./components/GamePage'));
@@ -78,9 +79,14 @@ function PerfRouteLogger() {
 }
 
 function RandomPuzzleRedirect() {
-  const randomPuzzle = PUZZLES[Math.floor(Math.random() * PUZZLES.length)] ?? PUZZLES[0];
-  const fallbackId = randomPuzzle?.id ?? 1;
-  return <Navigate to={`${puzzleRoute(String(fallbackId))}?mode=random`} replace />;
+  const [targetId, setTargetId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTargetId(pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1);
+  }, []);
+
+  if (targetId === null) return <RouteFallback />;
+  return <Navigate to={`${puzzleRoute(String(targetId))}?mode=random`} replace />;
 }
 
 export default function App() {

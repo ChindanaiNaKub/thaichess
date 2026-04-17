@@ -507,6 +507,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'puzzle.try_this_instead_label': 'ควรเดินแบบนี้',
   'puzzle.hint_nudge': 'ถ้าอยากได้แนว ให้กดคำใบ้',
   'puzzle.source_game_link': 'เกมต้นฉบับ',
+  'puzzle.more_details': 'รายละเอียดเพิ่มเติม',
   'puzzle.review_mode_on': 'โหมดทบทวน: กระดานจะหยุดรับการเดินชั่วคราวขณะย้อนดูตาเดิน',
   'puzzle.review_mode_off': 'โหมดสด: ใช้ปุ่มลูกศรเพื่อทบทวน, H เพื่อคำใบ้, R เพื่อลองใหม่, N เพื่อข้อถัดไป',
   'puzzle.hint_label_1': 'คำใบ้ 1',
