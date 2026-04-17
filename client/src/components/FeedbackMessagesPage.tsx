@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import { routes } from '../lib/routes';
 import Header from './Header';
 import { feedbackQueryOptions, type FeedbackEntry, type FilterType } from '../queries/feedback';
 
@@ -225,7 +226,8 @@ export default function FeedbackMessagesPage() {
             <div>
               <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.puzzles')}</h4>
               <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
+                <li><a href={routes.puzzles} className="hover:text-primary transition-colors">{t('nav.puzzles_random')}</a></li>
+                <li><a href={routes.puzzleStreak} className="hover:text-primary transition-colors">{t('nav.puzzles_streak')}</a></li>
               </ul>
             </div>
             {/* About */}

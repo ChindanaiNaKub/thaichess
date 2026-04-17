@@ -674,6 +674,7 @@ describe('Puzzle surfaces', () => {
     expect(screen.queryByText('Open Lessons')).not.toBeInTheDocument();
     expect(screen.queryByText('All Lessons')).not.toBeInTheDocument();
     expect(screen.queryByText('Lessons')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New Game' })).not.toBeInTheDocument();
     expect(screen.queryByText('Beginner')).not.toBeInTheDocument();
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
 
@@ -904,8 +905,8 @@ describe('Puzzle surfaces', () => {
     expect(screen.getByText('Checking Rua')).toBeInTheDocument();
     expect(screen.getByText('Beginner')).toBeInTheDocument();
     expect(screen.getByText('More in this theme')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Play Streak' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'All Lessons' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Play Streak' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'All Lessons' })).not.toBeInTheDocument();
   });
 
   it('renders lesson mode as an editorial coach with scene, task, mistake, and source evidence', () => {

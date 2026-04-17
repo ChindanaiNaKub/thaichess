@@ -67,7 +67,7 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
       </div>
       <div
         ref={scrollRef}
-        className="h-[240px] min-h-[240px] max-h-[240px] overflow-y-auto p-1 lg:h-[168px] lg:min-h-[168px] lg:max-h-[168px]"
+        className="h-[208px] min-h-[208px] max-h-[208px] overflow-y-auto p-1 lg:h-[152px] lg:min-h-[152px] lg:max-h-[152px]"
         style={{ overflowAnchor: 'none' }}
       >
         {movePairs.length === 0 ? (

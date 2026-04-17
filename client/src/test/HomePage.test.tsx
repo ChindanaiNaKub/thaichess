@@ -342,7 +342,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/bot');
 
     fireEvent.click(await screen.findByRole('button', { name: /puzzles tactical training/i }));
-    expect(navigateMock).toHaveBeenCalledWith('/puzzles');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
 
     fireEvent.click(screen.getAllByText(/^lessons$/i)[0]!.closest('button')!);
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
@@ -394,7 +394,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows the puzzles entry card and routes to the default puzzle flow', async () => {
+  it('shows the puzzles entry card and routes to puzzle streak', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
@@ -404,6 +404,6 @@ describe('HomePage', () => {
     expect(within(streakCard).getByText(/tactical training/i)).toBeInTheDocument();
 
     fireEvent.click(streakCard);
-    expect(navigateMock).toHaveBeenCalledWith('/puzzles');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
   });
 });

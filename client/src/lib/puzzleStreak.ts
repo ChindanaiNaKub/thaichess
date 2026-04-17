@@ -85,6 +85,13 @@ function getTierFallbackOrder(targetTier: Puzzle['streakTier']): Puzzle['streakT
   return order;
 }
 
+function getExpandedTierFallbackOrder(targetTier: Puzzle['streakTier']): Puzzle['streakTier'][] {
+  const baseOrder = getTierFallbackOrder(targetTier);
+  const seen = new Set(baseOrder);
+  const remaining = STREAK_TIER_ORDER.filter((tier) => !seen.has(tier));
+  return [...baseOrder, ...remaining];
+}
+
 export interface PuzzleStreakSelectionInput {
   currentPuzzleId?: number | null;
   adaptiveDifficultyScore: number;
@@ -132,13 +139,13 @@ function chooseCandidateWithinTier(
   });
 
   const topScore = rankCandidate(ranked[0]);
-  const shortlist = ranked.filter(candidate => rankCandidate(candidate) <= topScore + 40).slice(0, 4);
+  const shortlist = ranked.filter(candidate => rankCandidate(candidate) <= topScore + 140).slice(0, 10);
 
   if (shortlist.length === 0) {
     return ranked[0] ?? null;
   }
 
-  const rotationSeed = recentWindow.reduce((sum, puzzleId) => sum + puzzleId, solvedCount + targetScore);
+  const rotationSeed = recentWindow.reduce((sum, puzzleId, index) => sum + puzzleId * (index + 1), solvedCount * 31 + targetScore);
   return shortlist[rotationSeed % shortlist.length] ?? ranked[0] ?? null;
 }
 
@@ -234,7 +241,9 @@ export function selectNextStreakPuzzle({
   }, new Map<string, number>());
 
   const targetTier = getTargetStreakTier(solvedCount);
-  const tierFallbackOrder = getTierFallbackOrder(targetTier);
+  const tierFallbackOrder = solvedCount >= 20
+    ? getExpandedTierFallbackOrder(targetTier)
+    : getTierFallbackOrder(targetTier);
   const strictTierCandidates = tierFallbackOrder
     .map((tier) => streakPool.filter((candidate) => candidate.streakTier === tier && candidate.id !== currentPuzzleId && !recentSet.has(candidate.id)))
     .find((candidates) => candidates.length > 0);

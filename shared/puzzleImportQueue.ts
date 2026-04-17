@@ -270,7 +270,7 @@ function createGeneratedPuzzleCandidate(draft: PuzzleCandidateDraft): Puzzle {
   return finalizePuzzle({
     ...draft,
     sideToMove: draft.sideToMove ?? draft.toMove,
-    origin: 'engine-generated',
+    origin: draft.origin ?? 'engine-generated',
     objective: draft.objective ?? deriveGeneratedObjective(draft),
     whyPositionMatters: deriveGeneratedWhyPositionMatters(draft),
     ruleImpact: deriveGeneratedRuleImpact(draft),
@@ -293,6 +293,7 @@ function createReviewedImportedPuzzleCandidate(draft: PuzzleCandidateDraft, revi
   return finalizePuzzle({
     ...draft,
     sideToMove: draft.sideToMove ?? draft.toMove,
+    origin: 'engine-generated',
     reviewStatus: 'ship',
     reviewChecklist: {
       themeClarity: 'pass',
@@ -616,7 +617,10 @@ const EDITORIAL_MANUAL_DRAFTS: EditorialLiveManualDraft[] = [
     title: 'Interfere, Invade, Mate',
     description: 'White to move. Do not grab side material; use the interference move that forces the mating net.',
     explanation: 'Nd6+ is the only move that drags the defender away from the kingside shell. Once Black is forced to recapture, the rook invasion on f8 becomes forcing and the final mate appears.',
-    source: 'Editorial training collection · reviewed capstone attack',
+    source: 'Facebook photo source (credited by community contributor)',
+    sourceGameUrl: 'https://www.facebook.com/photo/?fbid=963382199531406&set=a.143857031483931',
+    sourceLicense: 'community-attribution',
+    origin: 'curated-manual',
     theme: 'MateIn3',
     motif: 'Interference before rook invasion',
     difficulty: 'advanced',
@@ -829,7 +833,9 @@ const MANUAL_REVIEW_DRAFTS: ManualReviewDraft[] = [
     title: 'Imported Black Mate Candidate: Met Takes Ma, Then Ruea',
     description: 'Black to move. Begin with met takes ma, then continue the imported rook attack toward mate.',
     explanation: 'Imported from a board image for manual review. The current user-supplied branch starts with met takes ma. If White grabs on e6, Black checks with the rook on g2 and the second rook swings to h1 for mate.',
-    source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate',
+    source: 'Curated manual: image intake 2026-04-12 black met-takes-ma mate candidate (Facebook group source credited by community contributor)',
+    sourceGameUrl: 'https://www.facebook.com/groups/351651509523917/permalink/1670793417609713/',
+    sourceLicense: 'community-attribution',
     theme: 'MateIn3',
     motif: 'Met takes ma, then rook mate from imported board image',
     difficulty: 'advanced',
@@ -943,12 +949,14 @@ const CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
   })),
   ...EDITORIAL_MANUAL_DRAFTS.map(draft => ({
     ...draft,
-    origin: 'engine-generated' as const,
+    origin: draft.origin ?? 'engine-generated',
   })),
   ...MANUAL_REVIEW_DRAFTS,
 ];
 
-const REVIEWED_IMPORT_IDS = new Set<number>();
+const REVIEWED_IMPORT_IDS = new Set<number>([
+  9102, // Verified community puzzle promoted to live runtime pool.
+]);
 
 export const IMPORTED_PUZZLE_CANDIDATES: Puzzle[] = CANDIDATE_DRAFTS.map(draft =>
   EDITORIAL_LIVE_OVERRIDES.has(draft.id)
