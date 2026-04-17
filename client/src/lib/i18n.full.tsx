@@ -281,6 +281,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'bot.bot_wins': 'Bot Wins',
   'bot.resign': 'Resign',
   'bot.resign_confirm': 'Are you sure you want to resign?',
+  'bot.engine_unavailable': 'Fairy-Stockfish is unavailable. Please try again in a moment.',
   'bot.vs_bot': 'vs Bot',
   'bot.learn_more': 'Learn more about',
 
@@ -1404,6 +1405,7 @@ const _TH: Record<string, string> = {
   'bot.bot_wins': 'บอทชนะ',
   'bot.resign': 'ยอมแพ้',
   'bot.resign_confirm': 'คุณแน่ใจหรือไม่ว่าต้องการยอมแพ้?',
+  'bot.engine_unavailable': 'Fairy-Stockfish ยังไม่พร้อมใช้งาน โปรดลองอีกครั้งในอีกสักครู่',
   'bot.vs_bot': 'กับบอท',
 
   // Puzzles

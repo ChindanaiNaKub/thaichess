@@ -85,7 +85,10 @@ function getBotTranslation(t: (key: string) => string, botId: string, field: str
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
+const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 3000;
+const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 4000;
 const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 5500;
+const ENGINE_BACKED_BOT_MIN_LEVEL = 8;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
@@ -99,7 +102,14 @@ function createBotGameId() {
 }
 
 function getBotRequestTimeoutMs(level: number): number {
-  return level >= 10 ? LEVEL10_BOT_REQUEST_TIMEOUT_MS : DEFAULT_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 10) return LEVEL10_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 9) return LEVEL9_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 8) return LEVEL8_BOT_REQUEST_TIMEOUT_MS;
+  return DEFAULT_BOT_REQUEST_TIMEOUT_MS;
+}
+
+function requiresServerEngineBot(level: number): boolean {
+  return level >= ENGINE_BACKED_BOT_MIN_LEVEL;
 }
 
 function buildNoMoveGameOverState(state: GameState): GameState | null {
@@ -387,6 +397,11 @@ export default function BotGame() {
         });
         botMove = result.move;
       } catch {
+        if (requiresServerEngineBot(botLevel)) {
+          showToast(t('bot.engine_unavailable'), 'error');
+          setBotThinking(false);
+          return;
+        }
         botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id);
       } finally {
         if (botRequestTimeoutRef.current) {
@@ -413,6 +428,12 @@ export default function BotGame() {
       let newState = botMove ? makeMove(currentState, botMove.from, botMove.to) : null;
 
       if (!newState) {
+        if (requiresServerEngineBot(botLevel)) {
+          showToast(t('bot.engine_unavailable'), 'error');
+          setBotThinking(false);
+          return;
+        }
+
         const fallbackMove = await requestLocalBotMove(currentState, botLevel, selectedBot.id);
         if (fallbackMove) {
           botMove = fallbackMove;
@@ -466,6 +487,8 @@ export default function BotGame() {
     gameState.turn,
     isPlayerTurn,
     selectedBot.id,
+    showToast,
+    t,
   ]);
 
   // Auto-execute premove when it becomes player's turn

@@ -377,22 +377,73 @@ function getMoveOrderingScore(board: Board, move: ScoredMove): number {
   return score;
 }
 
+function getBestRecaptureValue(state: GameState, color: PieceColor, target: Position): number {
+  let bestValue = 0;
+
+  for (const reply of getAllMovesForColor(state.board, color)) {
+    if (reply.to.row !== target.row || reply.to.col !== target.col) continue;
+
+    const captured = state.board[target.row][target.col];
+    if (captured && captured.color !== color) {
+      bestValue = Math.max(bestValue, PIECE_VALUES[captured.type]);
+    }
+  }
+
+  return bestValue;
+}
+
+function getImmediateMaterialExposure(state: GameState, color: PieceColor): number {
+  if (state.gameOver) return 0;
+
+  let worstNetLoss = 0;
+  const replies = getAllMovesForColor(state.board, state.turn);
+
+  for (const reply of replies) {
+    const captured = state.board[reply.to.row][reply.to.col];
+    if (!captured || captured.color !== color || captured.type === 'K') continue;
+
+    const nextState = makeMove(state, reply.from, reply.to);
+    if (!nextState) continue;
+
+    const recaptureValue = getBestRecaptureValue(nextState, color, reply.to);
+    const netLoss = Math.max(0, PIECE_VALUES[captured.type] - recaptureValue);
+    worstNetLoss = Math.max(worstNetLoss, netLoss);
+  }
+
+  return worstNetLoss;
+}
+
+function getRootSafetyOrderingScore(state: GameState, move: ScoredMove): number {
+  const newState = makeMove(state, move.from, move.to);
+  if (!newState) return -999999;
+
+  const exposure = getImmediateMaterialExposure(newState, state.turn);
+  return -exposure * 12;
+}
+
 function orderMoves(moves: ScoredMove[], board: Board): ScoredMove[] {
   return moves.sort((a, b) => getMoveOrderingScore(board, b) - getMoveOrderingScore(board, a));
 }
 
 function orderRootMoves(moves: ScoredMove[], state: GameState, profile: BotLevelConfig, botId?: string): ScoredMove[] {
-  if (!botId) {
-    return orderMoves(moves, state.board);
-  }
+  return moves
+    .map((move) => {
+      const newState = makeMove(state, move.from, move.to);
+      const personaBonus = newState && botId ? getPersonaMoveBonus(state, newState, move, profile, botId) : 0;
+      return {
+        ...move,
+        score: getMoveOrderingScore(state.board, move)
+          + getRootSafetyOrderingScore(state, move)
+          + (newState ? personaBonus : -999999),
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}
 
-  return [...moves].sort((a, b) => {
-    const aState = makeMove(state, a.from, a.to);
-    const bState = makeMove(state, b.from, b.to);
-    const aScore = getMoveOrderingScore(state.board, a) + (aState ? getPersonaMoveBonus(state, aState, a, profile, botId) : -999999);
-    const bScore = getMoveOrderingScore(state.board, b) + (bState ? getPersonaMoveBonus(state, bState, b, profile, botId) : -999999);
-    return bScore - aScore;
-  });
+function getMaterialExposurePenalty(state: GameState, color: PieceColor): number {
+  const exposure = getImmediateMaterialExposure(state, color);
+  if (exposure <= 0) return 0;
+  return Math.round(exposure * 0.95);
 }
 
 function isBudgetExceeded(context: SearchContext): boolean {
@@ -464,16 +515,16 @@ function getLevel10SearchPlan(
   const checkingCount = legalMoves.filter((move) => moveGivesCheck(state, move)).length;
   const forcing = inCheck || checkingCount > 0 || captureCount >= 2;
 
-  let candidateCount = 4;
+  let candidateCount = 5;
   let primary = createSearchBudget(
-    Math.max(options?.maxDepth ?? 0, 4),
-    Math.max(options?.maxNodes ?? 0, profile.maxNodes, 8000),
-    options?.maxMs ?? 450,
+    Math.max(options?.maxDepth ?? 0, 5),
+    Math.max(options?.maxNodes ?? 0, profile.maxNodes, 12000),
+    options?.maxMs ?? 360,
   );
   let validation = createSearchBudget(
-    Math.max(primary.maxDepth + 1, 5),
-    Math.max(primary.maxNodes + 4000, 12000),
-    options?.maxMs ?? 700,
+    Math.max(primary.maxDepth + 1, 6),
+    Math.max(primary.maxNodes + 6000, 18000),
+    options?.maxMs ?? 520,
   );
 
   if (endgame) {
@@ -515,7 +566,7 @@ function getLevel10SearchPlan(
 function getImmediateReplyPenalty(state: GameState, botColor: PieceColor): number {
   const replies = orderMoves(getAllMovesForColor(state.board, state.turn), state.board);
   let penalty = 0;
-  let strongestCapture = 0;
+  let strongestNetCapture = 0;
 
   for (const reply of replies) {
     const captured = state.board[reply.to.row][reply.to.col];
@@ -531,12 +582,16 @@ function getImmediateReplyPenalty(state: GameState, botColor: PieceColor): numbe
     }
 
     if (captured && captured.color === botColor) {
-      strongestCapture = Math.max(strongestCapture, PIECE_VALUES[captured.type]);
+      const recaptureValue = getBestRecaptureValue(nextState, botColor, reply.to);
+      strongestNetCapture = Math.max(
+        strongestNetCapture,
+        Math.max(0, PIECE_VALUES[captured.type] - recaptureValue),
+      );
     }
   }
 
-  if (strongestCapture > 0) {
-    penalty -= Math.min(60, Math.round(strongestCapture * 0.08));
+  if (strongestNetCapture > 0) {
+    penalty -= Math.round(strongestNetCapture * 0.95);
   }
 
   return penalty;
@@ -796,7 +851,8 @@ function getHeuristicFallbackMove(state: GameState, profile: BotLevelConfig, opt
     return {
       ...move,
       score: getMoveOrderingScore(state.board, move)
-        + (newState ? getStrengthMoveBias(state, newState, move, profile) : 0),
+        + (newState ? getStrengthMoveBias(state, newState, move, profile) : 0)
+        - (newState ? getMaterialExposurePenalty(newState, state.turn) : 999999),
     };
   });
 
