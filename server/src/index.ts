@@ -40,6 +40,8 @@ import {
   clearFairPlayRestriction,
   getUserById,
   deleteUser,
+  runAllCleanupJobs,
+  getDatabaseStats,
   type AuthUser,
   type FairPlayCaseStatus,
   type PuzzleProgressRecord,
@@ -262,6 +264,8 @@ setInterval(() => {
   socketRateLimiter.cleanup();
   ipRateLimiter.cleanup();
 }, 60000);
+// Cleanup expired database records every hour
+setInterval(() => runAllCleanupJobs(), 3600000);
 
 async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
@@ -768,6 +772,7 @@ app.get('/api/health', async (_req, res) => {
     dependencies: {
       database: 'unknown' as 'ok' | 'error',
     },
+    databaseStats: getDatabaseStats(),
   };
 
   try {
