@@ -17,6 +17,10 @@ export type FairPlayEventType = 'analysis_blocked' | 'user_reported';
 export type FairPlayCaseStatus = 'open' | 'reviewed' | 'restricted' | 'dismissed';
 export const INITIAL_USER_RATING = 500;
 
+const SLOW_QUERY_THRESHOLD_MS = 100;
+let totalQueries = 0;
+let slowQueries = 0;
+
 // Valid tables and columns for schema migrations (prevents SQL injection)
 const VALID_MIGRATION_TABLES = new Set([
   'feedback',
@@ -230,6 +234,13 @@ async function runSchemaMigration() {
     `,
     'CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at DESC)',
     'CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_games_game_mode ON games(game_mode)',
+    'CREATE INDEX IF NOT EXISTS idx_games_rated ON games(rated)',
+    'CREATE INDEX IF NOT EXISTS idx_games_user_games ON games(white_user_id, finished_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
     `
       CREATE TABLE IF NOT EXISTS feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -644,11 +655,46 @@ function rowToLeaderboardEntry(row: Row): LeaderboardEntry {
   };
 }
 
+async function executeWithTiming(
+  executor: SqlExecutor,
+  statement: InStatement,
+  context?: string
+): Promise<ReturnType<SqlExecutor['execute']>> {
+  const startTime = Date.now();
+  totalQueries += 1;
+
+  try {
+    const result = await executor.execute(statement);
+    const duration = Date.now() - startTime;
+
+    if (duration > SLOW_QUERY_THRESHOLD_MS) {
+      slowQueries += 1;
+      const sqlPreview = typeof statement === 'string'
+        ? statement.slice(0, 100)
+        : statement.sql?.slice(0, 100) || 'unknown';
+      logWarn('slow_query', {
+        durationMs: duration,
+        sql: sqlPreview,
+        context: context || 'unknown',
+      });
+    }
+
+    return result;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logError('query_failed', error, {
+      durationMs: duration,
+      context: context || 'unknown',
+    });
+    throw error;
+  }
+}
+
 async function getUserByIdFromExecutor(executor: SqlExecutor, id: string): Promise<AuthUser | null> {
-  const result = await executor.execute({
+  const result = await executeWithTiming(executor, {
     sql: 'SELECT * FROM users WHERE id = ? LIMIT 1',
     args: [id],
-  });
+  }, 'getUserById');
   const row = result.rows[0];
   return row ? rowToAuthUser(row) : null;
 }
@@ -664,6 +710,30 @@ export async function initDatabase(): Promise<void> {
     location: config.location,
   });
 }
+
+export function getDatabaseStats() {
+  return {
+    totalQueries,
+    slowQueries,
+    slowQueryThresholdMs: SLOW_QUERY_THRESHOLD_MS,
+  };
+}
+
+/**
+ * LibSQL Connection Management Notes:
+ *
+ * Local SQLite:
+ * - No connection pooling needed (SQLite handles concurrent access via file locks)
+ * - Single client instance is sufficient
+ *
+ * Turso (remote LibSQL):
+ * - @libsql/client manages HTTP connections internally
+ * - No explicit connection pooling configuration required
+ * - Client handles connection reuse automatically
+ *
+ * Conclusion: No additional connection pooling implementation needed at this time.
+ * The current single client instance is appropriate for both local and Turso deployments.
+ */
 
 export async function saveCompletedGame(data: {
   id: string;
@@ -2115,6 +2185,86 @@ export async function createSession(data: {
   } catch (err) {
     logError('database_create_session_failed', err, { userId: data.userId });
     throw err;
+  }
+}
+
+export async function cleanupExpiredSessions(): Promise<number> {
+  try {
+    const result = await db.execute({
+      sql: 'DELETE FROM sessions WHERE expires_at <= unixepoch()',
+      args: [],
+    });
+    const deletedCount = result.rows.length > 0 ? result.rows.length : 0;
+    logInfo('cleanup_expired_sessions', { deletedCount });
+    return deletedCount;
+  } catch (err) {
+    logError('cleanup_expired_sessions_failed', err);
+    return 0;
+  }
+}
+
+export async function cleanupExpiredLoginCodes(): Promise<number> {
+  try {
+    const result = await db.execute({
+      sql: 'DELETE FROM login_codes WHERE expires_at <= unixepoch()',
+      args: [],
+    });
+    const deletedCount = result.rows.length > 0 ? result.rows.length : 0;
+    logInfo('cleanup_expired_login_codes', { deletedCount });
+    return deletedCount;
+  } catch (err) {
+    logError('cleanup_expired_login_codes_failed', err);
+    return 0;
+  }
+}
+
+export async function cleanupExpiredVerifications(): Promise<number> {
+  try {
+    const result = await db.execute({
+      sql: 'DELETE FROM verifications WHERE expires_at <= unixepoch()',
+      args: [],
+    });
+    const deletedCount = result.rows.length > 0 ? result.rows.length : 0;
+    logInfo('cleanup_expired_verifications', { deletedCount });
+    return deletedCount;
+  } catch (err) {
+    logError('cleanup_expired_verifications_failed', err);
+    return 0;
+  }
+}
+
+export async function cleanupExpiredAuthSessions(): Promise<number> {
+  try {
+    const result = await db.execute({
+      sql: 'DELETE FROM auth_sessions WHERE expires_at <= unixepoch()',
+      args: [],
+    });
+    const deletedCount = result.rows.length > 0 ? result.rows.length : 0;
+    logInfo('cleanup_expired_auth_sessions', { deletedCount });
+    return deletedCount;
+  } catch (err) {
+    logError('cleanup_expired_auth_sessions_failed', err);
+    return 0;
+  }
+}
+
+export async function runAllCleanupJobs(): Promise<void> {
+  const results = await Promise.all([
+    cleanupExpiredSessions(),
+    cleanupExpiredLoginCodes(),
+    cleanupExpiredVerifications(),
+    cleanupExpiredAuthSessions(),
+  ]);
+
+  const totalDeleted = results.reduce((sum, count) => sum + count, 0);
+  if (totalDeleted > 0) {
+    logInfo('cleanup_jobs_completed', {
+      sessionsDeleted: results[0],
+      loginCodesDeleted: results[1],
+      verificationsDeleted: results[2],
+      authSessionsDeleted: results[3],
+      totalDeleted,
+    });
   }
 }
 
