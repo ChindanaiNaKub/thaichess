@@ -306,6 +306,32 @@ describe('BotGame', () => {
     expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
   });
 
+  it('falls back locally for a master bot when the server engine request fails', async () => {
+    requestBotMoveMock.mockRejectedValue(new Error('engine unavailable'));
+
+    renderBotGame();
+
+    const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
+    fireEvent.click(masterButtons[0]);
+
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+
+    await waitFor(() => {
+      const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
+      expect(lastBoardProps?.isMyTurn).toBe(true);
+      expect(lastBoardProps?.lastMove).toMatchObject({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      });
+    }, { timeout: 2000 });
+
+    expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
   it('saves finished bot games into the shared recent-games system', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
