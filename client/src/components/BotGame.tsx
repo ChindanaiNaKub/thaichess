@@ -85,9 +85,9 @@ function getBotTranslation(t: (key: string) => string, botId: string, field: str
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
-const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 3000;
-const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 4000;
-const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 5500;
+const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 5000;
+const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 8000;
+const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 15000;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
@@ -100,7 +100,7 @@ function createBotGameId() {
     ?? `bot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function getBotRequestTimeoutMs(level: number): number {
+export function getBotRequestTimeoutMs(level: number): number {
   if (level >= 10) return LEVEL10_BOT_REQUEST_TIMEOUT_MS;
   if (level >= 9) return LEVEL9_BOT_REQUEST_TIMEOUT_MS;
   if (level >= 8) return LEVEL8_BOT_REQUEST_TIMEOUT_MS;

@@ -56,9 +56,9 @@ describe('normalizeEngineFen', () => {
   it('keeps bot service request timeouts capped tightly by level', () => {
     expect(getBotRequestTimeoutMs(1)).toBe(900);
     expect(getBotRequestTimeoutMs(5)).toBe(1150);
-    expect(getBotRequestTimeoutMs(8)).toBe(2500);
-    expect(getBotRequestTimeoutMs(9)).toBe(3500);
-    expect(getBotRequestTimeoutMs(10)).toBe(5000);
+    expect(getBotRequestTimeoutMs(8)).toBe(5000);
+    expect(getBotRequestTimeoutMs(9)).toBe(8000);
+    expect(getBotRequestTimeoutMs(10)).toBe(15000);
   });
 
   it('scales review movetime down for long games while preserving short-game quality', () => {

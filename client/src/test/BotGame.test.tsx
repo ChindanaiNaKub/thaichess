@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import BotGame from '../components/BotGame';
+import BotGame, { getBotRequestTimeoutMs } from '../components/BotGame';
 
 const {
   navigateMock,
@@ -330,6 +330,12 @@ describe('BotGame', () => {
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
     expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps high-level engine requests alive long enough for production Fairy-Stockfish searches', () => {
+    expect(getBotRequestTimeoutMs(8)).toBe(5000);
+    expect(getBotRequestTimeoutMs(9)).toBe(8000);
+    expect(getBotRequestTimeoutMs(10)).toBe(15000);
   });
 
   it('saves finished bot games into the shared recent-games system', async () => {
