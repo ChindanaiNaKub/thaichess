@@ -5,7 +5,6 @@ interface LogPayload {
   correlationId?: string;
   userId?: string;
   gameId?: string;
-  requestId?: string;
   [key: string]: unknown;
 }
 

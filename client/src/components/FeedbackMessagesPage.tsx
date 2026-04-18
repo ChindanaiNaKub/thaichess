@@ -172,7 +172,7 @@ export default function FeedbackMessagesPage() {
                           try {
                             await handleDelete(item.id);
                           } catch (err) {
-                            console.error(err);
+                            // Error is handled by the delete function's error state
                           }
                         }}
                         className="px-3 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-medium"

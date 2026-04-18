@@ -245,23 +245,26 @@ function recordPuzzleFailure(records: PuzzleProgressRecord[], puzzleId: number, 
   }]);
 }
 
-function parseRemoteProgress(data: any): PuzzleProgressRecord[] {
-  if (Array.isArray(data?.progressRecords)) {
-    return normalizePuzzleProgressRecords(data.progressRecords as PuzzleProgressRecord[]);
-  }
+function parseRemoteProgress(data: unknown): PuzzleProgressRecord[] {
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.progressRecords)) {
+      return normalizePuzzleProgressRecords(obj.progressRecords as PuzzleProgressRecord[]);
+    }
 
-  if (Array.isArray(data?.completedPuzzleIds)) {
-    const timestamp = getNowSeconds();
-    return normalizePuzzleProgressRecords(
-      (data.completedPuzzleIds as number[]).map((puzzleId) => ({
-        puzzleId: Number(puzzleId),
-        lastPlayedAt: timestamp,
-        completedAt: timestamp,
-        attempts: 1,
-        successes: 1,
-        failures: 0,
-      })),
-    );
+    if (Array.isArray(obj.completedPuzzleIds)) {
+      const timestamp = getNowSeconds();
+      return normalizePuzzleProgressRecords(
+        (obj.completedPuzzleIds as number[]).map((puzzleId) => ({
+          puzzleId: Number(puzzleId),
+          lastPlayedAt: timestamp,
+          completedAt: timestamp,
+          attempts: 1,
+          successes: 1,
+          failures: 0,
+        })),
+      );
+    }
   }
 
   return [];
