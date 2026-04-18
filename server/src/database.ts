@@ -76,21 +76,31 @@ async function ensureColumn(table: string, column: string, definition: string) {
     throw new Error(`Invalid column definition: ${definition}`);
   }
 
-  // Use parameterized query for PRAGMA (table name is safe due to whitelist)
-  const result = await db.execute({
-    sql: `PRAGMA table_info(${table})`,
-    args: [],
-  });
-  const hasColumn = result.rows.some((row) => String(row.name) === column);
-
-  if (!hasColumn) {
-    // Both table and column are validated, definition is sanitized
-    // This is safe because we've whitelisted all inputs
-    await db.execute({
-      sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+  try {
+    // Use parameterized query for PRAGMA (table name is safe due to whitelist)
+    const result = await db.execute({
+      sql: `PRAGMA table_info(${table})`,
       args: [],
     });
-    logInfo('ensureColumn_added', { table, column, definition });
+    const hasColumn = result.rows.some((row) => String(row.name) === column);
+
+    if (!hasColumn) {
+      // Both table and column are validated, definition is sanitized
+      // This is safe because we've whitelisted all inputs
+      await db.execute({
+        sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+        args: [],
+      });
+      logInfo('ensureColumn_added', { table, column, definition });
+    }
+  } catch (error) {
+    // If table doesn't exist yet, skip this migration step
+    // The table will be created in the main migration
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('ensureColumn_skipped_table_not_exists', { table });
+      return;
+    }
+    throw error;
   }
 }
 
