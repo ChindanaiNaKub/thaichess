@@ -249,8 +249,6 @@ async function runSchemaMigration() {
     'CREATE INDEX IF NOT EXISTS idx_games_game_mode ON games(game_mode)',
     'CREATE INDEX IF NOT EXISTS idx_games_rated ON games(rated)',
     'CREATE INDEX IF NOT EXISTS idx_games_user_games ON games(white_user_id, finished_at DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
     `
       CREATE TABLE IF NOT EXISTS feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,6 +284,8 @@ async function runSchemaMigration() {
         last_login_at INTEGER
       )
     `,
+    'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
     `
       CREATE TABLE IF NOT EXISTS accounts (
         id TEXT PRIMARY KEY,
