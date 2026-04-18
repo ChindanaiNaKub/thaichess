@@ -760,7 +760,7 @@ app.get('/api/metrics', (_req, res) => {
 
 app.get('/api/health', async (_req, res) => {
   const health = {
-    status: 'ok' as const,
+    status: 'ok' as 'ok' | 'error',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     startupState,
