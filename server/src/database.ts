@@ -216,7 +216,8 @@ export function getDatabaseConfig() {
 }
 
 async function runSchemaMigration() {
-  const statements: InStatement[] = [
+  // First pass: Create all tables
+  const tableStatements: InStatement[] = [
     'PRAGMA foreign_keys = ON',
     `
       CREATE TABLE IF NOT EXISTS games (
@@ -242,13 +243,6 @@ async function runSchemaMigration() {
         finished_at INTEGER
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_games_game_mode ON games(game_mode)',
-    'CREATE INDEX IF NOT EXISTS idx_games_rated ON games(rated)',
-    'CREATE INDEX IF NOT EXISTS idx_games_user_games ON games(white_user_id, finished_at DESC)',
     `
       CREATE TABLE IF NOT EXISTS feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,8 +278,6 @@ async function runSchemaMigration() {
         last_login_at INTEGER
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
     `
       CREATE TABLE IF NOT EXISTS accounts (
         id TEXT PRIMARY KEY,
@@ -303,8 +295,6 @@ async function runSchemaMigration() {
         updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)',
-    'CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_provider_account ON accounts(provider_id, account_id)',
     `
       CREATE TABLE IF NOT EXISTS auth_sessions (
         id TEXT PRIMARY KEY,
@@ -317,8 +307,6 @@ async function runSchemaMigration() {
         updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
     `
       CREATE TABLE IF NOT EXISTS twoFactor (
         id TEXT PRIMARY KEY,
@@ -327,7 +315,6 @@ async function runSchemaMigration() {
         userId TEXT NOT NULL UNIQUE
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_twoFactor_userId ON twoFactor(userId)',
     `
       CREATE TABLE IF NOT EXISTS verifications (
         id TEXT PRIMARY KEY,
@@ -338,8 +325,6 @@ async function runSchemaMigration() {
         updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_verifications_identifier ON verifications(identifier)',
-    'CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at)',
     `
       CREATE TABLE IF NOT EXISTS fair_play_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,8 +336,6 @@ async function runSchemaMigration() {
         created_at INTEGER DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_fair_play_events_user_id ON fair_play_events(user_id, created_at DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_fair_play_events_game_id ON fair_play_events(game_id, created_at DESC)',
     `
       CREATE TABLE IF NOT EXISTS fair_play_cases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -365,8 +348,6 @@ async function runSchemaMigration() {
         updated_at INTEGER DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_fair_play_cases_user_id ON fair_play_cases(user_id, updated_at DESC)',
-    'CREATE INDEX IF NOT EXISTS idx_fair_play_cases_status ON fair_play_cases(status, updated_at DESC)',
     `
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
@@ -377,8 +358,6 @@ async function runSchemaMigration() {
         last_seen_at INTEGER DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)',
-    'CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)',
     `
       CREATE TABLE IF NOT EXISTS puzzle_progress (
         user_id TEXT NOT NULL,
@@ -387,7 +366,6 @@ async function runSchemaMigration() {
         PRIMARY KEY (user_id, puzzle_id)
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_puzzle_progress_user_id ON puzzle_progress(user_id, completed_at DESC)',
     `
       CREATE TABLE IF NOT EXISTS login_codes (
         id TEXT PRIMARY KEY,
@@ -400,8 +378,6 @@ async function runSchemaMigration() {
         created_at INTEGER DEFAULT (unixepoch())
       )
     `,
-    'CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email)',
-    'CREATE INDEX IF NOT EXISTS idx_login_codes_expires_at ON login_codes(expires_at)',
     `
       CREATE TABLE IF NOT EXISTS game_analyses (
         cache_key TEXT PRIMARY KEY,
@@ -416,12 +392,53 @@ async function runSchemaMigration() {
         updated_at INTEGER DEFAULT (unixepoch())
       )
     `,
+  ];
+
+  for (const statement of tableStatements) {
+    await db.execute(statement);
+  }
+
+  // Second pass: Create all indexes after tables exist
+  const indexStatements: InStatement[] = [
+    'CREATE INDEX IF NOT EXISTS idx_games_finished_at ON games(finished_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_games_game_mode ON games(game_mode)',
+    'CREATE INDEX IF NOT EXISTS idx_games_rated ON games(rated)',
+    'CREATE INDEX IF NOT EXISTS idx_games_user_games ON games(white_user_id, finished_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+    'CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)',
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_provider_account ON accounts(provider_id, account_id)',
+    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
+    'CREATE INDEX IF NOT EXISTS idx_twoFactor_userId ON twoFactor(userId)',
+    'CREATE INDEX IF NOT EXISTS idx_verifications_identifier ON verifications(identifier)',
+    'CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at)',
+    'CREATE INDEX IF NOT EXISTS idx_fair_play_events_user_id ON fair_play_events(user_id, created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_fair_play_events_game_id ON fair_play_events(game_id, created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_fair_play_cases_user_id ON fair_play_cases(user_id, updated_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_fair_play_cases_status ON fair_play_cases(status, updated_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)',
+    'CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_puzzle_progress_user_id ON puzzle_progress(user_id, completed_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email)',
+    'CREATE INDEX IF NOT EXISTS idx_login_codes_expires_at ON login_codes(expires_at)',
     'CREATE INDEX IF NOT EXISTS idx_game_analyses_game_id ON game_analyses(game_id, updated_at DESC)',
     'CREATE INDEX IF NOT EXISTS idx_game_analyses_moves_hash ON game_analyses(moves_hash, updated_at DESC)',
   ];
 
-  for (const statement of statements) {
-    await db.execute(statement);
+  for (const statement of indexStatements) {
+    try {
+      await db.execute(statement);
+    } catch (error) {
+      // Skip indexes that fail (table might not exist yet in some edge cases)
+      if (error instanceof Error && error.message.includes('no such table')) {
+        continue;
+      }
+      throw error;
+    }
   }
 
   await ensureColumn('feedback', 'visible', 'INTEGER NOT NULL DEFAULT 1');
@@ -437,19 +454,30 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'draws', 'INTEGER NOT NULL DEFAULT 0');
-  await db.execute(`
-    CREATE TRIGGER IF NOT EXISTS set_initial_user_rating_after_insert
-    AFTER INSERT ON users
-    FOR EACH ROW
-    WHEN NEW.rating = 1500
-      AND NEW.rated_games = 0
-      AND NEW.wins = 0
-      AND NEW.losses = 0
-      AND NEW.draws = 0
-    BEGIN
-      UPDATE users SET rating = ${INITIAL_USER_RATING} WHERE id = NEW.id;
-    END
-  `);
+
+  try {
+    await db.execute(`
+      CREATE TRIGGER IF NOT EXISTS set_initial_user_rating_after_insert
+      AFTER INSERT ON users
+      FOR EACH ROW
+      WHEN NEW.rating = 1500
+        AND NEW.rated_games = 0
+        AND NEW.wins = 0
+        AND NEW.losses = 0
+        AND NEW.draws = 0
+      BEGIN
+        UPDATE users SET rating = ${INITIAL_USER_RATING} WHERE id = NEW.id;
+      END
+    `);
+  } catch (error) {
+    // Skip if table doesn't exist (fresh database)
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('migration_trigger_skipped_table_not_exists');
+    } else {
+      throw error;
+    }
+  }
+
   await ensureColumn('users', 'name', 'TEXT');
   await ensureColumn('users', 'image', 'TEXT');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
@@ -473,36 +501,75 @@ async function runSchemaMigration() {
   await ensureColumn('puzzle_progress', 'successes', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('puzzle_progress', 'failures', 'INTEGER NOT NULL DEFAULT 0');
 
-  await db.execute(`
-    UPDATE users
-    SET name = COALESCE(
-          NULLIF(TRIM(name), ''),
-          NULLIF(TRIM(username), ''),
-          CASE
-            WHEN instr(email, '@') > 1 THEN substr(email, 1, instr(email, '@') - 1)
-            ELSE email
-          END
-        )
-    WHERE name IS NULL OR TRIM(name) = ''
-  `);
-  await db.execute(`
-    UPDATE users
-    SET email_verified = 1
-    WHERE email_verified = 0
-      AND email IS NOT NULL
-      AND email != ''
-  `);
-  await db.execute(`
-    UPDATE puzzle_progress
-    SET last_played_at = COALESCE(last_played_at, completed_at, unixepoch())
-    WHERE last_played_at IS NULL
-  `);
-  await db.execute(`
-    UPDATE puzzle_progress
-    SET attempts = COALESCE(attempts, 0),
-        successes = COALESCE(successes, CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END),
-        failures = COALESCE(failures, 0)
-  `);
+  try {
+    await db.execute(`
+      UPDATE users
+      SET name = COALESCE(
+            NULLIF(TRIM(name), ''),
+            NULLIF(TRIM(username), ''),
+            CASE
+              WHEN instr(email, '@') > 1 THEN substr(email, 1, instr(email, '@') - 1)
+              ELSE email
+            END
+          )
+      WHERE name IS NULL OR TRIM(name) = ''
+    `);
+  } catch (error) {
+    // Skip if table doesn't exist or has no data (fresh database)
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('migration_update_users_name_skipped');
+    } else {
+      throw error;
+    }
+  }
+
+  try {
+    await db.execute(`
+      UPDATE users
+      SET email_verified = 1
+      WHERE email_verified = 0
+        AND email IS NOT NULL
+        AND email != ''
+    `);
+  } catch (error) {
+    // Skip if table doesn't exist or has no data (fresh database)
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('migration_update_users_email_verified_skipped');
+    } else {
+      throw error;
+    }
+  }
+
+  try {
+    await db.execute(`
+      UPDATE puzzle_progress
+      SET last_played_at = COALESCE(last_played_at, completed_at, unixepoch())
+      WHERE last_played_at IS NULL
+    `);
+  } catch (error) {
+    // Skip if table doesn't exist or has no data (fresh database)
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('migration_update_puzzle_progress_last_played_skipped');
+    } else {
+      throw error;
+    }
+  }
+
+  try {
+    await db.execute(`
+      UPDATE puzzle_progress
+      SET attempts = COALESCE(attempts, 0),
+          successes = COALESCE(successes, CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END),
+          failures = COALESCE(failures, 0)
+    `);
+  } catch (error) {
+    // Skip if table doesn't exist or has no data (fresh database)
+    if (error instanceof Error && error.message.includes('no such table')) {
+      logInfo('migration_update_puzzle_progress_attempts_skipped');
+    } else {
+      throw error;
+    }
+  }
 }
 
 function rowToSavedGame(row: Row): SavedGame {
