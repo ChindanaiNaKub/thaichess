@@ -760,27 +760,27 @@ app.get('/api/metrics', (_req, res) => {
 
 app.get('/api/health', async (_req, res) => {
   const health = {
-    status: 'healthy',
+    status: 'ok' as const,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     startupState,
     startupError,
     dependencies: {
-      database: 'unknown',
+      database: 'unknown' as 'ok' | 'error',
     },
   };
 
   try {
     // Check database connectivity
     await getStats();
-    health.dependencies.database = 'healthy';
+    health.dependencies.database = 'ok';
   } catch (error) {
-    health.dependencies.database = 'unhealthy';
-    health.status = 'degraded';
+    health.dependencies.database = 'error';
+    health.status = 'error';
     logError('health_check_database_failed', error);
   }
 
-  const statusCode = health.status === 'healthy' ? 200 : 503;
+  const statusCode = health.status === 'ok' ? 200 : 503;
   res.status(statusCode).json(health);
 });
 
