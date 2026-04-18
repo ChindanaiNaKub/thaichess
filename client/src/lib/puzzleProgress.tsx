@@ -245,7 +245,7 @@ function recordPuzzleFailure(records: PuzzleProgressRecord[], puzzleId: number, 
   }]);
 }
 
-function parseRemoteProgress(data: any): PuzzleProgressRecord[] {
+function parseRemoteProgress(data: unknown): PuzzleProgressRecord[] {
   if (Array.isArray(data?.progressRecords)) {
     return normalizePuzzleProgressRecords(data.progressRecords as PuzzleProgressRecord[]);
   }

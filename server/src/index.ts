@@ -6,6 +6,7 @@ import cors, { type CorsOptions } from 'cors';
 import fs from 'fs';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
 import {
@@ -107,6 +108,15 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Correlation ID middleware for request tracing
+app.use((req, res, next) => {
+  const correlationId = (req.headers['x-correlation-id'] as string) || randomUUID();
+  req.headers['x-correlation-id'] = correlationId;
+  res.setHeader('x-correlation-id', correlationId);
+  next();
+});
+
 const requireTrustedWriteOriginMiddleware = requireTrustedWriteOrigin(allowedCorsOrigins);
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
@@ -365,8 +375,14 @@ io.use(async (socket, next) => {
     socket.data.playerId = authUser?.id ?? guestPlayerId ?? `guest_${socket.id}`;
     next();
   } catch (error) {
+    logError('socket_auth_failed', error, { socketId: socket.id });
     next(error instanceof Error ? error : new Error('Socket authentication failed.'));
   }
+});
+
+// Global Socket.IO error handler
+io.on('connect_error', (error) => {
+  logError('socket_connect_error', error);
 });
 
 io.on('connection', createSocketConnectionHandler({
@@ -737,6 +753,37 @@ app.get('/api/stats', async (_req, res) => {
   res.json(stats);
 });
 
+app.get('/api/metrics', (_req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(monitoring.getPrometheusMetrics());
+});
+
+app.get('/api/health', async (_req, res) => {
+  const health = {
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    startupState,
+    startupError,
+    dependencies: {
+      database: 'unknown',
+    },
+  };
+
+  try {
+    // Check database connectivity
+    await getStats();
+    health.dependencies.database = 'healthy';
+  } catch (error) {
+    health.dependencies.database = 'unhealthy';
+    health.status = 'degraded';
+    logError('health_check_database_failed', error);
+  }
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
 app.get('/api/live-games', (req, res) => {
   const rawLimit = parseInt(String(req.query.limit ?? '12'), 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 40) : 12;
@@ -826,12 +873,25 @@ app.delete('/api/auth/user', requireTrustedWriteOriginMiddleware, async (req, re
     
     res.json({ ok: true, message: 'Account deleted successfully' });
   } catch (error) {
-    console.error('Failed to delete user:', error);
+    logError('delete_user_failed', error, { userId: user.id });
     res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 
 app.all('/api/auth/*', betterAuthHandler);
+
+// Global error handler for Express
+app.use((err: Error, req: express.Request, res: express.Response) => {
+  const correlationId = req.headers['x-correlation-id'] as string;
+  logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  res.status(500).json({
+    error: isDevelopment ? err.message : 'Internal server error',
+    correlationId,
+  });
+});
 
 const fairPlayReportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
