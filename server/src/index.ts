@@ -880,19 +880,6 @@ app.delete('/api/auth/user', requireTrustedWriteOriginMiddleware, async (req, re
 
 app.all('/api/auth/*', betterAuthHandler);
 
-// Global error handler for Express
-app.use((err: Error, req: express.Request, res: express.Response) => {
-  const correlationId = req.headers['x-correlation-id'] as string;
-  logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
-
-  // Don't leak error details in production
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  res.status(500).json({
-    error: isDevelopment ? err.message : 'Internal server error',
-    correlationId,
-  });
-});
-
 const fairPlayReportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
@@ -1392,6 +1379,19 @@ app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(indexPath);
   }
+});
+
+// Global error handler for Express (must be after all routes)
+app.use((err: Error, req: express.Request, res: express.Response) => {
+  const correlationId = req.headers['x-correlation-id'] as string;
+  logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  res.status(500).json({
+    error: isDevelopment ? err.message : 'Internal server error',
+    correlationId,
+  });
 });
 
 const PORT = process.env.PORT || 3000;
