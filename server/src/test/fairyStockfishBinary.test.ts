@@ -4,9 +4,11 @@ import { moveToUci } from '../../../shared/engineAdapter';
 import { getEngineSearchTimeoutMs, normalizeEngineFen } from '../fairyStockfishBinary';
 import {
   createLevel10BotSearchPlan,
+  getBotMoveWithEngine,
   getBotRequestTimeoutMs,
   getReviewMovetime,
   getReviewTotalBudgetMs,
+  hasExternalEngineSupport,
   normalizeEngineEvaluation,
   normalizeEngineMate,
   resolveBotMoveCandidate,
@@ -92,6 +94,20 @@ describe('normalizeEngineFen', () => {
     const legal = resolveBotMoveCandidate(snapshot, 9, localMove);
     expect(legal.source).toBe('engine');
     expect(legal.move).toEqual(localMove);
+  });
+
+  it('returns a local high-level bot move when no external engine is configured', async () => {
+    if (hasExternalEngineSupport()) return;
+
+    const state = createInitialGameState(0, 0);
+    const result = await getBotMoveWithEngine({
+      board: state.board,
+      turn: state.turn,
+      counting: state.counting,
+    }, 10, 'lady-busaba');
+
+    expect(result.move).not.toBeNull();
+    expect(result.stats.source).toBe('local');
   });
 
   it('falls back to local position analysis when an engine review move is illegal', () => {

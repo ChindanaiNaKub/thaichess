@@ -895,8 +895,9 @@ export async function getBotMoveWithEngine(
       level: normalizedLevel,
       elapsedMs: Date.now() - startedAt,
       engineSourceTried: preferredSource,
+      fallbackSource: 'local',
     });
-    throw new Error('Fairy-Stockfish is required for this bot level but is unavailable.');
+    return fallback;
   }
 
   logInfo('bot_move_fallback_local', {
