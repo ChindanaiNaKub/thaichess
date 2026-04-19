@@ -11,6 +11,7 @@ import {
   selectNextStreakPuzzle,
 } from '../lib/puzzleStreak';
 import { PUZZLES } from '@shared/puzzles';
+import { IMPORTED_PUZZLE_CANDIDATES } from '@shared/puzzleImportQueue';
 import { PUZZLES as RUNTIME_PUZZLES, STREAK_SURFACE_PUZZLES } from '@shared/puzzlesRuntime';
 
 describe('puzzle streak helpers', () => {
@@ -120,8 +121,32 @@ describe('puzzle streak helpers', () => {
   });
 
   it('keeps the client runtime pool aligned to the generated live pool without legacy sample-pack puzzles', () => {
-    expect(RUNTIME_PUZZLES.map(puzzle => puzzle.id)).toEqual(PUZZLES.map(puzzle => puzzle.id));
+    const explicitlyExcludedRuntimeIds = new Set([9004]);
+
+    expect(RUNTIME_PUZZLES.map(puzzle => puzzle.id)).toEqual(
+      PUZZLES
+        .filter((puzzle) => !explicitlyExcludedRuntimeIds.has(puzzle.id))
+        .map(puzzle => puzzle.id),
+    );
     expect(RUNTIME_PUZZLES.every((puzzle) => !puzzle.source.startsWith('Makruk-native sample pack:'))).toBe(true);
+  });
+
+  it('keeps reviewed practical ship puzzles available in the runtime pool unless explicitly excluded', () => {
+    const explicitlyExcludedIds = new Set([9004]);
+    const reviewedPracticalIds = IMPORTED_PUZZLE_CANDIDATES
+      .filter((puzzle) => (
+        puzzle.reviewStatus === 'ship' &&
+        puzzle.origin === 'engine-generated' &&
+        puzzle.tags.includes('reviewed-practical') &&
+        !puzzle.tags.includes('candidate-from-photo') &&
+        !explicitlyExcludedIds.has(puzzle.id)
+      ))
+      .map((puzzle) => puzzle.id);
+
+    const runtimeIds = new Set(RUNTIME_PUZZLES.map((puzzle) => puzzle.id));
+    const missingIds = reviewedPracticalIds.filter((id) => !runtimeIds.has(id));
+
+    expect(missingIds).toEqual([]);
   });
 
   it('keeps imported photo candidates available for the puzzle surface without mixing them into the shipped runtime list', () => {

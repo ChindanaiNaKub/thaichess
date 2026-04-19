@@ -104,8 +104,8 @@ describe('puzzleValidation', () => {
     expect(CURATED_PUZZLES).toHaveLength(4);
     expect(GENERATED_PUZZLES).toHaveLength(30);
     expect(PUBLISHABLE_CURATED_PUZZLES).toHaveLength(3);
-    expect(PUBLISHABLE_GENERATED_PUZZLES).toHaveLength(26);
-    expect(PUZZLES).toHaveLength(14);
+    expect(PUBLISHABLE_GENERATED_PUZZLES).toHaveLength(28);
+    expect(PUZZLES).toHaveLength(19);
     expect(PUZZLES.every(isPuzzleReadyToShip)).toBe(true);
     expect(PUZZLES.every(puzzle => !puzzle.source.startsWith('Makruk-native sample pack:'))).toBe(true);
     expect(PUZZLES.every(puzzle => !/selfplay|offline self-play/i.test(puzzle.title))).toBe(true);
@@ -119,24 +119,24 @@ describe('puzzleValidation', () => {
     expect(PUZZLES.filter(puzzle => puzzle.tags.includes('fork')).length).toBeGreaterThanOrEqual(2);
     expect(PUZZLES.some(puzzle => puzzle.theme === 'Fork')).toBe(true);
     expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9103);
-    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9003);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9003);
     expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9007);
-    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9009);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9009);
     expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9015);
-    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9020);
-    expect(PUZZLES.map(puzzle => puzzle.id)).not.toContain(9023);
-    expect(PUZZLES.some(puzzle => puzzle.title === 'Fork the Back Guard')).toBe(false);
-    expect(PUZZLES.some(puzzle => puzzle.title === 'Overload the Met Guard')).toBe(false);
-    expect(PUZZLES.some(puzzle => puzzle.title === 'Late Pin, Clean Pickup')).toBe(false);
-    expect(PUZZLES.some(puzzle => puzzle.title === 'Take the Loose Knight, Keep the Initiative')).toBe(false);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9020);
+    expect(PUZZLES.map(puzzle => puzzle.id)).toContain(9023);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Fork the Back Guard')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Overload the Met Guard')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Late Pin, Clean Pickup')).toBe(true);
+    expect(PUZZLES.some(puzzle => puzzle.title === 'Take the Loose Knight, Keep the Initiative')).toBe(true);
     expect(new Set(PUZZLES.map(puzzle => puzzle.theme)).size).toBeGreaterThanOrEqual(7);
     expect(PUZZLES.filter(puzzle => puzzle.tags.includes('mate-preparation')).length).toBeGreaterThanOrEqual(2);
     expect(PUZZLES.some(puzzle => puzzle.theme === 'WinBeforeCountExpires')).toBe(true);
     expect(PUZZLES.some(puzzle => ['MateIn2', 'MateIn3', 'MatingNet'].includes(puzzle.theme))).toBe(true);
     expect(PUZZLE_POOL_DIAGNOSTICS.totalCandidates).toBeGreaterThanOrEqual(34);
-    expect(PUZZLE_POOL_DIAGNOSTICS.validCandidates).toBeGreaterThanOrEqual(29);
-    expect(PUZZLE_POOL_DIAGNOSTICS.shippedCandidates).toBe(14);
-    expect(PUZZLE_POOL_DIAGNOSTICS.rejectedCandidates).toBeGreaterThanOrEqual(5);
+    expect(PUZZLE_POOL_DIAGNOSTICS.validCandidates).toBe(33);
+    expect(PUZZLE_POOL_DIAGNOSTICS.shippedCandidates).toBe(19);
+    expect(PUZZLE_POOL_DIAGNOSTICS.rejectedCandidates).toBe(1);
 
     expect(IMPORTED_PUZZLE_CANDIDATES).toHaveLength(30);
     expect(IMPORTED_PUZZLE_CANDIDATES.filter(candidate => isPuzzleReadyToShip(candidate))).toHaveLength(28);
@@ -149,7 +149,7 @@ describe('puzzleValidation', () => {
     expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(7002);
     expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(9199);
     expect(QUARANTINED_PUZZLES.map(puzzle => puzzle.id)).toContain(9200);
-    expect(QUARANTINED_PUZZLES).toHaveLength(5);
+    expect(QUARANTINED_PUZZLES).toHaveLength(3);
   });
 
   it('aligns every live puzzle sideToMove with its first solution move', () => {
@@ -623,12 +623,12 @@ describe('puzzleValidation', () => {
     const rejectCount = PUZZLE_PUBLISH_AUDIT.filter(row => row.classification === 'Reject').length;
 
     expect(publishableRows.map(row => row.id)).toEqual(expect.arrayContaining([7001, 7003, 7004, 9001, 9007, 9022, 9100, 9101, 9102, 9103]));
-    expect(keepCount).toBeGreaterThanOrEqual(29);
-    expect(rewriteCount).toBe(0);
-    expect(rejectCount).toBeGreaterThanOrEqual(5);
+    expect(keepCount).toBe(31);
+    expect(rewriteCount).toBe(2);
+    expect(rejectCount).toBe(1);
     expect(PUZZLE_POOL_BREAKDOWN.publishableBySource).toEqual({
       curated: 3,
-      generated: 26,
+      generated: 28,
     });
     expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.beginner).toBeGreaterThanOrEqual(3);
     expect(PUZZLE_POOL_BREAKDOWN.publishableByDifficulty.intermediate).toBeGreaterThanOrEqual(3);
@@ -645,25 +645,27 @@ describe('puzzleValidation', () => {
     expect(CURATED_PUBLISH_FAILURES.find(row => row.id === 9199)).toMatchObject({
       id: 9199,
       sourceType: 'curated',
-      classification: 'Reject',
+      classification: 'Rewrite',
       classificationReasons: expect.arrayContaining([
-        'Puzzle objective must declare exactly one primary result, not multiple unrelated goals.',
+        'Puzzle is not approved for publishing review yet.',
+        'Puzzle has not been verified yet.',
       ]),
     });
     expect(CURATED_PUBLISH_FAILURES.find(row => row.id === 9200)).toMatchObject({
       id: 9200,
       sourceType: 'curated',
-      classification: 'Reject',
+      classification: 'Rewrite',
       classificationReasons: expect.arrayContaining([
-        'Accepted move set includes non-winning move(s): e4-f3.',
+        'Puzzle is marked as a duplicate of #9199.',
+        'Puzzle has not been verified yet.',
       ]),
     });
-    expect(GENERATED_PUBLISH_FAILURES.map(row => row.id)).toEqual([9002, 9004]);
+    expect(GENERATED_PUBLISH_FAILURES).toEqual([]);
     expect(getPuzzlePublishAuditById(9002)).toMatchObject({
-      classification: 'Reject',
-      publishable: false,
-      validationErrors: expect.arrayContaining([
-        'Fork puzzle accepted move d5-c3 must lead to a line where the forking piece collects a target.',
+      classification: 'Keep',
+      publishable: true,
+      validationWarnings: expect.arrayContaining([
+        'Puzzle has lower-quality goal move(s) that reach the raw goal but do not preserve the main idea cleanly: d5-e3.',
       ]),
     });
   });
@@ -691,7 +693,18 @@ describe('puzzleValidation', () => {
     expect(QUARANTINED_PUZZLES.map(candidate => candidate.id)).toContain(7002);
   });
 
-  it('stores the imported image-based black mating candidate in quarantine until its line is reviewed', () => {
+  it('keeps the outstanding generated and image-import drafts internally valid while they remain out of the live pool', () => {
+    const failures = [9002, 9004, 9199, 9200]
+      .map((puzzleId) => ({
+        puzzleId,
+        errors: validatePuzzle(getPuzzle(puzzleId)).errors,
+      }))
+      .filter((result) => result.errors.length > 0);
+
+    expect(failures).toEqual([]);
+  });
+
+  it('stores the imported image-based black follow-up draft in quarantine until its line is reviewed', () => {
     const puzzleId = 9200;
     const quarantined = QUARANTINED_PUZZLES.find(candidate => candidate.id === puzzleId);
 
@@ -701,15 +714,16 @@ describe('puzzleValidation', () => {
       reviewStatus: 'quarantine',
       toMove: 'black',
       sideToMove: 'black',
-      theme: 'MateIn3',
-      motif: 'Met takes ma, then rook mate from imported board image',
+      theme: 'HangingPiece',
+      motif: 'Checking rook capture follow-up from imported board image',
+      duplicateOf: 9199,
     });
     expect(quarantined?.source).toContain('image intake');
-    expect(quarantined?.tags).toEqual(expect.arrayContaining(['image-import', 'candidate-from-photo', 'mate-candidate']));
+    expect(quarantined?.tags).toEqual(expect.arrayContaining(['image-import', 'candidate-from-photo', 'conversion-candidate']));
     expect(PUZZLES.map(candidate => candidate.id)).not.toContain(puzzleId);
   });
 
-  it('stores the imported conversion branch as a second quarantine draft from the same image', () => {
+  it('stores the imported conversion branch as the primary quarantine draft from the same image', () => {
     const puzzleId = 9199;
     const quarantined = QUARANTINED_PUZZLES.find(candidate => candidate.id === puzzleId);
 
@@ -719,74 +733,39 @@ describe('puzzleValidation', () => {
       reviewStatus: 'quarantine',
       toMove: 'black',
       sideToMove: 'black',
-      theme: 'TrappedPiece',
-      motif: 'Met takes ma, then rook win from imported board image',
+      theme: 'HangingPiece',
+      motif: 'Checking rook capture from imported board image',
     });
     expect(quarantined?.source).toContain('image intake');
-    expect(quarantined?.tags).toEqual(expect.arrayContaining(['image-import', 'candidate-from-photo', 'conversion-candidate']));
+    expect(quarantined?.tags).toEqual(expect.arrayContaining(['image-import', 'candidate-from-photo', 'checking-capture']));
     expect(PUZZLES.map(candidate => candidate.id)).not.toContain(puzzleId);
   });
 
-  it('keeps the imported met-takes-ma branch playable even while the draft stays quarantined', () => {
+  it('keeps the imported follow-up draft playable with the checking rook capture', () => {
     const puzzle = getPuzzle(9200);
     let state = createGameStateFromPuzzle(puzzle);
 
-    const first = makeMove(state, square('e4'), square('f3'));
+    const first = makeMove(state, square('g3'), square('f3'));
     expect(first).not.toBeNull();
     state = first!;
-    expect(state.isCheck).toBe(false);
-
-    const second = makeMove(state, square('e3'), square('e6'));
-    expect(second).not.toBeNull();
-    state = second!;
-
-    const third = makeMove(state, square('g3'), square('g2'));
-    expect(third).not.toBeNull();
-    state = third!;
     expect(state.isCheck).toBe(true);
-
-    const fourth = makeMove(state, square('f2'), square('e1'));
-    expect(fourth).not.toBeNull();
-    state = fourth!;
-
-    const fifth = makeMove(state, square('h3'), square('h1'));
-    expect(fifth).not.toBeNull();
-    expect(fifth?.isCheckmate).toBe(true);
-    expect(fifth?.resultReason).toBe('checkmate');
+    expect(state.board[square('f3').row]?.[square('f3').col]).toMatchObject({
+      type: 'R',
+      color: 'black',
+    });
   });
 
-  it('keeps the imported met-takes-ma conversion branch playable even while the draft stays quarantined', () => {
+  it('keeps the imported conversion branch focused on the checking capture instead of the slower met capture', () => {
     const puzzle = getPuzzle(9199);
-    let state = createGameStateFromPuzzle(puzzle);
+    const state = createGameStateFromPuzzle(puzzle);
 
-    const first = makeMove(state, square('e4'), square('f3'));
-    expect(first).not.toBeNull();
-    state = first!;
+    const checkingCapture = makeMove(state, square('g3'), square('f3'));
+    expect(checkingCapture).not.toBeNull();
+    expect(checkingCapture?.isCheck).toBe(true);
 
-    const second = makeMove(state, square('e3'), square('e6'));
-    expect(second).not.toBeNull();
-    state = second!;
-
-    const third = makeMove(state, square('h3'), square('h2'));
-    expect(third).not.toBeNull();
-    state = third!;
-    expect(state.isCheck).toBe(true);
-
-    const fourth = makeMove(state, square('f2'), square('e3'));
-    expect(fourth).not.toBeNull();
-    state = fourth!;
-
-    const fifth = makeMove(state, square('h2'), square('e2'));
-    expect(fifth).not.toBeNull();
-    state = fifth!;
-    expect(state.isCheck).toBe(true);
-
-    const sixth = makeMove(state, square('e3'), square('d3'));
-    expect(sixth).not.toBeNull();
-    state = sixth!;
-
-    const seventh = makeMove(state, square('e2'), square('e6'));
-    expect(seventh).not.toBeNull();
+    const slowerCapture = makeMove(state, square('e4'), square('f3'));
+    expect(slowerCapture).not.toBeNull();
+    expect(slowerCapture?.isCheck).toBe(false);
   });
 
   it('accepts only the immediate mate in the counting-aware sample', () => {

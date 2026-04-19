@@ -762,8 +762,8 @@ export const GENERATED_PUZZLE_CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
   {
     "id": 9002,
     "title": "Real-Game Fork (selfplay-0001 @ ply 56)",
-    "description": "Win material in 1. Start with the fork that attacks the king and the khon.",
-    "explanation": "The first move creates a double attack, and the follow-up wins the khon cleanly.",
+    "description": "Win material in 2. Start with the fork that attacks the king and the rook, then collect it after the king steps away.",
+    "explanation": "The fork matters because White must move the king first. Once the king steps away, the same knight collects the rook cleanly on the next move.",
     "source": "Offline self-play medium vs medium (ply 56)",
     "origin": "seed-game",
     "sourceGameId": "selfplay-0001",
@@ -1479,6 +1479,26 @@ export const GENERATED_PUZZLE_CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
         "to": {
           "row": 2,
           "col": 2
+        }
+      },
+      {
+        "from": {
+          "row": 0,
+          "col": 3
+        },
+        "to": {
+          "row": 1,
+          "col": 3
+        }
+      },
+      {
+        "from": {
+          "row": 2,
+          "col": 2
+        },
+        "to": {
+          "row": 1,
+          "col": 0
         }
       }
     ]
@@ -2286,8 +2306,8 @@ export const GENERATED_PUZZLE_CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
   {
     "id": 9004,
     "title": "Real-Game Fork (selfplay-0002 @ ply 28)",
-    "description": "Win material in 1. Start with the fork that attacks the king and the khon.",
-    "explanation": "The first move creates a double attack, and the follow-up wins the khon cleanly.",
+    "description": "Win material in 2. Start with the fork that attacks the king and the rook, then collect it after White answers.",
+    "explanation": "The first move creates the fork, but the real point is the next turn: after White responds, the same knight still collects the rook cleanly.",
     "source": "Offline self-play medium vs medium (ply 28)",
     "origin": "seed-game",
     "sourceGameId": "selfplay-0002",
@@ -2742,6 +2762,26 @@ export const GENERATED_PUZZLE_CANDIDATE_DRAFTS: PuzzleCandidateDraft[] = [
         "to": {
           "row": 0,
           "col": 5
+        }
+      },
+      {
+        "from": {
+          "row": 0,
+          "col": 4
+        },
+        "to": {
+          "row": 0,
+          "col": 3
+        }
+      },
+      {
+        "from": {
+          "row": 0,
+          "col": 5
+        },
+        "to": {
+          "row": 1,
+          "col": 7
         }
       }
     ]
