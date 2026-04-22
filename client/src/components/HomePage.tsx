@@ -13,8 +13,6 @@ import { useTranslation } from '../lib/i18n';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
 import { usePrefetchQueries } from '../hooks/usePrefetchQueries';
 
-import PieceSVG from './PieceSVG';
-
 import Header from './Header';
 
 import FriendSVG from './FriendSVG';
@@ -27,8 +25,7 @@ import QuickPlaySVG from './QuickPlaySVG';
 import Footer from './Footer';
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
 
-import type { PieceType, PieceColor, PrivateGameColorPreference } from '@shared/types';
-
+import type { PrivateGameColorPreference } from '@shared/types';
 const TIME_PRESETS = [
   { label: '1+0', nameKey: 'time.bullet', initial: 60, increment: 0 },
   { label: '3+0', nameKey: 'time.blitz', initial: 180, increment: 0 },
@@ -39,15 +36,6 @@ const TIME_PRESETS = [
   { label: '10+5', nameKey: 'time.rapid', initial: 600, increment: 5 },
   { label: '15+10', nameKey: 'time.classical', initial: 900, increment: 10 },
   { label: '30+0', nameKey: 'time.classical', initial: 1800, increment: 0 },
-];
-
-const SHOWCASE_PIECES: { type: PieceType; color: PieceColor }[] = [
-  { type: 'R', color: 'white' },
-  { type: 'N', color: 'white' },
-  { type: 'S', color: 'white' },
-  { type: 'M', color: 'white' },
-  { type: 'K', color: 'white' },
-  { type: 'P', color: 'white' },
 ];
 
 type SocketModule = typeof import('../lib/socket');
@@ -63,11 +51,10 @@ export default function HomePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [joinId, setJoinId] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(true);
   const [showJoin, setShowJoin] = useState(false);
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
-  const [showHeroDecor, setShowHeroDecor] = useState(import.meta.env.MODE === 'test');
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
   
   // Use TanStack Query for stats
@@ -140,29 +127,6 @@ export default function HomePage() {
     window.addEventListener('load', markReady, { once: true });
     return () => window.removeEventListener('load', markReady);
   }, [deferredContentReady]);
-
-  useEffect(() => {
-    if (showHeroDecor || !deferredContentReady || typeof window === 'undefined') return;
-
-    let idleId: number | undefined;
-    let timeoutId: number | undefined;
-    const requestIdle = window.requestIdleCallback;
-
-    if (typeof requestIdle === 'function') {
-      idleId = requestIdle(() => setShowHeroDecor(true), { timeout: 1_200 });
-    } else {
-      timeoutId = window.setTimeout(() => setShowHeroDecor(true), 250);
-    }
-
-    return () => {
-      if (idleId !== undefined) {
-        window.cancelIdleCallback?.(idleId);
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [deferredContentReady, showHeroDecor]);
 
   useEffect(() => {
     if (showDeferredContent || !deferredContentReady) return;
@@ -282,210 +246,130 @@ export default function HomePage() {
 
       <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_320px] xl:grid-cols-[minmax(0,1.55fr)_340px]">
-            <div className="bg-surface-alt border border-accent/30 rounded-2xl p-6 sm:p-8 lg:p-10">
-              <div className="mb-4 flex min-h-10 items-center justify-center gap-1 sm:mb-5">
-                {showHeroDecor ? SHOWCASE_PIECES.map((p, i) => (
-                  <div key={i} className="opacity-80 hover:opacity-100 transition-opacity">
-                    <PieceSVG type={p.type} color={p.color} size={40} />
-                  </div>
-                )) : null}
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_330px]">
+            <div className="rounded-2xl border border-surface-hover/70 bg-surface-alt p-6 sm:p-8 lg:p-10">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+                {t('nav.play')}
+              </p>
+
+              <h1 className="mt-3 max-w-3xl text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-text-bright">
+                {t('home.hero_title')}
+              </h1>
+              <p className="mt-4 max-w-2xl text-base sm:text-lg text-text-dim leading-7">
+                {t('home.hero_desc')}
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-2">
+                <span className="rounded-full border border-surface-hover/70 bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                  {t('home.no_signup')}
+                </span>
+                <span className="rounded-full border border-surface-hover/70 bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                  {t('home.free_to_play')}
+                </span>
+                <span className="rounded-full border border-surface-hover/70 bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
+                  {stats ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
+                </span>
               </div>
 
-              <div className="mx-auto max-w-2xl text-center">
-                <h1 className="text-3xl sm:text-4xl lg:text-[3.35rem] display text-text-bright mb-3">
-                  {t('home.hero_title')}
-                </h1>
-                <p className="text-text-dim text-base sm:text-lg max-w-2xl mx-auto">
-                  {t('home.hero_desc')}
-                </p>
-              </div>
-
-              <div className="mt-8 sm:mt-10 rounded-2xl border border-accent/20 bg-surface/75 p-5 sm:p-6 lg:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent mb-2">
-                      {t('nav.play')}
-                    </p>
-                    <h2 className="display text-3xl text-text-bright">{t('home.quick_play')}</h2>
-                    <p className="text-text-dim text-sm sm:text-base mt-2 max-w-lg">{t('home.quick_play_desc')}</p>
-                  </div>
-                  <QuickPlaySVG size={46} className="text-text-bright flex-shrink-0" />
-                </div>
-
-                <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
-                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
-                    {t('home.no_signup')}
-                  </span>
-                  <span className="rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim">
-                    {t('home.free_to_play')}
-                  </span>
-                  <span
-                    aria-hidden={stats === null}
-                    className={`rounded-full border border-surface-hover bg-surface px-3 py-1 text-xs font-semibold text-text-dim transition-opacity ${stats && stats.totalGames > 0 ? 'opacity-100' : 'opacity-0'}`}
-                  >
-                    {stats && stats.totalGames > 0 ? t('home.games_played', { count: stats.totalGames }) : t('home.games_played', { count: 0 })}
-                  </span>
-                </div>
-
-                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
+              <div className="mt-7 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={() => navigate(routes.quickPlay)}
                     onMouseEnter={() => void loadQuickPlayRoute()}
                     onFocus={() => void loadQuickPlayRoute()}
-                    className="button-accent-contrast w-full sm:w-auto min-w-[16rem] py-3.5 px-7 font-bold rounded-lg text-lg transition-colors shadow-md"
+                    className="button-accent-contrast w-full sm:w-auto min-w-[14rem] rounded-lg px-6 py-3.5 text-base font-bold transition-colors"
                   >
                     {t('home.quick_play')}
                   </button>
                   <button
-                    onClick={() => navigate(routes.leaderboard)}
-                    className="w-full sm:w-auto py-3.5 px-5 rounded-lg border border-surface-hover bg-surface hover:bg-surface-hover text-text-bright font-semibold transition-colors"
+                    onClick={openCreatePanel}
+                    className="w-full sm:w-auto rounded-lg border border-surface-hover/80 bg-surface px-6 py-3.5 text-base font-semibold text-text-bright transition-colors hover:bg-surface-hover"
                   >
-                    {t('leaderboard.title')}
+                    {t('home.create_private')}
                   </button>
-                  <p className="text-xs sm:text-sm text-text-dim">
-                    {t('quick.rated_available')}
-                  </p>
                 </div>
+                <button
+                  onClick={() => navigate(routes.leaderboard)}
+                  className="rounded-lg border border-surface-hover/80 bg-surface px-4 py-2.5 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
+                >
+                  {t('leaderboard.title')}
+                </button>
               </div>
+
+              <p className="mt-4 text-sm text-text-dim">{t('quick.rated_available')}</p>
             </div>
 
-            <aside className="grid gap-2.5 content-start">
-              <button
-                type="button"
-                onClick={() => navigate(routes.puzzleStreak)}
-                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-                className="min-h-[10.5rem] w-full rounded-xl border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
-              >
-                <div className="flex items-start gap-3">
-                  <PuzzleSVG size={24} className="mt-0.5 flex-shrink-0 text-primary-light" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                      {t('home.streak_start')}
-                    </div>
-                    <div className="mt-1 text-[1rem] font-semibold text-text-bright">
-                      {t('home.streak_title')}
-                    </div>
-                    <div className="mt-1 text-xs text-text-dim sm:text-sm">
-                      {t('home.puzzles_desc')}
-                    </div>
-                  </div>
+            <aside className="grid content-start gap-3">
+              <div className="rounded-xl border border-surface-hover/70 bg-surface-alt p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <FriendSVG size={22} className="text-text-bright flex-shrink-0" />
+                  <h2 className="text-base font-semibold text-text-bright">{t('home.create_private')}</h2>
                 </div>
-              </button>
 
-              {!showCreate ? (
-                <button
-                  type="button"
-                  onClick={openCreatePanel}
-                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
-                >
-                  <div className="flex items-center gap-3">
-                    <FriendSVG size={24} className="text-text-bright flex-shrink-0" />
-                    <div>
-                      <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.create_private')}</div>
-                      <div className="text-text-dim text-xs sm:text-sm">{t('home.private_desc')}</div>
-                    </div>
-                  </div>
-                </button>
-              ) : (
-                <div className="bg-surface-alt border border-surface-hover rounded-xl p-5">
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="display text-lg font-semibold text-text-bright">{t('home.create_private')}</h3>
-                      <p className="text-text-dim text-sm mt-1">{t('home.private_desc')}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowCreate(false)}
-                      className="text-text-dim hover:text-text-bright text-sm transition-colors"
-                    >
-                      {t('common.close')}
-                    </button>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {TIME_PRESETS.map((preset) => (
-                        <button
-                          key={preset.label}
-                          onClick={() => setSelectedTime(preset)}
-                          className={`
-                            py-2 px-3 rounded-lg text-sm font-medium transition-all
-                            ${selectedTime.label === preset.label
-                              ? 'bg-primary text-white shadow-md'
-                              : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
-                            }
-                          `}
-                        >
-                          <div className="font-bold">{preset.label}</div>
-                          <div className="text-xs opacity-70">{t(preset.nameKey)}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="text-sm text-text-dim mb-2 block">{t('home.choose_color')}</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['random', 'white', 'black'] as const).map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => setSelectedColor(color)}
-                          className={`
-                            py-2 px-3 rounded-lg text-sm font-medium transition-all
-                            ${selectedColor === color
-                              ? 'bg-accent text-white shadow-md'
-                              : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
-                            }
-                          `}
-                        >
-                          {t(`home.color_${color}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
+                <div className="mb-4 grid grid-cols-2 rounded-lg border border-surface-hover/70 bg-surface p-1">
                   <button
-                    onClick={handleCreateGame}
-                    disabled={isCreating}
-                    className="w-full py-3 px-6 bg-primary hover:bg-primary-light disabled:opacity-50 text-white font-bold rounded-lg transition-colors shadow-md"
+                    type="button"
+                    onClick={openCreatePanel}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${showCreate ? 'bg-surface-hover text-text-bright' : 'text-text-dim hover:text-text-bright'}`}
                   >
-                    {isCreating ? t('home.creating') : t('home.play_with_friend')}
+                    {t('home.create_private')}
                   </button>
-
-                  {createError && (
-                    <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-                      {createError}
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={openJoinPanel}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${showJoin ? 'bg-surface-hover text-text-bright' : 'text-text-dim hover:text-text-bright'}`}
+                  >
+                    {t('home.join_title')}
+                  </button>
                 </div>
-              )}
 
-              {!showJoin ? (
-                <button
-                  type="button"
-                  onClick={openJoinPanel}
-                  className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
-                >
-                  <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.join_title')}</div>
-                  <div className="text-text-dim text-xs sm:text-sm mt-1">{t('home.join_desc')}</div>
-                </button>
-              ) : (
-                <div className="bg-surface-alt border border-surface-hover rounded-xl p-5">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <h3 className="display text-lg font-semibold text-text-bright">{t('home.join_title')}</h3>
-                      <p className="text-text-dim text-sm mt-1">{t('home.join_desc')}</p>
+                {showCreate ? (
+                  <>
+                    <div className="mb-4">
+                      <label className="mb-2 block text-sm text-text-dim">{t('home.time_control')}</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {TIME_PRESETS.map((preset) => (
+                          <button
+                            key={preset.label}
+                            onClick={() => setSelectedTime(preset)}
+                            className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${selectedTime.label === preset.label ? 'border-primary/40 bg-primary/12 text-primary-light' : 'border-surface-hover/70 bg-surface text-text-dim hover:text-text-bright'}`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    <div className="mb-4">
+                      <label className="mb-2 block text-sm text-text-dim">{t('home.choose_color')}</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(['random', 'white', 'black'] as const).map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => setSelectedColor(color)}
+                            className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${selectedColor === color ? 'border-primary/40 bg-primary/12 text-primary-light' : 'border-surface-hover/70 bg-surface text-text-dim hover:text-text-bright'}`}
+                          >
+                            {t(`home.color_${color}`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <button
-                      type="button"
-                      onClick={() => setShowJoin(false)}
-                      className="text-text-dim hover:text-text-bright text-sm transition-colors"
+                      onClick={handleCreateGame}
+                      disabled={isCreating}
+                      className="button-primary-contrast w-full rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-60"
                     >
-                      {t('common.close')}
+                      {isCreating ? t('home.creating') : t('home.play_with_friend')}
                     </button>
-                  </div>
+
+                    {createError && (
+                      <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                        {createError}
+                      </p>
+                    )}
+                  </>
+                ) : (
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -493,79 +377,84 @@ export default function HomePage() {
                       onChange={(e) => setJoinId(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleJoinGame()}
                       placeholder={t('home.join_placeholder')}
-                      className="flex-1 bg-surface border border-surface-hover rounded-lg px-4 py-2 text-text-bright focus:outline-none focus:border-primary transition-colors"
+                      className="flex-1 rounded-lg border border-surface-hover/80 bg-surface px-3 py-2 text-sm text-text-bright"
                       autoFocus
                     />
                     <button
                       onClick={handleJoinGame}
-                      className="px-5 py-2 bg-accent hover:bg-accent/80 text-white font-semibold rounded-lg transition-colors"
+                      className="rounded-lg border border-primary/35 bg-primary/12 px-4 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/18"
                     >
                       {t('home.join')}
                     </button>
                   </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate(routes.puzzleStreak)}
+                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                className="rounded-xl border border-primary/25 bg-primary/8 px-4 py-3.5 text-left transition-colors hover:bg-primary/12"
+              >
+                <div className="flex items-start gap-3">
+                  <PuzzleSVG size={22} className="mt-0.5 flex-shrink-0 text-primary-light" />
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-light">{t('home.streak_start')}</div>
+                    <div className="mt-1 text-sm font-semibold text-text-bright">{t('home.streak_title')}</div>
+                    <div className="mt-1 text-xs text-text-dim">{t('home.puzzles_desc')}</div>
+                  </div>
                 </div>
-              )}
+              </button>
 
               <button
                 type="button"
                 onClick={() => navigate(routes.bot)}
                 onMouseEnter={() => void loadBotGameRoute()}
                 onFocus={() => void loadBotGameRoute()}
-                className="rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(92,160,26,0.10),rgba(39,30,24,0.92)_45%,rgba(39,30,24,0.98))] px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
+                className="rounded-xl border border-surface-hover/80 bg-surface-alt px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/50"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <BotSVG size={24} className="text-text-bright flex-shrink-0" />
+                  <div className="flex items-center gap-2.5">
+                    <BotSVG size={22} className="text-text-bright flex-shrink-0" />
                     <div>
-                      <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_bot')}</div>
-                      <div className="text-text-dim text-xs sm:text-sm">{t('home.play_bot_desc')}</div>
+                      <div className="text-sm font-semibold text-text-bright">{t('home.play_bot')}</div>
+                      <div className="text-xs text-text-dim">{t('home.play_bot_desc')}</div>
                     </div>
                   </div>
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                    1-10
-                  </span>
-                </div>
-                <div className="mt-3 text-[11px] leading-5 text-text-dim">{t('home.play_bot_long_desc')}</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate(routes.lessons)}
-                className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
-              >
-                <div className="flex items-center gap-3">
-                  <PuzzleSVG size={24} className="text-text-bright flex-shrink-0" />
-                  <div>
-                    <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.lessons')}</div>
-                    <div className="text-text-dim text-xs sm:text-sm">{t('home.lessons_desc')}</div>
-                  </div>
+                  <span className="rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary-light">Lv 1-10</span>
                 </div>
               </button>
 
-              <button
-                type="button"
-                onClick={() => navigate(routes.watch)}
-                className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
-              >
-                <div className="flex items-center gap-3">
-                  <QuickPlaySVG size={24} className="text-text-bright flex-shrink-0" />
-                  <div>
-                    <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.watch_live')}</div>
-                    <div className="text-text-dim text-xs sm:text-sm">{t('home.watch_live_desc')}</div>
-                  </div>
+              <div className="rounded-xl border border-surface-hover/80 bg-surface-alt p-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-text-dim">{t('home.learn_eyebrow')}</div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.lessons)}
+                    className="flex items-center gap-2 rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                  >
+                    <PuzzleSVG size={18} className="text-text-dim" />
+                    {t('home.lessons')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.watch)}
+                    className="flex items-center gap-2 rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                  >
+                    <QuickPlaySVG size={18} className="text-text-dim" />
+                    {t('home.watch_live')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.local)}
+                    onMouseEnter={() => void loadLocalGameRoute()}
+                    onFocus={() => void loadLocalGameRoute()}
+                    className="rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                  >
+                    {t('home.play_local')}
+                  </button>
                 </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate(routes.local)}
-                onMouseEnter={() => void loadLocalGameRoute()}
-                onFocus={() => void loadLocalGameRoute()}
-                className="bg-surface-alt border border-surface-hover/80 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/60"
-              >
-                <div className="text-text-bright text-[0.95rem] font-semibold">{t('home.play_local')}</div>
-                <div className="text-text-dim text-xs sm:text-sm mt-1">{t('home.play_local_desc')}</div>
-              </button>
+              </div>
             </aside>
           </section>
 

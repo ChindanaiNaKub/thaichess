@@ -14,7 +14,7 @@ test.describe('Homepage', () => {
     await expect(page).toHaveTitle(/ThaiChess/);
 
     const main = page.locator('#main-content');
-    const createPrivateButton = main.getByRole('button', { name: /create a private game/i });
+    const createPrivateButton = main.getByRole('button', { name: /create a private game/i }).first();
 
     await expect(createPrivateButton).toBeVisible();
     await createPrivateButton.click();
