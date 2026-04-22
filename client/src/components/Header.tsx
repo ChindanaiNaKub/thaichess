@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
@@ -10,7 +10,7 @@ import AppearanceSettingsButton from './AppearanceSettingsButton';
 interface HeaderProps {
   active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | null;
   subtitle?: string;
-  right?: React.ReactNode;
+  right?: ReactNode;
 }
 
 export default function Header({ active, subtitle, right }: HeaderProps) {
@@ -19,7 +19,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [puzzleMenuOpen, setPuzzleMenuOpen] = useState(false);
-  const { prefetchGames, prefetchLeaderboard, prefetchAboutStats, prefetchFeedback } = usePrefetchQueries();
+  const { prefetchLeaderboard, prefetchFeedback } = usePrefetchQueries();
 
   const handleNavigate = (path: string) => {
     setMenuOpen(false);
@@ -52,10 +52,10 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
       key={key}
       onClick={() => handleNavigate(path)}
       className={`
-        rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors
+        ui-btn-secondary px-3 py-2 text-left text-sm
         ${active === key
           ? 'border-primary/40 bg-primary/12 text-primary-light'
-          : 'border-surface-hover/60 bg-surface text-text-bright hover:bg-surface-hover'
+          : ''
         }
       `}
     >
@@ -114,8 +114,6 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                   </div>
                 )}
               </div>
-              {navItem('games', routes.games, t('nav.games'), prefetchGames)}
-              {navItem('about', routes.about, t('nav.about'), prefetchAboutStats)}
             </nav>
           )}
 
@@ -123,53 +121,53 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             {right}
           </div>
 
-          {!loading && (
-            user ? (
-              <div className="flex items-center gap-2">
-                {user.role === 'admin' && (
+          <div className="hidden sm:flex items-center gap-2">
+            {!loading && (
+              user ? (
+                <>
+                  {user.role === 'admin' && (
+                    <button
+                      onClick={() => handleNavigate('/feedback')}
+                      onMouseEnter={prefetchFeedback}
+                      className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
+                    >
+                      {t('header.admin')}
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleNavigate('/feedback')}
-                    onMouseEnter={prefetchFeedback}
-                    className="hidden sm:inline h-7 px-2.5 rounded-md border border-surface-hover/60 bg-surface text-text-dim hover:text-text-bright text-xs font-semibold"
+                    onClick={() => handleNavigate('/account')}
+                    className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
                   >
-                    {t('header.admin')}
+                    {user.username || user.email.split('@')[0]}
                   </button>
-                )}
+                </>
+              ) : (
                 <button
-                  onClick={() => handleNavigate('/account')}
-                  className="h-7 px-2.5 rounded-md border border-surface-hover/60 bg-surface text-text-dim hover:text-text-bright text-xs font-semibold"
+                  onClick={() => handleNavigate('/login')}
+                  className="button-primary-contrast h-7 rounded-md px-2.5 text-xs font-semibold tracking-wide"
                 >
-                  {user.username || user.email.split('@')[0]}
+                  {t('header.sign_in')}
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => handleNavigate('/login')}
-                className="button-primary-contrast h-7 px-2.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
-              >
-                {t('header.sign_in')}
-              </button>
-            )
-          )}
+              )
+            )}
 
-          <div className="hidden sm:block">
             <AppearanceSettingsButton compact />
-          </div>
 
-          <button
-            onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
-            className="hidden sm:inline-flex h-7 px-2.5 rounded-md bg-surface hover:bg-surface-hover border border-surface-hover/60 text-text-dim hover:text-text-bright text-xs font-semibold tracking-wide transition-all duration-150 active:scale-95"
-            title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
-          >
-            {t('lang.switch')}
-          </button>
+            <button
+              onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
+              className="ui-btn-secondary inline-flex h-7 px-2.5 text-xs tracking-wide text-text-dim hover:text-text-bright"
+              title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
+            >
+              {t('lang.switch')}
+            </button>
+          </div>
 
           <div className="flex items-center gap-2 sm:hidden">
             {right}
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
-              className="inline-flex h-8 items-center rounded-md border border-surface-hover/60 bg-surface px-2.5 text-xs font-semibold tracking-wide text-text-bright transition-colors hover:bg-surface-hover"
+              className="ui-btn-secondary inline-flex h-8 items-center px-2.5 text-xs tracking-wide"
               aria-expanded={menuOpen}
               aria-controls="mobile-site-menu"
             >
@@ -190,16 +188,21 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles_random'))}
                 {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
                 {mobileNavItem('games', routes.games, t('nav.games'))}
-                {mobileNavItem('about', routes.about, t('nav.about'))}
               </nav>
             )}
 
             <div className="grid gap-3">
+              <button
+                onClick={() => handleNavigate(routes.about)}
+                className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
+              >
+                {t('nav.about')}
+              </button>
               <AppearanceSettingsButton className="w-full justify-center" />
 
               <button
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
                 title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
               >
                 {t('lang.switch')}

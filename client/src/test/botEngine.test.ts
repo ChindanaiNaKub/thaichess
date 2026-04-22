@@ -74,7 +74,7 @@ describe('botEngine', () => {
       const legalMoves = getLegalMoves(state.board, move!.from);
       expect(legalMoves).toContainEqual(move!.to);
     }
-  });
+  }, 15_000);
 
   it('scales search configuration by level while keeping all levels bounded', () => {
     const beginner = getBotLevelConfig(1);

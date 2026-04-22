@@ -158,7 +158,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('Human match when available, bot fallback when it is quiet.')).toBeInTheDocument();
+    expect(screen.getByText('No signup required. Start a ThaiChess game, play with friends, or practice against the bot.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /play now/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
   });
@@ -170,7 +170,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('คู่มือเริ่มต้น')).toBeInTheDocument();
+    expect(screen.getAllByText('คู่มือเริ่มต้น').length).toBeGreaterThan(0);
     expect(screen.getByText('เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง')).toBeInTheDocument();
     expect(screen.getAllByText('หมากรุกไทยคืออะไร').length).toBeGreaterThan(0);
     expect(screen.getAllByText('วิธีเล่นหมากรุกไทย').length).toBeGreaterThan(0);
@@ -178,7 +178,8 @@ describe('HomePage', () => {
   });
 
   function openCreatePanel() {
-    fireEvent.click(screen.getByRole('button', { name: /create a private game/i }));
+    const createButtons = screen.getAllByRole('button', { name: /create a private game/i });
+    fireEvent.click(createButtons[0]!);
   }
 
   it('cleans up create-game socket listeners on unmount', async () => {
