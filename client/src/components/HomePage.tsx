@@ -247,15 +247,15 @@ export default function HomePage() {
       <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_330px]">
-            <div className="rounded-2xl border border-surface-hover/70 bg-surface-alt p-6 sm:p-8 lg:p-10">
+            <div className="ui-card rounded-2xl p-6 sm:p-8 lg:p-10">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
                 {t('nav.play')}
               </p>
 
-              <h1 className="mt-3 max-w-3xl text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-text-bright">
+              <h1 className="ui-title mt-3 max-w-3xl text-3xl sm:text-4xl lg:text-5xl">
                 {t('home.hero_title')}
               </h1>
-              <p className="mt-4 max-w-2xl text-base sm:text-lg text-text-dim leading-7">
+              <p className="ui-body mt-4 max-w-2xl text-base sm:text-lg">
                 {t('home.hero_desc')}
               </p>
 
@@ -283,14 +283,14 @@ export default function HomePage() {
                   </button>
                   <button
                     onClick={openCreatePanel}
-                    className="w-full sm:w-auto rounded-lg border border-surface-hover/80 bg-surface px-6 py-3.5 text-base font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    className="ui-btn-secondary w-full sm:w-auto px-6 py-3.5 text-base"
                   >
                     {t('home.create_private')}
                   </button>
                 </div>
                 <button
                   onClick={() => navigate(routes.leaderboard)}
-                  className="rounded-lg border border-surface-hover/80 bg-surface px-4 py-2.5 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
+                  className="ui-btn-secondary px-4 py-2.5 text-sm text-text-dim hover:text-text-bright"
                 >
                   {t('leaderboard.title')}
                 </button>
@@ -300,7 +300,7 @@ export default function HomePage() {
             </div>
 
             <aside className="grid content-start gap-3">
-              <div className="rounded-xl border border-surface-hover/70 bg-surface-alt p-4 sm:p-5">
+              <div className="ui-card p-4 sm:p-5">
                 <div className="mb-3 flex items-center gap-2.5">
                   <FriendSVG size={22} className="text-text-bright flex-shrink-0" />
                   <h2 className="text-base font-semibold text-text-bright">{t('home.create_private')}</h2>
@@ -411,7 +411,7 @@ export default function HomePage() {
                 onClick={() => navigate(routes.bot)}
                 onMouseEnter={() => void loadBotGameRoute()}
                 onFocus={() => void loadBotGameRoute()}
-                className="rounded-xl border border-surface-hover/80 bg-surface-alt px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/50"
+                className="ui-card px-4 py-3.5 text-left transition-colors hover:bg-surface-hover/50"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -425,13 +425,13 @@ export default function HomePage() {
                 </div>
               </button>
 
-              <div className="rounded-xl border border-surface-hover/80 bg-surface-alt p-4">
+              <div className="ui-card p-4">
                 <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-text-dim">{t('home.learn_eyebrow')}</div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                   <button
                     type="button"
                     onClick={() => navigate(routes.lessons)}
-                    className="flex items-center gap-2 rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    className="ui-btn-secondary flex items-center gap-2 px-3 py-2 text-left text-sm"
                   >
                     <PuzzleSVG size={18} className="text-text-dim" />
                     {t('home.lessons')}
@@ -439,7 +439,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={() => navigate(routes.watch)}
-                    className="flex items-center gap-2 rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    className="ui-btn-secondary flex items-center gap-2 px-3 py-2 text-left text-sm"
                   >
                     <QuickPlaySVG size={18} className="text-text-dim" />
                     {t('home.watch_live')}
@@ -449,7 +449,7 @@ export default function HomePage() {
                     onClick={() => navigate(routes.local)}
                     onMouseEnter={() => void loadLocalGameRoute()}
                     onFocus={() => void loadLocalGameRoute()}
-                    className="rounded-lg border border-surface-hover/70 bg-surface px-3 py-2 text-left text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    className="ui-btn-secondary px-3 py-2 text-left text-sm"
                   >
                     {t('home.play_local')}
                   </button>
@@ -460,7 +460,7 @@ export default function HomePage() {
 
           <div ref={deferredContentRef}>
             {showDeferredContent ? (
-              <Suspense fallback={<section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
+              <Suspense fallback={<section className="deferred-section ui-card rounded-2xl p-5 sm:p-6 min-h-[18rem]"><div className="h-10 w-40 rounded-lg bg-surface" /></section>}>
                 <DeferredLiveGamesPanel
                   games={liveGames}
                   loading={liveGamesLoading}
@@ -475,7 +475,7 @@ export default function HomePage() {
                 />
               </Suspense>
             ) : (
-              <section aria-hidden="true" className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6 min-h-[18rem]">
+              <section aria-hidden="true" className="deferred-section ui-card rounded-2xl p-5 sm:p-6 min-h-[18rem]">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div className="space-y-3">
                     <div className="h-4 w-24 rounded-full bg-surface" />
@@ -488,13 +488,13 @@ export default function HomePage() {
             )}
           </div>
 
-          <section className="deferred-section rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
+          <section className="deferred-section ui-card rounded-2xl p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+                <p className="ui-eyebrow">
                   {t('home.learn_eyebrow')}
                 </p>
-                <h2 className="mt-2 text-2xl font-bold text-text-bright">
+                <h2 className="ui-title mt-2 text-2xl">
                   {t('home.learn_title')}
                 </h2>
               </div>
@@ -508,7 +508,7 @@ export default function HomePage() {
                 <a
                   key={card.href}
                   href={card.href}
-                  className="rounded-2xl border border-surface-hover bg-surface/55 px-4 py-4 transition-colors hover:bg-surface-hover"
+                  className="ui-card-soft rounded-2xl px-4 py-4 transition-colors hover:bg-surface-hover"
                 >
                   <div className="text-lg font-semibold text-text-bright">{card.title}</div>
                   <div className="mt-2 text-sm leading-6 text-text-dim">{card.desc}</div>

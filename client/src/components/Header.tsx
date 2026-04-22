@@ -52,10 +52,10 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
       key={key}
       onClick={() => handleNavigate(path)}
       className={`
-        rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors
+        ui-btn-secondary px-3 py-2 text-left text-sm
         ${active === key
           ? 'border-primary/40 bg-primary/12 text-primary-light'
-          : 'border-surface-hover/60 bg-surface text-text-bright hover:bg-surface-hover'
+          : ''
         }
       `}
     >
@@ -129,14 +129,14 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                     <button
                       onClick={() => handleNavigate('/feedback')}
                       onMouseEnter={prefetchFeedback}
-                      className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2.5 text-xs font-semibold text-text-dim transition-colors hover:text-text-bright"
+                      className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
                     >
                       {t('header.admin')}
                     </button>
                   )}
                   <button
                     onClick={() => handleNavigate('/account')}
-                    className="h-7 rounded-md border border-surface-hover/60 bg-surface px-2.5 text-xs font-semibold text-text-dim transition-colors hover:text-text-bright"
+                    className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
                   >
                     {user.username || user.email.split('@')[0]}
                   </button>
@@ -155,7 +155,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
 
             <button
               onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
-              className="inline-flex h-7 rounded-md border border-surface-hover/60 bg-surface px-2.5 text-xs font-semibold tracking-wide text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
+              className="ui-btn-secondary inline-flex h-7 px-2.5 text-xs tracking-wide text-text-dim hover:text-text-bright"
               title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
             >
               {t('lang.switch')}
@@ -167,7 +167,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
-              className="inline-flex h-8 items-center rounded-md border border-surface-hover/60 bg-surface px-2.5 text-xs font-semibold tracking-wide text-text-bright transition-colors hover:bg-surface-hover"
+              className="ui-btn-secondary inline-flex h-8 items-center px-2.5 text-xs tracking-wide"
               aria-expanded={menuOpen}
               aria-controls="mobile-site-menu"
             >
@@ -194,7 +194,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             <div className="grid gap-3">
               <button
                 onClick={() => handleNavigate(routes.about)}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
               >
                 {t('nav.about')}
               </button>
@@ -202,7 +202,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
 
               <button
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-surface-hover/60 bg-surface px-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
                 title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
               >
                 {t('lang.switch')}

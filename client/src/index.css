@@ -357,6 +357,64 @@
     background: oklch(0.72 0.15 75);
   }
 
+  .ui-card {
+    border: 1px solid color-mix(in oklab, var(--color-surface-hover) 70%, transparent);
+    border-radius: 0.9rem;
+    background: color-mix(in oklab, var(--color-surface-alt) 92%, transparent);
+  }
+
+  .ui-card-soft {
+    border: 1px solid color-mix(in oklab, var(--color-surface-hover) 62%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in oklab, var(--color-surface) 88%, transparent);
+  }
+
+  .ui-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  .ui-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text-bright);
+  }
+
+  .ui-body {
+    color: var(--color-text-dim);
+    line-height: 1.6;
+  }
+
+  .ui-btn-primary {
+    border-radius: 0.6rem;
+    border: 1px solid color-mix(in oklab, var(--color-primary) 35%, transparent);
+    background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+    color: var(--color-primary-light);
+    font-weight: 700;
+    transition: background-color 160ms ease, border-color 160ms ease;
+  }
+
+  .ui-btn-primary:hover {
+    background: color-mix(in oklab, var(--color-primary) 24%, transparent);
+    border-color: color-mix(in oklab, var(--color-primary) 42%, transparent);
+  }
+
+  .ui-btn-secondary {
+    border-radius: 0.6rem;
+    border: 1px solid color-mix(in oklab, var(--color-surface-hover) 78%, transparent);
+    background: var(--color-surface);
+    color: var(--color-text-bright);
+    font-weight: 600;
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .ui-btn-secondary:hover {
+    background: var(--color-surface-hover);
+  }
+
   .deferred-section {
     content-visibility: auto;
     contain-intrinsic-size: 720px;
