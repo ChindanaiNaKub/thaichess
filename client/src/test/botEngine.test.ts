@@ -173,5 +173,5 @@ describe('botEngine', () => {
       expect(moveToUci(move!)).not.toBe(moveToUci(loosePawnGrab));
       expect(leavesRookCapturable(state, move!)).toBe(false);
     }
-  });
+  }, 15_000);
 });

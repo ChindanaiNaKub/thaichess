@@ -50,8 +50,8 @@ describe('AppearanceSettingsPage', () => {
     renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /dark wood/i }));
-    fireEvent.click(screen.getByRole('button', { name: /piece colors/i }));
-    fireEvent.click(screen.getByRole('button', { name: /jade & bone/i }));
+    fireEvent.click(screen.getByRole('button', { name: /piece styles/i }));
+    fireEvent.click(screen.getByRole('button', { name: /papercut storybook/i }));
 
     await waitFor(() => {
       expect(localStorage.getItem('thaichess-board-theme')).toBe('dark-wood');
@@ -59,6 +59,6 @@ describe('AppearanceSettingsPage', () => {
     }, { timeout: 10000 });
 
     expect(screen.getAllByText('Dark Wood').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Jade & Bone').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Papercut Storybook').length).toBeGreaterThan(0);
   }, 10000);
 });
