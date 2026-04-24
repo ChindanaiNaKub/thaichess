@@ -308,9 +308,9 @@ function getCoordinateColor(base: string, grid: string) {
 }
 
 function getPieceVisibility(base: string) {
-  return PIECE_THEMES.reduce((report, theme) => {
+  return PIECE_THEMES.filter(theme => theme.colors).reduce((report, theme) => {
     const weakestForTheme = (['white', 'black'] as const).reduce((themeWeakest, side) => {
-      const palette = theme.colors[side];
+      const palette = theme.colors![side];
       const bodyContrast = Math.max(
         contrastRatio(palette.fillTop, base),
         contrastRatio(palette.fillBase, base),

@@ -119,8 +119,26 @@ const PieceSVG = memo(function PieceSVG({ type, color, size, className, pieceThe
   const { pieceThemeId: activeThemeFromContext } = useBoardAppearance();
   const activePieceTheme = pieceThemeId ?? activeThemeFromContext;
   const pieceTheme = getPieceThemeById(activePieceTheme);
+
+  if (pieceTheme.rendering === 'sprite' && pieceTheme.sprites) {
+    const spriteSrc = pieceTheme.sprites[color][type];
+
+    return (
+      <img
+        src={spriteSrc}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        {...(className
+          ? { className }
+          : { width: size ?? 80, height: size ?? 80 }
+        )}
+      />
+    );
+  }
+
   const traditionalId = useId().replace(/[:]/g, '');
-  const traditionalAsset = renderTraditional(type, traditionalId, pieceTheme.colors[color]);
+  const traditionalAsset = renderTraditional(type, traditionalId, pieceTheme.colors![color]);
   const content = traditionalAsset.content;
 
   return (

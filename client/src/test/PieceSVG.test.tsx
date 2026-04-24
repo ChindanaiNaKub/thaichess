@@ -120,14 +120,27 @@ describe('PieceSVG', () => {
     }
   });
 
-  it('renders alternative readable color themes on the same Makruk silhouette', () => {
+  it('renders non-default theme ids as distinct sprite-backed image assets', () => {
     pieceStyleState.pieceThemeId = 'gold-ebony';
 
     const { container } = render(<PieceSVG type="K" color="white" />);
 
-    expect(container.querySelector('linearGradient')).toBeInTheDocument();
-    expect(container.querySelector('filter')).toBeInTheDocument();
-    expect(container.querySelector('path, circle')).toBeInTheDocument();
-    expect(container.innerHTML.toLowerCase()).toContain('#f1d9a5');
+    const image = container.querySelector('img');
+    expect(image).toBeInTheDocument();
+    expect(image?.getAttribute('src')).toContain('Khun_white');
+    expect(container.querySelector('svg')).not.toBeInTheDocument();
+    expect(container.querySelector('linearGradient')).not.toBeInTheDocument();
+  });
+
+  it('renders sprite-backed Makruk themes as image assets', () => {
+    pieceStyleState.pieceThemeId = 'temple-lacquer';
+
+    const { container } = render(<PieceSVG type="K" color="white" />);
+
+    const image = container.querySelector('img');
+    expect(image).toBeInTheDocument();
+    expect(image?.getAttribute('src')).toContain('Khun_white');
+    expect(container.querySelector('svg')).not.toBeInTheDocument();
+    expect(container.querySelector('linearGradient')).not.toBeInTheDocument();
   });
 });
