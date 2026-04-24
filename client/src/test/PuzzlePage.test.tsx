@@ -42,6 +42,8 @@ const {
       sourcePly: 23,
       sourceLicense: 'CC BY-SA',
       sourceGameUrl: 'https://example.com/games/abc123',
+      sourceAuthor: 'Sawat Ruensit',
+      sourcePermissionStatus: 'permission-granted' as const,
       theme: 'MateIn1' as const,
       motif: 'Mate preparation',
       tags: ['mate-preparation', 'quiet-but-forcing', 'real-game'],
@@ -517,6 +519,18 @@ vi.mock('../lib/i18n', () => ({
           return 'Takeaway';
         case 'puzzle.source_evidence_label':
           return 'Source evidence';
+        case 'puzzle.credit_label':
+          return 'Credit';
+        case 'puzzle.source_posted_by':
+          return `Posted by ${params?.author}`;
+        case 'puzzle.source_permission_position_only':
+          return 'Position only';
+        case 'puzzle.source_permission_granted':
+          return 'Permission granted';
+        case 'puzzle.source_permission_requested':
+          return 'Permission requested';
+        case 'puzzle.source_permission_unknown':
+          return 'Permission unknown';
         case 'puzzle.position_label':
           return 'Position';
         case 'puzzle.try_this_instead_label':
@@ -713,6 +727,10 @@ describe('Puzzle surfaces', () => {
 
     expect(screen.getByText('Checking Rua')).toBeInTheDocument();
     expect(screen.getByText('Mate preparation')).toBeInTheDocument();
+    expect(screen.getByText('Credit: Real game · ply 23')).toBeInTheDocument();
+    expect(screen.getByText('Posted by Sawat Ruensit')).toBeInTheDocument();
+    expect(screen.getByText('Permission granted')).toBeInTheDocument();
+    expect(screen.getByText('CC BY-SA')).toBeInTheDocument();
     expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
     expect(screen.queryByText('Coach note')).not.toBeInTheDocument();
     expect(screen.queryByText('Task')).not.toBeInTheDocument();

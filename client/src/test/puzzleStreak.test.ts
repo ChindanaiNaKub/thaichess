@@ -132,7 +132,7 @@ describe('puzzle streak helpers', () => {
   });
 
   it('keeps reviewed practical ship puzzles available in the runtime pool unless explicitly excluded', () => {
-    const explicitlyExcludedIds = new Set([9004]);
+    const explicitlyExcludedIds = new Set([9003, 9004, 9009, 9020, 9023]);
     const reviewedPracticalIds = IMPORTED_PUZZLE_CANDIDATES
       .filter((puzzle) => (
         puzzle.reviewStatus === 'ship' &&

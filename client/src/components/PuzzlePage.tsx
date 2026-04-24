@@ -92,6 +92,51 @@ function getPuzzleSourceLabel(
   return source;
 }
 
+function getPuzzleCreditText(
+  puzzle: Pick<Puzzle, 'source' | 'sourceLicense'>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  return `${t('puzzle.credit_label')}: ${getPuzzleSourceLabel(puzzle.source, t)}`;
+}
+
+function getPuzzleSourcePermissionLabel(
+  status: Puzzle['sourcePermissionStatus'],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  switch (status) {
+    case 'position-only':
+      return t('puzzle.source_permission_position_only');
+    case 'permission-requested':
+      return t('puzzle.source_permission_requested');
+    case 'permission-granted':
+      return t('puzzle.source_permission_granted');
+    case 'unknown':
+    default:
+      return t('puzzle.source_permission_unknown');
+  }
+}
+
+function getPuzzleSourceBadges(
+  puzzle: Pick<Puzzle, 'source' | 'sourceLicense' | 'sourceAuthor' | 'sourcePermissionStatus'>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string[] {
+  const badges = [getPuzzleCreditText(puzzle, t)];
+
+  if (puzzle.sourceAuthor) {
+    badges.push(t('puzzle.source_posted_by', { author: puzzle.sourceAuthor }));
+  }
+
+  if (puzzle.sourcePermissionStatus !== 'unknown') {
+    badges.push(getPuzzleSourcePermissionLabel(puzzle.sourcePermissionStatus, t));
+  }
+
+  if (puzzle.sourceLicense) {
+    badges.push(puzzle.sourceLicense);
+  }
+
+  return badges;
+}
+
 function formatActivityDate(timestamp: number, lang: string): string {
   return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
     month: 'short',
@@ -647,7 +692,7 @@ function PuzzleStreakPage() {
   const [milestoneTone, setMilestoneTone] = useState<StreakMilestoneTone>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStreakPulsing, setIsStreakPulsing] = useState(false);
-  const [hintUsed, setHintUsed] = useState(false);
+  const [_hintUsed, setHintUsed] = useState(false);
   const [hintStage, setHintStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
 
@@ -1212,6 +1257,16 @@ function PuzzleStreakPage() {
                     </div>
                   )}
 
+                  {currentPuzzle && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-text-dim">
+                      {getPuzzleSourceBadges(currentPuzzle, t).map(badge => (
+                        <span key={badge} className="rounded-full border border-surface-hover/80 bg-surface/65 px-2.5 py-1">
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {status === 'playing' && currentPuzzle && (
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <button
@@ -1701,14 +1756,11 @@ function PuzzlePlayer() {
               body={puzzle.ruleImpact}
             >
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                  {getPuzzleSourceLabel(puzzle.source, t)}
-                </span>
-                {puzzle.sourceLicense && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {puzzle.sourceLicense}
+                {getPuzzleSourceBadges(puzzle, t).map(badge => (
+                  <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                    {badge}
                   </span>
-                )}
+                ))}
                 {verificationLabel && (
                   <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
                     {verificationLabel}

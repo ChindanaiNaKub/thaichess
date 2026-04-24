@@ -88,6 +88,7 @@ export const PuzzlePositionAuthoritySchema = z.enum(['explicit_piece_list', 'rep
 export const PuzzleSolutionAuthoritySchema = z.enum(['engine_confirmed', 'authoritative_line']);
 export const PuzzleProgressionStageSchema = z.enum(['early', 'mid', 'late']);
 export const PuzzlePoolSchema = z.enum(['standard', 'advanced_only']);
+export const PuzzleSourcePermissionStatusSchema = z.enum(['unknown', 'position-only', 'permission-requested', 'permission-granted']);
 
 export const PuzzlePiecePlacementSchema = z.object({
   square: z.string().regex(/^[a-h][1-8]$/),
@@ -115,6 +116,8 @@ export const PuzzleSchema = z.object({
   sourcePly: z.number().int().nullable(),
   sourceLicense: z.string().nullable(),
   sourceGameUrl: z.string().nullable(),
+  sourceAuthor: z.string().nullable(),
+  sourcePermissionStatus: PuzzleSourcePermissionStatusSchema,
   theme: z.string(),
   motif: z.string(),
   tags: z.array(z.string()),
