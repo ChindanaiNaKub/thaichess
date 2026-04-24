@@ -30,6 +30,7 @@ import PieceSVG from './PieceSVG';
 import Header from './Header';
 import type { WorkerResponse } from '../workers/analysisWorker';
 import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
+import { useAuth } from '../lib/auth';
 
 type AnalysisMode = 'game' | 'editor';
 type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
@@ -45,6 +46,7 @@ export default function AnalysisPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const reviewT = useReviewCopy();
+  const { user, loading: authLoading } = useAuth();
 
   // TanStack Query for fetching game data from API
   const {
@@ -210,6 +212,19 @@ export default function AnalysisPage() {
   // Run analysis when game data is loaded
   useEffect(() => {
     if (mode !== 'game' || !gameData || analysis) return;
+    if (authLoading) return;
+
+    if (!user) {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      analysisRunKeyRef.current = null;
+      setAnalyzing(false);
+      setGameAnalysisError(t('analysis.sign_in_required'));
+      setProgress(null);
+      setAnalysisStartedAt(null);
+      setAnalysisElapsedMs(0);
+      return;
+    }
 
     const cacheKey = getAnalysisCacheKey(gameData, REVIEW_MOVETIME_MS);
 
@@ -272,7 +287,7 @@ export default function AnalysisPage() {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [analysis, gameData, mode, t]);
+  }, [analysis, authLoading, gameData, mode, t, user]);
 
   useEffect(() => {
     if (!analyzing || analysisStartedAt === null) {
@@ -421,9 +436,12 @@ export default function AnalysisPage() {
     analyzing: currentPositionAnalyzing,
     error: currentPositionError,
   } = useReviewEngineAnalysis({
-    enabled: mode === 'game' && Boolean(gameData),
+    enabled: mode === 'game' && Boolean(gameData) && Boolean(user) && !authLoading,
     snapshot: currentReviewSnapshot,
   });
+  const currentEngineError = !authLoading && !user
+    ? t('analysis.sign_in_required')
+    : currentPositionError;
 
   const editorSnapshot = useMemo<AnalysisPositionSnapshot>(() => ({
     board: editorBoard,
@@ -432,6 +450,12 @@ export default function AnalysisPage() {
   }), [editorBoard, editorTurn]);
 
   const handleAnalyzeEditorPosition = useCallback(async () => {
+    if (authLoading) return;
+    if (!user) {
+      setError(t('analysis.sign_in_required'));
+      return;
+    }
+
     setPositionAnalyzing(true);
     setError(null);
 
@@ -446,7 +470,7 @@ export default function AnalysisPage() {
     } finally {
       setPositionAnalyzing(false);
     }
-  }, [editorSnapshot, t]);
+  }, [authLoading, editorSnapshot, t, user]);
 
   const handleEditorSquareClick = useCallback((pos: Position) => {
     setEditorBoard(prev => {
@@ -712,10 +736,14 @@ export default function AnalysisPage() {
                   </button>
                   <button
                     onClick={handleAnalyzeEditorPosition}
-                    disabled={positionAnalyzing}
+                    disabled={positionAnalyzing || authLoading || !user}
                     className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
-                    {positionAnalyzing ? t('analysis.editor.analyzing_position') : t('analysis.editor.analyze_position')}
+                    {!user && !authLoading
+                      ? t('analysis.editor.sign_in_to_analyze')
+                      : positionAnalyzing
+                        ? t('analysis.editor.analyzing_position')
+                        : t('analysis.editor.analyze_position')}
                   </button>
                 </div>
               </div>
@@ -1092,7 +1120,7 @@ export default function AnalysisPage() {
                 bestMoveText={currentBestMoveText}
                 principalVariation={currentPositionAnalysis?.principalVariation ?? []}
                 analyzing={currentPositionAnalyzing}
-                error={currentPositionError || gameAnalysisError}
+                error={currentEngineError || gameAnalysisError}
                 reviewMode={review.mode}
                 currentAnalyzedMove={currentAnalyzedMove}
                 reviewIsProvisional={reviewIsProvisional}
@@ -1364,7 +1392,7 @@ function CompactEnginePanel({
         <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
           <div className="text-[11px] text-text-dim">{t('analysis.editor.best_move')}</div>
           <div className="font-mono font-semibold text-text-bright truncate">
-            {analyzing ? reviewT('review.engine_loading') : error ? reviewT('review.engine_error') : bestMoveText}
+            {analyzing ? reviewT('review.engine_loading') : error || bestMoveText}
           </div>
         </div>
       </div>

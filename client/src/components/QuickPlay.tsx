@@ -180,7 +180,7 @@ export default function QuickPlay() {
 
       <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
         {searching ? (
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 w-full max-w-md text-center animate-slideUp">
+          <div className="ui-card w-full max-w-md p-6 text-center animate-slideUp sm:p-8">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />
             <h2 className="text-2xl font-bold text-text-bright mb-2">{t('quick.searching')}</h2>
             <p className="text-text-dim mb-1">
@@ -207,7 +207,7 @@ export default function QuickPlay() {
                   </button>
                   <button
                     onClick={() => setFallbackDismissed(true)}
-                    className="rounded-lg border border-surface-hover bg-surface px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    className="ui-btn-secondary px-4 py-2 text-sm"
                   >
                     {t('quick.keep_searching')}
                   </button>
@@ -217,14 +217,14 @@ export default function QuickPlay() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleCancel}
-                className="flex-1 py-3 px-6 bg-surface-hover hover:bg-danger/20 text-text-bright hover:text-danger font-semibold rounded-lg transition-colors border border-surface-hover"
+                className="ui-btn-secondary flex-1 px-6 py-3 hover:bg-danger/20 hover:text-danger"
               >
                 {t('common.cancel')}
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-surface-alt border border-surface-hover rounded-xl p-5 sm:p-6 w-full max-w-lg animate-slideUp">
+          <div className="ui-card w-full max-w-lg p-5 animate-slideUp sm:p-6">
             <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">{t('quick.title')}</h2>
             <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
             <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
@@ -286,7 +286,7 @@ export default function QuickPlay() {
 
             <button
               onClick={() => navigate(routes.home)}
-              className="w-full mt-3 py-2 px-6 bg-surface hover:bg-surface-hover text-text border border-surface-hover font-medium rounded-lg transition-colors"
+              className="ui-btn-secondary mt-3 w-full px-6 py-2"
             >
               {t('common.back_home')}
             </button>

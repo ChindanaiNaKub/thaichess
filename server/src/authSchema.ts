@@ -8,6 +8,7 @@ export const users = sqliteTable('users', {
   twoFactorEnabled: integer('twoFactorEnabled', { mode: 'boolean' }).notNull(),
   image: text('image'),
   username: text('username'),
+  username_updated_at: integer('username_updated_at', { mode: 'timestamp' }),
   role: text('role').notNull(),
   fair_play_status: text('fair_play_status').notNull(),
   rated_restricted_at: integer('rated_restricted_at', { mode: 'timestamp' }),

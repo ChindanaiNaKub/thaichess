@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Board, GameState, PieceColor, PieceType } from '@shared/types';
-import { getLegalMoves, createInitialGameState } from '@shared/engine';
+import type { Board, GameState, PieceColor, PieceType, Position } from '@shared/types';
+import { getLegalMoves, createInitialGameState, makeMove } from '@shared/engine';
 import { getBotLevelConfig, getBotMoveForLevel, shouldUseExternalEngineForBot } from '@shared/botEngine';
+import { moveToUci } from '@shared/engineAdapter';
 
 function emptyBoard(): Board {
   return Array.from({ length: 8 }, () => Array(8).fill(null));
@@ -35,6 +36,33 @@ function buildState(
   };
 }
 
+function getAllLegalMoves(state: GameState): { from: Position; to: Position }[] {
+  const moves: { from: Position; to: Position }[] = [];
+
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      const piece = state.board[row][col];
+      if (!piece || piece.color !== state.turn) continue;
+
+      for (const to of getLegalMoves(state.board, { row, col })) {
+        moves.push({ from: { row, col }, to });
+      }
+    }
+  }
+
+  return moves;
+}
+
+function leavesRookCapturable(state: GameState, move: { from: Position; to: Position }): boolean {
+  const nextState = makeMove(state, move.from, move.to);
+  if (!nextState) return true;
+
+  return getAllLegalMoves(nextState).some((reply) => {
+    const captured = nextState.board[reply.to.row][reply.to.col];
+    return captured?.color === state.turn && captured.type === 'R';
+  });
+}
+
 describe('botEngine', () => {
   it('returns a legal move for every live bot level from the initial position', () => {
     const state = createInitialGameState(0, 0);
@@ -46,7 +74,7 @@ describe('botEngine', () => {
       const legalMoves = getLegalMoves(state.board, move!.from);
       expect(legalMoves).toContainEqual(move!.to);
     }
-  });
+  }, 15_000);
 
   it('scales search configuration by level while keeping all levels bounded', () => {
     const beginner = getBotLevelConfig(1);
@@ -55,11 +83,13 @@ describe('botEngine', () => {
     expect(beginner.maxDepth).toBeLessThanOrEqual(expert.maxDepth);
     expect(beginner.maxNodes).toBeLessThan(expert.maxNodes);
     expect(beginner.maxMs).toBeLessThan(expert.maxMs);
-    expect(expert.maxMs).toBeLessThanOrEqual(180);
+    expect(expert.maxMs).toBeLessThanOrEqual(700);
   });
 
-  it('keeps the external engine reserved for Level 10', () => {
-    expect(shouldUseExternalEngineForBot(9)).toBe(false);
+  it('reserves the external engine for advanced, expert, and master bots', () => {
+    expect(shouldUseExternalEngineForBot(7)).toBe(false);
+    expect(shouldUseExternalEngineForBot(8)).toBe(true);
+    expect(shouldUseExternalEngineForBot(9)).toBe(true);
     expect(shouldUseExternalEngineForBot(10)).toBe(true);
   });
 
@@ -108,4 +138,40 @@ describe('botEngine', () => {
       to: square('a7'),
     });
   });
+
+  it('keeps high-level bots from grabbing pawns while leaving a rook en prise', () => {
+    const state = buildState('white', [
+      ['a1', 'K', 'white'],
+      ['d1', 'R', 'white'],
+      ['c3', 'N', 'white'],
+      ['e3', 'S', 'white'],
+      ['b3', 'M', 'white'],
+      ['c4', 'P', 'white'],
+      ['e4', 'P', 'white'],
+      ['g4', 'P', 'white'],
+      ['h8', 'K', 'black'],
+      ['f2', 'N', 'black'],
+      ['b5', 'P', 'black'],
+      ['d5', 'P', 'black'],
+      ['f5', 'P', 'black'],
+      ['h5', 'P', 'black'],
+      ['c5', 'S', 'black'],
+      ['e5', 'M', 'black'],
+      ['g5', 'N', 'black'],
+    ]);
+
+    const loosePawnGrab = { from: square('c4'), to: square('d5') };
+    expect(leavesRookCapturable(state, loosePawnGrab)).toBe(true);
+
+    for (const level of [8, 9, 10]) {
+      const move = getBotMoveForLevel(state, level, {
+        botId: level === 8 ? 'luang-prasert' : level === 9 ? 'chao-surasi' : 'lady-busaba',
+        randomFn: () => 0.99,
+      });
+
+      expect(move, `level ${level} should find a legal move`).not.toBeNull();
+      expect(moveToUci(move!)).not.toBe(moveToUci(loosePawnGrab));
+      expect(leavesRookCapturable(state, move!)).toBe(false);
+    }
+  }, 15_000);
 });

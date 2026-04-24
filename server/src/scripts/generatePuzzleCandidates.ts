@@ -178,10 +178,10 @@ function compareCandidates(
 ): number {
   return (
     right.score - left.score ||
-    left.draft.theme.localeCompare(right.draft.theme) ||
-    left.sourceId.localeCompare(right.sourceId) ||
-    left.windowStart - right.windowStart ||
-    left.draft.id - right.draft.id
+    (left.draft?.theme ?? '').localeCompare(right.draft?.theme ?? '') ||
+    (left.sourceId ?? '').localeCompare(right.sourceId ?? '') ||
+    (left.windowStart ?? 0) - (right.windowStart ?? 0) ||
+    (left.draft?.id ?? 0) - (right.draft?.id ?? 0)
   );
 }
 

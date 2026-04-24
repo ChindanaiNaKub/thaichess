@@ -162,19 +162,19 @@ export const AnalyzeGameSchema = z.object({
     .regex(/^[A-Za-z0-9:_-]+$/, 'Invalid analysis ID format')
     .optional()
     .nullable(),
-  moves: z.array(z.any()).min(1, 'Moves are required'),
-  depth: z.number().int().min(1).max(30).optional(),
-  movetimeMs: z.number().int().min(100).max(30000).optional(),
+  moves: z.array(z.any()).min(1, 'Moves are required').max(240, 'Too many moves for one review'),
+  depth: z.number().int().min(1).max(8).optional(),
+  movetimeMs: z.number().int().min(100).max(1500).optional(),
 });
 export type AnalyzeGamePayload = z.infer<typeof AnalyzeGameSchema>;
 
 export const AnalyzePositionSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   counting: z.string().optional().nullable(),
-  depth: z.number().int().min(1).max(30).optional(),
-  movetimeMs: z.number().int().min(100).max(30000).optional(),
-  nodes: z.number().int().min(1000).max(10000000).optional(),
-  multipv: z.number().int().min(1).max(5).optional().default(1),
+  depth: z.number().int().min(1).max(8).optional(),
+  movetimeMs: z.number().int().min(100).max(1500).optional(),
+  nodes: z.number().int().min(1000).max(300000).optional(),
+  multipv: z.number().int().min(1).max(3).optional().default(1),
 });
 export type AnalyzePositionPayload = z.infer<typeof AnalyzePositionSchema>;
 

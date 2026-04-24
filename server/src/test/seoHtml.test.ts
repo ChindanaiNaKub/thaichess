@@ -32,6 +32,15 @@ describe('renderSeoHtml', () => {
     expect(html).toContain('application/ld+json');
   });
 
+  it('renders trailing-slash guide requests with canonical guide metadata', () => {
+    const html = renderSeoHtml(template, '/how-to-play-makruk/', 'https://thaichess.dev');
+
+    expect(html).toContain('<link rel="canonical" href="https://thaichess.dev/how-to-play-makruk" />');
+    expect(html).toContain('วิธีเล่นหมากรุกไทย');
+    expect(html).toContain('"@type":"HowTo"');
+    expect(html).toContain('<div id="root"><main data-seo-snapshot="true">');
+  });
+
   it('does not inject a snapshot for noindex routes', () => {
     const html = renderSeoHtml(template, '/login', 'https://thaichess.dev');
 

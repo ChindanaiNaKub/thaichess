@@ -10,6 +10,7 @@ export interface AuthUser {
   twoFactorEnabled: boolean;
   image?: string | null;
   username: string | null;
+  username_updated_at?: number | null;
   role: 'user' | 'admin';
   fair_play_status: 'clear' | 'restricted';
   rated_restricted_at: number | null;
@@ -27,6 +28,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
+  authError: 'session_check_failed' | null;
   refreshUser: () => Promise<void>;
   requestCode: (email: string) => Promise<{ ok: true }>;
   verifyCode: (email: string, code: string) => Promise<{ ok: true; twoFactorRedirect: boolean }>;
@@ -39,10 +41,33 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const AUTH_CACHE_KEY = 'thaichess-auth-user';
 
+export interface ApiError extends Error {
+  status?: number;
+  code?: string;
+  nextAllowedAt?: number;
+  retryAfterSeconds?: number;
+}
+
 async function readJsonOrThrow(response: Response) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(typeof data.error === 'string' ? data.error : 'Request failed.');
+    const message = typeof data.error === 'string'
+      ? data.error
+      : response.status >= 500
+        ? 'The server is having trouble. Please try again in a moment.'
+        : 'Request failed.';
+    const error = new Error(message) as ApiError;
+    error.status = response.status;
+    if (typeof data.code === 'string') {
+      error.code = data.code;
+    }
+    if (typeof data.nextAllowedAt === 'number') {
+      error.nextAllowedAt = data.nextAllowedAt;
+    }
+    if (typeof data.retryAfterSeconds === 'number') {
+      error.retryAfterSeconds = data.retryAfterSeconds;
+    }
+    throw error;
   }
   return data;
 }
@@ -82,25 +107,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deferInitialRefresh = !initialUser && shouldDeferInitialAuthRefresh();
   const [user, setUser] = useState<AuthUser | null>(initialUser);
   const [loading, setLoading] = useState(!initialUser && !deferInitialRefresh);
+  const [authError, setAuthError] = useState<AuthContextValue['authError']>(null);
 
   async function refreshUser() {
-    const response = await fetch('/api/auth/me', {
-      cache: 'no-store',
-    });
-    const data = await readJsonOrThrow(response);
-    const nextUser = data.user ?? null;
-    setUser(nextUser);
-    writeCachedUser(nextUser);
+    try {
+      const response = await fetch('/api/auth/me', {
+        cache: 'no-store',
+      });
+      const data = await readJsonOrThrow(response);
+      const nextUser = data.user ?? null;
+      setUser(nextUser);
+      writeCachedUser(nextUser);
+      setAuthError(null);
+    } catch (error) {
+      setAuthError('session_check_failed');
+      throw error;
+    }
   }
 
   useEffect(() => {
     if (deferInitialRefresh) {
       return scheduleOnUserIntent(() => {
         refreshUser()
-          .catch(() => {
-            setUser(null);
-            writeCachedUser(null);
-          })
+          .catch(() => void 0)
           .finally(() => setLoading(false));
       }, {
         timeoutMs: 12_000,
@@ -109,10 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     refreshUser()
-      .catch(() => {
-        setUser(null);
-        writeCachedUser(null);
-      })
+      .catch(() => void 0)
       .finally(() => setLoading(false));
   }, [deferInitialRefresh]);
 
@@ -180,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authClient.signOut();
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
+    setAuthError(null);
     writeCachedUser(null);
   }
 
@@ -197,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, refreshUser, requestCode, verifyCode, signInWithGoogle, signInWithFacebook, logout, updateProfile }}
+      value={{ user, loading, authError, refreshUser, requestCode, verifyCode, signInWithGoogle, signInWithFacebook, logout, updateProfile }}
     >
       {children}
     </AuthContext.Provider>

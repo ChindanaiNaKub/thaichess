@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, Fragment } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BOT_PERSONAS, DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById } from '@shared/botPersonas';
 import { getBotPublicStrengthLabel } from '@shared/botEngine';
@@ -85,7 +85,9 @@ function getBotTranslation(t: (key: string) => string, botId: string, field: str
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
-const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 5500;
+const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 5000;
+const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 8000;
+const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 15000;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
@@ -98,8 +100,11 @@ function createBotGameId() {
     ?? `bot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function getBotRequestTimeoutMs(level: number): number {
-  return level >= 10 ? LEVEL10_BOT_REQUEST_TIMEOUT_MS : DEFAULT_BOT_REQUEST_TIMEOUT_MS;
+export function getBotRequestTimeoutMs(level: number): number {
+  if (level >= 10) return LEVEL10_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 9) return LEVEL9_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 8) return LEVEL8_BOT_REQUEST_TIMEOUT_MS;
+  return DEFAULT_BOT_REQUEST_TIMEOUT_MS;
 }
 
 function buildNoMoveGameOverState(state: GameState): GameState | null {
@@ -152,6 +157,7 @@ export default function BotGame() {
   const botChatFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botThinkingLineTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestIdRef = useRef(0);
+  const failedBotMoveKeyRef = useRef<string | null>(null);
   const gameStateRef = useRef(gameState);
   const previousGameStateRef = useRef(gameState);
   const moveCountRef = useRef(gameState.moveHistory.length);
@@ -355,6 +361,9 @@ export default function BotGame() {
   useEffect(() => {
     if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
 
+    const botMoveKey = `${gameState.turn}:${gameState.moveHistory.length}`;
+    if (failedBotMoveKeyRef.current === botMoveKey) return;
+
     if (gameState.counting && !gameState.counting.active && gameState.counting.countingColor === botColor) {
       const countedState = startCounting(gameState);
       if (countedState) {
@@ -387,7 +396,7 @@ export default function BotGame() {
         });
         botMove = result.move;
       } catch {
-        botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id);
+        botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id).catch(() => null);
       } finally {
         if (botRequestTimeoutRef.current) {
           clearTimeout(botRequestTimeoutRef.current);
@@ -413,7 +422,7 @@ export default function BotGame() {
       let newState = botMove ? makeMove(currentState, botMove.from, botMove.to) : null;
 
       if (!newState) {
-        const fallbackMove = await requestLocalBotMove(currentState, botLevel, selectedBot.id);
+        const fallbackMove = await requestLocalBotMove(currentState, botLevel, selectedBot.id).catch(() => null);
         if (fallbackMove) {
           botMove = fallbackMove;
           newState = makeMove(currentState, fallbackMove.from, fallbackMove.to);
@@ -421,6 +430,7 @@ export default function BotGame() {
       }
 
       if (newState) {
+        failedBotMoveKeyRef.current = null;
         setGameState(newState);
         setArrows([]);
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
@@ -444,6 +454,9 @@ export default function BotGame() {
           });
           setPremove(null);
           playGameOverSound();
+        } else {
+          failedBotMoveKeyRef.current = botMoveKey;
+          showToast(t('bot.engine_unavailable'), 'error');
         }
       }
 
@@ -466,6 +479,8 @@ export default function BotGame() {
     gameState.turn,
     isPlayerTurn,
     selectedBot.id,
+    showToast,
+    t,
   ]);
 
   // Auto-execute premove when it becomes player's turn
@@ -544,6 +559,8 @@ export default function BotGame() {
     playerDisplayName,
     selectedBot.id,
     saveBotGameMutation,
+    showToast,
+    t,
   ]);
 
   useEffect(() => {
@@ -786,6 +803,7 @@ export default function BotGame() {
     setBotThinking(false);
     setGameStarted(true);
     setCurrentGameId(createBotGameId());
+    failedBotMoveKeyRef.current = null;
     persistedGameIdRef.current = null;
     setArrows([]);
     setViewMoveIndex(null);
@@ -819,6 +837,7 @@ export default function BotGame() {
     setShowGameOverModal(false);
     setBotThinking(false);
     setCurrentGameId(null);
+    failedBotMoveKeyRef.current = null;
     persistedGameIdRef.current = null;
     setArrows([]);
     setViewMoveIndex(null);
@@ -896,9 +915,6 @@ export default function BotGame() {
   const isViewingHistory = reviewActive
     ? reviewIsViewingHistory
     : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
-  const sideChoiceLabel = sideChoice === 'random'
-    ? t('bot.random')
-    : t(sideChoice === 'white' ? 'common.white' : 'common.black');
   const difficultyLabel = getBotPublicStrengthLabel(selectedBot.engine.level);
   const levelLabel = t('bot.level_short', { level: botLevel });
   const estimatedEloLabel = t('bot.estimated_elo_range', { range: formatBotEstimatedEloRange(botLevel) });

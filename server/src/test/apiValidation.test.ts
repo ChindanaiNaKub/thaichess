@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AnalyzeGameSchema,
+  AnalyzePositionSchema,
   ReportFairPlaySchema,
   SaveBotGameSchema,
   SaveLocalGameSchema,
@@ -64,5 +66,26 @@ describe('API validation schemas', () => {
       },
       playerName: 'Anonymous',
     }).success).toBe(true);
+  });
+
+  it('caps analysis requests to protect engine resources', () => {
+    expect(AnalyzeGameSchema.safeParse({
+      moves: Array.from({ length: 241 }, () => ({})),
+    }).success).toBe(false);
+
+    expect(AnalyzeGameSchema.safeParse({
+      moves: [{}],
+      movetimeMs: 30_000,
+    }).success).toBe(false);
+
+    expect(AnalyzePositionSchema.safeParse({
+      position: '8/8/8/8/8/8/8/8 w - - 0 1',
+      movetimeMs: 30_000,
+    }).success).toBe(false);
+
+    expect(AnalyzePositionSchema.safeParse({
+      position: '8/8/8/8/8/8/8/8 w - - 0 1',
+      multipv: 5,
+    }).success).toBe(false);
   });
 });

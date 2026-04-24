@@ -158,7 +158,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('Human match when available, bot fallback when it is quiet.')).toBeInTheDocument();
+    expect(screen.getByText('No signup required. Start a ThaiChess game, play with friends, or practice against the bot.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /play now/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
   });
@@ -170,7 +170,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('คู่มือเริ่มต้น')).toBeInTheDocument();
+    expect(screen.getAllByText('คู่มือเริ่มต้น').length).toBeGreaterThan(0);
     expect(screen.getByText('เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง')).toBeInTheDocument();
     expect(screen.getAllByText('หมากรุกไทยคืออะไร').length).toBeGreaterThan(0);
     expect(screen.getAllByText('วิธีเล่นหมากรุกไทย').length).toBeGreaterThan(0);
@@ -178,7 +178,8 @@ describe('HomePage', () => {
   });
 
   function openCreatePanel() {
-    fireEvent.click(screen.getByRole('button', { name: /create a private game/i }));
+    const createButtons = screen.getAllByRole('button', { name: /create a private game/i });
+    fireEvent.click(createButtons[0]!);
   }
 
   it('cleans up create-game socket listeners on unmount', async () => {
@@ -342,7 +343,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/bot');
 
     fireEvent.click(await screen.findByRole('button', { name: /puzzles tactical training/i }));
-    expect(navigateMock).toHaveBeenCalledWith('/puzzles');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
 
     fireEvent.click(screen.getAllByText(/^lessons$/i)[0]!.closest('button')!);
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
@@ -394,7 +395,7 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows the puzzles entry card and routes to the default puzzle flow', async () => {
+  it('shows the puzzles entry card and routes to puzzle streak', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
@@ -404,6 +405,6 @@ describe('HomePage', () => {
     expect(within(streakCard).getByText(/tactical training/i)).toBeInTheDocument();
 
     fireEvent.click(streakCard);
-    expect(navigateMock).toHaveBeenCalledWith('/puzzles');
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
   });
 });

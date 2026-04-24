@@ -3,8 +3,9 @@ import { getClassificationColor, type MoveClassification } from '@shared/analysi
 import type { Board as BoardType, GameMode, Move, PieceColor, RatingChangeSummary, ResultReason, TimeControl } from '@shared/types';
 import { useGameAnalysis } from '../hooks/useGameAnalysis';
 import { getGameModeLabel, getPlayerOutcome, getPlayerOutcomeLabel, getResultReasonLabel, getResultScore, getSideLabel, formatTimeControl } from '../lib/gamePresentation';
-import { downloadShareCardBlob, renderShareCardBlob, shareShareCardBlob } from '../lib/shareCardExport';
+import { SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH, downloadShareCardBlob, renderShareCardBlob, shareShareCardBlob } from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
+import { useAuth } from '../lib/auth';
 import ShareCardExportCanvas, { type GameShareCardData, type ShareCardSummaryStat, type ShareCardVariant } from './ShareCardExportCanvas';
 
 interface PostGameSharePanelProps {
@@ -24,8 +25,9 @@ interface PostGameSharePanelProps {
   ratingChange?: RatingChangeSummary | null;
 }
 
-const PREVIEW_SCALE = 0.265;
-const PREVIEW_HEIGHT = 630 * PREVIEW_SCALE;
+const PREVIEW_SCALE = 0.21;
+const PREVIEW_WIDTH = SHARE_CARD_WIDTH * PREVIEW_SCALE;
+const PREVIEW_HEIGHT = SHARE_CARD_HEIGHT * PREVIEW_SCALE;
 const PREVIEW_FALLBACK_VARIANT: ShareCardVariant = 'result';
 
 export default function PostGameSharePanel({
@@ -45,15 +47,17 @@ export default function PostGameSharePanel({
   ratingChange = null,
 }: PostGameSharePanelProps) {
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const exportRef = useRef<HTMLDivElement>(null);
   const [variant, setVariant] = useState<ShareCardVariant>('result');
   const [actionLabel, setActionLabel] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'download' | 'share' | null>(null);
   const { analysis, analyzing, error } = useGameAnalysis({
-    enabled: moves.length > 0,
+    enabled: moves.length > 0 && Boolean(user) && !authLoading,
     analysisId,
     moves,
   });
+  const analysisAuthRequired = moves.length > 0 && !authLoading && !user;
 
   const whiteName = whitePlayerName.trim() || t('common.white');
   const blackName = blackPlayerName.trim() || t('common.black');
@@ -191,7 +195,7 @@ export default function PostGameSharePanel({
   };
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface-alt/90 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+    <div className="min-w-0 rounded-xl border border-surface-hover bg-surface-alt/90 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -236,16 +240,27 @@ export default function PostGameSharePanel({
         />
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-[#120d0a]">
-        <div className="flex justify-center overflow-hidden px-3 pt-3" style={{ height: `${PREVIEW_HEIGHT + 20}px` }}>
+      <div className="mt-4 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#120d0a]">
+        <div className="flex justify-center overflow-hidden p-3" style={{ height: `${PREVIEW_HEIGHT + 24}px` }}>
           <div
-            className="origin-top"
+            className="relative shrink overflow-hidden"
+            data-testid="share-card-preview-viewport"
             style={{
-              transform: `scale(${PREVIEW_SCALE})`,
-              transformOrigin: 'top center',
+              width: `${PREVIEW_WIDTH}px`,
+              maxWidth: '100%',
+              height: `${PREVIEW_HEIGHT}px`,
             }}
           >
-            <ShareCardExportCanvas variant={variant} data={cardData} />
+            <div
+              className="absolute left-1/2 top-0 origin-top"
+              style={{
+                width: `${SHARE_CARD_WIDTH}px`,
+                height: `${SHARE_CARD_HEIGHT}px`,
+                transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
+              }}
+            >
+              <ShareCardExportCanvas variant={variant} data={cardData} />
+            </div>
           </div>
         </div>
       </div>
@@ -255,7 +270,9 @@ export default function PostGameSharePanel({
           {variant === 'accuracy' && !canUseAccuracyVariant
             ? analyzing
               ? t('sharecard.accuracy_pending')
-              : error
+              : analysisAuthRequired
+                ? t('sharecard.accuracy_sign_in')
+                : error
                 ? t('sharecard.accuracy_unavailable')
                 : t('sharecard.accuracy_pending')
             : variant === 'rating' && !canUseRatingVariant

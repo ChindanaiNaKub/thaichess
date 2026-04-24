@@ -1,12 +1,15 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { PUZZLES } from '@shared/puzzlesRuntime';
+import CookieConsent from './components/CookieConsent';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { useTranslation } from './lib/i18n';
 import { logClientPerfEvent } from './lib/perfDebug';
 import { loadBotGameRoute, loadLocalGameRoute, loadQuickPlayRoute } from './lib/routePrefetch';
-import { routes } from './lib/routes';
+import { puzzleRoute, routes } from './lib/routes';
 import { SeoHeadManager } from './lib/seo';
+import { pickRandomPuzzleId } from './lib/randomPuzzles';
 
 // Lazy load route components for code splitting
 const GamePage = lazy(() => import('./components/GamePage'));
@@ -33,7 +36,6 @@ const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSetting
 const PrivacyPage = lazy(() => import('./routes/PrivacyRoute'));
 const TermsPage = lazy(() => import('./routes/TermsRoute'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
-const CookieConsent = lazy(() => import('./components/CookieConsent'));
 
 function RouteFallback() {
   return (
@@ -76,6 +78,17 @@ function PerfRouteLogger() {
   return null;
 }
 
+function RandomPuzzleRedirect() {
+  const [targetId, setTargetId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTargetId(pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1);
+  }, []);
+
+  if (targetId === null) return <RouteFallback />;
+  return <Navigate to={`${puzzleRoute(String(targetId))}?mode=random`} replace />;
+}
+
 export default function App() {
   const [showFeedbackWidget, setShowFeedbackWidget] = useState(
     import.meta.env.MODE === 'test' && !isAutomatedBrowser(),
@@ -108,7 +121,9 @@ export default function App() {
           <Route path={routes.watch} element={<LiveGamesPage />} />
           <Route path={routes.local} element={<LocalGame />} />
           <Route path={routes.bot} element={<BotGame />} />
-          <Route path={routes.puzzles} element={<PuzzleStreakPage />} />
+          <Route path={routes.puzzles} element={<RandomPuzzleRedirect />} />
+          <Route path={routes.puzzleStreak} element={<PuzzleStreakPage />} />
+          <Route path={routes.puzzleThemes} element={<LessonCoursePage />} />
           <Route path={routes.lessons} element={<LessonCoursePage />} />
           <Route path={routes.course} element={<LessonCoursePage />} />
           <Route path={routes.coursePath} element={<LessonCoursePage />} />
@@ -141,11 +156,7 @@ export default function App() {
           <FeedbackWidget />
         </Suspense>
       ) : null}
-      {!isAutomatedBrowser() ? (
-        <Suspense fallback={null}>
-          <CookieConsent />
-        </Suspense>
-      ) : null}
+      {!isAutomatedBrowser() ? <CookieConsent /> : null}
     </div>
   );
 }

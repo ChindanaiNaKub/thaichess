@@ -22,8 +22,6 @@ function bootstrap() {
     readyState: document.readyState,
   });
 
-  window.sessionStorage.removeItem('thaichess:chunk-reload-attempted');
-
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <ErrorBoundary>

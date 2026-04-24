@@ -39,6 +39,32 @@ describe('database rated game persistence', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  it('starts newly inserted users at 500 rating', async () => {
+    const database = await import('../database');
+
+    await database.initDatabase();
+
+    const directUser = await database.upsertUserByEmail({
+      id: 'direct-user',
+      email: 'direct@example.com',
+      role: 'user',
+    });
+
+    expect(directUser?.rating).toBe(500);
+
+    const client = database.getDatabaseConfig().client;
+    await client.execute({
+      sql: `
+        INSERT INTO users (id, email, rating)
+        VALUES (?, ?, ?)
+      `,
+      args: ['legacy-default-user', 'legacy-default@example.com', 1500],
+    });
+
+    const legacyDefaultUser = await database.getUserById('legacy-default-user');
+    expect(legacyDefaultUser?.rating).toBe(500);
+  });
+
   it('applies Elo exactly once for rated quick-play games', async () => {
     const database = await import('../database');
 

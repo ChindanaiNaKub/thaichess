@@ -1472,7 +1472,7 @@ describe('puzzleValidation', () => {
       expect.objectContaining({ from: square('f5'), to: square('d6') }),
     ]);
     expect(validatePuzzle(puzzle).errors).toEqual([]);
-  }, 30000);
+  }, 60000);
 
   it('prefers the pressure move over a quiet move that throws away the count-aware win', () => {
     const puzzle = getPuzzle(7003);

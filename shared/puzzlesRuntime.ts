@@ -15,9 +15,10 @@ function hasPassingReviewChecklist(puzzle: Puzzle): boolean {
 }
 
 function isRuntimeLivePuzzle(puzzle: Puzzle): boolean {
+  const isEligibleOrigin = puzzle.origin === 'engine-generated' || puzzle.origin === 'curated-manual';
   return puzzle.reviewStatus === 'ship' &&
     hasPassingReviewChecklist(puzzle) &&
-    puzzle.origin === 'engine-generated' &&
+    isEligibleOrigin &&
     puzzle.tags.includes('editorial-live') &&
     puzzle.duplicateOf === null &&
     puzzle.verification.verificationStatus !== 'unverified' &&
@@ -40,8 +41,8 @@ export const PUZZLE_POOL_DIAGNOSTICS: PuzzlePoolDiagnostics = {
     advanced: PUZZLES.filter(puzzle => puzzle.difficulty === 'advanced').length,
   },
   publishableBySource: {
-    curated: 0,
-    generated: PUZZLES.length,
+    curated: PUZZLES.filter(puzzle => puzzle.origin !== 'engine-generated').length,
+    generated: PUZZLES.filter(puzzle => puzzle.origin === 'engine-generated').length,
   },
 };
 

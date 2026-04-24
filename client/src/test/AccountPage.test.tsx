@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import AccountPage from '../components/AccountPage';
@@ -49,8 +49,9 @@ const {
       created_at: 0,
       updated_at: 0,
       last_login_at: null,
-    } as AuthUser,
+    } as AuthUser | null,
     loading: false,
+    authError: null as 'session_check_failed' | null,
   },
   puzzleProgressSummaryState: {
     completedCount: 3,
@@ -114,6 +115,7 @@ vi.mock('../lib/auth', () => ({
   useAuth: () => ({
     user: authState.user,
     loading: authState.loading,
+    authError: authState.authError,
     logout: logoutMock,
     refreshUser: refreshUserMock,
     updateProfile: updateProfileMock,
@@ -218,11 +220,13 @@ describe('AccountPage', () => {
       },
     });
     authState.loading = false;
+    authState.authError = null;
     authState.user = {
       id: 'user-1',
       email: 'player@example.com',
       twoFactorEnabled: false,
       username: 'player_one',
+      username_updated_at: null,
       role: 'user' as const,
       fair_play_status: 'clear' as const,
       rated_restricted_at: null,
@@ -236,6 +240,10 @@ describe('AccountPage', () => {
       updated_at: 0,
       last_login_at: null,
     } as AuthUser;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders rating and record stats for the authenticated user', () => {
@@ -275,7 +283,7 @@ describe('AccountPage', () => {
 
   it('shows rated restriction messaging when the account is restricted', () => {
     authState.user = {
-      ...authState.user,
+      ...(authState.user as AuthUser),
       fair_play_status: 'restricted',
       rated_restricted_at: 1,
       rated_restriction_note: 'Restricted pending review',
@@ -291,9 +299,60 @@ describe('AccountPage', () => {
     expect(screen.getByText('Restricted pending review')).toBeInTheDocument();
   });
 
+  it('shows a session check error instead of redirecting to login during auth outages', () => {
+    authState.user = null;
+    authState.authError = 'session_check_failed';
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common.retry' })).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the account page visible with a warning when cached auth is stale', () => {
+    authState.authError = 'session_check_failed';
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('player@example.com')).toBeInTheDocument();
+    expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('disables username changes until the seven-day cooldown ends', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-17T10:00:00.000Z'));
+    authState.user = {
+      ...(authState.user as AuthUser),
+      username_updated_at: Math.floor(Date.now() / 1000),
+    };
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByDisplayValue('player_one'), {
+      target: { value: 'player_two' },
+    });
+
+    expect(screen.getByText(/account.username_cooldown_until/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'account.save_profile' })).toBeDisabled();
+  });
+
   it('shows the admin security section when admin MFA is disabled', () => {
     authState.user = {
-      ...authState.user,
+      ...(authState.user as AuthUser),
       email: 'admin@example.com',
       role: 'admin',
       twoFactorEnabled: false,
@@ -312,7 +371,7 @@ describe('AccountPage', () => {
 
   it('starts admin MFA setup and verifies the first authenticator code', async () => {
     authState.user = {
-      ...authState.user,
+      ...(authState.user as AuthUser),
       email: 'admin@example.com',
       role: 'admin',
       twoFactorEnabled: false,

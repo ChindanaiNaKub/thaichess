@@ -6,6 +6,7 @@ import cors, { type CorsOptions } from 'cors';
 import fs from 'fs';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 import { GameManager } from './gameManager';
 import { MatchmakingQueue } from './matchmaking';
 import {
@@ -22,6 +23,7 @@ import {
   getFeedbackForAdmin,
   moderateFeedback,
   updateUsername,
+  getUsernameChangeCooldown,
   getCompletedPuzzleIdsForUser,
   getPuzzleProgressForUser,
   markPuzzlePlayed,
@@ -38,6 +40,8 @@ import {
   clearFairPlayRestriction,
   getUserById,
   deleteUser,
+  runAllCleanupJobs,
+  getDatabaseStats,
   type AuthUser,
   type FairPlayCaseStatus,
   type PuzzleProgressRecord,
@@ -58,6 +62,7 @@ import { deserializeAnalysisPosition } from '../../shared/engineAdapter';
 import type { Move } from '../../shared/types';
 import { getBotPersonaById } from '../../shared/botPersonas';
 import { renderSeoHtml } from './seoHtml';
+import { getCanonicalRedirectUrl } from './urlCanonicalization';
 import {
   UpdateProfileSchema,
   SubmitFeedbackSchema,
@@ -105,6 +110,15 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Correlation ID middleware for request tracing
+app.use((req, res, next) => {
+  const correlationId = (req.headers['x-correlation-id'] as string) || randomUUID();
+  req.headers['x-correlation-id'] = correlationId;
+  res.setHeader('x-correlation-id', correlationId);
+  next();
+});
+
 const requireTrustedWriteOriginMiddleware = requireTrustedWriteOrigin(allowedCorsOrigins);
 
 // Trust proxy for rate limiting behind reverse proxy (Fly.io, nginx, etc.)
@@ -113,32 +127,14 @@ app.set('trust proxy', 1);
 // URL Canonicalization Redirects (SEO - fix Google Search Console issues)
 // Redirects: www → non-www, HTTP → HTTPS, trailing slash normalization
 app.use((req, res, next) => {
-  const host = req.get('host') || '';
-  const protocol = req.protocol;
-  const url = req.originalUrl;
-
-  let redirectUrl: string | null = null;
-  let statusCode = 301; // Permanent redirect for SEO
-
-  // 1. Redirect www to non-www
-  if (host.startsWith('www.')) {
-    const nonWwwHost = host.slice(4);
-    redirectUrl = `https://${nonWwwHost}${url}`;
-  }
-  // 2. Redirect HTTP to HTTPS (only in production, skip localhost)
-  else if (protocol === 'http' && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-    redirectUrl = `https://${host}${url}`;
-  }
-
-  // 3. Trailing slash normalization (except for files with extensions)
-  // Remove trailing slash from URLs like /about/ → /about
-  // But keep it for root / and file paths like /assets/image.png
-  if (!redirectUrl && url.length > 1 && url.endsWith('/') && !url.match(/\/[^/]+\.[^/]+$/)) {
-    redirectUrl = `https://${host}${url.slice(0, -1)}`;
-  }
+  const redirectUrl = getCanonicalRedirectUrl({
+    host: req.get('host') || '',
+    protocol: req.protocol,
+    originalUrl: req.originalUrl,
+  });
 
   if (redirectUrl) {
-    res.redirect(statusCode, redirectUrl);
+    res.redirect(301, redirectUrl);
     return;
   }
 
@@ -161,6 +157,22 @@ const analysisLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many analysis requests. Please try again later.' },
+});
+
+const gameReviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Game review limit reached. Please try again later.' },
+});
+
+const positionAnalysisLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many position analysis requests. Please slow down.' },
 });
 
 // Request logging (lightweight)
@@ -252,6 +264,8 @@ setInterval(() => {
   socketRateLimiter.cleanup();
   ipRateLimiter.cleanup();
 }, 60000);
+// Cleanup expired database records every hour
+setInterval(() => runAllCleanupJobs(), 3600000);
 
 async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
@@ -303,22 +317,18 @@ function isValidFairPlayCaseStatus(value: unknown): value is FairPlayCaseStatus 
   return value === 'open' || value === 'reviewed' || value === 'restricted' || value === 'dismissed';
 }
 
-function isValidGameIdParam(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9-]{4,64}$/.test(value.trim());
-}
+async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response, user?: AuthUser | null) {
+  const analysisUser = user ?? await getAuthenticatedUser(req);
+  if (!analysisUser) return false;
 
-async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.Response) {
-  const user = await getAuthenticatedUser(req);
-  if (!user) return false;
-
-  const activeGameId = gameManager.getBlockingPlayerGame(user.id);
+  const activeGameId = gameManager.getBlockingPlayerGame(analysisUser.id);
   if (!activeGameId) return false;
 
   const room = gameManager.getGame(activeGameId);
   if (!room || room.status !== 'playing' || !room.rated) return false;
 
   await recordFairPlayEvent({
-    userId: user.id,
+    userId: analysisUser.id,
     type: 'analysis_blocked',
     gameId: activeGameId,
     metadata: {
@@ -329,7 +339,7 @@ async function enforceAnalysisFairPlayPolicy(req: express.Request, res: express.
   });
 
   logWarn('fair_play_analysis_blocked', {
-    userId: user.id,
+    userId: analysisUser.id,
     gameId: activeGameId,
     path: req.path,
     ip: req.ip,
@@ -369,8 +379,14 @@ io.use(async (socket, next) => {
     socket.data.playerId = authUser?.id ?? guestPlayerId ?? `guest_${socket.id}`;
     next();
   } catch (error) {
+    logError('socket_auth_failed', error, { socketId: socket.id });
     next(error instanceof Error ? error : new Error('Socket authentication failed.'));
   }
+});
+
+// Global Socket.IO error handler
+io.on('connect_error', (error) => {
+  logError('socket_connect_error', error);
 });
 
 io.on('connection', createSocketConnectionHandler({
@@ -438,25 +454,34 @@ app.get('/api/game/:id', async (req, res) => {
   // Check database for completed games
   const saved = await getDbGame(req.params.id);
   if (saved) {
-    res.json({
-      id: saved.id,
-      status: 'finished',
-      result: saved.result,
-      resultReason: saved.result_reason,
-      timeControl: { initial: saved.time_control_initial, increment: saved.time_control_increment },
-      moves: JSON.parse(saved.moves),
-      finalBoard: JSON.parse(saved.final_board),
-      moveCount: saved.move_count,
-      createdAt: saved.created_at,
-      finishedAt: saved.finished_at,
-    });
+    try {
+      const moves = JSON.parse(saved.moves);
+      const finalBoard = JSON.parse(saved.final_board);
+      res.json({
+        id: saved.id,
+        status: 'finished',
+        result: saved.result,
+        resultReason: saved.result_reason,
+        timeControl: { initial: saved.time_control_initial, increment: saved.time_control_increment },
+        moves,
+        finalBoard,
+        moveCount: saved.move_count,
+        createdAt: saved.created_at,
+        finishedAt: saved.finished_at,
+      });
+    } catch (err) {
+      logError('game_data_parse_failed', err, { gameId: req.params.id });
+      res.status(500).json({ error: 'Failed to parse game data' });
+    }
     return;
   }
   res.status(404).json({ error: 'Game not found' });
 });
 
-app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/game', analysisLimiter, gameReviewLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzeGameSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -479,8 +504,10 @@ app.post('/api/analysis/game', analysisLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/game/stream', analysisLimiter, gameReviewLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzeGameSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -527,8 +554,10 @@ app.post('/api/analysis/game/stream', analysisLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/analysis/position', analysisLimiter, async (req, res) => {
-  if (await enforceAnalysisFairPlayPolicy(req, res)) return;
+app.post('/api/analysis/position', analysisLimiter, positionAnalysisLimiter, async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (await enforceAnalysisFairPlayPolicy(req, res, user)) return;
 
   const parseResult = AnalyzePositionSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -578,8 +607,14 @@ app.post('/api/bot/move', analysisLimiter, async (req, res) => {
     return;
   }
 
-  const result = await getBotMoveWithEngine(snapshot, level, botId);
-  res.json(result);
+  try {
+    const result = await getBotMoveWithEngine(snapshot, level, botId);
+    res.json(result);
+  } catch (error) {
+    res.status(503).json({
+      error: error instanceof Error ? error.message : 'Bot engine is unavailable.',
+    });
+  }
 });
 
 app.post('/api/games/bot', async (req, res) => {
@@ -722,6 +757,38 @@ app.get('/api/stats', async (_req, res) => {
   res.json(stats);
 });
 
+app.get('/api/metrics', (_req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(monitoring.getPrometheusMetrics());
+});
+
+app.get('/api/health', async (_req, res) => {
+  const health = {
+    status: 'ok' as 'ok' | 'error',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    startupState,
+    startupError,
+    dependencies: {
+      database: 'unknown' as 'ok' | 'error',
+    },
+    databaseStats: getDatabaseStats(),
+  };
+
+  try {
+    // Check database connectivity
+    await getStats();
+    health.dependencies.database = 'ok';
+  } catch (error) {
+    health.dependencies.database = 'error';
+    health.status = 'error';
+    logError('health_check_database_failed', error);
+  }
+
+  const statusCode = health.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
 app.get('/api/live-games', (req, res) => {
   const rawLimit = parseInt(String(req.query.limit ?? '12'), 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 40) : 12;
@@ -766,6 +833,23 @@ app.patch('/api/auth/profile', requireTrustedWriteOriginMiddleware, async (req, 
   }
 
   const { username } = parseResult.data;
+  const currentUsername = user.username?.trim() ?? '';
+  if (currentUsername === username) {
+    res.json({ ok: true, user });
+    return;
+  }
+
+  const cooldown = getUsernameChangeCooldown(user, username);
+  if (cooldown) {
+    res.setHeader('Retry-After', String(cooldown.retryAfterSeconds));
+    res.status(429).json({
+      error: 'You can change your username once every 7 days.',
+      code: 'USERNAME_CHANGE_COOLDOWN',
+      nextAllowedAt: cooldown.nextAllowedAt,
+      retryAfterSeconds: cooldown.retryAfterSeconds,
+    });
+    return;
+  }
 
   const updated = await updateUsername(user.id, username);
   if (!updated) {
@@ -794,7 +878,7 @@ app.delete('/api/auth/user', requireTrustedWriteOriginMiddleware, async (req, re
     
     res.json({ ok: true, message: 'Account deleted successfully' });
   } catch (error) {
-    console.error('Failed to delete user:', error);
+    logError('delete_user_failed', error, { userId: user.id });
     res.status(500).json({ error: 'Failed to delete account' });
   }
 });
@@ -1300,6 +1384,19 @@ app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(indexPath);
   }
+});
+
+// Global error handler for Express (must be after all routes)
+app.use((err: Error, req: express.Request, res: express.Response) => {
+  const correlationId = req.headers['x-correlation-id'] as string;
+  logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  res.status(500).json({
+    error: isDevelopment ? err.message : 'Internal server error',
+    correlationId,
+  });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -4,9 +4,11 @@ import { moveToUci } from '../../../shared/engineAdapter';
 import { getEngineSearchTimeoutMs, normalizeEngineFen } from '../fairyStockfishBinary';
 import {
   createLevel10BotSearchPlan,
+  getBotMoveWithEngine,
   getBotRequestTimeoutMs,
   getReviewMovetime,
   getReviewTotalBudgetMs,
+  hasExternalEngineSupport,
   normalizeEngineEvaluation,
   normalizeEngineMate,
   resolveBotMoveCandidate,
@@ -43,18 +45,20 @@ describe('normalizeEngineFen', () => {
     }, 'analysis')).toBe(2400);
   });
 
-  it('allows deeper Level 10 bot depth searches enough time to finish', () => {
+  it('allows Level 10 bot depth searches enough time to finish', () => {
     expect(getEngineSearchTimeoutMs({
       variant: 'makruk',
       position: '8/8/8/8/8/8/8/8 b',
-      search: { depth: 14 },
-    }, 'bot')).toBe(4240);
+      search: { depth: 12 },
+    }, 'bot')).toBe(3720);
   });
 
   it('keeps bot service request timeouts capped tightly by level', () => {
     expect(getBotRequestTimeoutMs(1)).toBe(900);
     expect(getBotRequestTimeoutMs(5)).toBe(1150);
-    expect(getBotRequestTimeoutMs(10)).toBe(5200);
+    expect(getBotRequestTimeoutMs(8)).toBe(5000);
+    expect(getBotRequestTimeoutMs(9)).toBe(8000);
+    expect(getBotRequestTimeoutMs(10)).toBe(15000);
   });
 
   it('scales review movetime down for long games while preserving short-game quality', () => {
@@ -90,6 +94,20 @@ describe('normalizeEngineFen', () => {
     const legal = resolveBotMoveCandidate(snapshot, 9, localMove);
     expect(legal.source).toBe('engine');
     expect(legal.move).toEqual(localMove);
+  });
+
+  it('returns a local high-level bot move when no external engine is configured', async () => {
+    if (hasExternalEngineSupport()) return;
+
+    const state = createInitialGameState(0, 0);
+    const result = await getBotMoveWithEngine({
+      board: state.board,
+      turn: state.turn,
+      counting: state.counting,
+    }, 10, 'lady-busaba');
+
+    expect(result.move).not.toBeNull();
+    expect(result.stats.source).toBe('local');
   });
 
   it('falls back to local position analysis when an engine review move is illegal', () => {
@@ -170,7 +188,7 @@ describe('normalizeEngineFen', () => {
     expect(result.bestMove).toEqual(legalMove);
   });
 
-  it('forces deeper Level 10 search in check and endgame positions', () => {
+  it('uses bounded Level 10 depth search in check and endgame positions', () => {
     const inCheckState = createInitialGameState(0, 0);
     inCheckState.board = Array.from({ length: 8 }, () => Array(8).fill(null));
     inCheckState.board[7][0] = { type: 'K', color: 'black' };
@@ -186,7 +204,7 @@ describe('normalizeEngineFen', () => {
       counting: null,
     });
 
-    expect(inCheckPlan.search).toEqual({ depth: 14 });
+    expect(inCheckPlan.search).toEqual({ depth: 12 });
     expect(inCheckPlan.localValidation.maxDepth).toBeGreaterThanOrEqual(7);
 
     const endgameState = createInitialGameState(0, 0);
@@ -202,7 +220,7 @@ describe('normalizeEngineFen', () => {
       counting: null,
     });
 
-    expect(endgamePlan.search).toEqual({ depth: 12 });
+    expect(endgamePlan.search).toEqual({ depth: 10 });
     expect(endgamePlan.localValidation.maxDepth).toBeGreaterThanOrEqual(6);
   });
 });

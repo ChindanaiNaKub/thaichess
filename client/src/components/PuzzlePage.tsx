@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { Position, Move, GameState } from '@shared/types';
 import { getLastMoveForView, getLegalMoves, makeMove } from '@shared/engine';
 import { ALL_PUZZLES, PUZZLES, STREAK_SURFACE_PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
@@ -15,14 +15,54 @@ import {
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { usePuzzleProgress, usePuzzleProgressSummary } from '../lib/puzzleProgress';
+import { pickRandomPuzzleId, rememberRandomPuzzleVisit } from '../lib/randomPuzzles';
 import { puzzleRoute, routes } from '../lib/routes';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
+import MoveHistory from './MoveHistory';
 
 type PuzzleStatus = 'playing' | 'success' | 'failed';
 type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
 type StreakMilestoneTone = 'improving' | 'harder' | null;
+const RANDOM_RESULT_HISTORY_STORAGE_KEY = 'thaichess-random-puzzle-result-history';
+const MAX_RANDOM_RESULT_HISTORY = 16;
+
+type RandomResultEntry = {
+  puzzleId: number;
+  outcome: 'success' | 'failed';
+};
+
+function readRandomResultHistory(): RandomResultEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.sessionStorage.getItem(RANDOM_RESULT_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((entry): entry is RandomResultEntry =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as { puzzleId?: unknown }).puzzleId === 'number' &&
+      ((entry as { outcome?: unknown }).outcome === 'success' || (entry as { outcome?: unknown }).outcome === 'failed'),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeRandomResultHistory(history: RandomResultEntry[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      RANDOM_RESULT_HISTORY_STORAGE_KEY,
+      JSON.stringify(history.slice(-MAX_RANDOM_RESULT_HISTORY)),
+    );
+  } catch {
+    // Ignore storage errors and keep puzzle flow running.
+  }
+}
 
 interface StreakFeedback {
   tone: 'neutral' | 'success' | 'failed';
@@ -92,49 +132,23 @@ function getPuzzleSourceLabel(
   return source;
 }
 
-function getPuzzleCreditText(
-  puzzle: Pick<Puzzle, 'source' | 'sourceLicense'>,
+function getPuzzleOriginLabel(
+  puzzle: Puzzle,
   t: (key: string, vars?: Record<string, string | number>) => string,
 ): string {
-  return `${t('puzzle.credit_label')}: ${getPuzzleSourceLabel(puzzle.source, t)}`;
+  if (puzzle.origin === 'engine-generated') {
+    return t('puzzle.source_generated');
+  }
+
+  return t('puzzle.source_community');
 }
 
-function getPuzzleSourcePermissionLabel(
-  status: Puzzle['sourcePermissionStatus'],
-  t: (key: string, vars?: Record<string, string | number>) => string,
-): string {
-  switch (status) {
-    case 'position-only':
-      return t('puzzle.source_permission_position_only');
-    case 'permission-requested':
-      return t('puzzle.source_permission_requested');
-    case 'permission-granted':
-      return t('puzzle.source_permission_granted');
-    case 'unknown':
-    default:
-      return t('puzzle.source_permission_unknown');
-  }
-}
-
-function getPuzzleSourceBadges(
-  puzzle: Pick<Puzzle, 'source' | 'sourceLicense' | 'sourceAuthor' | 'sourcePermissionStatus'>,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-): string[] {
-  const badges = [getPuzzleCreditText(puzzle, t)];
-
-  if (puzzle.sourceAuthor) {
-    badges.push(t('puzzle.source_posted_by', { author: puzzle.sourceAuthor }));
+function getPuzzleOriginBadgeClasses(origin: Puzzle['origin']): string {
+  if (origin === 'engine-generated') {
+    return 'border-accent/35 bg-accent/12 text-accent';
   }
 
-  if (puzzle.sourcePermissionStatus !== 'unknown') {
-    badges.push(getPuzzleSourcePermissionLabel(puzzle.sourcePermissionStatus, t));
-  }
-
-  if (puzzle.sourceLicense) {
-    badges.push(puzzle.sourceLicense);
-  }
-
-  return badges;
+  return 'border-primary/35 bg-primary/12 text-primary-light';
 }
 
 function formatActivityDate(timestamp: number, lang: string): string {
@@ -242,6 +256,34 @@ function getCompactPuzzleIdentityBadges(
     t(`theme.${puzzle.theme}`),
     puzzle.motif,
   ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0));
+}
+
+function buildReplayState(
+  puzzle: Puzzle,
+  liveState: GameState,
+  reviewMoveIndex: number | null,
+): GameState {
+  if (reviewMoveIndex === null) {
+    return liveState;
+  }
+
+  let replayState = createGameStateFromPuzzle(puzzle);
+  if (reviewMoveIndex < 0) {
+    return replayState;
+  }
+
+  const cappedIndex = Math.min(reviewMoveIndex, liveState.moveHistory.length - 1);
+  for (let index = 0; index <= cappedIndex; index += 1) {
+    const move = liveState.moveHistory[index];
+    const nextState = makeMove(replayState, move.from, move.to);
+    if (!nextState) {
+      return liveState;
+    }
+
+    replayState = nextState;
+  }
+
+  return replayState;
 }
 
 function CoachSection({
@@ -364,14 +406,6 @@ function PuzzleLessonsPage() {
       <Header
         active="puzzles"
         subtitle={t('puzzle.lessons_nav')}
-        right={(
-          <button
-            onClick={() => navigate(routes.puzzles)}
-            className="text-sm text-text-dim hover:text-text-bright transition-colors"
-          >
-            {t('puzzle.play_streak')}
-          </button>
-        )}
       />
 
       <main id="main-content" className="flex-1 px-4 py-6 sm:py-8 max-w-5xl mx-auto w-full">
@@ -480,7 +514,7 @@ function PuzzleLessonsPage() {
             <p className="text-sm text-text-dim mt-1">{t('puzzle.lessons_tracks_desc')}</p>
           </div>
           <button
-            onClick={() => navigate(routes.puzzles)}
+            onClick={() => navigate(routes.puzzleStreak)}
             className="rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15"
           >
             {t('puzzle.play_streak')}
@@ -625,6 +659,9 @@ function PuzzleLessonsPage() {
                         {formatPuzzleTag(tag)}
                       </span>
                     ))}
+                    <span className={`text-xs px-2 py-0.5 rounded border ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                      {getPuzzleOriginLabel(puzzle, t)}
+                    </span>
                     <span className="text-xs text-text-dim px-2 py-0.5 rounded bg-surface border border-surface-hover">
                       {getPuzzleSourceLabel(puzzle.source, t)}
                     </span>
@@ -1111,14 +1148,6 @@ function PuzzleStreakPage() {
       <Header
         active="puzzles"
         subtitle={t('puzzle.streak_nav')}
-        right={(
-          <button
-            onClick={handleRestartStreak}
-            className="text-sm text-text-dim hover:text-text-bright transition-colors"
-          >
-            {t('common.new_game')}
-          </button>
-        )}
       />
 
       <main id="main-content" className="flex-1 min-h-0 px-4 py-3 sm:py-4 lg:overflow-hidden">
@@ -1228,7 +1257,9 @@ function PuzzleStreakPage() {
               <div className={`rounded-2xl border p-4 ${getFeedbackClasses(feedback.tone)}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_puzzle_label', { number: solvedCount + 1 })}</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">
+                      {t('puzzle.streak_puzzle_label', { number: currentPuzzle?.id ?? solvedCount + 1 })}
+                    </p>
                     <h3 className="mt-1 text-lg font-semibold text-text-bright">{streakTitle}</h3>
                     <p className="mt-1 text-sm text-text-dim">{feedback.title}</p>
                   </div>
@@ -1258,30 +1289,58 @@ function PuzzleStreakPage() {
                   )}
 
                   {currentPuzzle && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-text-dim">
-                      {getPuzzleSourceBadges(currentPuzzle, t).map(badge => (
-                        <span key={badge} className="rounded-full border border-surface-hover/80 bg-surface/65 px-2.5 py-1">
-                          {badge}
+                    <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-text-dim">{t('puzzle.source_evidence_label')}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(currentPuzzle.origin)}`}>
+                          {getPuzzleOriginLabel(currentPuzzle, t)}
                         </span>
-                      ))}
+                        <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                          {getPuzzleSourceLabel(currentPuzzle.source, t)}
+                        </span>
+                        {currentPuzzle.sourceGameUrl && (
+                          <a
+                            href={currentPuzzle.sourceGameUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text hover:text-text-bright"
+                          >
+                            {t('puzzle.source_game_link')}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {status === 'playing' && currentPuzzle && (
-                    <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 p-2.5">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleStreakHint}
+                        disabled={status !== 'playing' || !currentPuzzle}
                         className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         {t('puzzle.hint')}
                       </button>
-                      <p className="text-xs leading-5 text-text-dim">
-                        {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
-                      </p>
+                      <button
+                        onClick={handleRestartStreak}
+                        className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                      >
+                        ↺ {t('common.new_game')}
+                      </button>
                     </div>
-                  )}
+                    <p className="mt-2 text-xs leading-5 text-text-dim">
+                      {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {currentPuzzle && gameState && (
+                <MoveHistory
+                  moves={gameState.moveHistory}
+                  initialBoard={currentPuzzle.board}
+                />
+              )}
             </aside>
           </div>
         </div>
@@ -1292,13 +1351,19 @@ function PuzzleStreakPage() {
 
 function PuzzlePlayer() {
   const { t, lang } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { progressRecords, completedPuzzleSet, recordPuzzleVisited, recordPuzzleFailed, markPuzzleCompleted } = usePuzzleProgress();
   const { id } = useParams<{ id: string }>();
   const puzzleId = parseInt(id || '1', 10);
   const puzzle = PUZZLES.find(p => p.id === puzzleId) ?? ALL_PUZZLES.find(p => p.id === puzzleId);
   const navigationPool = puzzle?.reviewStatus === 'ship' ? PUZZLES : (puzzle ? [puzzle] : PUZZLES);
+  const isRandomMode = new URLSearchParams(location.search).get('mode') === 'random';
   const autoReplyTimeoutRef = useRef<number | null>(null);
+  const autoAdvanceTimeoutRef = useRef<number | null>(null);
+  const [randomResultHistory, setRandomResultHistory] = useState<RandomResultEntry[]>([]);
+  const recordedOutcomeRef = useRef<string | null>(null);
+  const resolvedPuzzleIdRef = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
@@ -1308,11 +1373,17 @@ function PuzzlePlayer() {
   const [hintStage, setHintStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
+  const [reviewMoveIndex, setReviewMoveIndex] = useState<number | null>(null);
+  const [randomNextPuzzleId, setRandomNextPuzzleId] = useState<number | null>(null);
 
   useEffect(() => {
     if (autoReplyTimeoutRef.current !== null) {
       window.clearTimeout(autoReplyTimeoutRef.current);
       autoReplyTimeoutRef.current = null;
+    }
+    if (autoAdvanceTimeoutRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
     }
 
     if (puzzle) {
@@ -1324,15 +1395,33 @@ function PuzzlePlayer() {
       setHintStage(0);
       setShowHint(false);
       setFailureDetail(null);
+      setReviewMoveIndex(null);
     }
+    if (isRandomMode) {
+      if (puzzle) {
+        rememberRandomPuzzleVisit(puzzle.id, PUZZLES.length);
+        setRandomNextPuzzleId(pickRandomPuzzleId(PUZZLES, puzzle.id));
+      } else {
+        setRandomNextPuzzleId(null);
+      }
+      setRandomResultHistory(readRandomResultHistory());
+      recordedOutcomeRef.current = null;
+    } else {
+      setRandomNextPuzzleId(null);
+    }
+    resolvedPuzzleIdRef.current = null;
 
     return () => {
       if (autoReplyTimeoutRef.current !== null) {
         window.clearTimeout(autoReplyTimeoutRef.current);
         autoReplyTimeoutRef.current = null;
       }
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
     };
-  }, [puzzle, puzzleId]);
+  }, [isRandomMode, puzzle, puzzleId]);
 
   useEffect(() => {
     if (!puzzle) return;
@@ -1344,15 +1433,17 @@ function PuzzlePlayer() {
   }, [markPuzzleCompleted, puzzleId]);
 
   const finishPuzzle = useCallback(() => {
+    resolvedPuzzleIdRef.current = puzzleId;
     setStatus('success');
     setFailureDetail(null);
     markCompleted();
     playGameOverSound();
-  }, [markCompleted]);
+  }, [markCompleted, puzzleId]);
 
   const failPuzzle = useCallback((attemptedMove: Pick<Move, 'from' | 'to'> | null = null) => {
     if (!puzzle) return;
 
+    resolvedPuzzleIdRef.current = puzzleId;
     void recordPuzzleFailed(puzzleId);
     setFailureDetail(getPuzzleFailureDetail(puzzle, attemptedMove));
     setStatus('failed');
@@ -1392,6 +1483,7 @@ function PuzzlePlayer() {
       }
 
       setGameState(replyState);
+      setReviewMoveIndex(null);
 
       const lastMove = replyState.moveHistory[replyState.moveHistory.length - 1];
       if (replyState.isCheck) playCheckSound();
@@ -1410,7 +1502,7 @@ function PuzzlePlayer() {
   }, [failPuzzle, finishPuzzle, puzzle]);
 
   const handleSquareClick = useCallback((pos: Position) => {
-    if (!gameState || !puzzle || status !== 'playing') return;
+    if (!gameState || !puzzle || status !== 'playing' || reviewMoveIndex !== null) return;
     if (gameState.turn !== puzzle.sideToMove) return;
 
     const piece = gameState.board[pos.row][pos.col];
@@ -1431,6 +1523,7 @@ function PuzzlePlayer() {
           const newState = makeMove(gameState, selectedSquare, pos);
           if (newState) {
             setGameState(newState);
+            setReviewMoveIndex(null);
             setSelectedSquare(null);
             setLegalMoves([]);
 
@@ -1457,10 +1550,10 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [failPuzzle, gameState, legalMoves, puzzle, queueOpponentReply, selectedSquare, status]);
+  }, [failPuzzle, gameState, legalMoves, puzzle, queueOpponentReply, reviewMoveIndex, selectedSquare, status]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
-    if (!gameState || !puzzle || status !== 'playing') return;
+    if (!gameState || !puzzle || status !== 'playing' || reviewMoveIndex !== null) return;
     if (gameState.turn !== puzzle.sideToMove) return;
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== puzzle.sideToMove) return;
@@ -1480,6 +1573,7 @@ function PuzzlePlayer() {
       const newState = makeMove(gameState, from, to);
       if (newState) {
         setGameState(newState);
+        setReviewMoveIndex(null);
         setSelectedSquare(null);
         setLegalMoves([]);
 
@@ -1495,7 +1589,7 @@ function PuzzlePlayer() {
       setSelectedSquare(null);
       setLegalMoves([]);
     }
-  }, [failPuzzle, gameState, puzzle, queueOpponentReply, status]);
+  }, [failPuzzle, gameState, puzzle, queueOpponentReply, reviewMoveIndex, status]);
 
   const handleRetry = () => {
     if (autoReplyTimeoutRef.current !== null) {
@@ -1510,6 +1604,7 @@ function PuzzlePlayer() {
       setHintStage(0);
       setShowHint(false);
       setFailureDetail(null);
+      setReviewMoveIndex(null);
     }
   };
 
@@ -1522,29 +1617,67 @@ function PuzzlePlayer() {
     window.setTimeout(() => setShowHint(false), 3000);
   };
 
+  const jumpToMove = useCallback((index: number) => {
+    if (!gameState) return;
+    const lastIndex = gameState.moveHistory.length - 1;
+
+    if (index < 0) {
+      setReviewMoveIndex(-1);
+      return;
+    }
+
+    if (index >= lastIndex) {
+      setReviewMoveIndex(null);
+      return;
+    }
+
+    setReviewMoveIndex(index);
+  }, [gameState]);
+
+  const stepReviewBy = useCallback((delta: number) => {
+    if (!gameState || gameState.moveHistory.length === 0) return;
+    const liveIndex = gameState.moveHistory.length - 1;
+    const baseIndex = reviewMoveIndex ?? liveIndex;
+    jumpToMove(baseIndex + delta);
+  }, [gameState, jumpToMove, reviewMoveIndex]);
+
+  const getPuzzleUrl = useCallback((targetPuzzleId: number): string => {
+    const basePath = puzzleRoute(String(targetPuzzleId));
+    return isRandomMode ? `${basePath}?mode=random` : basePath;
+  }, [isRandomMode]);
+
+  const openRandomResultPuzzle = useCallback((targetPuzzleId: number) => {
+    if (!isRandomMode || targetPuzzleId === puzzleId) return;
+    navigate(getPuzzleUrl(targetPuzzleId));
+  }, [getPuzzleUrl, isRandomMode, navigate, puzzleId]);
+
   const getNextPuzzle = (): number | null => {
+    if (isRandomMode) {
+      return randomNextPuzzleId;
+    }
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
     if (idx >= 0 && idx < navigationPool.length - 1) return navigationPool[idx + 1].id;
     return null;
   };
 
   const getPrevPuzzle = (): number | null => {
+    if (isRandomMode) return null;
     const idx = navigationPool.findIndex(p => p.id === puzzleId);
     if (idx > 0) return navigationPool[idx - 1].id;
     return null;
   };
 
-  const getLastMove = (): Move | null => {
-    if (!gameState || gameState.moveHistory.length === 0) return null;
-    return gameState.moveHistory[gameState.moveHistory.length - 1];
+  const getLastMove = (state: GameState | null): Move | null => {
+    if (!state || state.moveHistory.length === 0) return null;
+    return state.moveHistory[state.moveHistory.length - 1];
   };
 
-  const getCheckSquare = (): Position | null => {
-    if (!gameState?.isCheck) return null;
+  const getCheckSquare = (state: GameState | null): Position | null => {
+    if (!state?.isCheck) return null;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const piece = gameState.board[row][col];
-        if (piece && piece.type === 'K' && piece.color === gameState.turn) {
+        const piece = state.board[row][col];
+        if (piece && piece.type === 'K' && piece.color === state.turn) {
           return { row, col };
         }
       }
@@ -1578,6 +1711,14 @@ function PuzzlePlayer() {
   const currentTurnLabel = puzzle.sideToMove === 'white' ? t('common.white') : t('common.black');
   const isSolverTurn = status === 'playing' && gameState?.turn === puzzle.sideToMove;
   const currentStep = gameState ? Math.min(gameState.moveHistory.length + 1, puzzle.solution.length) : 1;
+  const activeGameState = useMemo(
+    () => (gameState ? buildReplayState(puzzle, gameState, reviewMoveIndex) : null),
+    [gameState, puzzle, reviewMoveIndex],
+  );
+  const isReviewingPosition = reviewMoveIndex !== null;
+  const activeMoveIndex = gameState
+    ? (reviewMoveIndex ?? gameState.moveHistory.length - 1)
+    : -1;
   const progressRecord = progressRecords.find(record => record.puzzleId === puzzleId) ?? null;
   const completedTimestamp = progressRecord?.completedAt ?? (status === 'success' ? Math.floor(Date.now() / 1000) : null);
 
@@ -1605,49 +1746,141 @@ function PuzzlePlayer() {
   const lessonIdentityBadges = getPuzzleIdentityBadges(puzzle, t);
   const verificationLabel = getVerificationLabel(puzzle, t);
 
+  useEffect(() => {
+    if (!isRandomMode || status === 'playing' || !puzzle) return;
+    if (resolvedPuzzleIdRef.current !== puzzle.id) return;
+    const outcomeKey = `${puzzle.id}:${status}`;
+    if (recordedOutcomeRef.current === outcomeKey) return;
+
+    const entry: RandomResultEntry = {
+      puzzleId: puzzle.id,
+      outcome: status === 'success' ? 'success' : 'failed',
+    };
+    const currentHistory = readRandomResultHistory();
+    const nextHistory = [...currentHistory, entry].slice(-MAX_RANDOM_RESULT_HISTORY);
+    writeRandomResultHistory(nextHistory);
+    setRandomResultHistory(nextHistory);
+    recordedOutcomeRef.current = outcomeKey;
+  }, [isRandomMode, puzzle, status]);
+
+  useEffect(() => {
+    if (
+      !isRandomMode ||
+      status !== 'success' ||
+      !nextPuzzle
+    ) {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    autoAdvanceTimeoutRef.current = window.setTimeout(() => {
+      navigate(getPuzzleUrl(nextPuzzle));
+      autoAdvanceTimeoutRef.current = null;
+    }, 900);
+
+    return () => {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+    };
+  }, [getPuzzleUrl, isRandomMode, navigate, nextPuzzle, status]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        stepReviewBy(-1);
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        stepReviewBy(1);
+        return;
+      }
+
+      if (event.key === 'h' || event.key === 'H') {
+        event.preventDefault();
+        handleHint();
+        return;
+      }
+
+      if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        handleRetry();
+        return;
+      }
+
+      if ((event.key === 'n' || event.key === 'N') && nextPuzzle) {
+        event.preventDefault();
+        navigate(getPuzzleUrl(nextPuzzle));
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [getPuzzleUrl, handleHint, handleRetry, navigate, nextPuzzle, stepReviewBy]);
+
   return (
     <div className="bg-surface flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
       <Header
         active="puzzles"
         subtitle={t('puzzle.lessons_nav')}
-        right={(
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(routes.puzzles)}
-              className="text-text-dim hover:text-text-bright transition-colors text-sm"
-            >
-              {t('puzzle.play_streak')}
-            </button>
-            <button
-              onClick={() => navigate(routes.lessons)}
-              className="text-text-dim hover:text-text-bright transition-colors text-sm"
-            >
-              {t('puzzle.all_lessons')}
-            </button>
-          </div>
-        )}
       />
 
       <main id="main-content" className="flex-1 min-h-0 px-4 py-4 lg:overflow-hidden">
         <div className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div className="flex min-h-0 flex-col items-center justify-center gap-3 lg:overflow-hidden">
-            {gameState && (
+            {activeGameState && (
               <BoardErrorBoundary onRetry={handleRetry}>
                 <Board
-                  board={gameState.board}
+                  board={activeGameState.board}
                   className="max-w-full lg:h-full lg:w-auto lg:max-h-[calc(100dvh-9.5rem)]"
                   playerColor={puzzle.sideToMove}
-                  isMyTurn={status === 'playing' && gameState.turn === puzzle.sideToMove}
+                  isMyTurn={status === 'playing' && !isReviewingPosition && activeGameState.turn === puzzle.sideToMove}
                   legalMoves={legalMoves}
                   selectedSquare={selectedSquare || hintSquare}
-                  lastMove={getLastMove()}
-                  isCheck={gameState.isCheck}
-                  checkSquare={getCheckSquare()}
+                  lastMove={getLastMove(activeGameState)}
+                  isCheck={activeGameState.isCheck}
+                  checkSquare={getCheckSquare(activeGameState)}
                   onSquareClick={handleSquareClick}
                   onPieceDrop={handlePieceDrop}
-                  disabled={status !== 'playing' || gameState.turn !== puzzle.sideToMove}
+                  disabled={status !== 'playing' || isReviewingPosition || activeGameState.turn !== puzzle.sideToMove}
                 />
               </BoardErrorBoundary>
+            )}
+            {isRandomMode && (
+              <div className="flex w-full max-w-[520px] flex-wrap items-center gap-2 px-1 pt-1">
+                {randomResultHistory.map((entry, index) => (
+                  <button
+                    key={`${entry.puzzleId}-${index}`}
+                    type="button"
+                    onClick={() => openRandomResultPuzzle(entry.puzzleId)}
+                    disabled={entry.puzzleId === puzzle.id}
+                    title={`#${entry.puzzleId}`}
+                    className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${
+                      entry.outcome === 'success'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                    } ${entry.puzzleId === puzzle.id ? 'cursor-default ring-2 ring-amber-300/80' : 'cursor-pointer hover:brightness-110'}`}
+                  >
+                    {entry.outcome === 'success' ? '✓' : '✕'}
+                  </button>
+                ))}
+                <span className="h-7 min-w-[30px] rounded-lg bg-amber-600/90 px-2.5 py-1 text-sm font-semibold text-transparent">
+                  0
+                </span>
+              </div>
             )}
           </div>
 
@@ -1675,92 +1908,85 @@ function PuzzlePlayer() {
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
                   {t('puzzle.rating_short', { score: puzzle.difficultyScore })}
                 </span>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                  {getPuzzleOriginLabel(puzzle, t)}
+                </span>
                 <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
                   {t('puzzle.to_move', { color: currentTurnLabel })}
                 </span>
               </div>
             </div>
 
-            {status === 'playing' && (
-              <CoachSection
-                label={t('puzzle.move_now_label')}
-                body={isSolverTurn
-                  ? t('puzzle.find_best', { color: solverColorLabel })
-                  : t('puzzle.to_move', { color: currentTurnLabel })}
-                tone="primary"
-              >
-                <p className="text-xs text-text-dim">{t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}</p>
-              </CoachSection>
-            )}
-
-            {status === 'success' && (
-              <CoachSection
-                label={t('puzzle.solved_label')}
-                title={t('puzzle.correct')}
-                body={hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean')}
-                tone="primary"
-              >
-                <p className="text-sm leading-6 text-text">{puzzle.takeaway}</p>
-              </CoachSection>
-            )}
-
-            {status === 'failed' && (
-              <CoachSection
-                label={t('puzzle.try_again_label')}
-                title={t('puzzle.wrong')}
-                body={failureDetail ?? t('puzzle.wrong_desc')}
-                tone="danger"
-              />
-            )}
-
-            <CoachSection label={t('puzzle.scene_label')} body={puzzle.whyPositionMatters} />
-
             <CoachSection
-              label={t('puzzle.task_label')}
-              body={puzzle.objective}
-              tone="accent"
+              label={status === 'playing' ? t('puzzle.move_now_label') : status === 'success' ? t('puzzle.solved_label') : t('puzzle.try_again_label')}
+              title={status === 'success' ? t('puzzle.correct') : status === 'failed' ? t('puzzle.wrong') : null}
+              body={status === 'failed'
+                ? (failureDetail ?? t('puzzle.wrong_desc'))
+                : status === 'success'
+                  ? (hintUsed ? t('puzzle.solved_hint') : t('puzzle.solved_clean'))
+                  : (isSolverTurn
+                    ? t('puzzle.find_best', { color: solverColorLabel })
+                    : t('puzzle.to_move', { color: currentTurnLabel }))}
+              tone={status === 'failed' ? 'danger' : 'primary'}
             >
-              {status === 'playing' && (
-                <button
-                  onClick={handleHint}
-                  className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {t('puzzle.hint')}
-                </button>
+              {status === 'playing' ? (
+                <p className="text-xs text-text-dim">{t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}</p>
+              ) : (
+                <p className="text-sm leading-6 text-text">{puzzle.takeaway}</p>
               )}
             </CoachSection>
 
-            <CoachSection label={t('puzzle.coach_eye_label')} body={puzzle.keyIdea} tone="primary">
-              <p className="text-sm leading-6 text-text-dim">{puzzle.explanation}</p>
-            </CoachSection>
-
-            {revealedHints.length > 0 && (
-              <CoachSection label={t('puzzle.hint_path_label')} body={revealedHints[revealedHints.length - 1]?.text ?? ''} tone="accent">
-                <div className="space-y-2">
-                  {revealedHints.map((entry) => (
-                    <div key={entry.label}>
-                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-accent/80">{entry.label}</div>
-                      <p className="text-sm leading-relaxed text-text">{entry.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </CoachSection>
-            )}
-
-            <CoachSection label={t('puzzle.tempting_mistake_label')} body={puzzle.wrongMoveExplanation} tone={status === 'failed' ? 'danger' : 'surface'} />
-
-            <CoachSection label={t('puzzle.takeaway_label')} body={puzzle.takeaway} tone={status === 'success' ? 'primary' : 'surface'} />
-
-            <CoachSection
-              label={t('puzzle.source_evidence_label')}
-              body={puzzle.ruleImpact}
-            >
+            <section className="sticky top-2 z-10 rounded-2xl border border-surface-hover bg-surface/95 p-3 backdrop-blur">
               <div className="flex flex-wrap gap-2">
-                {getPuzzleSourceBadges(puzzle, t).map(badge => (
-                  <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {badge}
+                <button
+                  onClick={handleHint}
+                  disabled={status !== 'playing' || isReviewingPosition}
+                  className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {t('puzzle.hint')}
+                </button>
+                <button
+                  onClick={handleRetry}
+                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
+                >
+                  ↺ {t('common.retry')}
+                </button>
+                {nextPuzzle && (
+                  <button
+                    onClick={() => navigate(getPuzzleUrl(nextPuzzle))}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+                  >
+                    {t('puzzle.next')} →
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-text-dim">
+                {isReviewingPosition
+                  ? t('puzzle.review_mode_on')
+                  : t('puzzle.review_mode_off')}
+              </p>
+            </section>
+
+            <MoveHistory
+              moves={gameState?.moveHistory ?? []}
+              initialBoard={puzzle.board}
+              currentMoveIndex={activeMoveIndex}
+              onMoveClick={jumpToMove}
+            />
+
+            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-3">
+              <div className="flex flex-wrap gap-2">
+                <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
+                  {getPuzzleOriginLabel(puzzle, t)}
+                </span>
+                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                  {getPuzzleSourceLabel(puzzle.source, t)}
+                </span>
+                {puzzle.sourceLicense && (
+                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                    {puzzle.sourceLicense}
                   </span>
-                ))}
+                )}
                 {verificationLabel && (
                   <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
                     {verificationLabel}
@@ -1777,83 +2003,85 @@ function PuzzlePlayer() {
                   </a>
                 )}
               </div>
-            </CoachSection>
+            </div>
 
-            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-primary/80 mb-2">{t('puzzle.activity_title')}</p>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                  {t('puzzle.activity_status_label')}: {activityStatusLabel}
-                </span>
-                {progressRecord && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.attempts_label')}: {progressRecord.attempts}
-                  </span>
-                )}
-                {progressRecord && progressRecord.attempts > 0 && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.success_rate')}: {Math.round((progressRecord.successes / progressRecord.attempts) * 100)}%
-                  </span>
-                )}
-                {progressRecord?.lastPlayedAt && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                    {t('puzzle.activity_last_played', { date: formatActivityDate(progressRecord.lastPlayedAt, lang) })}
-                  </span>
-                )}
-                {completedTimestamp !== null && (
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
-                    {t('puzzle.activity_completed_on', { date: formatActivityDate(completedTimestamp, lang) })}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs uppercase tracking-[0.16em] text-primary/80 mb-2">{t('puzzle.related_theme_title')}</p>
-              {relatedThemePuzzles.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-text-dim">{t('puzzle.related_theme_desc', { theme: t(`theme.${puzzle.theme}`) })}</p>
-                  {relatedThemePuzzles.map((relatedPuzzle) => (
-                    <button
-                      key={relatedPuzzle.id}
-                      onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
-                      className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
-                    >
-                      <div className="text-sm font-medium text-text-bright">
-                        #{relatedPuzzle.id} · {getPublicPuzzleTitle(relatedPuzzle.title)}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-text-dim">
-                        <span className={getDifficultyTextClasses(relatedPuzzle.difficulty)}>{t(`puzzle.${relatedPuzzle.difficulty}`)}</span>
-                        <span>
-                          {completedPuzzleSet.has(relatedPuzzle.id) ? t('puzzle.solved_badge') : t('puzzle.new_badge')}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+            <details className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-text-bright">{t('puzzle.more_details')}</summary>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm font-semibold text-text">{t('puzzle.scene_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.whyPositionMatters}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.task_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.objective}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.coach_eye_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.keyIdea}</p>
+                  {revealedHints.length > 0 && (
+                    <div className="space-y-1">
+                      {revealedHints.map((entry) => (
+                        <p key={entry.label} className="text-sm text-text-dim">
+                          <span className="font-semibold text-text">{entry.label}</span>: {entry.text}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-text">{t('puzzle.tempting_mistake_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.wrongMoveExplanation}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.takeaway_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.takeaway}</p>
+                  <p className="text-sm font-semibold text-text">{t('puzzle.source_evidence_label')}</p>
+                  <p className="text-sm text-text-dim">{puzzle.ruleImpact}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                      {t('puzzle.activity_status_label')}: {activityStatusLabel}
+                    </span>
+                    {progressRecord && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.attempts_label')}: {progressRecord.attempts}
+                      </span>
+                    )}
+                    {progressRecord && progressRecord.attempts > 0 && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.success_rate')}: {Math.round((progressRecord.successes / progressRecord.attempts) * 100)}%
+                      </span>
+                    )}
+                    {progressRecord?.lastPlayedAt && (
+                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                        {t('puzzle.activity_last_played', { date: formatActivityDate(progressRecord.lastPlayedAt, lang) })}
+                      </span>
+                    )}
+                    {completedTimestamp !== null && (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
+                        {t('puzzle.activity_completed_on', { date: formatActivityDate(completedTimestamp, lang) })}
+                      </span>
+                    )}
+                  </div>
+                  {relatedThemePuzzles.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-primary/80">{t('puzzle.related_theme_title')}</p>
+                      <p className="text-xs text-text-dim">{t('puzzle.related_theme_desc', { theme: t(`theme.${puzzle.theme}`) })}</p>
+                      {relatedThemePuzzles.map((relatedPuzzle) => (
+                        <button
+                          key={relatedPuzzle.id}
+                          onClick={() => navigate(puzzleRoute(String(relatedPuzzle.id)))}
+                          className="w-full rounded-xl border border-surface-hover bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                        >
+                          <div className="text-sm font-medium text-text-bright">
+                            #{relatedPuzzle.id} · {getPublicPuzzleTitle(relatedPuzzle.title)}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-text-dim">
+                            <span className={getDifficultyTextClasses(relatedPuzzle.difficulty)}>{t(`puzzle.${relatedPuzzle.difficulty}`)}</span>
+                            <span>
+                              {completedPuzzleSet.has(relatedPuzzle.id) ? t('puzzle.solved_badge') : t('puzzle.new_badge')}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-text-dim">{t('puzzle.related_theme_empty', { theme: t(`theme.${puzzle.theme}`) })}</p>
-              )}
-            </div>
+            </details>
 
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-              {status !== 'playing' && (
-                <button
-                  onClick={handleRetry}
-                  className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-bright text-sm rounded-lg border border-surface-hover transition-colors"
-                >
-                  ↺ {t('common.retry')}
-                </button>
-              )}
-              {status === 'success' && nextPuzzle && (
-                <button
-                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
-                  className="flex-1 min-w-0 py-2 px-3 bg-primary hover:bg-primary-light text-white text-sm rounded-lg transition-colors font-semibold"
-                >
-                  {t('puzzle.next')} →
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+            {status !== 'playing' && (
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               {prevPuzzle && (
                 <button
                   onClick={() => navigate(puzzleRoute(String(prevPuzzle)))}
@@ -1868,15 +2096,16 @@ function PuzzlePlayer() {
               >
                 {t('puzzle.all_lessons')}
               </button>
-              {nextPuzzle && status !== 'success' && (
+              {nextPuzzle && (
                 <button
-                  onClick={() => navigate(puzzleRoute(String(nextPuzzle)))}
+                  onClick={() => navigate(getPuzzleUrl(nextPuzzle))}
                   className="flex-1 min-w-0 py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                 >
                   {t('puzzle.next')} →
                 </button>
               )}
-            </div>
+              </div>
+            )}
           </aside>
         </div>
       </main>

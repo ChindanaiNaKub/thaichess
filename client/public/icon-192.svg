@@ -1,38 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <!-- Dark rounded square background -->
-  <rect width="192" height="192" rx="32" fill="#1a1816"/>
-  
-  <!-- Outer accent ring -->
-  <circle cx="96" cy="96" r="84" fill="none" stroke="#629924" stroke-width="3"/>
-  
-  <!-- Inner dark circle -->
-  <circle cx="96" cy="96" r="78" fill="#161512"/>
-  
-  <!-- "T" Monogram that transforms into a chess piece - scaled for 192x192 -->
-  <g transform="translate(96, 96) scale(3)" fill="#629924">
-    <!-- Top bar of T - styled as Khun crown -->
-    <rect x="-10" y="-10" width="20" height="5" rx="1" fill="#7ab82e"/>
-    <rect x="-8" y="-13" width="16" height="3" rx="1" fill="#8bc34a"/>
-    <rect x="-6" y="-16" width="12" height="3" rx="1" fill="#9ccc65"/>
-    
-    <!-- Center peak of crown -->
-    <polygon points="-3,-16 0,-20 3,-16" fill="#aed581"/>
-    
-    <!-- Stem of T - styled as piece body -->
-    <rect x="-3" y="-5" width="6" height="14" rx="1" fill="#629924"/>
-    
-    <!-- Base of piece -->
-    <rect x="-6" y="8" width="12" height="3" rx="1" fill="#4a7a1a"/>
-    
-    <!-- Subtle highlight line down the stem -->
-    <rect x="-1" y="-4" width="2" height="12" fill="#8bc34a" opacity="0.5"/>
-  </g>
-  
-  <!-- Small decorative dots on the crown -->
-  <circle cx="72" cy="48" r="3" fill="#c5e1a5" opacity="0.8"/>
-  <circle cx="96" cy="42" r="3" fill="#c5e1a5" opacity="0.8"/>
-  <circle cx="120" cy="48" r="3" fill="#c5e1a5" opacity="0.8"/>
-  
-  <!-- Glossy highlight -->
-  <ellipse cx="72" cy="60" rx="9" ry="6" fill="white" opacity="0.1"/>
+  <rect width="192" height="192" rx="40" fill="#2f7d32"/>
+  <path fill="#ffffff" d="M42 42h108v30h-36v78H78V72H42z"/>
+  <path fill="#c9f45c" d="M60 24h72v18H60z"/>
 </svg>

@@ -3,6 +3,8 @@ export const routes = {
   local: '/local',
   bot: '/bot',
   puzzles: '/puzzles',
+  puzzleStreak: '/puzzles/streak',
+  puzzleThemes: '/puzzles/themes',
   lessons: '/lessons',
   course: '/course',
   coursePath: '/course-path',
@@ -56,4 +58,8 @@ export function lessonRoute(id: string): string {
 
 export function puzzleRoute(id: string): string {
   return `/puzzle/${id}`;
+}
+
+export function randomPuzzleRoute(): string {
+  return routes.puzzles;
 }

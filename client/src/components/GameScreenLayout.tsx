@@ -28,8 +28,8 @@ export default function GameScreenLayout({
 
   return (
     <main id="main-content" className="flex-1 min-h-0 px-3 py-2 sm:px-4 sm:py-3">
-      <div className="mx-auto grid h-full w-full max-w-[1240px] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_288px]">
-        <div className="flex min-h-0 flex-col items-center gap-1.5 w-full">
+      <div className="mx-auto grid h-full w-full min-w-0 max-w-[1240px] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_288px]">
+        <div className="flex min-h-0 min-w-0 flex-col items-center gap-1.5 w-full">
           {topPanel}
 
           <div className="w-full lg:w-[min(100%,calc(100dvh-15.4rem))] xl:w-[min(100%,calc(100dvh-14.8rem))]">
@@ -58,7 +58,7 @@ export default function GameScreenLayout({
         </div>
 
         <aside
-          className="flex w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1"
+          className="flex min-w-0 w-full max-w-[720px] flex-col gap-2.5 lg:max-h-full lg:max-w-none lg:overflow-auto lg:pr-1"
           style={{ overflowAnchor: 'none' }}
         >
           {sidePanel}

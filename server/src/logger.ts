@@ -2,6 +2,10 @@ type LogLevel = 'info' | 'warn' | 'error';
 
 interface LogPayload {
   event: string;
+  correlationId?: string;
+  userId?: string;
+  gameId?: string;
+  requestId?: string;
   [key: string]: unknown;
 }
 

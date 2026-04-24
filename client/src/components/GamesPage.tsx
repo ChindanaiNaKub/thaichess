@@ -5,12 +5,7 @@ import { useTranslation } from '../lib/i18n';
 import { routes, savedGameAnalysisRoute } from '../lib/routes';
 import { gamesQueryOptions, type GamesFilter, type GameEntry } from '../queries/games';
 import Header from './Header';
-
-interface BotPerformanceStats {
-  gamesCount: number;
-  winRate: number;
-  highestBotLevelDefeated: number | null;
-}
+import Footer from './Footer';
 
 function formatTimeControl(initial: number, increment: number): string {
   const mins = Math.floor(initial / 60);
@@ -158,7 +153,7 @@ function renderGameRow(
       <td className="px-3 sm:px-4 py-3 text-right">
         <button
           onClick={(e) => { e.stopPropagation(); navigate(savedGameAnalysisRoute(game.id)); }}
-          className="px-2.5 py-1 rounded-md border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary-light text-xs font-semibold transition-colors"
+          className="ui-btn-primary px-2.5 py-1 text-xs"
           title={t('analysis.analyze')}
         >
           {t('analysis.view')}
@@ -187,7 +182,6 @@ export default function GamesPage() {
     isLoading,
     isError,
     error,
-    isPlaceholderData,
   } = useQuery(gamesQueryOptions(page, limit, filter));
 
   const games = data?.games ?? [];
@@ -207,14 +201,14 @@ export default function GamesPage() {
       <Header active="games" />
 
       <main id="main-content" className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
-        <div className="rounded-2xl border border-surface-hover bg-surface-alt/80 px-4 py-4 sm:px-5 sm:py-5 mb-4 sm:mb-6">
+        <div className="ui-card mb-4 px-4 py-4 sm:mb-6 sm:px-5 sm:py-5">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-text-bright">{t('games.title')}</h2>
+                <h2 className="ui-title text-xl sm:text-2xl">{t('games.title')}</h2>
                 <button
                   onClick={() => navigate(routes.leaderboard)}
-                  className="px-3 py-1.5 rounded-lg border border-surface-hover bg-surface text-text-bright text-xs sm:text-sm font-semibold hover:bg-surface-hover transition-colors"
+                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
                   {t('games.view_leaderboard')}
                 </button>
@@ -230,7 +224,7 @@ export default function GamesPage() {
                   className={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
                     filter === filterOption
                       ? 'bg-primary text-white'
-                      : 'border border-surface-hover bg-surface text-text-dim hover:bg-surface-hover'
+                      : 'ui-btn-secondary text-text-dim hover:text-text-bright'
                   }`}
                 >
                   {t(`games.filter_${filterOption}`)}
@@ -238,15 +232,15 @@ export default function GamesPage() {
               ))}
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+              <div className="ui-card-soft px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_games')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.gamesCount}</div>
               </div>
-              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+              <div className="ui-card-soft px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_win_rate')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.winRate}%</div>
               </div>
-              <div className="rounded-xl border border-surface-hover bg-surface/65 px-3 py-3">
+              <div className="ui-card-soft px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_highest_level')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">
                   {botStats.highestBotLevelDefeated ? `Lv.${botStats.highestBotLevelDefeated}` : '-'}
@@ -261,30 +255,30 @@ export default function GamesPage() {
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : isError ? (
-          <div className="rounded-2xl border border-danger/30 bg-danger/10 px-6 py-10 text-center">
+          <div className="ui-card rounded-2xl border-danger/30 bg-danger/10 px-6 py-10 text-center">
             <p className="text-danger">{error?.message || t('error.generic')}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
+              className="ui-btn-primary mt-4 px-4 py-2"
             >
               {t('common.retry')}
             </button>
           </div>
         ) : games.length === 0 ? (
-          <div className="rounded-2xl border border-surface-hover bg-surface-alt px-6 py-10 sm:px-10 sm:py-12 text-center">
+          <div className="ui-card rounded-2xl px-6 py-10 text-center sm:px-10 sm:py-12">
             <div className="text-4xl mb-4">♟</div>
             <p className="text-text-bright text-lg sm:text-xl font-semibold mb-2">{t('games.empty')}</p>
             <p className="text-text-dim text-sm sm:text-base mb-6 max-w-md mx-auto">{t('games.empty_desc')}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate(routes.quickPlay)}
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                className="ui-btn-primary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
               >
                 {t('home.find_opponent')}
               </button>
               <button
                 onClick={() => navigate(routes.puzzles)}
-                className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-surface hover:bg-surface-hover text-text-bright font-semibold rounded-lg border border-surface-hover transition-colors text-sm sm:text-base"
+                className="ui-btn-secondary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
               >
                 {t('nav.puzzles')}
               </button>
@@ -293,18 +287,18 @@ export default function GamesPage() {
         ) : (
           <>
             {highlightedGames.length > 0 ? (
-              <div className="mb-3 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 sm:px-5">
+              <div className="ui-card-soft mb-3 rounded-2xl border-primary/15 bg-primary/5 px-4 py-3 sm:px-5">
                 <p className="text-sm font-semibold text-text-bright">{t('games.featured_title')}</p>
                 <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.featured_desc')}</p>
               </div>
             ) : (
-              <div className="mb-3 rounded-2xl border border-surface-hover bg-surface-alt px-4 py-3 sm:px-5">
+              <div className="ui-card-soft mb-3 rounded-2xl px-4 py-3 sm:px-5">
                 <p className="text-sm font-semibold text-text-bright">{t('games.no_featured_title')}</p>
                 <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.no_featured_desc')}</p>
               </div>
             )}
 
-            <div className="bg-surface-alt rounded-xl border border-surface-hover overflow-x-auto">
+            <div className="ui-card overflow-x-auto rounded-xl">
               <table className="w-full text-sm min-w-[320px]">
                 <thead>
                   <tr className="border-b border-surface-hover text-text-dim text-left">
@@ -323,7 +317,7 @@ export default function GamesPage() {
             </div>
 
             {lowSignalGames.length > 0 && (
-              <div className="mt-4 rounded-xl border border-surface-hover bg-surface-alt/70">
+              <div className="ui-card mt-4 rounded-xl bg-surface-alt/70">
                 <div className="border-b border-surface-hover px-4 py-3 sm:px-5">
                   <p className="text-sm font-semibold text-text-bright">{t('games.low_signal_title')}</p>
                   <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.low_signal_desc')}</p>
@@ -343,7 +337,7 @@ export default function GamesPage() {
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="px-3 py-1.5 bg-surface-alt border border-surface-hover rounded text-sm disabled:opacity-30 hover:bg-surface-hover transition-colors text-text"
+                  className="ui-btn-secondary px-3 py-1.5 text-sm text-text disabled:opacity-30"
                 >
                   ← {t('games.prev')}
                 </button>
@@ -353,7 +347,7 @@ export default function GamesPage() {
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="px-3 py-1.5 bg-surface-alt border border-surface-hover rounded text-sm disabled:opacity-30 hover:bg-surface-hover transition-colors text-text"
+                  className="ui-btn-secondary px-3 py-1.5 text-sm text-text disabled:opacity-30"
                 >
                   {t('games.next')} →
                 </button>
@@ -363,48 +357,7 @@ export default function GamesPage() {
         )}
       </main>
 
-      <footer className="bg-surface-alt border-t border-surface-hover py-8 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 mb-6">
-            {/* Play */}
-            <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.play')}</h4>
-              <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/quick-play" className="hover:text-primary transition-colors">{t('home.quick_play')}</a></li>
-                <li><a href="/local" className="hover:text-primary transition-colors">{t('home.play_local')}</a></li>
-                <li><a href="/bot" className="hover:text-primary transition-colors">{t('home.play_bot')}</a></li>
-              </ul>
-            </div>
-            {/* Puzzles */}
-            <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.puzzles')}</h4>
-              <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/puzzles" className="hover:text-primary transition-colors">{t('puzzle.title')}</a></li>
-              </ul>
-            </div>
-            {/* About */}
-            <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('nav.about')}</h4>
-              <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="/games" className="hover:text-primary transition-colors">{t('games.title')}</a></li>
-                <li><a href="/leaderboard" className="hover:text-primary transition-colors">{t('leaderboard.title')}</a></li>
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.github')}</a></li>
-              </ul>
-            </div>
-            {/* Community */}
-            <div>
-              <h4 className="text-text-bright font-semibold mb-3 text-sm">{t('footer.community')}</h4>
-              <ul className="space-y-2 text-text-dim text-xs">
-                <li><a href="https://github.com/ChindanaiNaKub/thaichess" target="_blank" rel="noopener" className="hover:text-primary transition-colors">{t('footer.star_github')}</a></li>
-                <li><a href="/feedback" className="hover:text-primary transition-colors">{t('feedback.button')}</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-6 border-t border-surface-hover text-center">
-            <p className="text-text-dim text-xs">{t('footer.tagline')}</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

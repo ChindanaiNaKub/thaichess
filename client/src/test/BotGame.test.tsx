@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import BotGame from '../components/BotGame';
+import BotGame, { getBotRequestTimeoutMs } from '../components/BotGame';
 
 const {
   navigateMock,
@@ -56,7 +56,7 @@ vi.mock('../lib/auth', () => ({
       fair_play_status: 'clear',
       rated_restricted_at: null,
       rated_restriction_note: null,
-      rating: 1500,
+      rating: 500,
       rated_games: 0,
       wins: 0,
       losses: 0,
@@ -304,6 +304,38 @@ describe('BotGame', () => {
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
     expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back locally for a master bot when the server engine request fails', async () => {
+    requestBotMoveMock.mockRejectedValue(new Error('engine unavailable'));
+
+    renderBotGame();
+
+    const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
+    fireEvent.click(masterButtons[0]);
+
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+
+    await waitFor(() => {
+      const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
+      expect(lastBoardProps?.isMyTurn).toBe(true);
+      expect(lastBoardProps?.lastMove).toMatchObject({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      });
+    }, { timeout: 2000 });
+
+    expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps high-level engine requests alive long enough for production Fairy-Stockfish searches', () => {
+    expect(getBotRequestTimeoutMs(8)).toBe(5000);
+    expect(getBotRequestTimeoutMs(9)).toBe(8000);
+    expect(getBotRequestTimeoutMs(10)).toBe(15000);
   });
 
   it('saves finished bot games into the shared recent-games system', async () => {

@@ -350,7 +350,7 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
       socket.emit('game_left', { gameId: result.gameId });
     });
 
-    socket.on('join_game', (payload) => {
+    socket.on('join_game', async (payload) => {
       if (!enforceSocketRateLimit(socket, 'join_game', deps, ['socket', 'ip'])) return;
       
       // Zod validation with user-friendly error messages
@@ -368,52 +368,62 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         return;
       }
 
-      const result = deps.gameManager.joinGame(gameId, socket.id, {
-        playerId: socket.data.playerId,
-        userId: socket.data.authUser?.id ?? null,
-        displayName: getSocketDisplayName(socket),
-        rating: socket.data.authUser?.rating ?? null,
-      });
-      if (!result) {
-        const existingRoom = deps.gameManager.getGame(gameId);
+      try {
+        const result = await deps.gameManager.joinGame(gameId, socket.id, {
+          playerId: socket.data.playerId,
+          userId: socket.data.authUser?.id ?? null,
+          displayName: getSocketDisplayName(socket),
+          rating: socket.data.authUser?.rating ?? null,
+        });
+        if (!result) {
+          const existingRoom = deps.gameManager.getGame(gameId);
+          rejectSocketEvent(
+            deps.monitoring,
+            socket,
+            'join_game',
+            existingRoom ? 'Game is full. Redirecting to spectator mode.' : 'Game not found',
+            { gameId },
+          );
+          return;
+        }
+
+        const { room, color, reconnected } = result;
+        socket.join(gameId);
+
+        socket.emit('game_joined', { color, gameState: deps.gameManager.getClientGameState(room, socket.id) });
+        emitGameStateToParticipants(deps.io, deps.gameManager, room, socket.id);
+        emitPresenceToParticipants(deps.io, deps.gameManager, room);
+
+        if (reconnected && room.status === 'playing') {
+          const opponentId = color === 'white' ? room.black : room.white;
+          if (opponentId) {
+            deps.io.to(opponentId).emit('opponent_reconnected');
+          }
+        }
+
+        if (room.status === 'playing') {
+          deps.gameManager.startClock(gameId, (updatedRoom) => {
+            if (updatedRoom.gameState.gameOver) {
+              const reason = updatedRoom.gameState.whiteTime <= 0 || updatedRoom.gameState.blackTime <= 0 ? 'timeout' : 'unknown';
+              void deps.saveGameToDb(updatedRoom, reason).then(({ ratingChange }) => {
+                emitGameOverToParticipants(deps.io, deps.gameManager, updatedRoom, reason, ratingChange);
+              });
+            } else {
+              deps.io.to(gameId).emit('clock_update', {
+                whiteTime: updatedRoom.gameState.whiteTime,
+                blackTime: updatedRoom.gameState.blackTime,
+              });
+            }
+          });
+        }
+      } catch (error) {
         rejectSocketEvent(
           deps.monitoring,
           socket,
           'join_game',
-          existingRoom ? 'Game is full. Redirecting to spectator mode.' : 'Game not found',
-          { gameId },
+          'Unable to join game. Please try again.',
+          { gameId, error: error instanceof Error ? error.message : String(error) },
         );
-        return;
-      }
-
-      const { room, color, reconnected } = result;
-      socket.join(gameId);
-
-      socket.emit('game_joined', { color, gameState: deps.gameManager.getClientGameState(room, socket.id) });
-      emitGameStateToParticipants(deps.io, deps.gameManager, room, socket.id);
-      emitPresenceToParticipants(deps.io, deps.gameManager, room);
-
-      if (reconnected && room.status === 'playing') {
-        const opponentId = color === 'white' ? room.black : room.white;
-        if (opponentId) {
-          deps.io.to(opponentId).emit('opponent_reconnected');
-        }
-      }
-
-      if (room.status === 'playing') {
-        deps.gameManager.startClock(gameId, (updatedRoom) => {
-          if (updatedRoom.gameState.gameOver) {
-            const reason = updatedRoom.gameState.whiteTime <= 0 || updatedRoom.gameState.blackTime <= 0 ? 'timeout' : 'unknown';
-            void deps.saveGameToDb(updatedRoom, reason).then(({ ratingChange }) => {
-              emitGameOverToParticipants(deps.io, deps.gameManager, updatedRoom, reason, ratingChange);
-            });
-          } else {
-            deps.io.to(gameId).emit('clock_update', {
-              whiteTime: updatedRoom.gameState.whiteTime,
-              blackTime: updatedRoom.gameState.blackTime,
-            });
-          }
-        });
       }
     });
 
