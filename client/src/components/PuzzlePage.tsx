@@ -729,7 +729,7 @@ function PuzzleStreakPage() {
   const [milestoneTone, setMilestoneTone] = useState<StreakMilestoneTone>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStreakPulsing, setIsStreakPulsing] = useState(false);
-  const [hintUsed, setHintUsed] = useState(false);
+  const [_hintUsed, setHintUsed] = useState(false);
   const [hintStage, setHintStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
 

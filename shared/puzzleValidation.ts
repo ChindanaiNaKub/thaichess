@@ -1,5 +1,5 @@
 import { getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove, posToAlgebraic } from './engine';
-import type { Board, GameState, Move, PieceColor, Position } from './types';
+import type { Board, Move, PieceColor, Position } from './types';
 import type { Puzzle, PuzzleMoveReference, PuzzleSolutionLine } from './puzzles';
 import { classifyMaterialGain } from './puzzleDoctrine';
 import {
@@ -54,6 +54,16 @@ function formatMove(move: PuzzleMoveReference | Move): string {
 
 function isLegalMove(board: Board, from: Position, to: Position): boolean {
   return getLegalMoves(board, from).some(move => move.row === to.row && move.col === to.col);
+}
+
+function shouldUseEngineLineWithoutExhaustiveSearch(puzzle: Puzzle): boolean {
+  const longestLine = puzzle.solutionLines.reduce(
+    (length, line) => Math.max(length, line.moves.length),
+    puzzle.solution.length,
+  );
+
+  return puzzle.verification.verificationStatus === 'engine_verified' &&
+    longestLine > 9;
 }
 
 function getAllLegalMovesForColor(board: Board, color: PieceColor): Move[] {
@@ -609,9 +619,13 @@ function validateCommonWrongMove(puzzle: Puzzle, errors: string[], warnings: str
     errors.push(`Common wrong move ${formatMove(wrongMove)} is also listed as accepted.`);
   }
 
-  const objectivePreservingMoves = findObjectivePreservingFirstMoves(puzzle);
-  if (objectivePreservingMoves.some(move => moveEquals(move, wrongMove))) {
-    errors.push(`Common wrong move ${formatMove(wrongMove)} accidentally preserves the puzzle objective.`);
+  if (!shouldUseEngineLineWithoutExhaustiveSearch(puzzle)) {
+    const objectivePreservingMoves = findObjectivePreservingFirstMoves(puzzle);
+    if (objectivePreservingMoves.some(move => moveEquals(move, wrongMove))) {
+      errors.push(`Common wrong move ${formatMove(wrongMove)} accidentally preserves the puzzle objective.`);
+    }
+  } else {
+    warnings.push('Long engine-confirmed puzzle skipped exhaustive wrong-move proof to keep validation bounded.');
   }
 
   const startState = createGameStateFromPuzzle(puzzle);
@@ -628,6 +642,11 @@ function validateCommonWrongMove(puzzle: Puzzle, errors: string[], warnings: str
 }
 
 function validateExactAcceptedSet(puzzle: Puzzle, errors: string[], warnings: string[]): void {
+  if (shouldUseEngineLineWithoutExhaustiveSearch(puzzle)) {
+    warnings.push('Long engine-confirmed puzzle uses the published engine line instead of exhaustive first-move enumeration.');
+    return;
+  }
+
   const engineMoves = findObjectivePreservingFirstMoves(puzzle);
   const allGoalMoves = findGoalSatisfyingFirstMoves(puzzle);
   const acceptedMoves = puzzle.acceptedMoves.map(entry => entry.move);

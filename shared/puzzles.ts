@@ -82,6 +82,7 @@ export type PuzzleSolutionAuthority = 'engine_confirmed' | 'authoritative_line';
 export type PuzzleProgressionStage = 'early' | 'mid' | 'late';
 export type PuzzleStreakTier = 'foundation' | 'practical_attack' | 'forcing_conversion' | 'mate_pressure';
 export type PuzzlePool = 'standard' | 'advanced_only';
+export type PuzzleSourcePermissionStatus = 'unknown' | 'position-only' | 'permission-requested' | 'permission-granted';
 
 export interface Puzzle {
   id: number;
@@ -94,6 +95,8 @@ export interface Puzzle {
   sourcePly: number | null;
   sourceLicense: string | null;
   sourceGameUrl: string | null;
+  sourceAuthor: string | null;
+  sourcePermissionStatus: PuzzleSourcePermissionStatus;
   theme: string;
   motif: string;
   tags: string[];

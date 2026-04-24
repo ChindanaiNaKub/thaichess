@@ -38,6 +38,8 @@ export type RawPuzzle = Omit<
   | 'sourcePly'
   | 'sourceLicense'
   | 'sourceGameUrl'
+  | 'sourceAuthor'
+  | 'sourcePermissionStatus'
   | 'tags'
   | 'positionKey'
   | 'verification'
@@ -76,6 +78,8 @@ export type RawPuzzle = Omit<
   sourcePly?: number | null;
   sourceLicense?: string | null;
   sourceGameUrl?: string | null;
+  sourceAuthor?: string | null;
+  sourcePermissionStatus?: Puzzle['sourcePermissionStatus'];
   tags?: string[];
   positionKey?: string;
   verification?: PuzzleVerification;
@@ -340,7 +344,7 @@ function deriveDifficultyProfile(
   };
 }
 
-function estimateDifficultyScore(profile: PuzzleDifficultyProfile, solutionLines: PuzzleSolutionLine[]): number {
+function _estimateDifficultyScore(profile: PuzzleDifficultyProfile, solutionLines: PuzzleSolutionLine[]): number {
   return estimateDifficultyScoreWithVerification(profile, solutionLines, null);
 }
 
@@ -479,6 +483,8 @@ export function finalizePuzzle(puzzle: RawPuzzle): Puzzle {
     sourcePly: puzzle.sourcePly ?? sourceReference.sourcePly,
     sourceLicense: puzzle.sourceLicense ?? deriveSourceLicense(origin, puzzle.source),
     sourceGameUrl: puzzle.sourceGameUrl ?? null,
+    sourceAuthor: puzzle.sourceAuthor ?? null,
+    sourcePermissionStatus: puzzle.sourcePermissionStatus ?? 'unknown',
     tags: derivePuzzleTags({
       theme: puzzle.theme,
       difficulty: puzzle.difficulty,
