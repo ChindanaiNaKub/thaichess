@@ -99,6 +99,52 @@ function getPublicPuzzleTitle(title: string): string {
     .trim();
 }
 
+function translatePuzzleContent(
+  text: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (!text) return text;
+
+  // Try exact match first
+  const exactKey = `puzzleContent.${text}`;
+  const translated = t(exactKey);
+  if (translated !== exactKey) {
+    return translated;
+  }
+
+  // Try partial matches for common patterns (case insensitive)
+  const lowerText = text.toLowerCase();
+
+  if (lowerText.includes('win material in 1')) {
+    return text.replace(/Win material in 1/i, t('puzzleContent.Win material in 1'));
+  }
+  if (lowerText.includes('win material in 2')) {
+    return text.replace(/Win material in 2/i, t('puzzleContent.Win material in 2'));
+  }
+  if (lowerText.includes('win material in 3')) {
+    return text.replace(/Win material in 3/i, t('puzzleContent.Win material in 3'));
+  }
+  if (lowerText.includes('create two threats at once')) {
+    return t('puzzleContent.Create two threats at once so the defender cannot cover both');
+  }
+  if (lowerText.includes('editorial training collection')) {
+    return text
+      .replace(/Editorial training collection/i, t('puzzleContent.Editorial training collection'))
+      .replace(/reviewed practical fragment/i, t('puzzleContent.reviewed practical fragment'));
+  }
+  if (lowerText.includes('beginner double attack')) {
+    return t('puzzleContent.Beginner double attack');
+  }
+  if (lowerText.includes('beginner pin and restriction')) {
+    return t('puzzleContent.Beginner pin and restriction');
+  }
+  if (lowerText.includes('editorial-review')) {
+    return text.replace(/editorial-review/i, t('puzzleContent.editorial-review'));
+  }
+
+  return text;
+}
+
 function getPuzzleSourceLabel(
   source: string,
   t: (key: string, vars?: Record<string, string | number>) => string,
@@ -241,7 +287,7 @@ function getPuzzleIdentityBadges(
 ): string[] {
   return [
     t(`theme.${puzzle.theme}`),
-    puzzle.motif,
+    puzzle.motif ? translatePuzzleContent(puzzle.motif, t) : null,
     getPuzzleSourceLabel(puzzle.source, t),
     getVerificationLabel(puzzle, t),
     getCountCriticalityLabel(puzzle, t),
@@ -254,7 +300,7 @@ function getCompactPuzzleIdentityBadges(
 ): string[] {
   return [
     t(`theme.${puzzle.theme}`),
-    puzzle.motif,
+    puzzle.motif ? translatePuzzleContent(puzzle.motif, t) : null,
   ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0));
 }
 
@@ -1885,15 +1931,15 @@ function PuzzlePlayer() {
           </div>
 
           <aside
-            className="flex min-h-0 flex-col gap-3 lg:max-h-full lg:overflow-y-auto lg:pr-1"
+            className="flex min-h-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto lg:pr-1"
             style={{ overflowAnchor: 'none' }}
           >
             <div className="rounded-[28px] border border-primary/20 bg-[linear-gradient(160deg,rgba(92,160,26,0.12),rgba(32,24,19,0.95)_48%,rgba(19,15,12,0.98))] p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-primary-light/90">Lesson #{puzzle.id}</p>
-                  <h3 className="mt-2 text-xl font-bold text-text-bright">{getPublicPuzzleTitle(puzzle.title)}</h3>
-                  <p className="mt-2 text-sm leading-6 text-text-dim">{puzzle.description}</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-primary-light/90">{t('puzzle.lesson')} #{puzzle.id}</p>
+                  <h3 className="mt-2 text-xl font-bold text-text-bright">{translatePuzzleContent(getPublicPuzzleTitle(puzzle.title), t)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-text-dim">{translatePuzzleContent(puzzle.description, t)}</p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${getDifficultyBadgeClasses(puzzle.difficulty)}`}>
                   {t(`puzzle.${puzzle.difficulty}`)}
@@ -1929,6 +1975,22 @@ function PuzzlePlayer() {
                     : t('puzzle.to_move', { color: currentTurnLabel }))}
               tone={status === 'failed' ? 'danger' : 'primary'}
             >
+              {status !== 'playing' && (
+                <div className="flex items-center gap-3 mt-3">
+                  <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-xl font-bold ${
+                    status === 'success'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                      : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                  }`}>
+                    {status === 'success' ? '✓' : '✕'}
+                  </span>
+                  <span className={`text-sm font-medium ${
+                    status === 'success' ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {status === 'success' ? t('puzzle.solved_badge') : t('puzzle.failed_badge')}
+                  </span>
+                </div>
+              )}
               {status === 'playing' ? (
                 <p className="text-xs text-text-dim">{t('puzzle.step', { current: currentStep, total: puzzle.solution.length })}</p>
               ) : (
