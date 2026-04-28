@@ -12,31 +12,41 @@ import {
 import {
   cloneBoard,
   deserializeAnalysisPosition,
-  pieceLabel,
   serializeAnalysisPosition,
   type AnalysisPositionSnapshot,
   type PositionAnalysisResult,
 } from '@shared/engineAdapter';
 import { buildEditorAnalysisRoute, readInlineAnalysisPayload, requestPositionAnalysis } from '../lib/analysis';
 import { DEFAULT_GAME_ANALYSIS_MOVETIME_MS, getGameAnalysisCacheKey, readCachedGameAnalysis, writeCachedGameAnalysis } from '../lib/analysisCache';
+import { requestBrowserPositionAnalysis } from '../lib/browserEngineAnalysis';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
+import { resolveAnalysisRouteMode } from '../lib/analysisMode';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
+import {
+  createEmptyEditorBoard,
+  EditorPieceBank,
+  getEditorAnalysisSnapshotKey,
+  getEditorPositionStatus,
+  getEditorValidationMessage,
+  type EditorPieceTool,
+  type EditorTool,
+} from './AnalysisEditorTools';
 import Header from './Header';
 import type { WorkerResponse } from '../workers/analysisWorker';
 import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 import { useAuth } from '../lib/auth';
 
-type AnalysisMode = 'game' | 'editor';
-type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
+type AnalysisMode = 'game' | 'editor' | 'quick';
 
 const DEFAULT_EDITOR_TOOL: EditorTool = 'move';
 const REVIEW_MOVETIME_MS = DEFAULT_GAME_ANALYSIS_MOVETIME_MS;
+const QUICK_ANALYSIS_MAIN_LINE: Move[] = [];
 
 export default function AnalysisPage() {
   const workerRef = useRef<Worker | null>(null);
@@ -74,6 +84,7 @@ export default function AnalysisPage() {
   const [editorTool, setEditorTool] = useState<EditorTool>(DEFAULT_EDITOR_TOOL);
   const [editorSelectedSquare, setEditorSelectedSquare] = useState<Position | null>(null);
   const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysisResult | null>(null);
+  const [positionAnalysisKey, setPositionAnalysisKey] = useState<string | null>(null);
   const [positionAnalyzing, setPositionAnalyzing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLElement | null>(null);
@@ -96,6 +107,7 @@ export default function AnalysisPage() {
     setLoading(true);
     setGameData(null);
     setPositionAnalysis(null);
+    setPositionAnalysisKey(null);
     setPositionAnalyzing(false);
     setEditorSelectedSquare(null);
     setEditorTool(DEFAULT_EDITOR_TOOL);
@@ -104,17 +116,23 @@ export default function AnalysisPage() {
     const inlinePayloadKey = searchParams.get('payload');
     const localResult = searchParams.get('result');
     const localReason = searchParams.get('reason');
-    const editorMode = searchParams.get('mode') === 'editor' || (!gameId && !localMoves);
+    const routeMode = resolveAnalysisRouteMode({ gameId, searchParams });
     const encodedPosition = searchParams.get('position');
     const encodedCounting = searchParams.get('counting');
 
-    if (editorMode) {
+    if (routeMode === 'editor') {
       setMode('editor');
       const snapshot = encodedPosition
         ? deserializeAnalysisPosition(encodedPosition, encodedCounting)
         : null;
       setEditorBoard(snapshot ? cloneBoard(snapshot.board) : createInitialBoard());
       setEditorTurn(snapshot?.turn ?? 'white');
+      setLoading(false);
+      return;
+    }
+
+    if (routeMode === 'quick') {
+      setMode('quick');
       setLoading(false);
       return;
     }
@@ -306,9 +324,15 @@ export default function AnalysisPage() {
   }, [analysisStartedAt, analyzing]);
 
   const review = usePostGameReview({
-    enabled: mode === 'game' && Boolean(gameData),
-    mainLine: gameData?.moves ?? [],
+    enabled: (mode === 'game' && Boolean(gameData)) || mode === 'quick',
+    mainLine: mode === 'quick' ? QUICK_ANALYSIS_MAIN_LINE : gameData?.moves ?? QUICK_ANALYSIS_MAIN_LINE,
   });
+
+  useEffect(() => {
+    if (mode !== 'quick' || review.mode === 'analysis') return;
+    review.jumpToAnalysisRoot(-1);
+  }, [mode, review]);
+
   const currentPlyIndex = review.selectedMainLineMoveIndex;
   const highlightedMainLineMoveIndex = review.mode === 'analysis'
     ? review.analysisRootMoveIndex ?? review.selectedMainLineMoveIndex
@@ -358,7 +382,7 @@ export default function AnalysisPage() {
 
   // Keyboard navigation
   useEffect(() => {
-    if (!gameData) return;
+    if (mode !== 'quick' && !gameData) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isEditableKeyboardTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -380,7 +404,7 @@ export default function AnalysisPage() {
 
     document.addEventListener('keydown', handleKeyDown, true);
     return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [gameData, navigateBackward, navigateForward, navigateToEnd, navigateToStart]);
+  }, [gameData, mode, navigateBackward, navigateForward, navigateToEnd, navigateToStart]);
 
   // Auto-scroll active move within the move list container only (never scroll the page).
   useLayoutEffect(() => {
@@ -422,24 +446,26 @@ export default function AnalysisPage() {
   ]);
 
   const currentReviewSnapshot = useMemo<AnalysisPositionSnapshot | null>(() => (
-    gameData
+    gameData || mode === 'quick'
       ? {
           board: review.currentState.board,
           turn: review.currentState.turn,
           counting: review.currentState.counting,
         }
       : null
-  ), [gameData, review.currentState.board, review.currentState.counting, review.currentState.turn]);
+  ), [gameData, mode, review.currentState.board, review.currentState.counting, review.currentState.turn]);
 
   const {
     analysis: currentPositionAnalysis,
     analyzing: currentPositionAnalyzing,
     error: currentPositionError,
   } = useReviewEngineAnalysis({
-    enabled: mode === 'game' && Boolean(gameData) && Boolean(user) && !authLoading,
+    enabled: (mode === 'game' && Boolean(gameData) && Boolean(user) && !authLoading) || mode === 'quick',
     snapshot: currentReviewSnapshot,
+    engineSource: mode === 'quick' ? 'browser-with-server-fallback' : 'server',
+    serverFallbackEnabled: Boolean(user) && !authLoading,
   });
-  const currentEngineError = !authLoading && !user
+  const currentEngineError = mode !== 'quick' && !authLoading && !user
     ? t('analysis.sign_in_required')
     : currentPositionError;
 
@@ -448,29 +474,39 @@ export default function AnalysisPage() {
     turn: editorTurn,
     counting: null,
   }), [editorBoard, editorTurn]);
+  const editorAnalysisKey = useMemo(
+    () => getEditorAnalysisSnapshotKey(editorSnapshot),
+    [editorSnapshot],
+  );
+  const editorPositionStatus = useMemo(
+    () => getEditorPositionStatus(editorBoard),
+    [editorBoard],
+  );
 
   const handleAnalyzeEditorPosition = useCallback(async () => {
-    if (authLoading) return;
-    if (!user) {
-      setError(t('analysis.sign_in_required'));
-      return;
-    }
+    if (!editorPositionStatus.canAnalyze) return;
 
     setPositionAnalyzing(true);
     setError(null);
 
     try {
-      const result = await requestPositionAnalysis(editorSnapshot, {
+      const result = await requestBrowserPositionAnalysis(editorSnapshot, {
         movetimeMs: 700,
-        multipv: 1,
+      }).catch((browserError) => {
+        if (!user || authLoading) throw browserError;
+        return requestPositionAnalysis(editorSnapshot, {
+          movetimeMs: 700,
+          multipv: 1,
+        });
       });
       setPositionAnalysis(result);
+      setPositionAnalysisKey(editorAnalysisKey);
     } catch {
-      setError(t('analysis.editor.error'));
+      setError(!user && !authLoading ? t('analysis.sign_in_required') : t('analysis.editor.error'));
     } finally {
       setPositionAnalyzing(false);
     }
-  }, [authLoading, editorSnapshot, t, user]);
+  }, [authLoading, editorAnalysisKey, editorPositionStatus.canAnalyze, editorSnapshot, t, user]);
 
   const handleEditorSquareClick = useCallback((pos: Position) => {
     setEditorBoard(prev => {
@@ -549,6 +585,16 @@ export default function AnalysisPage() {
 
     return result;
   }, [analysis, currentPlyIndex, review.mode, showBestMove]);
+
+  const currentBestMoveArrow = useMemo((): Arrow[] => (
+    currentPositionAnalysis?.bestMove
+      ? [{
+          from: currentPositionAnalysis.bestMove.from,
+          to: currentPositionAnalysis.bestMove.to,
+          color: '#56b33080',
+        }]
+      : []
+  ), [currentPositionAnalysis?.bestMove]);
 
   const analysisHighlights = useMemo((): SquareHighlight[] => {
     if (review.mode !== 'mainLine' || !analysis || currentPlyIndex < 0 || currentPlyIndex >= analysis.moves.length) return [];
@@ -630,6 +676,11 @@ export default function AnalysisPage() {
     review.jumpToMainLine(index);
   }, [review]);
 
+  const handleResetQuickAnalysis = useCallback(() => {
+    review.resetAnalysis();
+    review.jumpToAnalysisRoot(-1);
+  }, [review]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
@@ -662,11 +713,184 @@ export default function AnalysisPage() {
     );
   }
 
+  if (mode === 'quick') {
+    const quickSelectedPlyIndex = review.mode === 'analysis' ? review.selectedAnalysisMoveIndex : currentPlyIndex;
+    const quickMoveCount = review.analysisLine.length;
+    const quickVariationLine = review.analysisLine.length > 0 ? (
+      <VariationLine
+        rootMoveIndex={null}
+        analysisLine={review.analysisLine}
+        selectedMoveIndex={review.selectedAnalysisMoveIndex}
+        onSelectMove={review.jumpToAnalysisMove}
+        t={reviewT}
+      />
+    ) : null;
+
+    return (
+      <div data-testid="analysis-quick-view" className="min-h-screen bg-surface flex flex-col" tabIndex={-1}>
+        <Header subtitle={t('analysis.quick.title')} />
+
+        <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-4 overflow-y-auto">
+          <div className="grid w-full max-w-[1240px] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)] lg:items-start">
+            <div className="flex gap-2 w-full max-w-[760px] lg:max-w-[calc(100vh-6rem)] lg:sticky lg:top-4 lg:self-start">
+              <EvalBar eval={currentEval} mate={currentMate} />
+
+              <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm w-full justify-between rounded-lg border border-surface-hover bg-surface-alt/80 px-2.5 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-dim text-xs">{t('local.view_as')}</span>
+                    <button
+                      onClick={() => setViewAs('white')}
+                      className={`px-3 py-1 rounded text-xs ${viewAs === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
+                    >
+                      {t('common.white')}
+                    </button>
+                    <button
+                      onClick={() => setViewAs('black')}
+                      className={`px-3 py-1 rounded text-xs ${viewAs === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
+                    >
+                      {t('common.black')}
+                    </button>
+                  </div>
+                  <div className="text-text-dim text-xs">
+                    {formatEval(currentEval, currentMate)}
+                  </div>
+                </div>
+
+                <BoardErrorBoundary onRetry={() => window.location.reload()}>
+                  <Board
+                    board={review.currentState.board}
+                    playerColor={viewAs}
+                    draggableColor={review.currentState.turn}
+                    isMyTurn={review.mode === 'analysis'}
+                    legalMoves={review.mode === 'analysis' ? review.legalMoves : []}
+                    selectedSquare={review.mode === 'analysis' ? review.selectedSquare : null}
+                    lastMove={review.currentLastMove}
+                    isCheck={review.currentState.isCheck}
+                    checkSquare={review.currentCheckSquare}
+                    onSquareClick={review.handleSquareClick}
+                    onPieceDrop={review.handlePieceDrop}
+                    disabled={review.mode !== 'analysis'}
+                    arrows={[...currentBestMoveArrow, ...arrows]}
+                    onArrowsChange={setArrows}
+                  />
+                </BoardErrorBoundary>
+
+                <div className="flex items-center justify-center gap-1 rounded-lg border border-surface-hover bg-surface-alt/80 px-2 py-1.5">
+                  <button
+                    onClick={navigateToStart}
+                    className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    aria-label={t('analysis.quick.to_start')}
+                  >
+                    ⏮
+                  </button>
+                  <button
+                    onClick={navigateBackward}
+                    className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    aria-label={t('analysis.quick.back')}
+                  >
+                    ◀
+                  </button>
+                  <button
+                    onClick={navigateForward}
+                    className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    aria-label={t('analysis.quick.forward')}
+                  >
+                    ▶
+                  </button>
+                  <button
+                    onClick={navigateToEnd}
+                    className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+                    aria-label={t('analysis.quick.to_end')}
+                  >
+                    ⏭
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-3 w-full max-w-[760px] lg:self-start lg:sticky lg:top-4">
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-text-bright">{t('analysis.quick.title')}</h2>
+                    <p className="mt-1 text-sm text-text-dim">{t('analysis.quick.desc')}</p>
+                  </div>
+                  <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+                    {reviewT('review.analysis_branch')}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
+                  >
+                    {t('analysis.quick.flip_board')}
+                  </button>
+                  <button
+                    onClick={handleResetQuickAnalysis}
+                    disabled={!review.canResetAnalysis && review.analysisLine.length === 0}
+                    className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
+                  >
+                    {t('analysis.quick.reset')}
+                  </button>
+                  <button
+                    onClick={() => navigate(buildEditorAnalysisRoute())}
+                    className="col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+                  >
+                    {t('analysis.quick.open_editor')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-text-bright">{t('analysis.quick.variation')}</h3>
+                  <span className="text-xs text-text-dim">
+                    {t('analysis.quick.moves', { count: quickMoveCount })}
+                  </span>
+                </div>
+                <div className="mt-3 min-h-20 rounded-lg border border-surface-hover bg-surface-alt/70 px-2 py-3">
+                  {quickVariationLine ?? (
+                    <p className="px-2 text-sm text-text-dim">{t('analysis.quick.empty_variation')}</p>
+                  )}
+                </div>
+              </div>
+
+              <CompactEnginePanel
+                currentPlyIndex={quickSelectedPlyIndex}
+                moveCount={quickMoveCount}
+                currentEval={currentEval}
+                currentMate={currentMate}
+                winningChances={currentWinningChances}
+                turn={review.currentState.turn}
+                bestMoveText={currentBestMoveText}
+                principalVariation={currentPositionAnalysis?.principalVariation ?? []}
+                analyzing={currentPositionAnalyzing}
+                error={currentEngineError}
+                reviewMode={review.mode}
+                currentAnalyzedMove={null}
+                reviewIsProvisional={false}
+                analyzingGame={false}
+                progress={null}
+                analysisElapsedSeconds={analysisElapsedSeconds}
+                t={t}
+                reviewT={reviewT}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (mode === 'editor') {
-    const editorArrow = positionAnalysis?.bestMove
+    const visiblePositionAnalysis = positionAnalysisKey === editorAnalysisKey ? positionAnalysis : null;
+    const editorArrow = visiblePositionAnalysis?.bestMove
       ? [{
-          from: positionAnalysis.bestMove.from,
-          to: positionAnalysis.bestMove.to,
+          from: visiblePositionAnalysis.bestMove.from,
+          to: visiblePositionAnalysis.bestMove.to,
           color: '#56b33080',
         }]
       : [];
@@ -698,8 +922,15 @@ export default function AnalysisPage() {
                       {t('analysis.editor.turn_to_move', { color: t('common.black') })}
                     </button>
                   </div>
-                  <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0, positionAnalysis?.mate)}</div>
+                  <div className="text-text-dim text-xs">{formatEval(visiblePositionAnalysis?.evaluation ?? 0, visiblePositionAnalysis?.mate)}</div>
                 </div>
+
+                <EditorPieceBank
+                  color="black"
+                  label={t('analysis.editor.black_pieces')}
+                  selectedTool={editorTool}
+                  onSelectTool={(tool: EditorPieceTool) => setEditorTool(tool)}
+                />
 
                 <BoardErrorBoundary onRetry={() => window.location.reload()}>
                   <Board
@@ -721,31 +952,12 @@ export default function AnalysisPage() {
                   />
                 </BoardErrorBoundary>
 
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={() => setEditorBoard(createInitialBoard())}
-                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                  >
-                    {t('analysis.editor.reset_board')}
-                  </button>
-                  <button
-                    onClick={() => setEditorBoard(Array.from({ length: 8 }, () => Array(8).fill(null)))}
-                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                  >
-                    {t('analysis.editor.clear_board')}
-                  </button>
-                  <button
-                    onClick={handleAnalyzeEditorPosition}
-                    disabled={positionAnalyzing || authLoading || !user}
-                    className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {!user && !authLoading
-                      ? t('analysis.editor.sign_in_to_analyze')
-                      : positionAnalyzing
-                        ? t('analysis.editor.analyzing_position')
-                        : t('analysis.editor.analyze_position')}
-                  </button>
-                </div>
+                <EditorPieceBank
+                  color="white"
+                  label={t('analysis.editor.white_pieces')}
+                  selectedTool={editorTool}
+                  onSelectTool={(tool: EditorPieceTool) => setEditorTool(tool)}
+                />
               </div>
             </div>
 
@@ -766,23 +978,60 @@ export default function AnalysisPage() {
                     {t('analysis.editor.erase_square')}
                   </button>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {(['white', 'black'] as const).flatMap(color => (
-                    (['K', 'M', 'S', 'R', 'N', 'P', 'PM'] as const).map(type => {
-                      const tool = `${color}:${type}` as EditorTool;
+              </div>
 
-                      return (
-                        <button
-                          key={tool}
-                          onClick={() => setEditorTool(tool)}
-                          className={`flex items-center gap-2 rounded-lg border px-2 py-2 text-left text-sm ${editorTool === tool ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
-                        >
-                          <PieceSVG type={type} color={color} size={22} />
-                          <span className="font-mono text-xs">{pieceLabel({ type, color })}</span>
-                        </button>
-                      );
-                    })
-                  ))}
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.validation')}</h3>
+                {editorPositionStatus.canAnalyze ? (
+                  <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                    {t('analysis.editor.position_legal')}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                      {t('analysis.editor.position_needs_work')}
+                    </div>
+                    <ul className="space-y-1 text-sm text-text-dim">
+                      {editorPositionStatus.errors.map(errorMessage => (
+                        <li key={errorMessage} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2">
+                          {getEditorValidationMessage(errorMessage, t)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.actions')}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.flip_board')}
+                  </button>
+                  <button
+                    onClick={() => setEditorBoard(createInitialBoard())}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.reset_board')}
+                  </button>
+                  <button
+                    onClick={() => setEditorBoard(createEmptyEditorBoard())}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.clear_board')}
+                  </button>
+                  <button
+                    onClick={handleAnalyzeEditorPosition}
+                    disabled={positionAnalyzing || !editorPositionStatus.canAnalyze}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {positionAnalyzing
+                      ? t('analysis.editor.analyzing_position')
+                      : t('analysis.editor.analyze_position')}
+                  </button>
                 </div>
               </div>
 
@@ -803,37 +1052,37 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              {positionAnalysis && (
+              {visiblePositionAnalysis && (
                 <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                   <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.engine')}</h3>
                   <div className="space-y-2 text-sm text-text">
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.eval')}</span>
-                        <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation, positionAnalysis.mate)}</span>
+                        <span className="font-mono text-text-bright">{formatEval(visiblePositionAnalysis.evaluation, visiblePositionAnalysis.mate)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.best_move')}</span>
                       <span className="font-mono text-text-bright">
-                        {positionAnalysis.bestMove
-                          ? `${posToAlgebraic(positionAnalysis.bestMove.from)}-${posToAlgebraic(positionAnalysis.bestMove.to)}`
+                        {visiblePositionAnalysis.bestMove
+                          ? `${posToAlgebraic(visiblePositionAnalysis.bestMove.from)}-${posToAlgebraic(visiblePositionAnalysis.bestMove.to)}`
                           : t('analysis.editor.none')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.source')}</span>
-                      <span className="text-text-bright">{positionAnalysis.stats.source}</span>
+                      <span className="text-text-bright">{visiblePositionAnalysis.stats.source}</span>
                     </div>
-                    {positionAnalysis.stats.depth && (
+                    {visiblePositionAnalysis.stats.depth && (
                       <div className="flex items-center justify-between">
                         <span>{t('analysis.editor.depth')}</span>
-                        <span className="font-mono text-text-bright">{positionAnalysis.stats.depth}</span>
+                        <span className="font-mono text-text-bright">{visiblePositionAnalysis.stats.depth}</span>
                       </div>
                     )}
-                    {positionAnalysis.principalVariation.length > 0 && (
+                    {visiblePositionAnalysis.principalVariation.length > 0 && (
                       <div>
                         <div className="mb-1 text-xs uppercase tracking-[0.18em] text-text-dim">{t('analysis.editor.pv')}</div>
                         <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text">
-                          {positionAnalysis.principalVariation.join(' ')}
+                          {visiblePositionAnalysis.principalVariation.join(' ')}
                         </div>
                       </div>
                     )}
@@ -841,13 +1090,7 @@ export default function AnalysisPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
-                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                >
-                  Flip board
-                </button>
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={() => navigate('/')}
                   className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"

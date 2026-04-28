@@ -83,6 +83,37 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenCalledWith('/lessons');
   });
 
+  it('opens a desktop Tools menu with an editor shortcut', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    fireEvent.click(screen.getByRole('button', { name: /^editor$/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/analysis?mode=editor');
+  });
+
+  it('opens quick analysis from the desktop Tools menu', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    fireEvent.click(screen.getByRole('button', { name: /^analysis$/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/analysis');
+  });
+
+  it('shows Import game in Tools as unavailable until import support exists', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    expect(screen.getByRole('button', { name: /^import game$/i })).toBeDisabled();
+  });
+
   it('localizes the language switch tooltip in Thai mode', async () => {
     window.localStorage.setItem('thaichess-lang', 'th');
     await preloadDetectedTranslations();

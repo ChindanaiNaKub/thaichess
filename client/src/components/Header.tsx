@@ -8,7 +8,7 @@ import PieceSVG from './PieceSVG';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 
 interface HeaderProps {
-  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | null;
+  active?: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools' | null;
   subtitle?: string;
   right?: ReactNode;
 }
@@ -19,15 +19,17 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [puzzleMenuOpen, setPuzzleMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const { prefetchLeaderboard, prefetchFeedback } = usePrefetchQueries();
 
   const handleNavigate = (path: string) => {
     setMenuOpen(false);
     setPuzzleMenuOpen(false);
+    setToolsMenuOpen(false);
     navigate(path);
   };
 
-  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string, onHover?: () => void) => (
+  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => (
     <button
       key={key}
       onClick={() => handleNavigate(path)}
@@ -47,7 +49,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     </button>
   );
 
-  const mobileNavItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about', path: string, label: string) => (
+  const mobileNavItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string) => (
     <button
       key={key}
       onClick={() => handleNavigate(path)}
@@ -63,15 +65,24 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     </button>
   );
 
-  const puzzleMenuItem = (key: string, path: string, label: string) => (
+  const dropdownMenuItem = (key: string, path: string, label: string, disabled = false) => (
     <button
       key={key}
-      onClick={() => handleNavigate(path)}
-      className="block w-full px-3 py-2 text-left text-sm text-text-bright transition-colors hover:bg-surface-hover"
+      onClick={() => {
+        if (!disabled) handleNavigate(path);
+      }}
+      disabled={disabled}
+      className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+        disabled
+          ? 'cursor-not-allowed text-text-dim/60'
+          : 'text-text-bright hover:bg-surface-hover'
+      }`}
     >
       {label}
     </button>
   );
+
+  const editorPath = `${routes.analysisRoot}?mode=editor`;
 
   return (
     <header className="sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/88">
@@ -108,8 +119,24 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {puzzleMenuOpen && (
                   <div className="absolute left-0 top-full z-50 min-w-[200px] pt-2">
                     <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
-                      {puzzleMenuItem('random', routes.puzzles, t('nav.puzzles_random'))}
-                      {puzzleMenuItem('streak', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                      {dropdownMenuItem('random', routes.puzzles, t('nav.puzzles_random'))}
+                      {dropdownMenuItem('streak', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setToolsMenuOpen(true)}
+                onMouseLeave={() => setToolsMenuOpen(false)}
+              >
+                {navItem('tools', editorPath, t('nav.tools'))}
+                {toolsMenuOpen && (
+                  <div className="absolute left-0 top-full z-50 min-w-[200px] pt-2">
+                    <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
+                      {dropdownMenuItem('editor', editorPath, t('nav.tools_editor'))}
+                      {dropdownMenuItem('analysis', routes.analysisRoot, t('nav.tools_analysis'))}
+                      {dropdownMenuItem('import', routes.analysisRoot, t('nav.tools_import_game'), true)}
                     </div>
                   </div>
                 )}
@@ -187,6 +214,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
                 {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles_random'))}
                 {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
+                {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
                 {mobileNavItem('games', routes.games, t('nav.games'))}
               </nav>
             )}

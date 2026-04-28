@@ -3,7 +3,7 @@ import express from 'express';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { requireTrustedWriteOrigin } from '../security';
+import { getAllowedCorsOrigins, requireTrustedWriteOrigin } from '../security';
 
 type MockResponse = {
   statusCode: number;
@@ -115,6 +115,16 @@ async function dispatch(
 
 describe('trusted write origin middleware', () => {
   const app = createApp();
+
+  it('allows same-origin Express localhost in development', () => {
+    expect(getAllowedCorsOrigins({
+      NODE_ENV: 'development',
+    })).toEqual(expect.arrayContaining([
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+    ]));
+  });
 
   it('allows a POST from a trusted origin', async () => {
     const response = await dispatch(app, 'POST', {

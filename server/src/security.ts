@@ -132,7 +132,12 @@ export function getAllowedCorsOrigins(env: NodeJS.ProcessEnv) {
     .map(normalizeOrigin);
 
   if (env.NODE_ENV !== 'production') {
-    configuredOrigins.push('http://localhost:5173', 'http://localhost:5174');
+    configuredOrigins.push(
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+    );
   }
 
   return Array.from(new Set(configuredOrigins));
