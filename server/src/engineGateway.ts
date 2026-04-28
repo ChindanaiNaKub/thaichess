@@ -19,6 +19,7 @@ import {
   shouldUseExternalEngineForBot,
   type BotSearchOptions,
 } from '../../shared/botEngine';
+import { MAX_BOT_LEVEL } from '../../shared/botStrength';
 import {
   moveToUci,
   serializeAnalysisPosition,
@@ -37,8 +38,8 @@ const SERVICE_URL = process.env.FAIRY_STOCKFISH_SERVICE_URL?.trim() || '';
 const GAME_ANALYSIS_CACHE_VERSION = 3;
 const POSITION_ANALYSIS_CACHE_MAX = 1200;
 
-const BOT_LEVEL_MOVETIMES_MS = [50, 60, 70, 80, 95, 110, 130, 450, 700, 900] as const;
-const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 5000, 8000, 15000] as const;
+const BOT_LEVEL_MOVETIMES_MS = [50, 60, 70, 80, 95, 110, 130, 450, 700, 900, 1050, 1150] as const;
+const BOT_LEVEL_REQUEST_TIMEOUT_MS = [900, 950, 1000, 1050, 1150, 1250, 1350, 5000, 8000, 15000, 18000, 20000] as const;
 const REVIEW_MOVETIME_MS = 250;
 const REVIEW_MIN_MOVETIME_MS = 60;
 const REVIEW_TOTAL_TARGET_MS = 12000;
@@ -68,7 +69,7 @@ const positionAnalysisCache = new Map<string, ExternalPositionAnalysisResult>();
 const positionAnalysisInFlight = new Map<string, Promise<ExternalPositionAnalysisResult | null>>();
 const gameAnalysisInFlight = new Map<string, Promise<GameAnalysis>>();
 
-interface Level10BotSearchPlan {
+interface HighLevelBotSearchPlan {
   search: EngineServiceAnalyzeRequest['search'];
   localValidation: BotSearchOptions;
 }
@@ -159,7 +160,7 @@ function writeCachedPositionAnalysis(cacheKey: string, result: ExternalPositionA
 
 function clampBotLevel(level: number): number {
   if (!Number.isFinite(level)) return 5;
-  return Math.min(10, Math.max(1, Math.round(level)));
+  return Math.min(MAX_BOT_LEVEL, Math.max(1, Math.round(level)));
 }
 
 function getBotMovetime(level: number): number {
@@ -276,7 +277,9 @@ function getSnapshotMoveSignals(snapshot: AnalysisPositionSnapshot): { captureCo
   return { captureCount, checkingCount };
 }
 
-export function createLevel10BotSearchPlan(snapshot: AnalysisPositionSnapshot): Level10BotSearchPlan {
+export function createHighLevelBotSearchPlan(snapshot: AnalysisPositionSnapshot, level: number = 10): HighLevelBotSearchPlan {
+  const normalizedLevel = clampBotLevel(level);
+  const levelBoost = Math.max(0, normalizedLevel - 10);
   const inCheck = isInCheck(snapshot.board, snapshot.turn);
   const endgame = isSnapshotEndgame(snapshot);
   const { captureCount, checkingCount } = getSnapshotMoveSignals(snapshot);
@@ -284,30 +287,32 @@ export function createLevel10BotSearchPlan(snapshot: AnalysisPositionSnapshot): 
 
   if (inCheck) {
     return {
-      search: { depth: 12 },
-      localValidation: { maxDepth: 7, maxNodes: 26000, maxMs: 1200 },
+      search: { depth: 12 + levelBoost },
+      localValidation: { maxDepth: 7 + Math.min(1, levelBoost), maxNodes: 26000 + levelBoost * 5000, maxMs: 1200 + levelBoost * 180 },
     };
   }
 
   if (forcing) {
     return {
-      search: { depth: 10 },
-      localValidation: { maxDepth: 6, maxNodes: 20000, maxMs: 950 },
+      search: { depth: 10 + levelBoost },
+      localValidation: { maxDepth: 6 + Math.min(1, levelBoost), maxNodes: 20000 + levelBoost * 5000, maxMs: 950 + levelBoost * 180 },
     };
   }
 
   if (endgame) {
     return {
-      search: { depth: 10 },
-      localValidation: { maxDepth: 6, maxNodes: 18000, maxMs: 900 },
+      search: { depth: 10 + levelBoost },
+      localValidation: { maxDepth: 6 + Math.min(1, levelBoost), maxNodes: 18000 + levelBoost * 4000, maxMs: 900 + levelBoost * 150 },
     };
   }
 
   return {
-    search: { movetimeMs: getBotMovetime(10) },
-    localValidation: { maxDepth: 5, maxNodes: 12000, maxMs: 700 },
+    search: { movetimeMs: getBotMovetime(normalizedLevel) },
+    localValidation: { maxDepth: 5 + Math.min(1, levelBoost), maxNodes: 12000 + levelBoost * 3000, maxMs: 700 + levelBoost * 140 },
   };
 }
+
+export const createLevel10BotSearchPlan = createHighLevelBotSearchPlan;
 
 function createExternalBotSearch(
   snapshot: AnalysisPositionSnapshot,
@@ -315,7 +320,7 @@ function createExternalBotSearch(
 ): EngineServiceAnalyzeRequest['search'] {
   const normalizedLevel = clampBotLevel(level);
   if (normalizedLevel >= 10) {
-    return createLevel10BotSearchPlan(snapshot).search;
+    return createHighLevelBotSearchPlan(snapshot, normalizedLevel).search;
   }
 
   const inCheck = isInCheck(snapshot.board, snapshot.turn);
@@ -352,8 +357,8 @@ function buildLocalBotMoveResult(
   const normalizedLevel = clampBotLevel(level);
   const config = getBotLevelConfig(normalizedLevel);
   const state = createStateFromSnapshot(snapshot);
-  const localSearch = normalizedLevel === 10
-    ? { ...createLevel10BotSearchPlan(snapshot).localValidation, botId }
+  const localSearch = normalizedLevel >= 10
+    ? { ...createHighLevelBotSearchPlan(snapshot, normalizedLevel).localValidation, botId }
     : {
       maxDepth: config.maxDepth,
       maxNodes: config.maxNodes,
@@ -511,21 +516,23 @@ function resolveValidatedAnalysisMove(
   };
 }
 
-function validateLevel10EngineMove(
+function validateHighLevelEngineMove(
   snapshot: AnalysisPositionSnapshot,
+  level: number,
   candidate: { from: { row: number; col: number }; to: { row: number; col: number } },
   botId?: string,
 ): { move: { from: { row: number; col: number }; to: { row: number; col: number } }; source: 'engine' | 'local'; depth: number } {
+  const normalizedLevel = clampBotLevel(level);
   const state = createStateFromSnapshot(snapshot);
-  const plan = createLevel10BotSearchPlan(snapshot);
-  const localBest = getBotMoveForLevel(state, 10, { ...plan.localValidation, botId });
+  const plan = createHighLevelBotSearchPlan(snapshot, normalizedLevel);
+  const localBest = getBotMoveForLevel(state, normalizedLevel, { ...plan.localValidation, botId });
 
   if (!localBest) {
     return { move: candidate, source: 'engine', depth: plan.localValidation.maxDepth ?? 0 };
   }
 
-  const candidateScore = scoreBotMoveCandidate(state, 10, candidate, plan.localValidation);
-  const localScore = scoreBotMoveCandidate(state, 10, localBest, plan.localValidation);
+  const candidateScore = scoreBotMoveCandidate(state, normalizedLevel, candidate, plan.localValidation);
+  const localScore = scoreBotMoveCandidate(state, normalizedLevel, localBest, plan.localValidation);
   const shouldOverride = localScore > candidateScore + LEVEL10_ENGINE_OVERRIDE_DELTA
     || (candidateScore <= -90000 && localScore >= 0);
 
@@ -536,6 +543,7 @@ function validateLevel10EngineMove(
   logInfo('engine_bot_move_overridden_level10', {
     candidateScore,
     localScore,
+    level: normalizedLevel,
     engineMove: moveToUci(candidate),
     localMove: moveToUci(localBest),
   });
@@ -631,7 +639,8 @@ export async function analyzePositionWithEngine(
 export async function analyzeGameWithEngine(
   moves: Move[],
   options?: GameAnalysisOptions,
-  onProgress?: (progress: { current: number; total: number; done: boolean }) => void,
+  // eslint-disable-next-line no-unused-vars
+  onProgress?: (_progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = getReviewMovetime(moves.length, options?.movetimeMs);
   const cacheMeta = getGameAnalysisCacheKey({
@@ -690,7 +699,8 @@ export async function analyzeGameWithEngine(
 async function analyzeGameWithEngineUncached(
   moves: Move[],
   options: GameAnalysisOptions & { movetimeMs: number },
-  onProgress?: (progress: { current: number; total: number; done: boolean }) => void,
+  // eslint-disable-next-line no-unused-vars
+  onProgress?: (_progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = options.movetimeMs;
 
@@ -866,15 +876,19 @@ export async function getBotMoveWithEngine(
     const resolved = resolveBotMoveCandidate(snapshot, normalizedLevel, parsedMove, botId);
 
     if (resolved.source === 'engine') {
+      const validated = normalizedLevel >= 10
+        ? validateHighLevelEngineMove(snapshot, normalizedLevel, resolved.move!, botId)
+        : { move: resolved.move!, source: 'engine' as const, depth: result.depth };
+
       return {
-        move: resolved.move!,
+        move: validated.move,
         evaluation: normalizeEngineEvaluation(result.evalCp, snapshot.turn),
         mate: normalizeEngineMate(result.mate, snapshot.turn),
-        bestMove: resolved.move!,
+        bestMove: validated.move,
         principalVariation: result.pvUci ?? [],
         stats: {
-          source: remote ? 'service' : 'binary',
-          depth: result.depth,
+          source: validated.source === 'local' ? 'local' : remote ? 'service' : 'binary',
+          depth: validated.source === 'local' ? validated.depth : result.depth,
           selDepth: result.selDepth ?? undefined,
           nodes: result.nodes ?? undefined,
           nps: result.nps ?? undefined,

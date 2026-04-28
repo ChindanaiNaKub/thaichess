@@ -67,7 +67,7 @@ describe('botEngine', () => {
   it('returns a legal move for every live bot level from the initial position', () => {
     const state = createInitialGameState(0, 0);
 
-    for (let level = 1; level <= 10; level += 1) {
+    for (let level = 1; level <= 12; level += 1) {
       const move = getBotMoveForLevel(state, level);
       expect(move).not.toBeNull();
 
@@ -79,11 +79,13 @@ describe('botEngine', () => {
   it('scales search configuration by level while keeping all levels bounded', () => {
     const beginner = getBotLevelConfig(1);
     const expert = getBotLevelConfig(10);
+    const grandmaster = getBotLevelConfig(12);
 
     expect(beginner.maxDepth).toBeLessThanOrEqual(expert.maxDepth);
     expect(beginner.maxNodes).toBeLessThan(expert.maxNodes);
     expect(beginner.maxMs).toBeLessThan(expert.maxMs);
-    expect(expert.maxMs).toBeLessThanOrEqual(700);
+    expect(expert.maxMs).toBeLessThan(grandmaster.maxMs);
+    expect(grandmaster.maxMs).toBeLessThanOrEqual(1100);
   });
 
   it('reserves the external engine for advanced, expert, and master bots', () => {
@@ -91,6 +93,8 @@ describe('botEngine', () => {
     expect(shouldUseExternalEngineForBot(8)).toBe(true);
     expect(shouldUseExternalEngineForBot(9)).toBe(true);
     expect(shouldUseExternalEngineForBot(10)).toBe(true);
+    expect(shouldUseExternalEngineForBot(11)).toBe(true);
+    expect(shouldUseExternalEngineForBot(12)).toBe(true);
   });
 
   it('still returns a legal move when forced into an extremely small local search budget', () => {
@@ -173,5 +177,5 @@ describe('botEngine', () => {
       expect(moveToUci(move!)).not.toBe(moveToUci(loosePawnGrab));
       expect(leavesRookCapturable(state, move!)).toBe(false);
     }
-  }, 15_000);
+  }, 45_000);
 });

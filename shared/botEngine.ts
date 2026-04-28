@@ -35,6 +35,7 @@ interface SearchContext {
   maxNodes: number;
   nodes: number;
   timedOut: boolean;
+  transpositions?: Map<string, { depth: number; score: number; completed: boolean }>;
 }
 
 interface SearchBudget {
@@ -43,7 +44,7 @@ interface SearchBudget {
   maxMs: number | null;
 }
 
-interface Level10SearchPlan {
+interface HighLevelSearchPlan {
   exhaustiveRoot: boolean;
   candidateCount: number;
   primary: SearchBudget;
@@ -377,6 +378,20 @@ function getMoveOrderingScore(board: Board, move: ScoredMove): number {
   return score;
 }
 
+function getTacticalOrderingScore(state: GameState, move: ScoredMove): number {
+  const captured = state.board[move.to.row][move.to.col];
+  const movingPiece = state.board[move.from.row][move.from.col];
+  const nextState = makeMove(state, move.from, move.to);
+  let score = getMoveOrderingScore(state.board, move);
+
+  if (nextState?.isCheck) score += 900;
+  if (captured && movingPiece) {
+    score += (PIECE_VALUES[captured.type] - PIECE_VALUES[movingPiece.type] * 0.08) * 4;
+  }
+
+  return score;
+}
+
 function getBestRecaptureValue(state: GameState, color: PieceColor, target: Position): number {
   let bestValue = 0;
 
@@ -421,8 +436,12 @@ function getRootSafetyOrderingScore(state: GameState, move: ScoredMove): number 
   return -exposure * 12;
 }
 
-function orderMoves(moves: ScoredMove[], board: Board): ScoredMove[] {
-  return moves.sort((a, b) => getMoveOrderingScore(board, b) - getMoveOrderingScore(board, a));
+function orderMoves(moves: ScoredMove[], board: Board, state?: GameState): ScoredMove[] {
+  return moves.sort((a, b) => {
+    const scoreA = state ? getTacticalOrderingScore(state, a) : getMoveOrderingScore(board, a);
+    const scoreB = state ? getTacticalOrderingScore(state, b) : getMoveOrderingScore(board, b);
+    return scoreB - scoreA;
+  });
 }
 
 function orderRootMoves(moves: ScoredMove[], state: GameState, profile: BotLevelConfig, botId?: string): ScoredMove[] {
@@ -503,55 +522,66 @@ function createSearchBudget(maxDepth: number, maxNodes: number, maxMs: number | 
   };
 }
 
-function getLevel10SearchPlan(
+function splitSearchBudget(budget: SearchBudget, parts: number): SearchBudget {
+  const safeParts = Math.max(1, parts);
+  return {
+    maxDepth: budget.maxDepth,
+    maxNodes: Math.max(1, Math.floor(budget.maxNodes / safeParts)),
+    maxMs: budget.maxMs === null ? null : Math.max(40, Math.floor(budget.maxMs / safeParts)),
+  };
+}
+
+function getHighLevelSearchPlan(
   state: GameState,
+  level: number,
   profile: BotLevelConfig,
   options?: BotSearchOptions,
-): Level10SearchPlan {
+): HighLevelSearchPlan {
   const legalMoves = getAllMovesForColor(state.board, state.turn);
   const inCheck = isInCheck(state.board, state.turn);
   const endgame = getGamePhase(state) === 'endgame' || Boolean(state.counting);
   const captureCount = legalMoves.filter((move) => isCaptureMove(state, move)).length;
   const checkingCount = legalMoves.filter((move) => moveGivesCheck(state, move)).length;
   const forcing = inCheck || checkingCount > 0 || captureCount >= 2;
+  const levelBoost = Math.max(0, level - 10);
 
-  let candidateCount = 5;
+  let candidateCount = 5 + levelBoost;
   let primary = createSearchBudget(
-    Math.max(options?.maxDepth ?? 0, 5),
-    Math.max(options?.maxNodes ?? 0, profile.maxNodes, 12000),
-    options?.maxMs ?? 360,
+    Math.max(options?.maxDepth ?? 0, 5 + Math.min(1, levelBoost)),
+    Math.max(options?.maxNodes ?? 0, profile.maxNodes, 12000 + levelBoost * 3000),
+    options?.maxMs ?? 360 + levelBoost * 120,
   );
   let validation = createSearchBudget(
-    Math.max(primary.maxDepth + 1, 6),
-    Math.max(primary.maxNodes + 6000, 18000),
-    options?.maxMs ?? 520,
+    Math.max(primary.maxDepth + 1, 6 + Math.min(1, levelBoost)),
+    Math.max(primary.maxNodes + 6000, 18000 + levelBoost * 4000),
+    options?.maxMs ?? 520 + levelBoost * 160,
   );
 
   if (endgame) {
     candidateCount = 5;
     primary = createSearchBudget(
-      Math.max(primary.maxDepth, 5),
-      Math.max(primary.maxNodes, 12000),
-      Math.max(primary.maxMs ?? 0, 650),
+      Math.max(primary.maxDepth, 5 + Math.min(1, levelBoost)),
+      Math.max(primary.maxNodes, 12000 + levelBoost * 3000),
+      Math.max(primary.maxMs ?? 0, 650 + levelBoost * 120),
     );
     validation = createSearchBudget(
-      Math.max(validation.maxDepth, 6),
-      Math.max(validation.maxNodes, 18000),
-      Math.max(validation.maxMs ?? 0, 900),
+      Math.max(validation.maxDepth, 6 + Math.min(1, levelBoost)),
+      Math.max(validation.maxNodes, 18000 + levelBoost * 4000),
+      Math.max(validation.maxMs ?? 0, 900 + levelBoost * 150),
     );
   }
 
   if (forcing) {
     candidateCount = 6;
     primary = createSearchBudget(
-      Math.max(primary.maxDepth, inCheck ? 6 : 5),
-      Math.max(primary.maxNodes, inCheck ? 18000 : 14000),
-      Math.max(primary.maxMs ?? 0, inCheck ? 900 : 700),
+      Math.max(primary.maxDepth, (inCheck ? 6 : 5) + Math.min(1, levelBoost)),
+      Math.max(primary.maxNodes, (inCheck ? 18000 : 14000) + levelBoost * 4000),
+      Math.max(primary.maxMs ?? 0, (inCheck ? 900 : 700) + levelBoost * 150),
     );
     validation = createSearchBudget(
-      Math.max(validation.maxDepth, inCheck ? 7 : 6),
-      Math.max(validation.maxNodes, inCheck ? 26000 : 20000),
-      Math.max(validation.maxMs ?? 0, inCheck ? 1200 : 950),
+      Math.max(validation.maxDepth, (inCheck ? 7 : 6) + Math.min(1, levelBoost)),
+      Math.max(validation.maxNodes, (inCheck ? 26000 : 20000) + levelBoost * 5000),
+      Math.max(validation.maxMs ?? 0, (inCheck ? 1200 : 950) + levelBoost * 180),
     );
   }
 
@@ -615,6 +645,7 @@ function scoreMoveWithBudget(
     maxNodes: budget.maxNodes,
     nodes: 1,
     timedOut: false,
+    transpositions: new Map(),
   };
 
   const result = minimax(
@@ -630,6 +661,13 @@ function scoreMoveWithBudget(
   );
 
   return result.score + getImmediateReplyPenalty(nextState, state.turn);
+}
+
+function getBoardKey(state: GameState, botColor: PieceColor, depth: number, maximizing: boolean): string {
+  const board = state.board
+    .map((row) => row.map((piece) => (piece ? `${piece.color[0]}${piece.type}` : '..')).join(''))
+    .join('/');
+  return `${board}|${state.turn}|${botColor}|${depth}|${maximizing ? 1 : 0}|${state.counting?.type ?? ''}:${state.counting?.currentCount ?? ''}`;
 }
 
 function minimax(
@@ -658,6 +696,12 @@ function minimax(
     return { score: evaluateBoard(state.board, botColor), completed: false };
   }
 
+  const cacheKey = context.transpositions ? getBoardKey(state, botColor, depth, maximizing) : null;
+  const cached = cacheKey ? context.transpositions?.get(cacheKey) : null;
+  if (cached && cached.depth >= depth) {
+    return cached;
+  }
+
   let moves = getAllMovesForColor(state.board, state.turn);
   if (moves.length === 0) {
     if (isInCheck(state.board, state.turn)) {
@@ -667,7 +711,7 @@ function minimax(
     return { score: 0, completed: true };
   }
 
-  moves = orderMoves(moves, state.board).slice(0, getBreadthLimit(profile, ply));
+  moves = orderMoves(moves, state.board, state).slice(0, getBreadthLimit(profile, ply));
 
   if (maximizing) {
     let maxEval = -Infinity;
@@ -692,7 +736,9 @@ function minimax(
       if (beta <= alpha) break;
     }
 
-    return { score: maxEval === -Infinity ? evaluateBoard(state.board, botColor) : maxEval, completed: true };
+    const result = { score: maxEval === -Infinity ? evaluateBoard(state.board, botColor) : maxEval, completed: true };
+    if (cacheKey) context.transpositions?.set(cacheKey, { ...result, depth });
+    return result;
   }
 
   let minEval = Infinity;
@@ -717,7 +763,9 @@ function minimax(
     if (beta <= alpha) break;
   }
 
-  return { score: minEval === Infinity ? evaluateBoard(state.board, botColor) : minEval, completed: true };
+  const result = { score: minEval === Infinity ? evaluateBoard(state.board, botColor) : minEval, completed: true };
+  if (cacheKey) context.transpositions?.set(cacheKey, { ...result, depth });
+  return result;
 }
 
 function applyDifficultyVariance(
@@ -925,15 +973,16 @@ function searchBestMove(
   return bestMove;
 }
 
-function searchBestMoveLevel10(
+function searchBestMoveHighLevel(
   state: GameState,
+  level: number,
   profile: BotLevelConfig,
   options?: BotSearchOptions,
 ): ScoredMove | null {
   const rootMoves = orderRootMoves(getAllMovesForColor(state.board, state.turn), state, profile, options?.botId);
   if (rootMoves.length === 0) return null;
 
-  const plan = getLevel10SearchPlan(state, profile, options);
+  const plan = getHighLevelSearchPlan(state, level, profile, options);
   const rootLimit = plan.exhaustiveRoot
     ? rootMoves.length
     : Math.min(rootMoves.length, Math.max(plan.candidateCount * 2, profile.rootBreadth + 4));
@@ -943,7 +992,7 @@ function searchBestMoveLevel10(
     .map((move) => ({
       from: move.from,
       to: move.to,
-      score: scoreMoveWithBudget(state, move, profile, plan.primary),
+      score: scoreMoveWithBudget(state, move, profile, splitSearchBudget(plan.primary, rootLimit)),
     }))
     .sort((a, b) => b.score - a.score);
 
@@ -952,7 +1001,7 @@ function searchBestMoveLevel10(
     .map((move) => ({
       from: move.from,
       to: move.to,
-      score: scoreMoveWithBudget(state, move, profile, plan.validation),
+      score: scoreMoveWithBudget(state, move, profile, splitSearchBudget(plan.validation, Math.min(plan.candidateCount, primaryScores.length))),
     }))
     .sort((a, b) => b.score - a.score);
 
@@ -970,8 +1019,8 @@ export function scoreBotMoveCandidate(
   const normalizedLevel = clampBotLevel(level);
   const profile = getBotLevelConfig(normalizedLevel);
 
-  if (normalizedLevel === 10) {
-    const plan = getLevel10SearchPlan(state, profile, options);
+  if (normalizedLevel >= 10) {
+    const plan = getHighLevelSearchPlan(state, normalizedLevel, profile, options);
     return scoreMoveWithBudget(state, candidate, profile, plan.validation);
   }
 
@@ -992,8 +1041,8 @@ export function getBotMoveForLevel(
 
   const normalizedLevel = clampBotLevel(level);
   const profile = getBotLevelConfig(normalizedLevel);
-  const move = normalizedLevel === 10
-    ? searchBestMoveLevel10(state, profile, options)
+  const move = normalizedLevel >= 10
+    ? searchBestMoveHighLevel(state, normalizedLevel, profile, options)
     : searchBestMove(state, profile, options);
   if (!move) return null;
 
@@ -1018,8 +1067,8 @@ export function getBotMove(
 ): { from: Position; to: Position } | null {
   const legacyLevel = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 6 : 10;
   const profile = getBotLevelConfig(legacyLevel);
-  const move = legacyLevel === 10
-    ? searchBestMoveLevel10(state, profile, {
+  const move = legacyLevel >= 10
+    ? searchBestMoveHighLevel(state, legacyLevel, profile, {
       maxDepth: profile.maxDepth,
       maxNodes: profile.maxNodes,
       maxMs: null,

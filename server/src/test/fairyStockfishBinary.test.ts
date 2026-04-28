@@ -4,6 +4,7 @@ import { moveToUci } from '../../../shared/engineAdapter';
 import { getEngineSearchTimeoutMs, normalizeEngineFen } from '../fairyStockfishBinary';
 import {
   createLevel10BotSearchPlan,
+  createHighLevelBotSearchPlan,
   getBotMoveWithEngine,
   getBotRequestTimeoutMs,
   getReviewMovetime,
@@ -59,6 +60,8 @@ describe('normalizeEngineFen', () => {
     expect(getBotRequestTimeoutMs(8)).toBe(5000);
     expect(getBotRequestTimeoutMs(9)).toBe(8000);
     expect(getBotRequestTimeoutMs(10)).toBe(15000);
+    expect(getBotRequestTimeoutMs(11)).toBe(18000);
+    expect(getBotRequestTimeoutMs(12)).toBe(20000);
   });
 
   it('scales review movetime down for long games while preserving short-game quality', () => {
@@ -222,5 +225,14 @@ describe('normalizeEngineFen', () => {
 
     expect(endgamePlan.search).toEqual({ depth: 10 });
     expect(endgamePlan.localValidation.maxDepth).toBeGreaterThanOrEqual(6);
+
+    const level12Plan = createHighLevelBotSearchPlan({
+      board: endgameState.board,
+      turn: endgameState.turn,
+      counting: null,
+    }, 12);
+
+    expect(level12Plan.search).toEqual({ depth: 12 });
+    expect(level12Plan.localValidation.maxMs).toBeLessThanOrEqual(1200);
   });
 });

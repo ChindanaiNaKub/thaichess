@@ -55,5 +55,10 @@ assets/
 client/playwright-report/
 client/test-results/
 client/coverage/
+client/public/engines/fairy-stockfish.js
+client/public/engines/manifest.json
+client/public/engines/stockfish.js
+client/public/engines/stockfish.wasm
+client/public/engines/stockfish.worker.js
 .codex
 .codex/

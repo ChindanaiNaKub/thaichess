@@ -14,12 +14,14 @@ export const botLevelToEstimatedEloMap: Record<number, BotEstimatedEloRange> = {
   7: { min: 1100, max: 1250 },
   8: { min: 1250, max: 1450 },
   9: { min: 1450, max: 1650 },
-  10: { min: 1650, max: 1900, maxSuffix: '+' },
+  10: { min: 1650, max: 1900 },
+  11: { min: 1900, max: 2150 },
+  12: { min: 2150, max: null },
 };
 
 function clampBotLevel(level: number): number {
   if (!Number.isFinite(level)) return 5;
-  return Math.min(10, Math.max(1, Math.round(level)));
+  return Math.min(12, Math.max(1, Math.round(level)));
 }
 
 export function getBotEstimatedEloRange(level: number): BotEstimatedEloRange {

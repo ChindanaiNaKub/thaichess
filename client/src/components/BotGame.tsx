@@ -10,6 +10,7 @@ import {
   startCounting, stopCounting, hasAnyLegalMoves, isInCheck,
 } from '@shared/engine';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
+import { requestBrowserEngineBotMove } from '../lib/browserEngineBot';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import {
@@ -60,6 +61,7 @@ const BOT_ID_TO_I18N_KEY: Record<string, string> = {
   'luang-prasert': 'laksit_prasert',
   'chao-surasi': 'chanin_surasi',
   'lady-busaba': 'lalin_busaba',
+  'kiet-archive': 'kiet_intharat',
 };
 
 // Helper function to get translated bot content (hook version for component use)
@@ -88,6 +90,9 @@ const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
 const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 5000;
 const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 8000;
 const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 15000;
+const LEVEL11_BOT_REQUEST_TIMEOUT_MS = 18000;
+const LEVEL12_BOT_REQUEST_TIMEOUT_MS = 20000;
+const HIGH_LEVEL_LOCAL_FALLBACK_DELAY_MS = 700;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
   increment: 0,
@@ -101,10 +106,21 @@ function createBotGameId() {
 }
 
 export function getBotRequestTimeoutMs(level: number): number {
+  if (level >= 12) return LEVEL12_BOT_REQUEST_TIMEOUT_MS;
+  if (level >= 11) return LEVEL11_BOT_REQUEST_TIMEOUT_MS;
   if (level >= 10) return LEVEL10_BOT_REQUEST_TIMEOUT_MS;
   if (level >= 9) return LEVEL9_BOT_REQUEST_TIMEOUT_MS;
   if (level >= 8) return LEVEL8_BOT_REQUEST_TIMEOUT_MS;
   return DEFAULT_BOT_REQUEST_TIMEOUT_MS;
+}
+
+function getHighLevelLocalFallbackDelayMs(level: number): number | null {
+  if (level < 8) return null;
+  if (level >= 12) return HIGH_LEVEL_LOCAL_FALLBACK_DELAY_MS;
+  if (level >= 11) return 650;
+  if (level >= 10) return 600;
+  if (level >= 9) return 550;
+  return 500;
 }
 
 function buildNoMoveGameOverState(state: GameState): GameState | null {
@@ -390,11 +406,35 @@ export default function BotGame() {
       }, getBotRequestTimeoutMs(botLevel));
 
       try {
-        const result = await requestBotMove(requestedState, botLevel, {
-          signal: controller.signal,
-          botId: selectedBot.id,
-        });
-        botMove = result.move;
+        botMove = await requestBrowserEngineBotMove(requestedState, botLevel).catch(() => null);
+        if (!botMove) {
+          const localFallbackDelayMs = getHighLevelLocalFallbackDelayMs(botLevel);
+          const serverMovePromise = requestBotMove(requestedState, botLevel, {
+            signal: controller.signal,
+            botId: selectedBot.id,
+          }).then((result) => result.move);
+
+          if (localFallbackDelayMs === null) {
+            botMove = await serverMovePromise;
+          } else {
+            const localFallbackPromise = new Promise<{ from: Position; to: Position } | null>((resolve) => {
+              setTimeout(() => {
+                requestLocalBotMove(requestedState, botLevel, selectedBot.id)
+                  .then(resolve)
+                  .catch(() => resolve(null));
+              }, localFallbackDelayMs);
+            });
+
+            botMove = await Promise.race([
+              serverMovePromise.catch(() => null),
+              localFallbackPromise,
+            ]);
+
+            if (botMove) {
+              controller.abort();
+            }
+          }
+        }
       } catch {
         botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id).catch(() => null);
       } finally {
