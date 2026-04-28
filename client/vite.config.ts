@@ -11,12 +11,22 @@ export default defineConfig({
     },
   },
   server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     proxy: {
       '/api': 'http://localhost:3000',
       '/socket.io': {
         target: 'http://localhost:3000',
         ws: true,
       },
+    },
+  },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
 });

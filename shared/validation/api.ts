@@ -106,7 +106,7 @@ export const SaveBotGameSchema = z.object({
   level: z.number()
     .int()
     .min(1, 'Level must be at least 1')
-    .max(10, 'Level must be at most 10')
+    .max(12, 'Level must be at most 12')
     .default(5),
   botId: z.string()
     .min(1)
@@ -181,7 +181,7 @@ export type AnalyzePositionPayload = z.infer<typeof AnalyzePositionSchema>;
 export const BotMoveSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   counting: z.string().optional().nullable(),
-  level: z.number().int().min(1).max(10).default(5),
+  level: z.number().int().min(1).max(12).default(5),
   botId: z.string().min(1).max(100).optional(),
 });
 export type BotMovePayload = z.infer<typeof BotMoveSchema>;

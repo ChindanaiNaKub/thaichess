@@ -5,7 +5,8 @@ export type BotPublicStrengthLabel =
   | 'Intermediate'
   | 'Advanced'
   | 'Expert'
-  | 'Master';
+  | 'Master'
+  | 'Grandmaster';
 
 export interface BotCalibrationTarget {
   displayedRating: number;
@@ -364,11 +365,77 @@ const BOT_LEVEL_CONFIGS: readonly BotLevelConfig[] = [
       blunder: 0,
     },
   },
+  {
+    displayedRating: 2110,
+    publicLabel: 'Master',
+    expectedMistakesPer30: 1,
+    tacticalDepth: 4,
+    blunderRate: 0,
+    openingQuality: 0.98,
+    endgameAccuracy: 0.97,
+    maxDepth: 6,
+    maxNodes: 14000,
+    maxMs: 900,
+    rootBreadth: 20,
+    replyBreadth: 11,
+    choiceWindow: 1,
+    randomPickChance: 0,
+    noise: 0,
+    allowExternalEngine: true,
+    styleInfluence: 0.34,
+    styleCap: 28,
+    evaluationSharpness: 1,
+    defenseAwareness: 1,
+    conversionTechnique: 0.98,
+    captureGreed: 0.02,
+    passiveBias: 0,
+    bucketWeights: {
+      best: 0.9,
+      solid: 0.09,
+      inaccuracy: 0.01,
+      mistake: 0,
+      blunder: 0,
+    },
+  },
+  {
+    displayedRating: 2260,
+    publicLabel: 'Grandmaster',
+    expectedMistakesPer30: 0,
+    tacticalDepth: 4,
+    blunderRate: 0,
+    openingQuality: 1,
+    endgameAccuracy: 0.99,
+    maxDepth: 6,
+    maxNodes: 20000,
+    maxMs: 1100,
+    rootBreadth: 22,
+    replyBreadth: 12,
+    choiceWindow: 1,
+    randomPickChance: 0,
+    noise: 0,
+    allowExternalEngine: true,
+    styleInfluence: 0.3,
+    styleCap: 24,
+    evaluationSharpness: 1,
+    defenseAwareness: 1,
+    conversionTechnique: 1,
+    captureGreed: 0,
+    passiveBias: 0,
+    bucketWeights: {
+      best: 0.94,
+      solid: 0.06,
+      inaccuracy: 0,
+      mistake: 0,
+      blunder: 0,
+    },
+  },
 ] as const;
+
+export const MAX_BOT_LEVEL = BOT_LEVEL_CONFIGS.length;
 
 export function clampBotLevel(level: number): number {
   if (!Number.isFinite(level)) return 5;
-  return Math.min(10, Math.max(1, Math.round(level)));
+  return Math.min(MAX_BOT_LEVEL, Math.max(1, Math.round(level)));
 }
 
 export function getBotLevelConfig(level: number): BotLevelConfig {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AnalyzeGameSchema,
   AnalyzePositionSchema,
+  BotMoveSchema,
   ReportFairPlaySchema,
   SaveBotGameSchema,
   SaveLocalGameSchema,
@@ -66,6 +67,29 @@ describe('API validation schemas', () => {
       },
       playerName: 'Anonymous',
     }).success).toBe(true);
+  });
+
+  it('accepts new bot levels and rejects levels above the supported cap', () => {
+    const basePayload = {
+      id: uuidGameId,
+      result: 'black' as const,
+      resultReason: 'resignation',
+      playerColor: 'white' as const,
+      botId: 'ajarn-krailert',
+      moves: [],
+      finalBoard: [[null]],
+      moveCount: 0,
+      timeControl: {
+        initial: 600,
+        increment: 0,
+      },
+      playerName: 'Anonymous',
+    };
+
+    expect(SaveBotGameSchema.safeParse({ ...basePayload, level: 12 }).success).toBe(true);
+    expect(SaveBotGameSchema.safeParse({ ...basePayload, level: 13 }).success).toBe(false);
+    expect(BotMoveSchema.safeParse({ position: '8/8/8/8/8/8/8/8 w', level: 12 }).success).toBe(true);
+    expect(BotMoveSchema.safeParse({ position: '8/8/8/8/8/8/8/8 w', level: 13 }).success).toBe(false);
   });
 
   it('caps analysis requests to protect engine resources', () => {

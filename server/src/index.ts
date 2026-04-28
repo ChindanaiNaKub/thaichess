@@ -213,6 +213,12 @@ const workspaceRoot = findWorkspaceRoot(__dirname);
 const clientDist = path.join(workspaceRoot, 'client', 'dist');
 const assetDist = path.join(clientDist, 'assets');
 
+app.use((_, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+
 app.use('/assets', express.static(assetDist, {
   immutable: true,
   maxAge: '1y',
@@ -227,7 +233,7 @@ app.use(express.static(clientDist, {
       return;
     }
 
-    if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$/.test(filePath)) {
+    if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|js|wasm)$/.test(filePath)) {
       res.setHeader('Cache-Control', 'public, max-age=3600');
     }
   },

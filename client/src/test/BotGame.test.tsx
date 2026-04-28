@@ -12,6 +12,7 @@ const {
   requestBotMoveMock,
   requestPositionAnalysisMock,
   requestLocalBotMoveMock,
+  requestBrowserEngineBotMoveMock,
   fetchMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   requestBotMoveMock: vi.fn(),
   requestPositionAnalysisMock: vi.fn(),
   requestLocalBotMoveMock: vi.fn(),
+  requestBrowserEngineBotMoveMock: vi.fn(),
   fetchMock: vi.fn(),
 }));
 
@@ -103,6 +105,10 @@ vi.mock('../lib/localBot', () => ({
   requestLocalBotMove: (...args: unknown[]) => requestLocalBotMoveMock(...args),
 }));
 
+vi.mock('../lib/browserEngineBot', () => ({
+  requestBrowserEngineBotMove: (...args: unknown[]) => requestBrowserEngineBotMoveMock(...args),
+}));
+
 vi.mock('../components/BoardErrorBoundary', () => ({
   BoardErrorBoundary: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
@@ -180,6 +186,7 @@ describe('BotGame', () => {
     requestBotMoveMock.mockReset();
     requestPositionAnalysisMock.mockReset();
     requestLocalBotMoveMock.mockReset();
+    requestBrowserEngineBotMoveMock.mockReset();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -209,6 +216,7 @@ describe('BotGame', () => {
       from: { row: 2, col: 0 },
       to: { row: 3, col: 0 },
     });
+    requestBrowserEngineBotMoveMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -277,7 +285,7 @@ describe('BotGame', () => {
     }, { timeout: 2000 });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
-    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalled();
   });
 
   it('aborts a stalled bot request and falls back locally without waiting for a long server timeout', async () => {
@@ -303,7 +311,7 @@ describe('BotGame', () => {
     });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
-    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalled();
   });
 
   it('falls back locally for a master bot when the server engine request fails', async () => {
@@ -329,13 +337,65 @@ describe('BotGame', () => {
     }, { timeout: 2000 });
 
     expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
-    expect(requestLocalBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalled();
+  });
+
+  it('uses the browser engine for high-level bots before asking the server', async () => {
+    requestBrowserEngineBotMoveMock.mockResolvedValue({
+      from: { row: 2, col: 0 },
+      to: { row: 3, col: 0 },
+    });
+
+    renderBotGame();
+
+    const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
+    fireEvent.click(masterButtons[0]);
+
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+
+    await waitFor(() => {
+      const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
+      expect(lastBoardProps?.lastMove).toMatchObject({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      });
+    }, { timeout: 2000 });
+
+    expect(requestBrowserEngineBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestBotMoveMock).not.toHaveBeenCalled();
+  });
+
+  it('does not wait for a slow server engine before using local high-level fallback', async () => {
+    vi.useFakeTimers();
+    requestBotMoveMock.mockImplementation(() => new Promise(() => undefined));
+
+    renderBotGame();
+
+    const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
+    fireEvent.click(masterButtons[0]);
+
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(requestBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(requestLocalBotMoveMock).toHaveBeenCalled();
   });
 
   it('keeps high-level engine requests alive long enough for production Fairy-Stockfish searches', () => {
     expect(getBotRequestTimeoutMs(8)).toBe(5000);
     expect(getBotRequestTimeoutMs(9)).toBe(8000);
     expect(getBotRequestTimeoutMs(10)).toBe(15000);
+    expect(getBotRequestTimeoutMs(11)).toBe(18000);
+    expect(getBotRequestTimeoutMs(12)).toBe(20000);
   });
 
   it('saves finished bot games into the shared recent-games system', async () => {

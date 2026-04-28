@@ -66,6 +66,10 @@ export default [
     ignores: [
       'node_modules/**',
       'client/dist/**',
+      'client/public/engines/fairy-stockfish.js',
+      'client/public/engines/manifest.json',
+      'client/public/engines/stockfish.js',
+      'client/public/engines/stockfish.worker.js',
       'server/dist/**',
       'client/coverage/**',
       'coverage/**',
