@@ -62,27 +62,38 @@ const BOT_ID_TO_I18N_KEY: Record<string, string> = {
   'chao-surasi': 'chanin_surasi',
   'lady-busaba': 'lalin_busaba',
   'kiet-archive': 'kiet_intharat',
+  'ajarn-krailert': 'ajarn_krailert',
 };
+
+function getSafeBotTranslationValue(
+  t: (key: string) => string,
+  i18nKey: string,
+  field: string
+): string {
+  const translationKey = `bot.${i18nKey}.${field}`;
+  const translatedValue = t(translationKey);
+  return translatedValue === translationKey ? '' : translatedValue;
+}
 
 // Helper function to get translated bot content (hook version for component use)
 function useBotTranslation(t: (key: string) => string, botId: string) {
   const i18nKey = BOT_ID_TO_I18N_KEY[botId] || botId;
 
   return {
-    backstory: t(`bot.${i18nKey}.backstory`) || '',
-    hook: t(`bot.${i18nKey}.hook`) || '',
-    opening: t(`bot.${i18nKey}.opening`) || '',
-    signature: t(`bot.${i18nKey}.signature`) || '',
-    tactical: t(`bot.${i18nKey}.tactical`) || '',
-    weakness: t(`bot.${i18nKey}.weakness`) || '',
-    chatStyle: t(`bot.${i18nKey}.chat_style`) || '',
+    backstory: getSafeBotTranslationValue(t, i18nKey, 'backstory'),
+    hook: getSafeBotTranslationValue(t, i18nKey, 'hook'),
+    opening: getSafeBotTranslationValue(t, i18nKey, 'opening'),
+    signature: getSafeBotTranslationValue(t, i18nKey, 'signature'),
+    tactical: getSafeBotTranslationValue(t, i18nKey, 'tactical'),
+    weakness: getSafeBotTranslationValue(t, i18nKey, 'weakness'),
+    chatStyle: getSafeBotTranslationValue(t, i18nKey, 'chat_style'),
   };
 }
 
 // Helper function to get a single translated field (for use in loops)
 function getBotTranslation(t: (key: string) => string, botId: string, field: string): string {
   const i18nKey = BOT_ID_TO_I18N_KEY[botId] || botId;
-  return t(`bot.${i18nKey}.${field}`) || '';
+  return getSafeBotTranslationValue(t, i18nKey, field);
 }
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;

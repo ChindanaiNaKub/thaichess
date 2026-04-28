@@ -112,7 +112,7 @@ const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'home.no_live_games_desc': 'Check back soon for active public matches to watch.',
   'home.no_signup': 'No signup required',
   'home.play_bot': 'Play vs Bot',
-  'home.play_bot_desc': '10 themed personas',
+  'home.play_bot_desc': '12 themed personas',
   'home.play_bot_long_desc': 'Challenge a roster of distinct Makruk rivals, each with a named identity, rating, and signature style.',
   'home.play_local': 'Play Locally (Same Screen)',
   'home.play_local_desc': 'Pass the board back and forth on one screen.',
