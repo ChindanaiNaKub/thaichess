@@ -12,7 +12,6 @@ import {
 import {
   cloneBoard,
   deserializeAnalysisPosition,
-  pieceLabel,
   serializeAnalysisPosition,
   type AnalysisPositionSnapshot,
   type PositionAnalysisResult,
@@ -27,13 +26,21 @@ import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
 import PieceSVG from './PieceSVG';
+import {
+  createEmptyEditorBoard,
+  EditorPieceBank,
+  getEditorAnalysisSnapshotKey,
+  getEditorPositionStatus,
+  getEditorValidationMessage,
+  type EditorPieceTool,
+  type EditorTool,
+} from './AnalysisEditorTools';
 import Header from './Header';
 import type { WorkerResponse } from '../workers/analysisWorker';
 import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 import { useAuth } from '../lib/auth';
 
 type AnalysisMode = 'game' | 'editor';
-type EditorTool = 'erase' | 'move' | `${'white' | 'black'}:${'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'}`;
 
 const DEFAULT_EDITOR_TOOL: EditorTool = 'move';
 const REVIEW_MOVETIME_MS = DEFAULT_GAME_ANALYSIS_MOVETIME_MS;
@@ -74,6 +81,7 @@ export default function AnalysisPage() {
   const [editorTool, setEditorTool] = useState<EditorTool>(DEFAULT_EDITOR_TOOL);
   const [editorSelectedSquare, setEditorSelectedSquare] = useState<Position | null>(null);
   const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysisResult | null>(null);
+  const [positionAnalysisKey, setPositionAnalysisKey] = useState<string | null>(null);
   const [positionAnalyzing, setPositionAnalyzing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLElement | null>(null);
@@ -96,6 +104,7 @@ export default function AnalysisPage() {
     setLoading(true);
     setGameData(null);
     setPositionAnalysis(null);
+    setPositionAnalysisKey(null);
     setPositionAnalyzing(false);
     setEditorSelectedSquare(null);
     setEditorTool(DEFAULT_EDITOR_TOOL);
@@ -448,9 +457,18 @@ export default function AnalysisPage() {
     turn: editorTurn,
     counting: null,
   }), [editorBoard, editorTurn]);
+  const editorAnalysisKey = useMemo(
+    () => getEditorAnalysisSnapshotKey(editorSnapshot),
+    [editorSnapshot],
+  );
+  const editorPositionStatus = useMemo(
+    () => getEditorPositionStatus(editorBoard),
+    [editorBoard],
+  );
 
   const handleAnalyzeEditorPosition = useCallback(async () => {
     if (authLoading) return;
+    if (!editorPositionStatus.canAnalyze) return;
     if (!user) {
       setError(t('analysis.sign_in_required'));
       return;
@@ -465,12 +483,13 @@ export default function AnalysisPage() {
         multipv: 1,
       });
       setPositionAnalysis(result);
+      setPositionAnalysisKey(editorAnalysisKey);
     } catch {
       setError(t('analysis.editor.error'));
     } finally {
       setPositionAnalyzing(false);
     }
-  }, [authLoading, editorSnapshot, t, user]);
+  }, [authLoading, editorAnalysisKey, editorPositionStatus.canAnalyze, editorSnapshot, t, user]);
 
   const handleEditorSquareClick = useCallback((pos: Position) => {
     setEditorBoard(prev => {
@@ -663,10 +682,11 @@ export default function AnalysisPage() {
   }
 
   if (mode === 'editor') {
-    const editorArrow = positionAnalysis?.bestMove
+    const visiblePositionAnalysis = positionAnalysisKey === editorAnalysisKey ? positionAnalysis : null;
+    const editorArrow = visiblePositionAnalysis?.bestMove
       ? [{
-          from: positionAnalysis.bestMove.from,
-          to: positionAnalysis.bestMove.to,
+          from: visiblePositionAnalysis.bestMove.from,
+          to: visiblePositionAnalysis.bestMove.to,
           color: '#56b33080',
         }]
       : [];
@@ -698,8 +718,15 @@ export default function AnalysisPage() {
                       {t('analysis.editor.turn_to_move', { color: t('common.black') })}
                     </button>
                   </div>
-                  <div className="text-text-dim text-xs">{formatEval(positionAnalysis?.evaluation ?? 0, positionAnalysis?.mate)}</div>
+                  <div className="text-text-dim text-xs">{formatEval(visiblePositionAnalysis?.evaluation ?? 0, visiblePositionAnalysis?.mate)}</div>
                 </div>
+
+                <EditorPieceBank
+                  color="black"
+                  label={t('analysis.editor.black_pieces')}
+                  selectedTool={editorTool}
+                  onSelectTool={(tool: EditorPieceTool) => setEditorTool(tool)}
+                />
 
                 <BoardErrorBoundary onRetry={() => window.location.reload()}>
                   <Board
@@ -721,31 +748,12 @@ export default function AnalysisPage() {
                   />
                 </BoardErrorBoundary>
 
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={() => setEditorBoard(createInitialBoard())}
-                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                  >
-                    {t('analysis.editor.reset_board')}
-                  </button>
-                  <button
-                    onClick={() => setEditorBoard(Array.from({ length: 8 }, () => Array(8).fill(null)))}
-                    className="flex-1 rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                  >
-                    {t('analysis.editor.clear_board')}
-                  </button>
-                  <button
-                    onClick={handleAnalyzeEditorPosition}
-                    disabled={positionAnalyzing || authLoading || !user}
-                    className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {!user && !authLoading
-                      ? t('analysis.editor.sign_in_to_analyze')
-                      : positionAnalyzing
-                        ? t('analysis.editor.analyzing_position')
-                        : t('analysis.editor.analyze_position')}
-                  </button>
-                </div>
+                <EditorPieceBank
+                  color="white"
+                  label={t('analysis.editor.white_pieces')}
+                  selectedTool={editorTool}
+                  onSelectTool={(tool: EditorPieceTool) => setEditorTool(tool)}
+                />
               </div>
             </div>
 
@@ -766,23 +774,62 @@ export default function AnalysisPage() {
                     {t('analysis.editor.erase_square')}
                   </button>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {(['white', 'black'] as const).flatMap(color => (
-                    (['K', 'M', 'S', 'R', 'N', 'P', 'PM'] as const).map(type => {
-                      const tool = `${color}:${type}` as EditorTool;
+              </div>
 
-                      return (
-                        <button
-                          key={tool}
-                          onClick={() => setEditorTool(tool)}
-                          className={`flex items-center gap-2 rounded-lg border px-2 py-2 text-left text-sm ${editorTool === tool ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
-                        >
-                          <PieceSVG type={type} color={color} size={22} />
-                          <span className="font-mono text-xs">{pieceLabel({ type, color })}</span>
-                        </button>
-                      );
-                    })
-                  ))}
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.validation')}</h3>
+                {editorPositionStatus.canAnalyze ? (
+                  <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                    {t('analysis.editor.position_legal')}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                      {t('analysis.editor.position_needs_work')}
+                    </div>
+                    <ul className="space-y-1 text-sm text-text-dim">
+                      {editorPositionStatus.errors.map(errorMessage => (
+                        <li key={errorMessage} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2">
+                          {getEditorValidationMessage(errorMessage, t)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+                <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.actions')}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.flip_board')}
+                  </button>
+                  <button
+                    onClick={() => setEditorBoard(createInitialBoard())}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.reset_board')}
+                  </button>
+                  <button
+                    onClick={() => setEditorBoard(createEmptyEditorBoard())}
+                    className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
+                  >
+                    {t('analysis.editor.clear_board')}
+                  </button>
+                  <button
+                    onClick={handleAnalyzeEditorPosition}
+                    disabled={positionAnalyzing || authLoading || !user || !editorPositionStatus.canAnalyze}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {!user && !authLoading
+                      ? t('analysis.editor.sign_in_to_analyze')
+                      : positionAnalyzing
+                        ? t('analysis.editor.analyzing_position')
+                        : t('analysis.editor.analyze_position')}
+                  </button>
                 </div>
               </div>
 
@@ -803,37 +850,37 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              {positionAnalysis && (
+              {visiblePositionAnalysis && (
                 <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                   <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.engine')}</h3>
                   <div className="space-y-2 text-sm text-text">
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.eval')}</span>
-                        <span className="font-mono text-text-bright">{formatEval(positionAnalysis.evaluation, positionAnalysis.mate)}</span>
+                        <span className="font-mono text-text-bright">{formatEval(visiblePositionAnalysis.evaluation, visiblePositionAnalysis.mate)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.best_move')}</span>
                       <span className="font-mono text-text-bright">
-                        {positionAnalysis.bestMove
-                          ? `${posToAlgebraic(positionAnalysis.bestMove.from)}-${posToAlgebraic(positionAnalysis.bestMove.to)}`
+                        {visiblePositionAnalysis.bestMove
+                          ? `${posToAlgebraic(visiblePositionAnalysis.bestMove.from)}-${posToAlgebraic(visiblePositionAnalysis.bestMove.to)}`
                           : t('analysis.editor.none')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>{t('analysis.editor.source')}</span>
-                      <span className="text-text-bright">{positionAnalysis.stats.source}</span>
+                      <span className="text-text-bright">{visiblePositionAnalysis.stats.source}</span>
                     </div>
-                    {positionAnalysis.stats.depth && (
+                    {visiblePositionAnalysis.stats.depth && (
                       <div className="flex items-center justify-between">
                         <span>{t('analysis.editor.depth')}</span>
-                        <span className="font-mono text-text-bright">{positionAnalysis.stats.depth}</span>
+                        <span className="font-mono text-text-bright">{visiblePositionAnalysis.stats.depth}</span>
                       </div>
                     )}
-                    {positionAnalysis.principalVariation.length > 0 && (
+                    {visiblePositionAnalysis.principalVariation.length > 0 && (
                       <div>
                         <div className="mb-1 text-xs uppercase tracking-[0.18em] text-text-dim">{t('analysis.editor.pv')}</div>
                         <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text">
-                          {positionAnalysis.principalVariation.join(' ')}
+                          {visiblePositionAnalysis.principalVariation.join(' ')}
                         </div>
                       </div>
                     )}
@@ -841,13 +888,7 @@ export default function AnalysisPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
-                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
-                >
-                  Flip board
-                </button>
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={() => navigate('/')}
                   className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
