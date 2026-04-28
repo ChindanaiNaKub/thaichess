@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { AnalysisPositionSnapshot, PositionAnalysisResult } from '@shared/engineAdapter';
 import { requestPositionAnalysis } from '../lib/analysis';
+import { requestBrowserPositionAnalysis } from '../lib/browserEngineAnalysis';
 
 interface UseReviewEngineAnalysisOptions {
   enabled: boolean;
   snapshot: AnalysisPositionSnapshot | null;
+  engineSource?: 'server' | 'browser-with-server-fallback';
+  serverFallbackEnabled?: boolean;
 }
 
 interface UseReviewEngineAnalysisResult {
@@ -21,15 +24,25 @@ const RETRY_DELAY_BASE_MS = 2000; // Start with 2 second delay for retries
 // Simple request deduplication cache
 const requestCache = new Map<string, Promise<PositionAnalysisResult>>();
 
-function getCacheKey(snapshot: AnalysisPositionSnapshot, options: { movetimeMs: number; multipv: number }): string {
+function getCacheKey(snapshot: AnalysisPositionSnapshot, options: {
+  movetimeMs: number;
+  multipv: number;
+  engineSource: string;
+  serverFallbackEnabled: boolean;
+}): string {
   const position = JSON.stringify(snapshot.board) + snapshot.turn + JSON.stringify(snapshot.counting);
-  return `${position}:${options.movetimeMs}:${options.multipv}`;
+  return `${position}:${options.movetimeMs}:${options.multipv}:${options.engineSource}:${options.serverFallbackEnabled}`;
 }
 
 export function useReviewEngineAnalysis(
   options: UseReviewEngineAnalysisOptions,
 ): UseReviewEngineAnalysisResult {
-  const { enabled, snapshot } = options;
+  const {
+    enabled,
+    snapshot,
+    engineSource = 'server',
+    serverFallbackEnabled = true,
+  } = options;
   const requestIdRef = useRef(0);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<number | null>(null);
@@ -53,18 +66,32 @@ export function useReviewEngineAnalysis(
   ): Promise<void> => {
     if (!snapshot) return;
 
-    const cacheKey = getCacheKey(snapshot, { movetimeMs: REVIEW_ENGINE_MOVETIME_MS, multipv: 3 });
+    const cacheKey = getCacheKey(snapshot, {
+      movetimeMs: REVIEW_ENGINE_MOVETIME_MS,
+      multipv: 3,
+      engineSource,
+      serverFallbackEnabled,
+    });
 
     // Check if there's already an in-flight request for this position
     let analysisPromise = requestCache.get(cacheKey);
 
     if (!analysisPromise) {
-      // Create new request
-      analysisPromise = requestPositionAnalysis(snapshot, {
+      const serverRequest = () => requestPositionAnalysis(snapshot, {
         movetimeMs: REVIEW_ENGINE_MOVETIME_MS,
         multipv: 3,
         signal: controller.signal,
       });
+
+      analysisPromise = engineSource === 'browser-with-server-fallback'
+        ? requestBrowserPositionAnalysis(snapshot, {
+            movetimeMs: REVIEW_ENGINE_MOVETIME_MS,
+            signal: controller.signal,
+          }).catch((browserError) => {
+            if (!serverFallbackEnabled) throw browserError;
+            return serverRequest();
+          })
+        : serverRequest();
 
       requestCache.set(cacheKey, analysisPromise);
 
@@ -119,7 +146,7 @@ export function useReviewEngineAnalysis(
         setAnalyzing(false);
       }
     }
-  }, [snapshot]);
+  }, [engineSource, serverFallbackEnabled, snapshot]);
 
   useEffect(() => {
     // Clear any pending retry timeout

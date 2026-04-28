@@ -1,8 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import type { Move } from '@shared/types';
 import { createInitialGameState, makeMove } from '@shared/engine';
 import { serializeBoardPosition } from '@shared/engineAdapter';
 import { usePostGameReview } from '../hooks/usePostGameReview';
+
+const EMPTY_MAIN_LINE: Move[] = [];
 
 function createSampleGame() {
   const initial = createInitialGameState(0, 0);
@@ -23,6 +26,40 @@ function createSampleGame() {
 }
 
 describe('usePostGameReview', () => {
+  it('can build a quick analysis line from the starting position', () => {
+    const { result } = renderHook(() => usePostGameReview({
+      enabled: true,
+      mainLine: EMPTY_MAIN_LINE,
+    }));
+
+    act(() => {
+      result.current.jumpToAnalysisRoot(-1);
+    });
+
+    act(() => {
+      result.current.handlePieceDrop({ row: 2, col: 0 }, { row: 3, col: 0 });
+    });
+
+    expect(result.current.mode).toBe('analysis');
+    expect(result.current.analysisRootMoveIndex).toBe(-1);
+    expect(result.current.analysisLine).toEqual([
+      expect.objectContaining({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      }),
+    ]);
+    expect(result.current.currentMoveHistory).toHaveLength(1);
+
+    act(() => {
+      result.current.resetAnalysis();
+    });
+
+    expect(result.current.mode).toBe('analysis');
+    expect(result.current.analysisRootMoveIndex).toBe(-1);
+    expect(result.current.analysisLine).toHaveLength(0);
+    expect(result.current.currentMoveHistory).toHaveLength(0);
+  });
+
   it('keeps analysis mode active when switching the analysis root through move selection', () => {
     const { finalState } = createSampleGame();
     const { result } = renderHook(() => usePostGameReview({

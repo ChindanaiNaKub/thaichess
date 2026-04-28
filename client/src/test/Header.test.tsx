@@ -94,6 +94,17 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenCalledWith('/analysis?mode=editor');
   });
 
+  it('opens quick analysis from the desktop Tools menu', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    fireEvent.click(screen.getByRole('button', { name: /^analysis$/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/analysis');
+  });
+
   it('shows Import game in Tools as unavailable until import support exists', () => {
     render(<Header active="play" />, { wrapper });
 
