@@ -74,7 +74,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'home.play_friend': 'เล่นกับเพื่อน',
   'home.play_friend_desc': 'แชร์ลิงก์',
   'home.play_bot': 'เล่นกับบอท',
-  'home.play_bot_desc': '10 บุคลิกบอทธีมเฉพาะ',
+  'home.play_bot_desc': '12 บุคลิกบอทธีมเฉพาะ',
   'home.play_bot_long_desc': 'ท้าดวลกับคู่แข่งหมากรุกไทยที่มีเอกลักษณ์ ชื่อ เรตติ้ง และสไตล์การเล่นต่างกันชัดเจน',
   'home.puzzles': 'ปริศนา',
   'home.puzzles_desc': 'ฝึกกลยุทธ์',

@@ -421,7 +421,7 @@ export default function HomePage() {
                       <div className="text-xs text-text-dim">{t('home.play_bot_desc')}</div>
                     </div>
                   </div>
-                  <span className="rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary-light">Lv 1-10</span>
+                  <span className="rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary-light">Lv 1-12</span>
                 </div>
               </button>
 
