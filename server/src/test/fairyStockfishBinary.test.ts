@@ -14,6 +14,7 @@ import {
   normalizeEngineMate,
   resolveBotMoveCandidate,
   resolvePositionAnalysisResult,
+  shouldApplyHighLevelEngineOverride,
 } from '../engineGateway';
 
 describe('normalizeEngineFen', () => {
@@ -189,6 +190,12 @@ describe('normalizeEngineFen', () => {
     expect(result.evaluation).toBe(-280);
     expect(result.mate).toBe(-5);
     expect(result.bestMove).toEqual(legalMove);
+  });
+
+  it('applies local engine override only for level 10', () => {
+    expect(shouldApplyHighLevelEngineOverride(10)).toBe(true);
+    expect(shouldApplyHighLevelEngineOverride(11)).toBe(false);
+    expect(shouldApplyHighLevelEngineOverride(12)).toBe(false);
   });
 
   it('uses bounded Level 10 depth search in check and endgame positions', () => {

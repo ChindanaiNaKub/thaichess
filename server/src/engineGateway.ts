@@ -314,6 +314,10 @@ export function createHighLevelBotSearchPlan(snapshot: AnalysisPositionSnapshot,
 
 export const createLevel10BotSearchPlan = createHighLevelBotSearchPlan;
 
+export function shouldApplyHighLevelEngineOverride(level: number): boolean {
+  return clampBotLevel(level) === 10;
+}
+
 function createExternalBotSearch(
   snapshot: AnalysisPositionSnapshot,
   level: number,
@@ -876,7 +880,7 @@ export async function getBotMoveWithEngine(
     const resolved = resolveBotMoveCandidate(snapshot, normalizedLevel, parsedMove, botId);
 
     if (resolved.source === 'engine') {
-      const validated = normalizedLevel >= 10
+      const validated = shouldApplyHighLevelEngineOverride(normalizedLevel)
         ? validateHighLevelEngineMove(snapshot, normalizedLevel, resolved.move!, botId)
         : { move: resolved.move!, source: 'engine' as const, depth: result.depth };
 
