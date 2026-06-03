@@ -67,3 +67,124 @@ export function gamesQueryOptions(
     staleTime: 1000 * 60, // Games list stays fresh for 1 minute
   });
 }
+
+// ============================================
+// Game Database Search
+// ============================================
+
+export interface GameSearchParams {
+  player?: string;
+  minRating?: number;
+  maxRating?: number;
+  result?: 'white' | 'black' | 'draw';
+  gameMode?: string;
+  rated?: boolean;
+  fromDate?: string; // ISO date string
+  toDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GameSearchResponse {
+  games: GameEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+async function fetchGameSearch(params: GameSearchParams): Promise<GameSearchResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.player) searchParams.set('player', params.player);
+  if (typeof params.minRating === 'number') searchParams.set('minRating', String(params.minRating));
+  if (typeof params.maxRating === 'number') searchParams.set('maxRating', String(params.maxRating));
+  if (params.result) searchParams.set('result', params.result);
+  if (params.gameMode) searchParams.set('gameMode', params.gameMode);
+  if (typeof params.rated === 'boolean') searchParams.set('rated', String(params.rated));
+  if (params.fromDate) searchParams.set('fromDate', String(Math.floor(new Date(params.fromDate).getTime() / 1000)));
+  if (params.toDate) searchParams.set('toDate', String(Math.floor(new Date(params.toDate).getTime() / 1000)));
+  searchParams.set('page', String(params.page ?? 0));
+  searchParams.set('limit', String(params.limit ?? 20));
+
+  const response = await fetch(`/api/games/search?${searchParams}`);
+  if (!response.ok) {
+    throw new Error(`Failed to search games: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function gameSearchQueryOptions(params: GameSearchParams) {
+  return queryOptions({
+    queryKey: ['games', 'search', params],
+    queryFn: () => fetchGameSearch(params),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+  });
+}
+
+// ============================================
+// Opening Explorer
+// ============================================
+
+export interface OpeningMoveStat {
+  moveUci: string;
+  totalGames: number;
+  whiteWins: number;
+  blackWins: number;
+  draws: number;
+  avgWhiteRating: number | null;
+  avgBlackRating: number | null;
+}
+
+export interface OpeningStatsResponse {
+  positionHash: string;
+  totalGames: number;
+  moves: OpeningMoveStat[];
+}
+
+export interface OpeningGamesResponse {
+  games: GameEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  position: string;
+  move: string | null;
+}
+
+async function fetchOpeningStats(position: string): Promise<OpeningStatsResponse> {
+  const response = await fetch(`/api/openings/stats?position=${encodeURIComponent(position)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch opening stats: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function fetchOpeningGames(position: string, moveUci?: string, page: number = 0, limit: number = 20): Promise<OpeningGamesResponse> {
+  const params = new URLSearchParams();
+  params.set('position', position);
+  if (moveUci) params.set('move', moveUci);
+  params.set('page', String(page));
+  params.set('limit', String(limit));
+
+  const response = await fetch(`/api/openings/games?${params}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch opening games: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function openingStatsQueryOptions(position: string) {
+  return queryOptions({
+    queryKey: ['openings', 'stats', position],
+    queryFn: () => fetchOpeningStats(position),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function openingGamesQueryOptions(position: string, moveUci?: string, page: number = 0, limit: number = 20) {
+  return queryOptions({
+    queryKey: ['openings', 'games', position, moveUci ?? 'all', { page, limit }],
+    queryFn: () => fetchOpeningGames(position, moveUci, page, limit),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
+  });
+}

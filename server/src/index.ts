@@ -42,6 +42,9 @@ import {
   deleteUser,
   runAllCleanupJobs,
   getDatabaseStats,
+  searchGames,
+  getOpeningStats,
+  getPositionGames,
   type AuthUser,
   type FairPlayCaseStatus,
   type PuzzleProgressRecord,
@@ -746,6 +749,61 @@ app.get('/api/games/recent', async (_req, res) => {
     getBotPerformanceStats(),
   ]);
   res.json({ games, total, page, limit, filter, botStats });
+});
+
+app.get('/api/games/search', async (req, res) => {
+  const page = parseInt(req.query.page as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+  const player = (req.query.player as string) || undefined;
+  const minRating = req.query.minRating ? parseInt(req.query.minRating as string, 10) : undefined;
+  const maxRating = req.query.maxRating ? parseInt(req.query.maxRating as string, 10) : undefined;
+  const result = req.query.result === 'white' || req.query.result === 'black' || req.query.result === 'draw'
+    ? req.query.result as 'white' | 'black' | 'draw'
+    : undefined;
+  const gameMode = (req.query.gameMode as string) || undefined;
+  const rated = req.query.rated === 'true' ? true : req.query.rated === 'false' ? false : undefined;
+  const fromDate = req.query.fromDate ? parseInt(req.query.fromDate as string, 10) : undefined;
+  const toDate = req.query.toDate ? parseInt(req.query.toDate as string, 10) : undefined;
+
+  const { games, total } = await searchGames({
+    player,
+    minRating: Number.isNaN(minRating) ? undefined : minRating,
+    maxRating: Number.isNaN(maxRating) ? undefined : maxRating,
+    result,
+    gameMode,
+    rated,
+    fromDate: Number.isNaN(fromDate) ? undefined : fromDate,
+    toDate: Number.isNaN(toDate) ? undefined : toDate,
+    limit,
+    offset: page * limit,
+  });
+
+  res.json({ games, total, page, limit });
+});
+
+app.get('/api/openings/stats', async (req, res) => {
+  const position = (req.query.position as string) || '';
+  if (!position) {
+    res.status(400).json({ error: 'Position parameter is required' });
+    return;
+  }
+  const stats = await getOpeningStats(position);
+  res.json(stats);
+});
+
+app.get('/api/openings/games', async (req, res) => {
+  const position = (req.query.position as string) || '';
+  const moveUci = (req.query.move as string) || undefined;
+  const page = parseInt(req.query.page as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+  if (!position) {
+    res.status(400).json({ error: 'Position parameter is required' });
+    return;
+  }
+
+  const { games, total } = await getPositionGames(position, moveUci, limit, page * limit);
+  res.json({ games, total, page, limit, position, move: moveUci ?? null });
 });
 
 app.get('/api/leaderboard', async (req, res) => {

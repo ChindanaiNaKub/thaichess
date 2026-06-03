@@ -21,3 +21,17 @@ Vitest is the main test runner in both workspaces. Frontend tests also use Testi
 
 ## Commit & Pull Request Guidelines
 Recent history follows Conventional Commits, for example `feat: add new ThaiChess logo` and `fix: translate support description to Thai`. Keep commit messages short, imperative, and scoped to one change. PR titles should also be conventional. Follow `.github/PULL_REQUEST_TEMPLATE.md`: describe what changed, mark the change type, confirm the code compiles, confirm the client build passes, and note local testing. Include screenshots for visible UI changes and link the relevant issue when one exists.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `ChindanaiNaKub/markrukthai` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles; `wontfix` matches the existing GitHub label. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at repo root and ADRs in `docs/adr/`. See `docs/agents/domain.md`.
