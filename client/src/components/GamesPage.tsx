@@ -207,6 +207,18 @@ export default function GamesPage() {
               <div className="flex items-center gap-3">
                 <h2 className="ui-title text-xl sm:text-2xl">{t('games.title')}</h2>
                 <button
+                  onClick={() => navigate(routes.gameDatabase)}
+                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+                >
+                  Database
+                </button>
+                <button
+                  onClick={() => navigate(routes.openingExplorer)}
+                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+                >
+                  Openings
+                </button>
+                <button
                   onClick={() => navigate(routes.leaderboard)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >

@@ -34,6 +34,8 @@ export const routes = {
   legacyLessonPattern: '/learn/:id',
   puzzlePattern: '/puzzle/:id',
   analysisPattern: '/analysis/:gameId',
+  gameDatabase: '/database',
+  openingExplorer: '/openings',
 } as const;
 
 export function liveGameRoute(gameId: string): string {
@@ -62,4 +64,12 @@ export function puzzleRoute(id: string): string {
 
 export function randomPuzzleRoute(): string {
   return routes.puzzles;
+}
+
+export function gameDatabaseRoute(): string {
+  return routes.gameDatabase;
+}
+
+export function openingExplorerRoute(): string {
+  return routes.openingExplorer;
 }

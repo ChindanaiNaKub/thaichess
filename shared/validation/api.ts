@@ -247,3 +247,20 @@ export const ClientDebugSchema = z.object({
   userAgent: z.string().max(500).optional(),
 });
 export type ClientDebugPayload = z.infer<typeof ClientDebugSchema>;
+
+// ============================================
+// Opening Explorer Endpoints
+// ============================================
+
+export const OpeningStatsSchema = z.object({
+  position: z.string().min(1, 'Position is required').max(200),
+});
+export type OpeningStatsPayload = z.infer<typeof OpeningStatsSchema>;
+
+export const OpeningGamesSchema = z.object({
+  position: z.string().min(1, 'Position is required').max(200),
+  move: z.string().max(10).optional(),
+  page: z.number().int().min(0).default(0),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+export type OpeningGamesPayload = z.infer<typeof OpeningGamesSchema>;

@@ -35,6 +35,8 @@ const TwoFactorRoute = lazy(() => import('./routes/TwoFactorRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 const PrivacyPage = lazy(() => import('./routes/PrivacyRoute'));
 const TermsPage = lazy(() => import('./routes/TermsRoute'));
+const GameDatabasePage = lazy(() => import('./routes/GameDatabaseRoute'));
+const OpeningExplorerPage = lazy(() => import('./routes/OpeningExplorerRoute'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
 function RouteFallback() {
@@ -149,6 +151,8 @@ export default function App() {
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
           <Route path={routes.privacy} element={<PrivacyPage />} />
           <Route path={routes.terms} element={<TermsPage />} />
+          <Route path={routes.gameDatabase} element={<GameDatabasePage />} />
+          <Route path={routes.openingExplorer} element={<OpeningExplorerPage />} />
         </Routes>
       </Suspense>
       {showFeedbackWidget ? (

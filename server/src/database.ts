@@ -392,6 +392,19 @@ async function runSchemaMigration() {
         updated_at INTEGER DEFAULT (unixepoch())
       )
     `,
+    `
+      CREATE TABLE IF NOT EXISTS game_positions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id TEXT NOT NULL,
+        ply INTEGER NOT NULL,
+        position_hash TEXT NOT NULL,
+        move_uci TEXT,
+        result TEXT NOT NULL,
+        white_rating INTEGER,
+        black_rating INTEGER,
+        created_at INTEGER DEFAULT (unixepoch())
+      )
+    `,
   ];
 
   for (const statement of tableStatements) {
@@ -427,6 +440,9 @@ async function runSchemaMigration() {
     'CREATE INDEX IF NOT EXISTS idx_login_codes_expires_at ON login_codes(expires_at)',
     'CREATE INDEX IF NOT EXISTS idx_game_analyses_game_id ON game_analyses(game_id, updated_at DESC)',
     'CREATE INDEX IF NOT EXISTS idx_game_analyses_moves_hash ON game_analyses(moves_hash, updated_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_game_positions_hash ON game_positions(position_hash)',
+    'CREATE INDEX IF NOT EXISTS idx_game_positions_game ON game_positions(game_id, ply)',
+    'CREATE INDEX IF NOT EXISTS idx_game_positions_move ON game_positions(position_hash, move_uci)',
   ];
 
   for (const statement of indexStatements) {
@@ -961,6 +977,15 @@ export async function saveCompletedGame(data: {
         ],
       });
 
+      await saveGamePositions(
+        transaction,
+        data.id,
+        data.moves,
+        data.result,
+        whiteRatingBefore,
+        blackRatingBefore,
+      );
+
       await transaction.commit();
 
       return appliedRatedGame
@@ -1015,6 +1040,59 @@ export async function saveCompletedGame(data: {
   }
 
   return { ratingChange: null };
+}
+
+async function saveGamePositions(
+  transaction: Awaited<ReturnType<Client['transaction']>>,
+  gameId: string,
+  moves: Move[],
+  result: 'white' | 'black' | 'draw',
+  whiteRating: number | null,
+  blackRating: number | null,
+) {
+  try {
+    // Delete existing positions for this game to handle replays
+    await transaction.execute({
+      sql: 'DELETE FROM game_positions WHERE game_id = ?',
+      args: [gameId],
+    });
+
+    const { createInitialGameState, getPositionAtPly } = await import('../../shared/engine');
+    const { serializeAnalysisPosition } = await import('../../shared/engineAdapter');
+    const { moveToUci } = await import('../../shared/engineAdapter');
+
+    const insertSql = `
+      INSERT INTO game_positions (game_id, ply, position_hash, move_uci, result, white_rating, black_rating)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    for (let ply = 0; ply <= moves.length; ply += 1) {
+      const state = getPositionAtPly(moves, ply - 1);
+      const positionHash = serializeAnalysisPosition({
+        board: state.board,
+        turn: state.turn,
+        counting: state.counting,
+      }).position;
+
+      const moveUci = ply < moves.length ? moveToUci(moves[ply]) : null;
+
+      await transaction.execute({
+        sql: insertSql,
+        args: [
+          gameId,
+          ply,
+          positionHash,
+          moveUci,
+          result,
+          whiteRating,
+          blackRating,
+        ],
+      });
+    }
+  } catch (err) {
+    logError('database_save_game_positions_failed', err, { gameId });
+    // Non-fatal: don't fail the whole transaction
+  }
 }
 
 function calculateEloUpdate(
@@ -1128,6 +1206,210 @@ export async function getGame(id: string): Promise<SavedGame | null> {
   } catch (err) {
     logError('database_get_game_failed', err, { gameId: id });
     return null;
+  }
+}
+
+export interface GameSearchParams {
+  player?: string;
+  minRating?: number;
+  maxRating?: number;
+  result?: 'white' | 'black' | 'draw';
+  gameMode?: string;
+  rated?: boolean;
+  fromDate?: number; // unix epoch seconds
+  toDate?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface GameSearchResult {
+  games: SavedGame[];
+  total: number;
+}
+
+export async function searchGames(params: GameSearchParams): Promise<GameSearchResult> {
+  const conditions: string[] = ['finished_at IS NOT NULL'];
+  const args: (string | number)[] = [];
+
+  if (params.player && params.player.trim()) {
+    const playerPattern = `%${params.player.trim()}%`;
+    conditions.push('(white_name LIKE ? OR black_name LIKE ?)');
+    args.push(playerPattern, playerPattern);
+  }
+
+  if (typeof params.minRating === 'number') {
+    conditions.push('(white_rating_before >= ? OR black_rating_before >= ?)');
+    args.push(params.minRating, params.minRating);
+  }
+
+  if (typeof params.maxRating === 'number') {
+    conditions.push('(white_rating_before <= ? OR black_rating_before <= ?)');
+    args.push(params.maxRating, params.maxRating);
+  }
+
+  if (params.result) {
+    conditions.push('result = ?');
+    args.push(params.result);
+  }
+
+  if (params.gameMode) {
+    conditions.push('game_mode = ?');
+    args.push(params.gameMode);
+  }
+
+  if (typeof params.rated === 'boolean') {
+    conditions.push('rated = ?');
+    args.push(params.rated ? 1 : 0);
+  }
+
+  if (typeof params.fromDate === 'number') {
+    conditions.push('finished_at >= ?');
+    args.push(params.fromDate);
+  }
+
+  if (typeof params.toDate === 'number') {
+    conditions.push('finished_at <= ?');
+    args.push(params.toDate);
+  }
+
+  const whereClause = conditions.join(' AND ');
+  const limit = Math.min(params.limit ?? 20, 50);
+  const offset = params.offset ?? 0;
+
+  try {
+    const countResult = await db.execute({
+      sql: `SELECT COUNT(*) as total FROM games WHERE ${whereClause}`,
+      args,
+    });
+    const total = Number(countResult.rows[0]?.total ?? 0);
+
+    const result = await db.execute({
+      sql: `
+        SELECT * FROM games
+        WHERE ${whereClause}
+        ORDER BY finished_at DESC
+        LIMIT ? OFFSET ?
+      `,
+      args: [...args, limit, offset],
+    });
+
+    return {
+      games: result.rows.map(rowToSavedGame),
+      total,
+    };
+  } catch (err) {
+    logError('database_search_games_failed', err, { params });
+    return { games: [], total: 0 };
+  }
+}
+
+export interface OpeningMoveStat {
+  moveUci: string;
+  totalGames: number;
+  whiteWins: number;
+  blackWins: number;
+  draws: number;
+  avgWhiteRating: number | null;
+  avgBlackRating: number | null;
+}
+
+export interface OpeningStatsResult {
+  positionHash: string;
+  totalGames: number;
+  moves: OpeningMoveStat[];
+}
+
+export async function getOpeningStats(positionHash: string): Promise<OpeningStatsResult> {
+  try {
+    const totalResult = await db.execute({
+      sql: 'SELECT COUNT(DISTINCT game_id) as total FROM game_positions WHERE position_hash = ?',
+      args: [positionHash],
+    });
+    const totalGames = Number(totalResult.rows[0]?.total ?? 0);
+
+    if (totalGames === 0) {
+      return { positionHash, totalGames: 0, moves: [] };
+    }
+
+    const movesResult = await db.execute({
+      sql: `
+        SELECT
+          move_uci,
+          COUNT(*) as total,
+          SUM(CASE WHEN result = 'white' THEN 1 ELSE 0 END) as white_wins,
+          SUM(CASE WHEN result = 'black' THEN 1 ELSE 0 END) as black_wins,
+          SUM(CASE WHEN result = 'draw' THEN 1 ELSE 0 END) as draws,
+          AVG(white_rating) as avg_white_rating,
+          AVG(black_rating) as avg_black_rating
+        FROM game_positions
+        WHERE position_hash = ? AND move_uci IS NOT NULL
+        GROUP BY move_uci
+        ORDER BY total DESC
+      `,
+      args: [positionHash],
+    });
+
+    const moves: OpeningMoveStat[] = movesResult.rows.map((row) => ({
+      moveUci: String(row.move_uci ?? ''),
+      totalGames: Number(row.total ?? 0),
+      whiteWins: Number(row.white_wins ?? 0),
+      blackWins: Number(row.black_wins ?? 0),
+      draws: Number(row.draws ?? 0),
+      avgWhiteRating: row.avg_white_rating !== null && row.avg_white_rating !== undefined
+        ? Math.round(Number(row.avg_white_rating))
+        : null,
+      avgBlackRating: row.avg_black_rating !== null && row.avg_black_rating !== undefined
+        ? Math.round(Number(row.avg_black_rating))
+        : null,
+    }));
+
+    return { positionHash, totalGames, moves };
+  } catch (err) {
+    logError('database_get_opening_stats_failed', err, { positionHash });
+    return { positionHash, totalGames: 0, moves: [] };
+  }
+}
+
+export async function getPositionGames(
+  positionHash: string,
+  moveUci?: string,
+  limit: number = 20,
+  offset: number = 0,
+): Promise<{ games: SavedGame[]; total: number }> {
+  try {
+    const moveCondition = moveUci ? 'AND move_uci = ?' : '';
+    const countArgs = moveUci ? [positionHash, moveUci] : [positionHash];
+    const limitArgs = moveUci ? [positionHash, moveUci, limit, offset] : [positionHash, limit, offset];
+
+    const countResult = await db.execute({
+      sql: `
+        SELECT COUNT(DISTINCT gp.game_id) as total
+        FROM game_positions gp
+        WHERE gp.position_hash = ? ${moveCondition}
+      `,
+      args: countArgs,
+    });
+    const total = Number(countResult.rows[0]?.total ?? 0);
+
+    const result = await db.execute({
+      sql: `
+        SELECT g.* FROM games g
+        INNER JOIN game_positions gp ON g.id = gp.game_id
+        WHERE gp.position_hash = ? ${moveCondition}
+        GROUP BY g.id
+        ORDER BY g.finished_at DESC
+        LIMIT ? OFFSET ?
+      `,
+      args: limitArgs,
+    });
+
+    return {
+      games: result.rows.map(rowToSavedGame),
+      total,
+    };
+  } catch (err) {
+    logError('database_get_position_games_failed', err, { positionHash, moveUci });
+    return { games: [], total: 0 };
   }
 }
 
