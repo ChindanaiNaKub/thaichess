@@ -86,7 +86,7 @@ jobs:
         run: npm run test --workspace=server
 
       - name: Build server
-        run: npm run build --workspace=server
+        run: server/node_modules/.bin/tsc -p server/tsconfig.json
 
   build:
     name: Build
