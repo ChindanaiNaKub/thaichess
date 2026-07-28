@@ -1,4 +1,4 @@
-import { getPublicSeoRoute, type SeoRouteData, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
+import { getPublicSeoRoute, getSeoImageUrl, type SeoRouteData, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
 
 function escapeHtml(value: string): string {
   return value
@@ -57,6 +57,7 @@ function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string): string {
 export function renderSeoHtml(template: string, pathname: string, baseUrl: string): string {
   const seo = getPublicSeoRoute(pathname, baseUrl);
   const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
+  const imageUrl = seo.image ?? getSeoImageUrl(baseUrl);
   const robots = seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
   const keywords = seo.keywords?.join(', ');
   const structuredData = seo.structuredData?.length
@@ -73,13 +74,19 @@ export function renderSeoHtml(template: string, pathname: string, baseUrl: strin
   html = upsertHeadTag(html, /<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:description" content="${escapeHtml(seo.description)}" />`);
   html = upsertHeadTag(html, /<meta\s+property="og:type"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:type" content="${escapeHtml(seo.type ?? 'website')}" />`);
   html = upsertHeadTag(html, /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`);
-  html = upsertHeadTag(html, /<meta\s+name="twitter:card"\s+content="[^"]*"\s*\/?>/i, '<meta name="twitter:card" content="summary" />');
+  html = upsertHeadTag(html, /<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:image" content="${escapeHtml(imageUrl)}" />`);
+  html = upsertHeadTag(html, /<meta\s+property="og:image:alt"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:image:alt" content="ThaiChess Makruk board" />');
+  html = upsertHeadTag(html, /<meta\s+property="og:site_name"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:site_name" content="ThaiChess" />');
+  html = upsertHeadTag(html, /<meta\s+property="og:locale"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:locale" content="en_US" />');
+  html = upsertHeadTag(html, /<meta\s+property="og:locale:alternate"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:locale:alternate" content="th_TH" />');
+  html = upsertHeadTag(html, /<meta\s+name="twitter:card"\s+content="[^"]*"\s*\/?>/i, '<meta name="twitter:card" content="summary_large_image" />');
   html = upsertHeadTag(html, /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(seo.title)}" />`);
   html = upsertHeadTag(html, /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(seo.description)}" />`);
+  html = upsertHeadTag(html, /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`);
 
   // Add hreflang tags for bilingual SEO (Thai/English)
-  const thaiUrl = new URL(seo.path, `${baseUrl}/`).toString();
-  html = upsertHeadTag(html, /<link\s+rel="alternate"\s+hreflang="[^"]*"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="en" href="${escapeHtml(thaiUrl)}" />\n  <link rel="alternate" hreflang="th" href="${escapeHtml(thaiUrl)}" />\n  <link rel="alternate" hreflang="x-default" href="${escapeHtml(thaiUrl)}" />`);
+  const localizedUrl = new URL(seo.path, `${baseUrl}/`).toString();
+  html = upsertHeadTag(html, /<link\s+rel="alternate"\s+hreflang="[^"]*"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="en" href="${escapeHtml(localizedUrl)}" />\n  <link rel="alternate" hreflang="th" href="${escapeHtml(localizedUrl)}" />\n  <link rel="alternate" hreflang="x-default" href="${escapeHtml(localizedUrl)}" />`);
 
   html = html.replace(/\s*<script[^>]*data-seo-server="true"[^>]*>.*?<\/script>/gs, '');
   if (structuredData) {
