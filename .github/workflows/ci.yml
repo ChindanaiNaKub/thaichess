@@ -32,6 +32,31 @@ jobs:
       - name: Run unit and integration tests
         run: npm test
 
+  nub-shadow:
+    name: Nub Shadow Validation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run nub-backed puzzle validation
+        run: npm run validate:puzzles --workspace=server
+
+      - name: Run server tests
+        run: npm run test --workspace=server
+
   build:
     name: Build
     runs-on: ubuntu-latest
