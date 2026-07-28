@@ -8,7 +8,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
 import { deleteSessionCookie, expireCookie } from 'better-auth/cookies';
 import { emailOTP, twoFactor } from 'better-auth/plugins';
-import type { BetterAuthPlugin, HookEndpointContext } from 'better-auth';
+import type { BetterAuthPlugin, GenericEndpointContext, HookEndpointContext } from 'better-auth';
 import { createAuthMiddleware } from '@better-auth/core/api';
 import { createHMAC } from '@better-auth/utils/hmac';
 import { authSchema } from './authSchema';
@@ -110,10 +110,10 @@ const emailOtpTwoFactorGuard = {
               }
             }
           }
-          expireCookie(ctx, trustDeviceCookieAttrs);
+          expireCookie(ctx as GenericEndpointContext, trustDeviceCookieAttrs);
         }
 
-        deleteSessionCookie(ctx, true);
+        deleteSessionCookie(ctx as GenericEndpointContext, true);
         await ctx.context.internalAdapter.deleteSession(data.session.token);
         const twoFactorCookie = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE_NAME, { maxAge: TWO_FACTOR_COOKIE_MAX_AGE_SECONDS });
         const identifier = `2fa-${crypto.randomUUID()}`;
