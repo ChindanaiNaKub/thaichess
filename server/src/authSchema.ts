@@ -63,6 +63,9 @@ export const twoFactor = sqliteTable('twoFactor', {
   id: text('id').primaryKey(),
   secret: text('secret').notNull(),
   backupCodes: text('backupCodes').notNull(),
+  verified: integer('verified', { mode: 'boolean' }).notNull(),
+  failedVerificationCount: integer('failedVerificationCount').notNull(),
+  lockedUntil: integer('lockedUntil', { mode: 'timestamp' }),
   userId: text('userId').notNull(),
 });
 

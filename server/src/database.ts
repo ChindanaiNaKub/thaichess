@@ -51,6 +51,7 @@ const VALID_MIGRATION_COLUMNS: Record<string, Set<string>> = {
     'white_rating_before', 'black_rating_before', 'white_rating_after', 'black_rating_after'
   ]),
   puzzle_progress: new Set(['last_played_at', 'attempts', 'successes', 'failures']),
+  twoFactor: new Set(['verified', 'failedVerificationCount', 'lockedUntil']),
 };
 
 // Valid SQLite type definitions (prevents SQL injection in column definitions)
@@ -312,6 +313,9 @@ async function runSchemaMigration() {
         id TEXT PRIMARY KEY,
         secret TEXT NOT NULL,
         backupCodes TEXT NOT NULL,
+        verified INTEGER NOT NULL DEFAULT 0,
+        failedVerificationCount INTEGER NOT NULL DEFAULT 0,
+        lockedUntil INTEGER,
         userId TEXT NOT NULL UNIQUE
       )
     `,
@@ -498,6 +502,9 @@ async function runSchemaMigration() {
   await ensureColumn('users', 'image', 'TEXT');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'twoFactorEnabled', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('twoFactor', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('twoFactor', 'failedVerificationCount', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('twoFactor', 'lockedUntil', 'INTEGER');
   await ensureColumn('users', 'username_updated_at', 'INTEGER');
   await ensureColumn('games', 'white_user_id', 'TEXT');
   await ensureColumn('games', 'black_user_id', 'TEXT');

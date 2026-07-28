@@ -20,15 +20,15 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.0",
+    "@better-auth/drizzle-adapter": "^1.6.25",
     "@libsql/client": "^0.17.2",
-    "better-auth": "^1.6.0",
+    "better-auth": "^1.6.25",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.2",
-    "express": "^4.21.0",
-    "express-rate-limit": "^8.3.1",
+    "express": "^4.22.2",
+    "express-rate-limit": "^8.6.1",
     "socket.io": "^4.8.0",
-    "uuid": "^11.1.0",
+    "uuid": "^14.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -36,6 +36,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "@types/uuid": "^10.0.0",
+    "vitest": "^4.1.10",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   },
