@@ -76,11 +76,12 @@ export function SeoHeadManager() {
 
     let cancelled = false;
 
-    void import('@shared/seo').then(({ getPublicSeoRoute }) => {
+    void import('@shared/seo').then(({ getPublicSeoRoute, getSeoImageUrl }) => {
       if (cancelled) return;
 
       const seo = getPublicSeoRoute(location.pathname, baseUrl);
       const canonicalUrl = new URL(seo.path, `${baseUrl}/`).toString();
+      const imageUrl = seo.image ?? getSeoImageUrl(baseUrl);
 
       document.title = seo.title;
       upsertMeta('description', seo.description);
@@ -90,9 +91,15 @@ export function SeoHeadManager() {
       upsertMeta('og:description', seo.description, 'property');
       upsertMeta('og:type', seo.type ?? 'website', 'property');
       upsertMeta('og:url', canonicalUrl, 'property');
-      upsertMeta('twitter:card', 'summary', 'name');
+      upsertMeta('og:image', imageUrl, 'property');
+      upsertMeta('og:image:alt', 'ThaiChess Makruk board', 'property');
+      upsertMeta('og:site_name', 'ThaiChess', 'property');
+      upsertMeta('og:locale', 'en_US', 'property');
+      upsertMeta('og:locale:alternate', 'th_TH', 'property');
+      upsertMeta('twitter:card', 'summary_large_image', 'name');
       upsertMeta('twitter:title', seo.title, 'name');
       upsertMeta('twitter:description', seo.description, 'name');
+      upsertMeta('twitter:image', imageUrl, 'name');
       upsertLink('canonical', canonicalUrl);
 
       if (seo.structuredData?.length) {

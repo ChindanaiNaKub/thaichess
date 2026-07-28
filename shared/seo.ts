@@ -1,4 +1,6 @@
-import { findSeoPuzzleById, getSeoPuzzlePaths } from './seoPuzzleManifest';
+import { findSeoPuzzleById, getSeoPuzzlePaths, isIndexableSeoPuzzle } from './seoPuzzleManifest';
+
+export const DEFAULT_SEO_IMAGE_PATH = '/og-image.jpg';
 
 export interface SeoRouteData {
   title: string;
@@ -7,8 +9,13 @@ export interface SeoRouteData {
   keywords?: string[];
   robots?: string;
   type?: 'website' | 'article';
+  image?: string;
   structuredData?: Record<string, unknown>[];
   snapshot?: SeoSnapshot;
+}
+
+export function getSeoImageUrl(baseUrl: string, imagePath = DEFAULT_SEO_IMAGE_PATH): string {
+  return new URL(imagePath, `${baseUrl}/`).toString();
 }
 
 export interface SeoTextBlock {
@@ -71,6 +78,16 @@ function buildWebsiteSchema(baseUrl: string): Record<string, unknown> {
     url: baseUrl,
     description: 'Play ThaiChess online for free with friends, bots, and puzzles. Makruk is also known in Thai as หมากรุกไทย.',
     inLanguage: ['en', 'th'],
+    image: getSeoImageUrl(baseUrl),
+    publisher: {
+      '@type': 'Organization',
+      name: 'ThaiChess',
+      url: baseUrl,
+      logo: {
+        '@type': 'ImageObject',
+        url: new URL('/icon-512.png', `${baseUrl}/`).toString(),
+      },
+    },
   };
 }
 
@@ -108,10 +125,26 @@ function buildHomeFaqSchema(): Record<string, unknown> {
       },
       {
         '@type': 'Question',
+        name: 'หมากรุกไทยคืออะไร?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'หมากรุกไทยหรือ Makruk เป็นหมากรุกดั้งเดิมของไทย มีการเดินหมาก กติกาหงาย และกฎการนับที่เป็นเอกลักษณ์ต่างจากหมากรุกสากล',
+        },
+      },
+      {
+        '@type': 'Question',
         name: 'Can I play ThaiChess online for free?',
         acceptedAnswer: {
           '@type': 'Answer',
           text: 'Yes. ThaiChess lets you play online for free in your browser.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'เล่นหมากรุกไทยออนไลน์ฟรีได้ไหม?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'ได้ เล่นหมากรุกไทยออนไลน์ฟรีได้ทันทีในเบราว์เซอร์ ไม่ต้องติดตั้ง และโหมดหลักไม่บังคับสมัครสมาชิก',
         },
       },
       {
@@ -161,6 +194,7 @@ function normalizeSeoPath(pathname: string): string {
 
 export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteData {
   const cleanPath = normalizeSeoPath(pathname);
+  const defaultImage = getSeoImageUrl(baseUrl);
 
   if (cleanPath === '/') {
     return {
@@ -169,6 +203,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       path: '/',
       keywords: [...defaultKeywords, 'เล่นหมากรุกไทยฟรี', 'หมากรุกไทยออนไลน์', 'สอนหมากรุกไทย', 'Makruk online free', 'Thai chess online free'],
       type: 'website',
+      image: defaultImage,
       structuredData: [
         buildWebsiteSchema(baseUrl),
         buildWebApplicationSchema(baseUrl),
@@ -192,6 +227,9 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { href: '/what-is-makruk', label: 'หมากรุกไทยคืออะไร', lang: 'th' },
           { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
           { href: '/play-makruk-online', label: 'เริ่มเล่นหมากรุกไทย', lang: 'th' },
+          { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+          { href: '/lessons', label: 'บทเรียนหมากรุกไทย', lang: 'th' },
+          { href: '/bot', label: 'Play vs Bot' },
         ],
       },
     };
@@ -203,6 +241,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Learn what ThaiChess, or Makruk / หมากรุกไทย, is and why this open-source project exists to make traditional Thai chess easier to play and discover online.',
       path: '/about',
       keywords: [...defaultKeywords, 'what is Makruk', 'Thai chess rules'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -218,6 +257,11 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'ThaiChess is an open-source project focused on making Makruk easier to learn, play, and discover online.' },
           { text: 'เป้าหมายของโปรเจกต์คือช่วยให้คนค้นพบหมากรุกไทยมากขึ้น และมีที่เล่นออนไลน์ที่ใช้ง่าย', lang: 'th' },
         ],
+        links: [
+          { href: '/what-is-makruk', label: 'What is Makruk?' },
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+        ],
       },
     };
   }
@@ -228,6 +272,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Browse recent finished ThaiChess games, review results, and open move analysis for completed Makruk matches.',
       path: '/games',
       keywords: [...defaultKeywords, 'Thai chess games', 'Makruk game archive'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -243,6 +288,11 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Browse recent finished Makruk games, review results, and open move analysis for completed matches.' },
           { text: 'ดูเกมหมากรุกไทยที่จบแล้วเพื่อศึกษาผลการแข่งขันและรูปแบบการเดินหมาก', lang: 'th' },
         ],
+        links: [
+          { href: '/leaderboard', label: 'Leaderboard' },
+          { href: '/quick-play', label: 'Quick Play' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+        ],
       },
     };
   }
@@ -253,6 +303,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'See the top rated ThaiChess players, compare Makruk ratings, and track the strongest active competitors on the leaderboard.',
       path: '/leaderboard',
       keywords: [...defaultKeywords, 'Makruk leaderboard', 'Thai chess rating', 'top Makruk players'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -268,6 +319,11 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Track the top rated ThaiChess players and compare Makruk ratings on the public leaderboard.' },
           { text: 'ติดตามผู้เล่นหมากรุกไทยที่มีเรตสูงสุดและดูอันดับล่าสุด', lang: 'th' },
         ],
+        links: [
+          { href: '/quick-play', label: 'Quick Play' },
+          { href: '/games', label: 'Recent games' },
+          { href: '/bot', label: 'Practice vs bot' },
+        ],
       },
     };
   }
@@ -279,6 +335,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       path: '/what-is-makruk',
       keywords: [...defaultKeywords, 'what is Makruk', 'learn Makruk', 'Thai chess explained', 'หมากรุกไทยคืออะไร'],
       type: 'article',
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -288,6 +345,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           url: `${baseUrl}/what-is-makruk`,
           description: 'An introduction to Makruk, the traditional chess game of Thailand.',
           inLanguage: ['en', 'th'],
+          image: defaultImage,
         },
         buildFaqSchema([
           {
@@ -297,6 +355,10 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           {
             question: 'Is Makruk hard to learn?',
             answer: 'The basic rules are approachable. Most players can start after learning the piece movement, promotion, and the main endgame draw rules.',
+          },
+          {
+            question: 'หมากรุกไทยต่างจากหมากรุกสากลอย่างไร?',
+            answer: 'หมากรุกไทยไม่มีการกรอก ไม่กินหมากผ่านทาง และมีกฎการหงายกับกฎการนับที่เป็นเอกลักษณ์ ทำให้จังหวะและแผนการเล่นต่างจากหมากรุกสากล',
           },
         ]),
       ],
@@ -310,6 +372,12 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Learn how Makruk differs from western chess.' },
           { text: 'Understand the role of promotion and the counting rule.' },
         ],
+        links: [
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+          { href: '/lessons', label: 'Makruk lessons' },
+          { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+        ],
       },
     };
   }
@@ -321,6 +389,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       path: '/how-to-play-makruk',
       keywords: [...defaultKeywords, 'กติกาหมากรุกไทย', 'วิธีเล่นหมากรุกไทย', 'สอนหมากรุกไทย', 'Makruk rules', 'Thai chess rules', 'how to play Makruk', 'หมากรุกไทยขั้นเทพ'],
       type: 'article',
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -329,6 +398,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           url: `${baseUrl}/how-to-play-makruk`,
           description: 'คู่มือสอนหมากรุกไทยสำหรับมือใหม่ A beginner-friendly guide to the rules of Thai chess.',
           inLanguage: ['en', 'th'],
+          image: defaultImage,
         },
         buildFaqSchema([
           {
@@ -363,6 +433,12 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Board setup and starting position.' },
           { text: 'How each piece moves in Thai chess.' },
         ],
+        links: [
+          { href: '/what-is-makruk', label: 'What is Makruk?' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+          { href: '/lessons', label: 'บทเรียนหมากรุกไทย', lang: 'th' },
+          { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+        ],
       },
     };
   }
@@ -374,6 +450,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       path: '/play-makruk-online',
       keywords: [...defaultKeywords, 'play Makruk online', 'Thai chess online', 'browser Makruk', 'เล่นหมากรุกไทยออนไลน์'],
       type: 'article',
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -383,6 +460,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           url: `${baseUrl}/play-makruk-online`,
           description: 'A guide to the best ways to start playing Makruk online.',
           inLanguage: ['en', 'th'],
+          image: defaultImage,
         },
         buildFaqSchema([
           {
@@ -392,6 +470,10 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           {
             question: 'What if there are not many live players online?',
             answer: 'Bot games and puzzles are still useful ways to practice Makruk while the live player pool is quiet.',
+          },
+          {
+            question: 'เล่นหมากรุกไทยออนไลน์เริ่มยังไง?',
+            answer: 'เปิดเว็บ ThaiChess แล้วเลือก Quick Play, เล่นกับบอท, หรือสร้างห้องเล่นกับเพื่อนได้ทันทีโดยไม่ต้องติดตั้งโปรแกรม',
           },
         ]),
       ],
@@ -405,6 +487,8 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { href: '/quick-play', label: 'Quick Play' },
           { href: '/bot', label: 'Play vs Bot' },
           { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+          { href: '/lessons', label: 'บทเรียนหมากรุกไทย', lang: 'th' },
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
         ],
       },
     };
@@ -416,6 +500,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Solve ThaiChess puzzles online and practice Makruk tactics, mating patterns, and calculation across beginner to advanced difficulty.',
       path: '/puzzles',
       keywords: [...defaultKeywords, 'Makruk tactics', 'Thai chess puzzles', 'โจทย์หมากรุกไทย'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -431,6 +516,12 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Practice Makruk tactics online with interactive puzzles that cover calculation, mating patterns, and material-winning ideas.' },
           { text: 'ฝึกโจทย์หมากรุกไทยเพื่อพัฒนาการคำนวณและรูปแบบรุกที่ใช้ได้จริง', lang: 'th' },
         ],
+        links: [
+          { href: '/lessons', label: 'Makruk lessons' },
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
+          { href: '/bot', label: 'Play vs Bot' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+        ],
       },
     };
   }
@@ -441,6 +532,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Study Makruk through a structured lessons course with guided explanations, interactive boards, and practice linked to real concepts.',
       path: '/lessons',
       keywords: [...defaultKeywords, 'Makruk lessons', 'Thai chess course', 'learn Makruk', 'บทเรียนหมากรุกไทย'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -457,6 +549,12 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'Study Thai chess through a structured course with guided lessons, interactive boards, and practical training.' },
           { text: 'เรียนหมากรุกไทยแบบเป็นลำดับจากบทเรียนที่มีคำอธิบายและแบบฝึกหัด', lang: 'th' },
         ],
+        links: [
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
+          { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+          { href: '/bot', label: 'Practice vs bot' },
+          { href: '/play-makruk-online', label: 'Play Makruk online' },
+        ],
       },
     };
   }
@@ -469,6 +567,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Work through an interactive Makruk lesson with guided steps, practice tasks, and follow-up puzzles.',
       path: lessonId ? `/lessons/${lessonId}` : '/lessons',
       keywords: [...defaultKeywords, 'Makruk lesson', 'Thai chess training'],
+      image: defaultImage,
       structuredData: [
         {
           '@context': 'https://schema.org',
@@ -485,13 +584,19 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { text: 'This lesson covers a focused Makruk idea with guided explanation and practice.' },
           { text: 'บทเรียนนี้อธิบายแนวคิดหมากรุกไทยแบบทีละขั้นและมีแบบฝึกให้ลอง', lang: 'th' },
         ],
+        links: [
+          { href: '/lessons', label: 'All Makruk lessons' },
+          { href: '/puzzles', label: 'More puzzles' },
+          { href: '/how-to-play-makruk', label: 'Makruk rules' },
+        ],
       },
     };
   }
 
   if (cleanPath.startsWith('/puzzle/')) {
     const id = Number(cleanPath.split('/')[2]);
-    const puzzle = findSeoPuzzleById(id);
+    const puzzle = Number.isFinite(id) ? findSeoPuzzleById(id) : undefined;
+    const indexable = Number.isFinite(id) && isIndexableSeoPuzzle(id);
     const puzzleTitle = puzzle ? getPublicPuzzleSeoTitle(puzzle.title) : `Puzzle ${id}`;
     const puzzleDescription = puzzle?.description ?? 'Interactive ThaiChess puzzle.';
 
@@ -499,19 +604,24 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       title: `${puzzleTitle} | ThaiChess Puzzle ${id}`,
       description: `${puzzleDescription} Practice this ThaiChess puzzle online and improve your Makruk calculation.`,
       path: cleanPath,
-      keywords: [...defaultKeywords, 'interactive puzzle', puzzleTitle],
-      structuredData: [
-        {
-          '@context': 'https://schema.org',
-          '@type': 'Quiz',
-          name: `${puzzleTitle} | ThaiChess Puzzle ${id}`,
-          educationalLevel: puzzle?.difficulty ?? 'all',
-          learningResourceType: 'Practice problem',
-          about: ['ThaiChess', 'Makruk tactics'],
-          url: `${baseUrl}${cleanPath}`,
-          description: puzzleDescription,
-        },
-      ],
+      keywords: [...defaultKeywords, 'interactive puzzle', puzzleTitle, 'โจทย์หมากรุกไทย'],
+      image: defaultImage,
+      robots: indexable ? undefined : 'noindex, follow',
+      structuredData: indexable
+        ? [
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Quiz',
+              name: `${puzzleTitle} | ThaiChess Puzzle ${id}`,
+              educationalLevel: puzzle?.difficulty ?? 'all',
+              learningResourceType: 'Practice problem',
+              about: ['ThaiChess', 'Makruk tactics'],
+              url: `${baseUrl}${cleanPath}`,
+              description: puzzleDescription,
+              image: defaultImage,
+            },
+          ]
+        : undefined,
       snapshot: {
         heading: { text: puzzleTitle },
         paragraphs: [
@@ -520,6 +630,8 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
         ],
         links: [
           { href: '/puzzles', label: 'More Makruk Puzzles' },
+          { href: '/lessons', label: 'Makruk lessons' },
+          { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
         ],
       },
     };
@@ -531,11 +643,17 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Start a quick ThaiChess game online and get matched with an opponent for a fast Makruk game in your browser.',
       path: '/quick-play',
       keywords: [...defaultKeywords, 'quick play', 'online matchmaking'],
+      image: defaultImage,
       snapshot: {
         heading: { text: 'Quick Play Makruk' },
         paragraphs: [
           { text: 'Start a fast online Makruk game and get matched with another player.' },
           { text: 'เริ่มเกมหมากรุกไทยแบบจับคู่ไวและเล่นได้ทันที', lang: 'th' },
+        ],
+        links: [
+          { href: '/bot', label: 'Play vs Bot' },
+          { href: '/local', label: 'Local board' },
+          { href: '/play-makruk-online', label: 'All ways to play' },
         ],
       },
     };
@@ -547,11 +665,17 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Practice ThaiChess against a bot in your browser and sharpen your Makruk openings, tactics, and endgames.',
       path: '/bot',
       keywords: [...defaultKeywords, 'Thai chess bot', 'practice Makruk'],
+      image: defaultImage,
       snapshot: {
         heading: { text: 'Play Makruk Against a Bot' },
         paragraphs: [
           { text: 'Practice against the ThaiChess bot to work on openings, tactics, and endgames at your own pace.' },
           { text: 'ฝึกหมากรุกไทยกับบอทเพื่อพัฒนาช่วงเปิดเกม แท็กติก และเอ็นด์เกม', lang: 'th' },
+        ],
+        links: [
+          { href: '/puzzles', label: 'โจทย์หมากรุกไทย', lang: 'th' },
+          { href: '/lessons', label: 'Makruk lessons' },
+          { href: '/quick-play', label: 'Quick Play' },
         ],
       },
     };
@@ -563,11 +687,17 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
       description: 'Use a local ThaiChess board to play Makruk on one device for study, over-the-board practice, or casual games.',
       path: '/local',
       keywords: [...defaultKeywords, 'local board', 'over the board'],
+      image: defaultImage,
       snapshot: {
         heading: { text: 'Local Makruk Board' },
         paragraphs: [
           { text: 'Use one device to study Makruk positions or play casual local games over the board.' },
           { text: 'ใช้กระดานเดียวสำหรับฝึกหรือเล่นหมากรุกไทยแบบนั่งข้างกัน', lang: 'th' },
+        ],
+        links: [
+          { href: '/bot', label: 'Play vs Bot' },
+          { href: '/how-to-play-makruk', label: 'Makruk rules' },
+          { href: '/play-makruk-online', label: 'Play online' },
         ],
       },
     };
@@ -587,6 +717,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     description: 'Play ThaiChess online for free and explore the traditional Thai chess game.',
     path: cleanPath,
     keywords: defaultKeywords,
+    image: defaultImage,
   };
 }
 

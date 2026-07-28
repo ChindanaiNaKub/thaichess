@@ -228,6 +228,66 @@ app.use('/assets', express.static(assetDist, {
   fallthrough: false,
 }));
 
+function getSiteUrl(req?: express.Request): string {
+  const configuredUrl = process.env.SITE_URL || process.env.PUBLIC_SITE_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, '');
+  }
+
+  if (req) {
+    return `${req.protocol}://${req.get('host')}`;
+  }
+
+  return 'https://thaichess.dev';
+}
+
+// Serve crawl files before static assets so stale public copies cannot shadow them.
+app.get('/robots.txt', (req, res) => {
+  const siteUrl = getSiteUrl(req);
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    '',
+    '# Block non-indexable dynamic routes',
+    'Disallow: /game/',
+    'Disallow: /spectate/',
+    'Disallow: /analysis/',
+    'Disallow: /feedback',
+    'Disallow: /login',
+    'Disallow: /account',
+    'Disallow: /settings/',
+    '',
+    '# Block API and internal paths',
+    'Disallow: /api/',
+    'Disallow: /internal/',
+    'Disallow: /admin/',
+    '',
+    `# Sitemap location`,
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const siteUrl = getSiteUrl(req);
+  const lastmod = new Date().toISOString().slice(0, 10);
+  const urls = getIndexablePaths()
+    .map((pathname) => [
+      '  <url>',
+      `    <loc>${siteUrl}${pathname}</loc>`,
+      `    <lastmod>${lastmod}</lastmod>`,
+      pathname === '/' ? '    <priority>1.0</priority>' : '    <priority>0.8</priority>',
+      '  </url>',
+    ].join('\n'))
+    .join('\n');
+
+  res.type('application/xml').send([
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    urls,
+    '</urlset>',
+  ].join('\n'));
+});
+
 app.use(express.static(clientDist, {
   index: false,
   setHeaders: (res, filePath) => {
@@ -241,19 +301,6 @@ app.use(express.static(clientDist, {
     }
   },
 }));
-
-function getSiteUrl(req?: express.Request): string {
-  const configuredUrl = process.env.SITE_URL || process.env.PUBLIC_SITE_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/+$/, '');
-  }
-
-  if (req) {
-    return `${req.protocol}://${req.get('host')}`;
-  }
-
-  return 'https://thaichess.dev';
-}
 
 // Initialize database
 const gameManager = new GameManager();
@@ -1387,42 +1434,6 @@ app.delete('/api/feedback/:id', requireTrustedWriteOriginMiddleware, async (req,
   }
 
   res.json({ ok: true });
-});
-
-app.get('/robots.txt', (req, res) => {
-  const siteUrl = getSiteUrl(req);
-  res.type('text/plain').send([
-    'User-agent: *',
-    'Allow: /',
-    'Disallow: /account',
-    'Disallow: /analysis',
-    'Disallow: /feedback',
-    'Disallow: /game',
-    'Disallow: /login',
-    '',
-    `Sitemap: ${siteUrl}/sitemap.xml`,
-  ].join('\n'));
-});
-
-app.get('/sitemap.xml', (req, res) => {
-  const siteUrl = getSiteUrl(req);
-  const lastmod = new Date().toISOString().slice(0, 10);
-  const urls = getIndexablePaths()
-    .map((pathname) => [
-      '  <url>',
-      `    <loc>${siteUrl}${pathname}</loc>`,
-      `    <lastmod>${lastmod}</lastmod>`,
-      pathname === '/' ? '    <priority>1.0</priority>' : '    <priority>0.8</priority>',
-      '  </url>',
-    ].join('\n'))
-    .join('\n');
-
-  res.type('application/xml').send([
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    urls,
-    '</urlset>',
-  ].join('\n'));
 });
 
 // SPA fallback (must be last)

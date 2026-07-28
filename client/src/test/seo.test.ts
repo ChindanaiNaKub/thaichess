@@ -87,6 +87,15 @@ describe('shared SEO routes', () => {
 
     expect(seo.title).toBe(`${puzzle?.title} | ThaiChess Puzzle ${puzzle?.id}`);
     expect(seo.description).toContain(puzzle?.description ?? '');
+    expect(seo.robots).toBeUndefined();
+    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg');
+  });
+
+  it('noindexes puzzle ids that are not in the live SEO catalog', () => {
+    const seo = getPublicSeoRoute('/puzzle/7001', 'https://thaichess.dev');
+
+    expect(seo.robots).toBe('noindex, follow');
+    expect(seo.title).toContain('Puzzle 7001');
   });
 
   it('marks non-public app routes as noindex', () => {
@@ -118,7 +127,7 @@ describe('shared SEO routes', () => {
 
     const faqPayloads = payloads.filter((payload) => payload['@type'] === 'FAQPage');
     expect(faqPayloads).toHaveLength(1);
-    expect(faqPayloads[0].mainEntity).toHaveLength(2);
+    expect(faqPayloads[0].mainEntity).toHaveLength(3);
   });
 
   it('replaces server structured data during hydration instead of duplicating FAQPage', async () => {
@@ -166,6 +175,18 @@ describe('shared SEO routes', () => {
     const seo = getPublicSeoRoute(routes.home, 'https://thaichess.dev');
 
     expect(seo.keywords).toContain('หมากรุกไทย');
+    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg');
     expect(seo.snapshot?.paragraphs?.some((paragraph) => paragraph.text.includes('หมากรุกไทย'))).toBe(true);
+    expect(seo.snapshot?.links?.some((link) => link.href === '/puzzles')).toBe(true);
+    expect(seo.structuredData?.some((entry) => {
+      return entry['@type'] === 'FAQPage'
+        && Array.isArray(entry.mainEntity)
+        && entry.mainEntity.some((item) => (
+          typeof item === 'object'
+          && item !== null
+          && 'name' in item
+          && item.name === 'เล่นหมากรุกไทยออนไลน์ฟรีได้ไหม?'
+        ));
+    })).toBe(true);
   });
 });
