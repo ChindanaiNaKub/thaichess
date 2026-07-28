@@ -3,19 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "nub watch src/index.ts",
     "build": "tsc",
     "start": "node dist/server/src/index.js",
     "smoke:start": "node dist/server/src/scripts/smokeStart.js",
     "test": "vitest run --config vitest.config.ts",
-    "audit:puzzles": "tsx src/scripts/auditPuzzles.ts",
-    "audit:puzzle-candidates": "tsx src/scripts/auditPuzzleCandidates.ts",
-    "export:puzzle-sources": "tsx src/scripts/exportPuzzleSources.ts",
-    "generate:puzzle-candidates": "tsx src/scripts/generatePuzzleCandidates.ts",
-    "generate:selfplay": "tsx src/scripts/generateSelfPlayGames.ts",
-    "generate:puzzle-loop": "tsx src/scripts/runPuzzleLoop.ts",
-    "validate:puzzles": "tsx src/scripts/validatePuzzles.ts",
-    "validate:puzzle-candidates": "tsx src/scripts/validatePuzzleCandidates.ts",
+    "audit:puzzles": "nub src/scripts/auditPuzzles.ts",
+    "audit:puzzle-candidates": "nub src/scripts/auditPuzzleCandidates.ts",
+    "export:puzzle-sources": "nub src/scripts/exportPuzzleSources.ts",
+    "generate:puzzle-candidates": "nub src/scripts/generatePuzzleCandidates.ts",
+    "generate:selfplay": "nub src/scripts/generateSelfPlayGames.ts",
+    "generate:puzzle-loop": "nub src/scripts/runPuzzleLoop.ts",
+    "validate:puzzles": "nub src/scripts/validatePuzzles.ts",
+    "validate:puzzle-candidates": "nub src/scripts/validatePuzzleCandidates.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -32,13 +32,13 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@nubjs/nub": "^0.6.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "@types/uuid": "^10.0.0",
-    "vitest": "^4.1.10",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
   },
   "optionalDependencies": {
     "@libsql/linux-x64-gnu": "^0.5.28"
