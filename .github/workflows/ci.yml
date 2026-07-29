@@ -83,7 +83,9 @@ jobs:
           "$NUB_BIN" install --frozen-lockfile
 
       - name: Run server tests
-        run: npm run test --workspace=server
+        # nub install can make the first cold DB-module load slower than npm's
+        # default 5s Vitest timeout under CI contention.
+        run: npm run test --workspace=server -- --testTimeout=20000
 
       - name: Build server
         run: server/node_modules/.bin/tsc -p server/tsconfig.json
