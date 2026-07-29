@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { PUZZLES } from '@shared/puzzlesRuntime';
 import CookieConsent from './components/CookieConsent';
+import PrivacyAnalytics from './components/PrivacyAnalytics';
 import HomePage from './components/HomePage';
 import { scheduleOnUserIntent } from './lib/defer';
 import { useTranslation } from './lib/i18n';
@@ -156,7 +157,12 @@ export default function App() {
           <FeedbackWidget />
         </Suspense>
       ) : null}
-      {!isAutomatedBrowser() ? <CookieConsent /> : null}
+      {!isAutomatedBrowser() ? (
+        <>
+          <PrivacyAnalytics />
+          <CookieConsent />
+        </>
+      ) : null}
     </div>
   );
 }

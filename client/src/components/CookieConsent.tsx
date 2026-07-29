@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../lib/i18n';
+import {
+  COOKIE_CONSENT_KEY,
+  getCookieConsent,
+  isPlausibleAnalyticsConfigured,
+  setCookieConsent,
+  type CookieConsentChoice,
+} from '../lib/cookieConsent';
 
-const COOKIE_CONSENT_KEY = 'thaichess-cookie-consent';
-
-// Cookie icon component
 function CookieIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -25,17 +29,46 @@ function CookieIcon({ className }: { className?: string }) {
   );
 }
 
+const primaryButtonClassName = `
+  shrink-0
+  rounded-xl
+  bg-primary
+  px-5 py-2.5
+  text-sm font-semibold
+  text-white
+  shadow-lg shadow-primary/25
+  transition-[color,background-color,box-shadow,transform] duration-200
+  hover:bg-primary-bright
+  hover:shadow-primary/40
+  hover:scale-105
+  active:scale-95
+  focus:outline-none focus:ring-2 focus:ring-primary/50
+`;
+
+const secondaryButtonClassName = `
+  shrink-0
+  rounded-xl
+  bg-surface
+  px-5 py-2.5
+  text-sm font-semibold
+  text-text-bright
+  border border-primary/20
+  transition-[color,background-color,box-shadow,transform] duration-200
+  hover:bg-surface-hover
+  hover:scale-105
+  active:scale-95
+  focus:outline-none focus:ring-2 focus:ring-primary/50
+`;
+
 export default function CookieConsent() {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const analyticsConfigured = isPlausibleAnalyticsConfigured();
 
   useEffect(() => {
-    // Check if user has already dismissed the banner
-    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (consent) return;
+    if (getCookieConsent()) return;
 
-    // Small delay for animation
     const timeoutId = setTimeout(() => {
       setIsVisible(true);
       setIsAnimating(true);
@@ -44,10 +77,10 @@ export default function CookieConsent() {
     return () => clearTimeout(timeoutId);
   }, []);
 
-  const handleDismiss = () => {
+  const handleChoice = (choice: CookieConsentChoice) => {
     setIsAnimating(false);
     setTimeout(() => {
-      localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
+      setCookieConsent(choice);
       setIsVisible(false);
     }, 300);
   };
@@ -57,7 +90,7 @@ export default function CookieConsent() {
   return (
     <div
       className={`
-        fixed bottom-4 left-4 right-4 z-50 
+        fixed bottom-4 left-4 right-4 z-50
         transform transition-[opacity,transform] duration-300 ease-out
         ${isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}
       `}
@@ -65,65 +98,68 @@ export default function CookieConsent() {
       <div
         className="
           mx-auto max-w-2xl
-          rounded-2xl 
-          bg-surface-alt/95 
+          rounded-2xl
+          bg-surface-alt/95
           border border-primary/30
           shadow-2xl shadow-black/40
           backdrop-blur-md
           overflow-hidden
         "
       >
-        {/* Accent bar at top */}
         <div className="h-1 bg-gradient-to-r from-primary via-primary-bright to-primary" />
 
         <div className="p-5">
           <div className="flex items-start gap-4">
-            {/* Icon */}
-            <div className="
-              shrink-0 
-              w-12 h-12 
-              rounded-xl 
-              bg-primary/10 
+            <div
+              className="
+              shrink-0
+              w-12 h-12
+              rounded-xl
+              bg-primary/10
               border border-primary/20
               flex items-center justify-center
-            ">
+            "
+            >
               <CookieIcon className="w-6 h-6 text-primary" />
             </div>
 
-            {/* Content */}
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-semibold text-text-bright mb-1">
-                {t('cookies.title')}
+                {analyticsConfigured ? t('cookies.title_analytics') : t('cookies.title')}
               </h3>
               <p className="text-sm text-text-dim leading-relaxed">
-                {t('cookies.description')}
+                {analyticsConfigured ? t('cookies.description_analytics') : t('cookies.description')}
               </p>
             </div>
 
-            {/* Button */}
-            <button type="button"
-              onClick={handleDismiss}
-              className="
-                shrink-0
-                rounded-xl 
-                bg-primary 
-                px-5 py-2.5 
-                text-sm font-semibold 
-                text-white 
-                shadow-lg shadow-primary/25
-                transition-[color,background-color,box-shadow,transform] duration-200
-                hover:bg-primary-bright 
-                hover:shadow-primary/40
-                hover:scale-105
-                active:scale-95
-                focus:outline-none focus:ring-2 focus:ring-primary/50
-              "
-            >
-              {t('cookies.dismiss')}
-            </button>
+            {analyticsConfigured ? (
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => handleChoice('essential')}
+                  className={secondaryButtonClassName}
+                >
+                  {t('cookies.essential_only')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChoice('analytics')}
+                  className={primaryButtonClassName}
+                >
+                  {t('cookies.accept_analytics')}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleChoice('essential')}
+                className={primaryButtonClassName}
+              >
+                {t('cookies.dismiss')}
+              </button>
+            )}
           </div>
 
-          {/* Privacy link */}
           <div className="mt-3 pt-3 border-t border-surface-hover/50 flex items-center gap-2 text-xs">
             <span className="text-text-dim/70">
               {t('cookies.read_more')}
@@ -140,3 +176,6 @@ export default function CookieConsent() {
     </div>
   );
 }
+
+// Re-export for callers that historically imported the key from this module.
+export { COOKIE_CONSENT_KEY };

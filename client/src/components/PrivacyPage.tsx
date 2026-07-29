@@ -84,8 +84,8 @@ export default function PrivacyPage() {
           <Section title={isThai ? '3. คุกกี้และการจัดเก็บข้อมูล' : '3. Cookies & Local Storage'}>
             <p>
               {isThai
-                ? 'เราใช้เฉพาะคุกกี้และ localStorage ที่จำเป็นสำหรับการทำงานของบริการ: การยืนยันตัวตนผู้ใช้ (เซสชัน) การตั้งค่าภาษาและธีม ความคืบหน้าปริศนาและบทเรียน (สำหรับผู้เล่นที่ไม่ได้ลงชื่อ) เราไม่ใช้คุกกี้เพื่อการตลาดหรือการวิเคราะห์'
-                : 'We only use essential cookies and localStorage necessary for service operation: User authentication (sessions), Language and theme settings, Puzzle and lesson progress (for guests). We do not use cookies for marketing or analytics.'}
+                ? 'เราใช้คุกกี้และ localStorage ที่จำเป็นสำหรับการทำงานของบริการ: การยืนยันตัวตนผู้ใช้ (เซสชัน) การตั้งค่าภาษาและธีม ความคืบหน้าปริศนาและบทเรียน (สำหรับผู้เล่นที่ไม่ได้ลงชื่อ) หากคุณยินยอมผ่านแบนเนอร์คุกกี้ เราอาจโหลดการวิเคราะห์ที่เน้นความเป็นส่วนตัว (Plausible) โดยไม่ใช้คุกกี้โฆษณาและไม่ขายข้อมูลส่วนบุคคล'
+                : 'We use essential cookies and localStorage for service operation: User authentication (sessions), Language and theme settings, Puzzle and lesson progress (for guests). If you opt in via the cookie banner, we may load privacy-friendly analytics (Plausible) that does not use advertising cookies or sell personal data.'}
             </p>
           </Section>
 

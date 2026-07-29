@@ -92,6 +92,7 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 
 ## Documentation
 
+- [Ops: production readiness](docs/ops-production-readiness.md) — Hosting, cost/credit risk, Turso backups, analytics
 - [ADR: realtime identity and rated-game persistence](docs/adr/0001-realtime-identity-and-rated-game-persistence.md) — Architecture decision for realtime state management
 - [How to Play](docs/how-to-play.md) — Rules, piece movements, and strategy tips
 - [Game Engine System](docs/makruk-rule-engine-system.md) — How the ThaiChess game engine works
