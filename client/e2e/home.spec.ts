@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 async function gotoHome(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#main-content')).toBeVisible();
-  await expect(page.locator('#main-content').getByRole('button', { name: /play now/i })).toBeVisible();
+  await expect(page.locator('#main-content').getByRole('button', { name: /play 5\+0/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /play thai chess anytime/i })).toBeVisible();
 }
 
@@ -14,12 +14,12 @@ test.describe('Homepage', () => {
     await expect(page).toHaveTitle(/ThaiChess/);
 
     const main = page.locator('#main-content');
-    const createPrivateButton = main.getByRole('button', { name: /create a private game/i }).first();
+    const chooseModeButton = main.getByRole('button', { name: /choose mode/i });
 
-    await expect(createPrivateButton).toBeVisible();
-    await createPrivateButton.click();
+    await expect(chooseModeButton).toBeVisible();
+    await chooseModeButton.click();
 
-    await expect(main.getByRole('heading', { name: /create a private game/i })).toBeVisible();
+    await expect(main.getByRole('heading', { name: /play a friend/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();
     await expect(main.getByText(/^time control$/i)).toBeVisible();
   });
@@ -27,11 +27,10 @@ test.describe('Homepage', () => {
   test('navigates to quick play', async ({ page }) => {
     await gotoHome(page);
 
-    await page.locator('#main-content').getByRole('button', { name: /play now/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /play 5\+0/i }).click();
     await expect(page).toHaveURL('/quick-play');
-    await expect(page.getByRole('heading', { name: /quick play/i })).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(/^time control$/i)).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole('button', { name: /5\+0/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: /5\+0 blitz/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: /sending/i })).toBeDisabled({ timeout: 30000 });
   });
 
   test('navigates to puzzle streak', async ({ page }) => {
