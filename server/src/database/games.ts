@@ -302,8 +302,7 @@ async function saveGamePositions(
     });
 
     const { getPositionAtPly } = await import('../../../shared/engine');
-    const { serializeAnalysisPosition } = await import('../../../shared/engineAdapter');
-    const { moveToUci } = await import('../../../shared/engineAdapter');
+    const { analysisPositionHash, moveToUci } = await import('../../../shared/engineAdapter');
 
     const insertSql = `
       INSERT INTO game_positions (game_id, ply, position_hash, move_uci, result, white_rating, black_rating)
@@ -312,11 +311,11 @@ async function saveGamePositions(
 
     for (let ply = 0; ply <= moves.length; ply += 1) {
       const state = getPositionAtPly(moves, ply - 1);
-      const positionHash = serializeAnalysisPosition({
+      const positionHash = analysisPositionHash({
         board: state.board,
         turn: state.turn,
         counting: state.counting,
-      }).position;
+      });
 
       const moveUci = ply < moves.length ? moveToUci(moves[ply]) : null;
 

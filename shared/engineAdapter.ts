@@ -158,6 +158,18 @@ export function serializeAnalysisPosition(snapshot: AnalysisPositionSnapshot): S
   };
 }
 
+/**
+ * Canonical key for Opening Explorer / game_positions.
+ * Includes Makruk counting state when present so identical boards with
+ * different counting clocks do not collide.
+ */
+export function analysisPositionHash(snapshot: AnalysisPositionSnapshot): string {
+  const serialized = serializeAnalysisPosition(snapshot);
+  return serialized.counting
+    ? `${serialized.position}#${serialized.counting}`
+    : serialized.position;
+}
+
 export function deserializeAnalysisPosition(position: string, counting?: string | null): AnalysisPositionSnapshot | null {
   const [boardPart, turnPart] = position.trim().split(/\s+/);
   if (!boardPart || !turnPart) return null;

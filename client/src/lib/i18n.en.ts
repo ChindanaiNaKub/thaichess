@@ -255,6 +255,10 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'bot.engine_unavailable': 'Fairy-Stockfish is unavailable. Please try again in a moment.',
   'bot.vs_bot': 'vs Bot',
   'bot.learn_more': 'Learn more about',
+  'bot.sheet_collapse': '▼ Tap to collapse',
+  'bot.sheet_expand': '▲ Swipe up for details',
+  'bot.sheet_collapse_aria': 'Collapse details',
+  'bot.sheet_expand_aria': 'Expand details',
 
   // Bot Personality Traits
   'bot.trait.impulsive': 'Impulsive',

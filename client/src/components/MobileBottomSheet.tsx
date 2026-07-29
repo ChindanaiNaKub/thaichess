@@ -91,11 +91,11 @@ export default function MobileBottomSheet({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           aria-expanded={isExpanded}
-          aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+          aria-label={isExpanded ? t('bot.sheet_collapse_aria') : t('bot.sheet_expand_aria')}
         >
           <div className="w-12 h-1.5 bg-surface-hover rounded-full mb-2" />
           <div className="text-xs text-text-dim font-medium uppercase tracking-wider">
-            {isExpanded ? '▼ Tap to collapse' : '▲ Swipe up for details'}
+            {isExpanded ? t('bot.sheet_collapse') : t('bot.sheet_expand')}
           </div>
         </button>
 

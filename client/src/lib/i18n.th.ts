@@ -251,6 +251,10 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'bot.engine_unavailable': 'Fairy-Stockfish ยังไม่พร้อมใช้งาน โปรดลองอีกครั้งในอีกสักครู่',
   'bot.vs_bot': 'กับบอท',
   'bot.learn_more': 'เรียนรู้เพิ่มเติมเกี่ยวกับ',
+  'bot.sheet_collapse': '▼ แตะเพื่อยุบ',
+  'bot.sheet_expand': '▲ ปัดขึ้นดูรายละเอียด',
+  'bot.sheet_collapse_aria': 'ยุบรายละเอียด',
+  'bot.sheet_expand_aria': 'ขยายรายละเอียด',
 
   // Bot Persona Content Translations
   // Saman Noi (Level 1) - Heir of Amber Court
