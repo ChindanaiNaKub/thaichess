@@ -95,6 +95,14 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
+function autostartWrapper({ children }: { children: ReactNode }) {
+  return (
+    <MemoryRouter initialEntries={['/quick-play?autostart=1']}>
+      <I18nProvider>{children}</I18nProvider>
+    </MemoryRouter>
+  );
+}
+
 describe('QuickPlay', () => {
   beforeEach(async () => {
     await preloadDetectedTranslations();
@@ -326,6 +334,17 @@ describe('QuickPlay', () => {
 
     expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
       timeControl: { initial: 600, increment: 5 },
+    });
+  });
+
+  it('autostarts 5+0 matchmaking when opened with autostart=1', () => {
+    socketMock.connected = true;
+
+    render(<QuickPlay />, { wrapper: autostartWrapper });
+
+    expect(connectSocketMock).toHaveBeenCalled();
+    expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
+      timeControl: { initial: 300, increment: 0 },
     });
   });
 

@@ -34,6 +34,7 @@ export default function HomePage() {
   const [createTicket, setCreateTicket] = useState(0);
   const [joinId, setJoinId] = useState('');
   const [privatePanel, setPrivatePanel] = useState<'create' | 'join'>('create');
+  const [privateExpanded, setPrivateExpanded] = useState(false);
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
   const [showDeferredContent, setShowDeferredContent] = useState(false);
   const { games: liveGames, loading: liveGamesLoading } = usePublicLiveGames({ status: 'live', limit: 4, enabled: showDeferredContent });
@@ -193,10 +194,12 @@ export default function HomePage() {
   };
 
   const openCreatePanel = () => {
+    setPrivateExpanded(true);
     setPrivatePanel('create');
   };
 
   const openJoinPanel = () => {
+    setPrivateExpanded(true);
     setPrivatePanel('join');
   };
 
@@ -233,6 +236,7 @@ export default function HomePage() {
       isCreating={isCreating}
       createError={createError}
       privatePanel={privatePanel}
+      privateExpanded={privateExpanded}
       joinId={joinId}
       setJoinId={setJoinId}
       timePresets={TIME_PRESETS}

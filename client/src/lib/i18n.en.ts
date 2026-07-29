@@ -72,9 +72,15 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Home Page
   'home.hero_title': 'Play Thai Chess Anytime',
-  'home.hero_desc': 'No signup required. Start a ThaiChess game, play with friends, or practice against the bot.',
-  'home.quick_play': 'Play Now',
+  'home.hero_desc': 'No signup required. Tap Play 5+0 to search for a match — or switch to the bot if it is quiet.',
+  'home.quick_play': 'Play 5+0',
   'home.quick_play_desc': 'Human match when available, bot fallback when it is quiet.',
+  'home.choose_mode': 'Choose mode',
+  'home.more_ways': 'More ways to play',
+  'home.challenge_eyebrow': 'While you wait',
+  'home.challenge_title': 'Try a puzzle streak',
+  'home.challenge_desc': 'No live games right now. Warm up with a tactical streak, then come back to play.',
+  'home.challenge_cta': 'Start puzzle streak',
   'home.find_opponent': 'Find Opponent',
   'home.no_signup': 'No signup required',
   'home.free_to_play': 'Free to play',

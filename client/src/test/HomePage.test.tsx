@@ -155,13 +155,14 @@ describe('HomePage', () => {
     expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
   });
 
-  it('sets mobile-first Play Now expectations without promising instant pairing', () => {
+  it('sets mobile-first Play 5+0 expectations without promising instant pairing', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('No signup required. Start a ThaiChess game, play with friends, or practice against the bot.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /play now/i })).toBeInTheDocument();
+    expect(screen.getByText('No signup required. Tap Play 5+0 to search for a match — or switch to the bot if it is quiet.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /play 5\+0/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 games played/i)).not.toBeInTheDocument();
   });
 
   it('renders the learn section and footer guide links in Thai', async () => {
@@ -179,8 +180,7 @@ describe('HomePage', () => {
   });
 
   function openCreatePanel() {
-    const createButtons = screen.getAllByRole('button', { name: /create a private game/i });
-    fireEvent.click(createButtons[0]!);
+    fireEvent.click(screen.getByRole('button', { name: /choose mode/i }));
   }
 
   it('cleans up create-game socket listeners on unmount', async () => {
@@ -311,6 +311,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
 
     const input = screen.getByPlaceholderText(/enter game code/i);
@@ -330,6 +331,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
+    openCreatePanel();
     fireEvent.click(screen.getByRole('button', { name: /join a game/i }));
     const input = screen.getByPlaceholderText(/enter game code/i);
     fireEvent.change(input, { target: { value: '   ' } });
@@ -337,8 +339,8 @@ describe('HomePage', () => {
 
     expect(navigateMock).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /play now/i }));
-    expect(navigateMock).toHaveBeenCalledWith('/quick-play');
+    fireEvent.click(screen.getByRole('button', { name: /play 5\+0/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/quick-play?autostart=1');
 
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
     expect(navigateMock).toHaveBeenCalledWith('/bot');
@@ -351,6 +353,17 @@ describe('HomePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /play local/i }));
     expect(navigateMock).toHaveBeenCalledWith('/local');
+  });
+
+  it('replaces an empty live panel with a puzzle streak challenge', async () => {
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
+
+    expect(await screen.findByText('Try a puzzle streak')).toBeInTheDocument();
+    expect(screen.queryByText('No live games right now')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /start puzzle streak/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
   });
 
   it('exposes public live-game discovery from the homepage', async () => {
