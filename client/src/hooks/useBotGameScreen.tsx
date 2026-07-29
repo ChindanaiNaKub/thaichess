@@ -124,7 +124,6 @@ export function useBotGameScreen() {
   const selectedBotTranslation = useBotTranslation(t, selectedBot.id);
   const botLevel = selectedBot.engine.level;
   const botColor: PieceColor = playerColor === 'white' ? 'black' : 'white';
-  const isBotGame = true;
   const isPlayerTurn = gameState.turn === playerColor;
   const playerDisplayName = user?.username?.trim()
     || user?.email.split('@')[0]?.trim()
@@ -905,21 +904,22 @@ export function useBotGameScreen() {
       botColor={botColor}
       playerDisplayName={playerDisplayName}
       botName={botName}
-      isBotGame={isBotGame}
-      isPlayerTurn={isPlayerTurn}
-      botThinking={botThinking}
-      reviewActive={reviewActive}
-      reviewMode={reviewMode}
-      isViewingHistory={isViewingHistory}
+      turnStatus={{
+        playerToMove: isPlayerTurn,
+        botThinking,
+      }}
+      viewingHistory={isViewingHistory}
       levelLabel={levelLabel}
       difficultyLabel={difficultyLabel}
       estimatedEloLabel={estimatedEloLabel}
       botClockSubtitle={botClockSubtitle}
       statusText={statusText}
       moveCount={moveCount}
-      countingLabel={countingLabel}
-      canStartBotCounting={canStartBotCounting}
-      canStopBotCounting={canStopBotCounting}
+      counting={{
+        label: countingLabel,
+        start: canStartBotCounting ? handleStartCounting : null,
+        stop: canStopBotCounting ? handleStopCounting : null,
+      }}
       playerCaptureSummary={playerCaptureSummary}
       botCaptureSummary={botCaptureSummary}
       legalMoves={legalMoves}
@@ -929,7 +929,7 @@ export function useBotGameScreen() {
       viewMoveIndex={viewMoveIndex}
       currentGameId={currentGameId}
       gameOverInfo={gameOverInfo}
-      showGameOverModal={showGameOverModal}
+      modalGameOverInfo={showGameOverModal ? gameOverInfo : null}
       botChat={botChat}
       botChatFading={botChatFading}
       review={review}
@@ -943,8 +943,6 @@ export function useBotGameScreen() {
       onArrowsChange={setArrows}
       onReturnToLive={() => setViewMoveIndex(null)}
       onCancelPremove={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
-      onStartCounting={handleStartCounting}
-      onStopCounting={handleStopCounting}
       onRematch={handleStartGame}
       onNewGame={handleReset}
       onAnalyze={gameState.moveHistory.length > 0 ? handleAnalyzeGame : undefined}
