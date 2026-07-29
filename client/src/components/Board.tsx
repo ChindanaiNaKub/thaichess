@@ -22,6 +22,10 @@ export interface SquareAnnotation {
   bgColor: string;
 }
 
+function handleContextMenu(e: MouseEvent) {
+  e.preventDefault();
+}
+
 interface BoardProps {
   board: BoardType;
   playerColor: PieceColor | null;
@@ -247,10 +251,6 @@ export default memo(function Board({
     onSquareClick({ row, col });
   };
 
-  const handleContextMenu = (e: MouseEvent) => {
-    e.preventDefault();
-  };
-
   const handleTouchStart = (e: TouchEvent, row: number, col: number) => {
     if (disabled) return;
     const piece = board[row][col];
@@ -442,6 +442,9 @@ export default memo(function Board({
         squares.push(
           <div
             key={`${displayRow}-${displayCol}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`${getBoardFileLabel(boardCol, lang)}${getBoardRankLabel(boardRow)}`}
             className={`absolute ${getSquareClass(boardRow, boardCol)} select-none`}
             data-testid={`board-square-${boardRow}-${boardCol}`}
             style={{
@@ -454,6 +457,12 @@ export default memo(function Board({
             onMouseDown={(e) => handleMouseDown(e, boardRow, boardCol)}
             onTouchStart={(e) => handleTouchStart(e, boardRow, boardCol)}
             onClick={() => handleClick(boardRow, boardCol)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleClick(boardRow, boardCol);
+              }
+            }}
           >
             {displayCol === 0 && (
               <span
@@ -526,6 +535,8 @@ export default memo(function Board({
   return (
     <div
       ref={boardRef}
+      role="application"
+      aria-label="Makruk board"
       className={`relative aspect-square w-full select-none overflow-hidden rounded-[1.1rem] shadow-xl board-no-select transition-[box-shadow,transform] duration-200 ${className ?? ''}`}
       data-testid="board"
       style={boardSurfaceStyle}

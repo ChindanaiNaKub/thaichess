@@ -17,16 +17,22 @@ import Header from './Header';
 import Board from './Board';
 import {
   CoursePreviewBoard,
+} from './LessonsShared';
+import { useSquareFitSize } from '../hooks/useSquareFitSize';
+import {
   createLessonGameState,
   formatConceptLabel,
   formatMoveLabel,
   getDifficultyBadgeClasses,
   getPublicPuzzleTitle,
   shouldLogLessonDebug,
-  useSquareFitSize,
-} from './LessonsShared';
+} from '../lib/lessonSharedUtils';
 
 function StructuredLessonPlayer() {
+  return useStructuredLessonPlayerScreen();
+}
+
+function useStructuredLessonPlayerScreen() {
   const navigate = useNavigate();
   const { id = '' } = useParams();
   const lesson = getLessonById(id);
@@ -116,7 +122,7 @@ function StructuredLessonPlayer() {
       <div className="min-h-screen bg-surface flex items-center justify-center px-4">
         <div className="text-center">
           <h2 className="text-xl font-bold text-text-bright mb-4">{t('lessons.player.not_found')}</h2>
-          <button
+          <button type="button"
             onClick={() => navigate(routes.coursePath)}
             className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors"
           >
@@ -229,13 +235,13 @@ function StructuredLessonPlayer() {
         subtitle={t('lessons.player.header_subtitle', { title: lesson.title })}
         right={(
           <div className="flex items-center gap-3">
-            <button
+            <button type="button"
               onClick={() => navigate(routes.coursePath)}
               className="text-text-dim hover:text-text-bright transition-colors text-sm"
             >
               {t('lessons.player.course_path')}
             </button>
-            <button
+            <button type="button"
               onClick={() => navigate(routes.puzzles)}
               className="text-text-dim hover:text-text-bright transition-colors text-sm"
             >
@@ -410,8 +416,8 @@ function StructuredLessonPlayer() {
                         <div className="mt-4 rounded-2xl border border-surface-hover/70 bg-surface/70 p-3">
                           <div className="text-[11px] uppercase tracking-[0.14em] text-text-dim">{t('lessons.player.after_the_move')}</div>
                           <ul className="mt-2 space-y-2 text-sm leading-relaxed text-text-bright">
-                            {activeStep.teaching.visibleOutcomes.map((outcome, index) => (
-                              <li key={`${outcome}-${index}`} className="flex gap-2">
+                            {activeStep.teaching.visibleOutcomes.map((outcome) => (
+                              <li key={outcome} className="flex gap-2">
                                 <span className="mt-[2px] text-primary-light">•</span>
                                 <span>{outcome}</span>
                               </li>
@@ -425,9 +431,11 @@ function StructuredLessonPlayer() {
                       <div className="mt-3 rounded-2xl border border-surface-hover/70 bg-surface-alt/70 p-4">
                         <div className="text-xs uppercase tracking-[0.18em] text-primary-light/80">{t('lessons.player.compare_moves')}</div>
                         <div className="mt-3 space-y-3">
-                          {activeStep.candidateMoves.map((candidate, index) => (
-                            <div key={`${formatMoveLabel(candidate.move)}-${index}`} className="rounded-2xl border border-surface-hover/70 bg-surface/70 p-3">
-                              <div className="flex items-center justify-between gap-3">
+                          {activeStep.candidateMoves.map((candidate) => (
+                            <div
+                              key={`${candidate.move.from.row}${candidate.move.from.col}-${candidate.move.to.row}${candidate.move.to.col}`}
+                              className="rounded-2xl border border-surface-hover/70 bg-surface/70 p-3"
+                            >                              <div className="flex items-center justify-between gap-3">
                                 <div className="text-sm font-semibold text-text-bright">{formatMoveLabel(candidate.move)}</div>
                                 <span className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] ${
                                   candidate.verdict === 'correct'
@@ -481,7 +489,7 @@ function StructuredLessonPlayer() {
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       {phase === 'guided' && !expectsMove && (
-                        <button
+                        <button type="button"
                           onClick={goForward}
                           className="rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-2.5 transition-colors"
                         >
@@ -489,7 +497,7 @@ function StructuredLessonPlayer() {
                         </button>
                       )}
                       {expectsMove && resolved && (
-                        <button
+                        <button type="button"
                           onClick={goForward}
                           className="rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-2.5 transition-colors"
                         >
@@ -499,7 +507,7 @@ function StructuredLessonPlayer() {
                         </button>
                       )}
                       {phase === 'practice' && lessonCompleted && practiceIndex === lesson.practiceTasks.length - 1 && (
-                        <button
+                        <button type="button"
                           onClick={() => nextLessonId ? navigate(lessonRoute(nextLessonId)) : navigate(routes.coursePath)}
                           className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-primary-light font-semibold transition-colors hover:bg-primary/15"
                         >
@@ -535,7 +543,7 @@ function StructuredLessonPlayer() {
                     </div>
                     <div className="mt-4 space-y-2">
                       {relatedPuzzles.length > 0 ? relatedPuzzles.map((puzzle) => (
-                        <button
+                        <button type="button"
                           key={puzzle.id}
                           onClick={() => navigate(puzzleRoute(String(puzzle.id)))}
                           className="w-full rounded-2xl border border-surface-hover bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-hover"
@@ -570,21 +578,21 @@ function StructuredLessonPlayer() {
               <div className="shrink-0 border-t border-surface-hover/70 px-4 py-3 sm:px-5">
                 <div className="flex gap-2 flex-wrap">
                   {previousLessonId && (
-                    <button
+                    <button type="button"
                       onClick={() => navigate(lessonRoute(previousLessonId))}
                       className="flex-1 min-w-0 py-2.5 px-3 bg-surface hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
                     >
                       {t('lessons.player.previous_lesson')}
                     </button>
                   )}
-                  <button
+                  <button type="button"
                     onClick={() => navigate(routes.coursePath)}
                     className="flex-1 min-w-0 py-2.5 px-3 bg-surface hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
                   >
                     {t('lessons.player.course_path')}
                   </button>
                   {nextLessonId && (
-                    <button
+                    <button type="button"
                       onClick={() => navigate(lessonRoute(nextLessonId))}
                       className="flex-1 min-w-0 py-2.5 px-3 bg-surface hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
                     >
@@ -600,6 +608,7 @@ function StructuredLessonPlayer() {
     </div>
   );
 }
+
 
 export default function LessonPlayerPage() {
   return <StructuredLessonPlayer />;

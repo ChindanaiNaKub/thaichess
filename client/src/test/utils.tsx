@@ -1,5 +1,5 @@
 import { ReactElement } from 'react';
-import { render, RenderOptions } from '@testing-library/react';
+import { render as rtlRender, RenderOptions } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
@@ -16,11 +16,11 @@ function AllTheProviders({ children }: AllTheProvidersProps) {
   );
 }
 
-export function renderWithProviders(
+function renderWithProviders(
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>
 ) {
-  return render(ui, { wrapper: AllTheProviders, ...options });
+  return rtlRender(ui, { wrapper: AllTheProviders, ...options });
 }
 
 // Re-export everything from Testing Library

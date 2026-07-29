@@ -10,10 +10,17 @@ interface MoveHistoryProps {
   onMoveClick?: (index: number) => void;
 }
 
+function formatMove(move: Move) {
+  const dest = posToAlgebraic(move.to);
+  const from = posToAlgebraic(move.from);
+  const promo = move.promoted ? '=M' : '';
+  return `${from}${move.captured ? 'x' : '-'}${dest}${promo}`;
+}
+
 export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistoryProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const activeMoveRef = useRef<HTMLSpanElement>(null);
+  const activeMoveRef = useRef<HTMLButtonElement>(null);
 
   const isNavigating = currentMoveIndex !== undefined && currentMoveIndex !== moves.length - 1;
   const activeIndex = currentMoveIndex ?? moves.length - 1;
@@ -23,13 +30,6 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
   for (let i = 0; i < moves.length; i += 2) {
     const whiteMove = moves[i];
     const blackMove = moves[i + 1];
-
-    const formatMove = (move: Move) => {
-      const dest = posToAlgebraic(move.to);
-      const from = posToAlgebraic(move.from);
-      const promo = move.promoted ? '=M' : '';
-      return `${from}${move.captured ? 'x' : '-'}${dest}${promo}`;
-    };
 
     movePairs.push({
       num: Math.floor(i / 2) + 1,
@@ -77,28 +77,31 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
             {movePairs.map(({ num, white, black, whiteIdx, blackIdx }) => (
               <div key={num} className="contents">
                 <span className="text-text-dim px-1.5 py-0.5 text-right">{num}.</span>
-                <span
+                <button
+                  type="button"
                   ref={activeIndex === whiteIdx ? activeMoveRef : undefined}
-                  className={`text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
+                  className={`bg-transparent border-0 text-left text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
                     activeIndex === whiteIdx ? 'move-active' : 'move-clickable'
                   }`}
                   onClick={() => onMoveClick?.(whiteIdx)}
                   title={white}
                 >
                   {white}
-                </span>
-                <span
+                </button>
+                <button
+                  type="button"
                   ref={activeIndex === blackIdx ? activeMoveRef : undefined}
-                  className={`text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
+                  className={`bg-transparent border-0 text-left text-text-bright px-2 py-0.5 font-mono truncate whitespace-nowrap ${
                     black
                       ? activeIndex === blackIdx ? 'move-active' : 'move-clickable'
                       : ''
                   }`}
                   onClick={() => black && onMoveClick?.(blackIdx)}
                   title={black}
+                  disabled={!black}
                 >
                   {black || ''}
-                </span>
+                </button>
               </div>
             ))}
           </div>
@@ -109,28 +112,28 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
         <div className="flex min-h-[45px] items-center justify-center gap-1 px-3 py-2 border-t border-surface-hover lg:min-h-[38px] lg:py-1.5">
           {moves.length > 0 ? (
             <>
-              <button
+              <button type="button"
                 onClick={() => onMoveClick(-1)}
                 className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
                 title={t('moves.first_position')}
               >
                 ⏮
               </button>
-              <button
+              <button type="button"
                 onClick={() => onMoveClick(Math.max(-1, activeIndex - 1))}
                 className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
                 title={t('moves.previous_move')}
               >
                 ◀
               </button>
-              <button
+              <button type="button"
                 onClick={() => onMoveClick(Math.min(moves.length - 1, activeIndex + 1))}
                 className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
                 title={t('moves.next_move')}
               >
                 ▶
               </button>
-              <button
+              <button type="button"
                 onClick={() => onMoveClick(moves.length - 1)}
                 className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
                 title={t('moves.last_move')}

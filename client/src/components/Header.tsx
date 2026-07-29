@@ -30,7 +30,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   };
 
   const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => (
-    <button
+    <button type="button"
       key={key}
       onClick={() => handleNavigate(path)}
       onMouseEnter={onHover}
@@ -50,7 +50,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   );
 
   const mobileNavItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string) => (
-    <button
+    <button type="button"
       key={key}
       onClick={() => handleNavigate(path)}
       className={`
@@ -66,7 +66,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   );
 
   const dropdownMenuItem = (key: string, path: string, label: string, disabled = false) => (
-    <button
+    <button type="button"
       key={key}
       onClick={() => {
         if (!disabled) handleNavigate(path);
@@ -88,7 +88,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     <header className="sticky top-0 z-40 border-b border-surface-hover/60 bg-surface-alt/95 sm:bg-surface-alt/88">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button
+          <button type="button"
             onClick={() => handleNavigate('/')}
             className="flex items-center gap-2 transition-opacity duration-150 hover:opacity-80 active:opacity-60"
           >
@@ -153,7 +153,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               user ? (
                 <>
                   {user.role === 'admin' && (
-                    <button
+                    <button type="button"
                       onClick={() => handleNavigate('/feedback')}
                       onMouseEnter={prefetchFeedback}
                       className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
@@ -161,7 +161,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                       {t('header.admin')}
                     </button>
                   )}
-                  <button
+                  <button type="button"
                     onClick={() => handleNavigate('/account')}
                     className="ui-btn-secondary h-7 px-2.5 text-xs text-text-dim hover:text-text-bright"
                   >
@@ -169,7 +169,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                   </button>
                 </>
               ) : (
-                <button
+                <button type="button"
                   onClick={() => handleNavigate('/login')}
                   className="button-primary-contrast h-7 rounded-md px-2.5 text-xs font-semibold tracking-wide"
                 >
@@ -180,7 +180,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
 
             <AppearanceSettingsButton compact />
 
-            <button
+            <button type="button"
               onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
               className="ui-btn-secondary inline-flex h-7 px-2.5 text-xs tracking-wide text-text-dim hover:text-text-bright"
               title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}
@@ -221,7 +221,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             )}
 
             <div className="grid gap-3">
-              <button
+              <button type="button"
                 onClick={() => handleNavigate(routes.about)}
                 className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
               >
@@ -229,7 +229,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
               </button>
               <AppearanceSettingsButton className="w-full justify-center" />
 
-              <button
+              <button type="button"
                 onClick={() => setLang(lang === 'en' ? 'th' : 'en')}
                 className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
                 title={lang === 'en' ? t('header.switch_to_th') : t('header.switch_to_en')}

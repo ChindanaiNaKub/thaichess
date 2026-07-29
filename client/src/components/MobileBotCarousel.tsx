@@ -19,10 +19,8 @@ export default function MobileBotCarousel({
   getBotTranslation 
 }: MobileBotCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
 
   // Update active index based on scroll position
   useEffect(() => {
@@ -44,6 +42,56 @@ export default function MobileBotCarousel({
     }
   }, [personas.length]);
 
+  // Desktop drag-to-scroll via listeners (keeps the carousel container non-interactive in JSX)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      isDraggingRef.current = true;
+      startX = e.pageX - el.offsetLeft;
+      startScrollLeft = el.scrollLeft;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      e.preventDefault();
+      const x = e.pageX - el.offsetLeft;
+      const walk = (x - startX) * 2;
+      el.scrollLeft = startScrollLeft - walk;
+    };
+
+    const handleMouseUp = () => {
+      if (!isDraggingRef.current) return;
+      if (typeof el.scrollTo === 'function') {
+        const cardWidth = el.offsetWidth * 0.75;
+        const targetIndex = Math.round(el.scrollLeft / cardWidth);
+        const clampedIndex = Math.max(0, Math.min(targetIndex, personas.length - 1));
+        el.scrollTo({
+          left: clampedIndex * cardWidth,
+          behavior: 'smooth',
+        });
+        onSelect(personas[clampedIndex].id);
+      }
+      // Keep the drag flag set through the click that follows mouseup.
+      window.setTimeout(() => {
+        isDraggingRef.current = false;
+      }, 0);
+    };
+
+    el.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      el.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [onSelect, personas]);
+
   // Scroll to selected bot when selection changes
   useEffect(() => {
     const index = personas.findIndex(p => p.id === selectedId);
@@ -57,47 +105,15 @@ export default function MobileBotCarousel({
     }
   }, [selectedId, personas]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setStartX(e.pageX - (scrollRef.current?.offsetLeft || 0));
-    setScrollLeft(scrollRef.current?.scrollLeft || 0);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - (scrollRef.current?.offsetLeft || 0);
-    const walk = (x - startX) * 2;
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollLeft - walk;
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    // Snap to nearest card
+  const handleCardClick = (persona: BotPersona, index: number) => {
+    if (isDraggingRef.current) return;
+    onSelect(persona.id);
     if (scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
       const cardWidth = scrollRef.current.offsetWidth * 0.75;
-      const targetIndex = Math.round(scrollRef.current.scrollLeft / cardWidth);
-      const clampedIndex = Math.max(0, Math.min(targetIndex, personas.length - 1));
       scrollRef.current.scrollTo({
-        left: clampedIndex * cardWidth,
+        left: index * cardWidth,
         behavior: 'smooth'
       });
-      onSelect(personas[clampedIndex].id);
-    }
-  };
-
-  const handleCardClick = (persona: BotPersona, index: number) => {
-    if (!isDragging) {
-      onSelect(persona.id);
-      if (scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
-        const cardWidth = scrollRef.current.offsetWidth * 0.75;
-        scrollRef.current.scrollTo({
-          left: index * cardWidth,
-          behavior: 'smooth'
-        });
-      }
     }
   };
 
@@ -112,10 +128,6 @@ export default function MobileBotCarousel({
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       >
         {personas.map((persona, index) => {
           const isSelected = persona.id === selectedId;
@@ -123,10 +135,10 @@ export default function MobileBotCarousel({
           const difficultyLabel = getBotPublicStrengthLabel(persona.engine.level);
 
           return (
-            <button
+            <button type="button"
               key={persona.id}
               onClick={() => handleCardClick(persona, index)}
-              className={`flex-shrink-0 w-[75vw] max-w-[320px] snap-center rounded-2xl border p-5 text-left transition-all duration-300 ${
+              className={`flex-shrink-0 w-[75vw] max-w-[320px] snap-center rounded-2xl border p-5 text-left transition-[border-color,box-shadow,transform,opacity] duration-300 ${
                 isSelected
                   ? 'border-primary/40 bg-primary/12 shadow-[0_12px_28px_rgba(92,160,26,0.22)] scale-100'
                   : 'border-surface-hover bg-surface-alt/85 scale-95 opacity-70'
@@ -140,7 +152,7 @@ export default function MobileBotCarousel({
                 <BotAvatar 
                   avatar={persona.avatar} 
                   size={72} 
-                  className={`shrink-0 transition-all duration-300 ${isSelected ? 'animate-breathe scale-110' : ''}`}
+                  className={`shrink-0 transition-[border-color,box-shadow,transform,opacity] duration-300 ${isSelected ? 'animate-breathe scale-110' : ''}`}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-lg font-semibold text-text-bright">{persona.name}</div>
@@ -166,7 +178,7 @@ export default function MobileBotCarousel({
       {/* Pagination Dots */}
       <div className="flex justify-center gap-2 mt-2">
         {personas.map((persona, index) => (
-          <button
+          <button type="button"
             key={persona.id}
             onClick={() => {
               onSelect(persona.id);
@@ -178,7 +190,7 @@ export default function MobileBotCarousel({
                 });
               }
             }}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            className={`w-2 h-2 rounded-full transition-[border-color,box-shadow,transform,opacity] duration-300 ${
               index === activeIndex 
                 ? 'bg-primary w-6' 
                 : 'bg-surface-hover hover:bg-surface'

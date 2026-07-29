@@ -27,7 +27,12 @@ export function usePublicLiveGames(options: UsePublicLiveGamesOptions = {}): Use
     setLoading(true);
 
     fetch(`/api/live-games?status=${status}&limit=${limit}`)
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch live games: ${response.status}`);
+        }
+        return response.json();
+      })
       .then((data) => {
         if (cancelled) return;
         setGames(Array.isArray(data?.games) ? data.games : []);

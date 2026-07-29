@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import GamesPage from '../components/GamesPage';
-import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
+import { I18nProvider } from '../lib/i18n';
+import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 
 const { navigateMock, fetchMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),

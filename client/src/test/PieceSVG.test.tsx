@@ -1,5 +1,5 @@
 import type { PieceColor, PieceType } from '@shared/types';
-import { vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from './utils';
 import PieceSVG from '../components/PieceSVG';
 

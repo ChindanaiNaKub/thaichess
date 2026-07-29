@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { LessonCoursePage } from '../components/LessonsPage';
-import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
+import { I18nProvider } from '../lib/i18n';
+import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 
 const lessonProgressState = vi.hoisted(() => ({
   completedLessonSet: new Set<string>(),

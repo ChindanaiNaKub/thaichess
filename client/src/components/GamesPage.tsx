@@ -151,7 +151,7 @@ function renderGameRow(
         {formatTimeAgoLabel(game.finished_at, t, lang)}
       </td>
       <td className="px-3 sm:px-4 py-3 text-right">
-        <button
+        <button type="button"
           onClick={(e) => { e.stopPropagation(); navigate(savedGameAnalysisRoute(game.id)); }}
           className="ui-btn-primary px-2.5 py-1 text-xs"
           title={t('analysis.analyze')}
@@ -206,19 +206,19 @@ export default function GamesPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="ui-title text-xl sm:text-2xl">{t('games.title')}</h2>
-                <button
+                <button type="button"
                   onClick={() => navigate(routes.gameDatabase)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
                   Database
                 </button>
-                <button
+                <button type="button"
                   onClick={() => navigate(routes.openingExplorer)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
                   Openings
                 </button>
-                <button
+                <button type="button"
                   onClick={() => navigate(routes.leaderboard)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
@@ -269,7 +269,7 @@ export default function GamesPage() {
         ) : isError ? (
           <div className="ui-card rounded-2xl border-danger/30 bg-danger/10 px-6 py-10 text-center">
             <p className="text-danger">{error?.message || t('error.generic')}</p>
-            <button
+            <button type="button"
               onClick={() => window.location.reload()}
               className="ui-btn-primary mt-4 px-4 py-2"
             >
@@ -282,13 +282,13 @@ export default function GamesPage() {
             <p className="text-text-bright text-lg sm:text-xl font-semibold mb-2">{t('games.empty')}</p>
             <p className="text-text-dim text-sm sm:text-base mb-6 max-w-md mx-auto">{t('games.empty_desc')}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
+              <button type="button"
                 onClick={() => navigate(routes.quickPlay)}
                 className="ui-btn-primary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
               >
                 {t('home.find_opponent')}
               </button>
-              <button
+              <button type="button"
                 onClick={() => navigate(routes.puzzles)}
                 className="ui-btn-secondary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
               >
@@ -346,7 +346,7 @@ export default function GamesPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-                <button
+                <button type="button"
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="ui-btn-secondary px-3 py-1.5 text-sm text-text disabled:opacity-30"
@@ -356,7 +356,7 @@ export default function GamesPage() {
                 <span className="text-text-dim text-xs sm:text-sm px-3">
                   {t('games.page', { current: page + 1, total: totalPages })}
                 </span>
-                <button
+                <button type="button"
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="ui-btn-secondary px-3 py-1.5 text-sm text-text disabled:opacity-30"

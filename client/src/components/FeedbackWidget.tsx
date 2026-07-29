@@ -62,10 +62,10 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <button
+      <button type="button"
         onClick={() => setIsOpen(true)}
         aria-label={t('feedback.title')}
-        className="fixed bottom-3 right-3 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-surface-hover bg-surface-alt text-text-dim shadow-lg transition-all hover:bg-surface-hover hover:text-text-bright hover:shadow-xl sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2"
+        className="fixed bottom-3 right-3 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-surface-hover bg-surface-alt text-text-dim shadow-lg transition-colors hover:bg-surface-hover hover:text-text-bright hover:shadow-xl sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2"
         title={t('feedback.title')}
       >
         <span>💬</span>
@@ -80,7 +80,7 @@ export default function FeedbackWidget() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base sm:text-lg font-bold text-text-bright">{t('feedback.title')}</h3>
-              <button onClick={() => setIsOpen(false)} className="text-text-dim hover:text-text-bright text-xl leading-none p-1">&times;</button>
+              <button type="button" onClick={() => setIsOpen(false)} className="text-text-dim hover:text-text-bright text-xl leading-none p-1">&times;</button>
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -90,7 +90,7 @@ export default function FeedbackWidget() {
                     key={fbType}
                     type="button"
                     onClick={() => setType(fbType)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       type === fbType
                         ? 'bg-primary text-white'
                         : 'bg-surface hover:bg-surface-hover text-text-dim border border-surface-hover'

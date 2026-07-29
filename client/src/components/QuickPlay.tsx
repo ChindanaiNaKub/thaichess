@@ -21,6 +21,12 @@ const TIME_PRESETS = [
 
 const BOT_FALLBACK_SECONDS = 12;
 
+function formatSearchTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
+}
+
 export default function QuickPlay() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -38,8 +44,13 @@ export default function QuickPlay() {
   const requestPendingRef = useRef(false);
   const latestTRef = useRef(t);
 
-  searchingRef.current = searching;
-  requestPendingRef.current = requestPending;
+  useEffect(() => {
+    searchingRef.current = searching;
+  }, [searching]);
+
+  useEffect(() => {
+    requestPendingRef.current = requestPending;
+  }, [requestPending]);
 
   useEffect(() => {
     latestTRef.current = t;
@@ -165,12 +176,6 @@ export default function QuickPlay() {
     navigate(`${routes.bot}?source=matchmaking_fallback`);
   };
 
-  const formatSearchTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
-  };
-
   const ratedEligible = user?.fair_play_status === 'clear';
   const showBotFallback = searching && searchTime >= BOT_FALLBACK_SECONDS && !fallbackDismissed;
 
@@ -199,13 +204,13 @@ export default function QuickPlay() {
                 <h3 className="text-sm font-semibold text-text-bright">{t('quick.fallback_title')}</h3>
                 <p className="mt-1 text-xs leading-5 text-text-dim">{t('quick.fallback_desc')}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button
+                  <button type="button"
                     onClick={handlePlayBotFallback}
                     className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light"
                   >
                     {t('quick.play_bot_now')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setFallbackDismissed(true)}
                     className="ui-btn-secondary px-4 py-2 text-sm"
                   >
@@ -215,7 +220,7 @@ export default function QuickPlay() {
               </div>
             )}
             <div className="flex gap-3 mt-6">
-              <button
+              <button type="button"
                 onClick={handleCancel}
                 className="ui-btn-secondary flex-1 px-6 py-3 hover:bg-danger/20 hover:text-danger"
               >
@@ -250,14 +255,14 @@ export default function QuickPlay() {
               </p>
             </div>
 
-            <div className="mb-5">
-              <label className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</label>
+            <fieldset className="mb-5 min-w-0 border-0 p-0">
+              <legend className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</legend>
               <div className="grid grid-cols-3 gap-2">
                 {TIME_PRESETS.map((preset) => (
-                  <button
+                  <button type="button"
                     key={preset.label}
                     onClick={() => setSelectedTime(preset)}
-                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                       selectedTime.label === preset.label
                         ? 'bg-primary text-white shadow-md'
                         : 'bg-surface hover:bg-surface-hover text-text border border-surface-hover'
@@ -268,9 +273,9 @@ export default function QuickPlay() {
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
-            <button
+            <button type="button"
               onClick={handleFindGame}
               disabled={requestPending}
               className="w-full py-3 px-6 bg-accent hover:bg-accent/80 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold rounded-lg text-lg transition-colors shadow-md"
@@ -284,7 +289,7 @@ export default function QuickPlay() {
               </p>
             )}
 
-            <button
+            <button type="button"
               onClick={() => navigate(routes.home)}
               className="ui-btn-secondary mt-3 w-full px-6 py-2"
             >

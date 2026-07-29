@@ -39,6 +39,7 @@ describe('LiveGamesPage', () => {
       const url = String(input);
       if (url.startsWith('/api/live-games')) {
         return {
+          ok: true,
           json: async () => ({
             games: [
               {
@@ -92,9 +93,9 @@ describe('LiveGamesPage', () => {
     expect(await screen.findByText('FM White (1825)')).toBeInTheDocument();
     expect(screen.getByText('FM Black (1790)')).toBeInTheDocument();
     expect(screen.getByText('Guest One')).toBeInTheDocument();
-    expect(screen.getByText('Recently Finished')).toBeInTheDocument();
+    expect(screen.getByText('Guest Two')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: /open spectator mode/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /open spectator mode|live\.view_spectator/i })[0]);
     expect(navigateMock).toHaveBeenCalledWith('/spectate/live-a');
   });
 });

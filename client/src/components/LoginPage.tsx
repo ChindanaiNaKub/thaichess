@@ -165,6 +165,7 @@ export default function LoginPage() {
       await signInWithGoogle();
     } catch (err) {
       setError(getErrorMessage(err, t('auth.sign_in_failed')));
+    } finally {
       setGoogleLoading(false);
     }
   }
@@ -229,7 +230,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => void handleSocialSignIn()}
             disabled={googleLoading}
-            className="group w-full rounded-xl bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-all duration-200 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/10 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:shadow-none"
+            className="group w-full rounded-xl bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-[color,background-color,box-shadow,transform] duration-200 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/10 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:shadow-none"
             aria-label={t('auth.continue_with_google')}
           >
             <span className="flex items-center justify-center gap-3">
@@ -272,12 +273,12 @@ export default function LoginPage() {
                       required
                       autoComplete="email"
                       placeholder={t('auth.email_placeholder')}
-                      className="w-full rounded-lg border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none transition-all placeholder:text-text-dim/60 focus:border-primary"
+                      className="w-full rounded-lg border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none transition-colors placeholder:text-text-dim/60 focus:border-primary"
                     />
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white transition-all hover:bg-primary-light active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                      className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white transition-[color,background-color,box-shadow,transform] hover:bg-primary-light active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                     >
                       {loading && <LoadingSpinner className="w-4 h-4" />}
                       {loading ? t('auth.sending_code') : t('auth.send_code')}
@@ -296,12 +297,12 @@ export default function LoginPage() {
                       inputMode="numeric"
                       pattern="\d{6}"
                       placeholder={t('auth.code_placeholder')}
-                      className="w-full rounded-lg border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none tracking-[0.3em] text-center font-mono text-lg transition-all placeholder:text-text-dim/60 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm focus:border-primary"
+                      className="w-full rounded-lg border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none tracking-[0.3em] text-center font-mono text-lg transition-colors placeholder:text-text-dim/60 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm focus:border-primary"
                     />
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white transition-all hover:bg-primary-light active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                      className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white transition-[color,background-color,box-shadow,transform] hover:bg-primary-light active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                     >
                       {loading && <LoadingSpinner className="w-4 h-4" />}
                       {loading ? t('auth.signing_in') : t('auth.verify_code')}

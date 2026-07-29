@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { translate } from '../lib/i18n';
+import { translate } from '../lib/i18nRuntime';
 
 describe('English bootstrap translations', () => {
   it('includes quick play labels needed before the full catalog loads', () => {

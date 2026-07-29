@@ -168,8 +168,10 @@ function observePaintTimings() {
 function logResourceSummary() {
   const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
   const resources = entries
-    .filter((entry) => entry.name.startsWith(window.location.origin))
-    .filter((entry) => entry.initiatorType === 'script' || entry.initiatorType === 'link' || entry.initiatorType === 'css')
+    .filter((entry) => (
+      entry.name.startsWith(window.location.origin)
+      && (entry.initiatorType === 'script' || entry.initiatorType === 'link' || entry.initiatorType === 'css')
+    ))
     .sort((a, b) => b.duration - a.duration)
     .slice(0, 8);
 

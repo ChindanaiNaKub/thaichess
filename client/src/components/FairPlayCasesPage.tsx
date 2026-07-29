@@ -117,7 +117,7 @@ export default function FairPlayCasesPage() {
 
         <div className="flex flex-wrap gap-2 mb-5">
           {(['open', 'restricted', 'dismissed', 'reviewed', 'all'] as const).map((status) => (
-            <button
+            <button type="button"
               key={status}
               onClick={() => setFilter(status)}
               className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
@@ -184,7 +184,7 @@ export default function FairPlayCasesPage() {
 
                       <div className="grid gap-2 sm:grid-cols-3 lg:w-[360px]">
                         {!isRestrictedUser && item.status !== 'dismissed' && (
-                          <button
+                          <button type="button"
                             onClick={() => void handleRestrict(item)}
                             className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/20 transition-colors"
                           >
@@ -192,7 +192,7 @@ export default function FairPlayCasesPage() {
                           </button>
                         )}
                         {isRestrictedUser && (
-                          <button
+                          <button type="button"
                             onClick={() => void handleClear(item)}
                             className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary/20 transition-colors"
                           >
@@ -200,7 +200,7 @@ export default function FairPlayCasesPage() {
                           </button>
                         )}
                         {item.status !== 'dismissed' && (
-                          <button
+                          <button type="button"
                             onClick={() => void handleDismiss(item)}
                             className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright hover:bg-surface-hover transition-colors"
                           >
@@ -216,7 +216,7 @@ export default function FairPlayCasesPage() {
 
             {totalPages > 1 && (
               <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
-                <button
+                <button type="button"
                   onClick={() => setPage((current) => Math.max(0, current - 1))}
                   disabled={page === 0}
                   className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-1.5 text-sm text-text disabled:opacity-30"
@@ -224,7 +224,7 @@ export default function FairPlayCasesPage() {
                   ← {t('games.prev')}
                 </button>
                 <span className="px-3 text-sm text-text-dim">{t('games.page', { current: page + 1, total: totalPages })}</span>
-                <button
+                <button type="button"
                   onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
                   disabled={page >= totalPages - 1}
                   className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-1.5 text-sm text-text disabled:opacity-30"

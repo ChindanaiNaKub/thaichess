@@ -61,15 +61,3 @@ export function lessonRoute(id: string): string {
 export function puzzleRoute(id: string): string {
   return `/puzzle/${id}`;
 }
-
-export function randomPuzzleRoute(): string {
-  return routes.puzzles;
-}
-
-export function gameDatabaseRoute(): string {
-  return routes.gameDatabase;
-}
-
-export function openingExplorerRoute(): string {
-  return routes.openingExplorer;
-}

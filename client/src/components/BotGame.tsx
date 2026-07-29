@@ -23,6 +23,7 @@ import {
   type BotChatMessage,
   type BotChatHistory,
 } from '../lib/botDialogue';
+import { getBotRequestTimeoutMs } from '../lib/botRequestTimeout';
 import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
 import { useAuth } from '../lib/auth';
@@ -97,12 +98,6 @@ function getBotTranslation(t: (key: string) => string, botId: string, field: str
 }
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
-const DEFAULT_BOT_REQUEST_TIMEOUT_MS = 2500;
-const LEVEL8_BOT_REQUEST_TIMEOUT_MS = 5000;
-const LEVEL9_BOT_REQUEST_TIMEOUT_MS = 8000;
-const LEVEL10_BOT_REQUEST_TIMEOUT_MS = 15000;
-const LEVEL11_BOT_REQUEST_TIMEOUT_MS = 18000;
-const LEVEL12_BOT_REQUEST_TIMEOUT_MS = 20000;
 const HIGH_LEVEL_LOCAL_FALLBACK_DELAY_MS = 700;
 const BOT_GAME_TIME_CONTROL = {
   initial: DEFAULT_PLAY_TIME_MS / 1000,
@@ -114,15 +109,6 @@ type SideChoice = PieceColor | 'random';
 function createBotGameId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `bot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-export function getBotRequestTimeoutMs(level: number): number {
-  if (level >= 12) return LEVEL12_BOT_REQUEST_TIMEOUT_MS;
-  if (level >= 11) return LEVEL11_BOT_REQUEST_TIMEOUT_MS;
-  if (level >= 10) return LEVEL10_BOT_REQUEST_TIMEOUT_MS;
-  if (level >= 9) return LEVEL9_BOT_REQUEST_TIMEOUT_MS;
-  if (level >= 8) return LEVEL8_BOT_REQUEST_TIMEOUT_MS;
-  return DEFAULT_BOT_REQUEST_TIMEOUT_MS;
 }
 
 function getHighLevelLocalFallbackDelayMs(level: number): number | null {
@@ -158,6 +144,10 @@ function buildNoMoveGameOverState(state: GameState): GameState | null {
 }
 
 export default function BotGame() {
+  return useBotGameScreen();
+}
+
+function useBotGameScreen() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
   const reviewT = useReviewCopy();
@@ -515,6 +505,10 @@ export default function BotGame() {
     }, 0);
 
     return () => {
+      if (botTimeoutRef.current) {
+        clearTimeout(botTimeoutRef.current);
+        botTimeoutRef.current = null;
+      }
       clearPendingBotRequest();
     };
   }, [
@@ -1008,20 +1002,22 @@ export default function BotGame() {
               <div className="hidden lg:grid gap-6 px-5 py-5 sm:px-7 sm:py-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
                 {/* Bot Roster - Left Column */}
                 <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                  <label className="mb-3 block text-sm font-medium text-text-dim">{t('bot.roster')}</label>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {BOT_PERSONAS.map((persona, index) => (
-                      <BotCard
-                        key={persona.id}
-                        persona={persona}
-                        isSelected={selectedBot.id === persona.id}
-                        onSelect={() => setSelectedBotId(persona.id)}
-                        t={t}
-                        getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
-                        index={index}
-                      />
-                    ))}
-                  </div>
+                  <fieldset className="min-w-0 border-0 p-0">
+                    <legend className="mb-3 block text-sm font-medium text-text-dim">{t('bot.roster')}</legend>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {BOT_PERSONAS.map((persona, index) => (
+                        <BotCard
+                          key={persona.id}
+                          persona={persona}
+                          isSelected={selectedBot.id === persona.id}
+                          onSelect={() => setSelectedBotId(persona.id)}
+                          t={t}
+                          getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
+                          index={index}
+                        />
+                      ))}
+                    </div>
+                  </fieldset>
                 </div>
 
                 {/* Detail Panel - Right Column (Sticky) */}
@@ -1030,17 +1026,17 @@ export default function BotGame() {
                   <div className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-surface/60 to-primary/5 p-5 shadow-lg">
                     {/* Bot Header */}
                     <div className="flex items-center gap-4">
-                      <div className="shrink-0 transition-all duration-500 animate-wake-up">
+                      <div className="shrink-0 transition-transform duration-500 animate-wake-up">
                         <BotAvatar 
                           avatar={selectedBot.avatar} 
                           size={72} 
                           className="ring-2 ring-primary/20 animate-breathe" 
                         />
                       </div>
-                      <div className="min-w-0 flex-1 transition-all duration-300">
+                      <div className="min-w-0 flex-1 transition-opacity duration-300">
                         <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">{t('bot.featured_opponent')}</div>
-                        <h3 className="mt-1 text-xl font-bold text-text-bright transition-all duration-300 animate-content-fade">{selectedBot.name}</h3>
-                        <p className="text-xs text-text-dim truncate transition-all duration-300">{selectedBot.title}</p>
+                        <h3 className="mt-1 text-xl font-bold text-text-bright transition-opacity duration-300 animate-content-fade">{selectedBot.name}</h3>
+                        <p className="text-xs text-text-dim truncate transition-opacity duration-300">{selectedBot.title}</p>
                         <div className="mt-2 flex items-center gap-2">
                           <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">{levelLabel}</span>
                           <span className="text-[10px] text-text-dim">{difficultyLabel}</span>
@@ -1055,11 +1051,12 @@ export default function BotGame() {
 
                     {/* Side Selection */}
                     <div className="mt-4">
-                      <label className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
+                      <fieldset className="min-w-0 border-0 p-0">
+                        <legend className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</legend>
+                        <div className="grid grid-cols-3 gap-2">
+                        <button type="button"
                           onClick={() => setSideChoice('white')}
-                          className={`rounded-xl border px-2 py-3 font-medium transition-all flex flex-col items-center gap-1 ${
+                          className={`rounded-xl border px-2 py-3 font-medium transition-colors flex flex-col items-center gap-1 ${
                             sideChoice === 'white'
                               ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                               : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -1068,9 +1065,9 @@ export default function BotGame() {
                           <PieceSVG type="K" color="white" size={28} />
                           <span className="text-xs">{t('common.white')}</span>
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => setSideChoice('random')}
-                          className={`rounded-xl border px-2 py-3 font-medium transition-all flex flex-col items-center gap-1 ${
+                          className={`rounded-xl border px-2 py-3 font-medium transition-colors flex flex-col items-center gap-1 ${
                             sideChoice === 'random'
                               ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                               : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -1079,9 +1076,9 @@ export default function BotGame() {
                           <span className="text-xl">🎲</span>
                           <span className="text-xs">{t('bot.random')}</span>
                         </button>
-                        <button
+                        <button type="button"
                           onClick={() => setSideChoice('black')}
-                          className={`rounded-xl border px-2 py-3 font-medium transition-all flex flex-col items-center gap-1 ${
+                          className={`rounded-xl border px-2 py-3 font-medium transition-colors flex flex-col items-center gap-1 ${
                             sideChoice === 'black'
                               ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                               : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -1090,14 +1087,15 @@ export default function BotGame() {
                           <PieceSVG type="K" color="black" size={28} />
                           <span className="text-xs">{t('common.black')}</span>
                         </button>
-                      </div>
+                        </div>
+                      </fieldset>
                     </div>
 
                     {/* PLAY NOW Button - Primary Action */}
-                    <button
+                    <button type="button"
                       onClick={handleStartGame}
                       data-testid="start-game-button"
-                      className="mt-4 w-full rounded-xl bg-primary px-6 py-3.5 text-base font-bold text-white shadow-[0_8px_24px_rgba(92,160,26,0.35)] transition-all hover:bg-primary-light hover:shadow-[0_12px_32px_rgba(92,160,26,0.45)] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[1px] flex items-center justify-center gap-2 animate-play-pulse group"
+                      className="mt-4 w-full rounded-xl bg-primary px-6 py-3.5 text-base font-bold text-white shadow-[0_8px_24px_rgba(92,160,26,0.35)] transition-[color,background-color,box-shadow,transform] hover:bg-primary-light hover:shadow-[0_12px_32px_rgba(92,160,26,0.45)] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[1px] flex items-center justify-center gap-2 animate-play-pulse group"
                     >
                       <span className="transition-transform group-hover:translate-x-0.5">▶</span>
                       <span>{t('bot.start')}</span>
@@ -1111,9 +1109,9 @@ export default function BotGame() {
 
                   {/* Expandable Bot Details */}
                   <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 overflow-hidden">
-                    <button
+                    <button type="button"
                       onClick={() => setShowDetails(!showDetails)}
-                      className="w-full px-4 py-3 text-sm font-medium text-text hover:bg-surface-hover transition-all duration-200 flex items-center justify-between group"
+                      className="w-full px-4 py-3 text-sm font-medium text-text hover:bg-surface-hover transition-colors duration-200 flex items-center justify-between group"
                     >
                       <span className="flex items-center gap-2">
                         <span className={`transition-transform duration-300 ${showDetails ? 'rotate-90' : ''}`}>▶</span>
@@ -1121,7 +1119,7 @@ export default function BotGame() {
                       </span>
                     </button>
                     <div 
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
                         showDetails ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                       }`}
                     >
@@ -1168,7 +1166,7 @@ export default function BotGame() {
                     <p className="mt-2 text-sm italic text-text">"{setupIntroPreview}"</p>
                     <div className="mt-3 text-xs leading-6 text-text-dim">{selectedBotTranslation.chatStyle || selectedBot.chatStyle}</div>
                     <div className="mt-4 border-t border-surface-hover/70 pt-4">
-                      <button
+                      <button type="button"
                         onClick={() => navigate('/')}
                         className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
                       >
@@ -1341,7 +1339,7 @@ export default function BotGame() {
         toolbar={
           <>
             {!reviewActive && isViewingHistory && (
-              <button
+              <button type="button"
                 onClick={() => setViewMoveIndex(null)}
                 className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
               >
@@ -1353,7 +1351,7 @@ export default function BotGame() {
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
                 {t('game.premove_set')}
               </span>
-              <button
+              <button type="button"
                 onClick={() => { setPremove(null); setSelectedSquare(null); setLegalMoves([]); }}
                 className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
               >
@@ -1426,7 +1424,7 @@ export default function BotGame() {
                 </div>
                 <div className="text-sm">{countingLabel}</div>
                 {canStartBotCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStartCounting}
                     className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors"
                   >
@@ -1434,7 +1432,7 @@ export default function BotGame() {
                   </button>
                 )}
                 {canStopBotCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStopCounting}
                     className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                   >
@@ -1482,10 +1480,12 @@ export default function BotGame() {
                 selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
                 analysisRootMoveIndex={review.analysisRootMoveIndex}
                 analysisLine={review.analysisLine}
-                canEnterAnalysis={review.canEnterAnalysis}
-                canResetAnalysis={review.canResetAnalysis}
-                canStepBackward={review.canStepBackward}
-                canStepForward={review.canStepForward}
+                controls={{
+                  enterAnalysis: review.canEnterAnalysis,
+                  resetAnalysis: review.canResetAnalysis,
+                  stepBackward: review.canStepBackward,
+                  stepForward: review.canStepForward,
+                }}
                 onEnterAnalysis={review.enterAnalysis}
                 onReturnToMainLine={review.returnToMainLine}
                 onResetAnalysis={review.resetAnalysis}
@@ -1513,7 +1513,7 @@ export default function BotGame() {
             )}
 
             {!gameState.gameOver && (
-              <button
+              <button type="button"
                 onClick={handleResign}
                 className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
               >
@@ -1521,7 +1521,7 @@ export default function BotGame() {
               </button>
             )}
 
-            <button
+            <button type="button"
               onClick={() => navigate('/')}
               className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-xl transition-colors"
             >

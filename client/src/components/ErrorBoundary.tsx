@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportClientError } from '../lib/errorReporting';
-import { translate } from '../lib/i18n';
+import { translate } from '../lib/i18nRuntime';
 
 interface Props {
   children: ReactNode;
@@ -80,7 +80,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || translate('error.unknown')}
             </p>
             <div className="flex flex-col gap-3">
-              <button
+              <button type="button"
                 onClick={() => {
                   this.setState({ hasError: false, error: null });
                   window.location.href = '/';
@@ -89,7 +89,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               >
                 {translate('common.back_home')}
               </button>
-              <button
+              <button type="button"
                 onClick={() => window.location.reload()}
                 className="w-full py-2 px-6 bg-surface-hover text-text-bright font-medium rounded-lg transition-colors"
               >

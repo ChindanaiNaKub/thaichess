@@ -53,7 +53,7 @@ function PreviewBoard({
 
   return (
     <div
-      className={`w-fit border border-surface-hover/70 bg-surface/20 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition-all duration-200 ${frameClass}`}
+      className={`w-fit border border-surface-hover/70 bg-surface/20 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition-[border-color,box-shadow,transform,background-color] duration-200 ${frameClass}`}
       style={{ background: boardTheme.frameBackground }}
     >
       <div className={`grid grid-cols-4 overflow-hidden ${innerClass}`} style={{ background: boardTheme.surfaceBackground }}>
@@ -88,7 +88,7 @@ function PreviewBoard({
           return (
             <div
               key={index}
-              className={`relative flex items-center justify-center ${squareClass} transition-all duration-200`}
+              className={`relative flex items-center justify-center ${squareClass} transition-[border-color,box-shadow,transform,background-color] duration-200`}
               style={{ background, boxShadow }}
             >
               {variant === 'makruk' && hasLegalDot && (
@@ -208,13 +208,13 @@ export default function AppearanceSettingsPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-b border-surface-hover pb-4">
-              <button
+              <button type="button"
                 onClick={() => setActiveTab('boards')}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'boards' ? 'bg-primary text-white shadow-sm' : 'border border-surface-hover bg-surface text-text-dim hover:text-text-bright'}`}
               >
                 {t('appearance.boards_tab')}
               </button>
-              <button
+              <button type="button"
                 onClick={() => setActiveTab('colors')}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'colors' ? 'bg-primary text-white shadow-sm' : 'border border-surface-hover bg-surface text-text-dim hover:text-text-bright'}`}
               >
@@ -239,11 +239,11 @@ export default function AppearanceSettingsPage() {
                         const isActive = theme.id === boardThemeId;
 
                         return (
-                          <button
+                          <button type="button"
                             key={theme.id}
                             onClick={() => setBoardThemeId(theme.id)}
                             onMouseEnter={() => setHoveredBoardThemeId(theme.id)}
-                            className={`group rounded-2xl border p-3 text-left transition-all duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
+                            className={`group rounded-2xl border p-3 text-left transition-[border-color,box-shadow,transform,background-color] duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
                           >
                             <div className="mb-3 flex justify-center">
                               <PreviewBoard boardTheme={theme} pieceThemeId={previewPieceThemeId} size="small" />
@@ -291,11 +291,11 @@ export default function AppearanceSettingsPage() {
                   const isActive = theme.id === pieceThemeId;
 
                   return (
-                    <button
+                    <button type="button"
                       key={theme.id}
                       onClick={() => setPieceThemeId(theme.id)}
                       onMouseEnter={() => setHoveredPieceThemeId(theme.id)}
-                      className={`group rounded-2xl border p-3 text-left transition-all duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
+                      className={`group rounded-2xl border p-3 text-left transition-[border-color,box-shadow,transform,background-color] duration-200 ${isActive ? 'border-primary/45 bg-primary/10 shadow-[0_14px_28px_rgba(85,148,63,0.18)]' : 'border-surface-hover bg-surface hover:border-primary/30 hover:bg-surface-hover'}`}
                     >
                       <div className="mb-3 flex justify-center">
                         <PreviewBoard boardTheme={boardTheme} pieceThemeId={theme.id} size="small" />

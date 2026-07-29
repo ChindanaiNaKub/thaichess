@@ -1,4 +1,4 @@
-import { forwardRef, useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, Move, Board as BoardType, GameState } from '@shared/types';
@@ -27,17 +27,23 @@ import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow, SquareHighlight, SquareAnnotation } from './Board';
-import PieceSVG from './PieceSVG';
 import {
   createEmptyEditorBoard,
-  EditorPieceBank,
   getEditorAnalysisSnapshotKey,
   getEditorPositionStatus,
   getEditorValidationMessage,
+  movePieceOnBoard,
+  withPieceAt,
   type EditorPieceTool,
   type EditorTool,
-} from './AnalysisEditorTools';
+} from './AnalysisEditorLogic';
+import { EditorPieceBank } from './AnalysisEditorTools';
 import Header from './Header';
+import { EvalBar } from './analysis/EvalBar';
+import { AccuracyCard } from './analysis/AccuracyCard';
+import { EvalGraph } from './analysis/EvalGraph';
+import { CompactEnginePanel } from './analysis/CompactEnginePanel';
+import { VariationLine } from './analysis/VariationLine';
 import type { WorkerResponse } from '../workers/analysisWorker';
 import { gameQueryOptions, type GameAnalysisData } from '../queries/analysis';
 import { useAuth } from '../lib/auth';
@@ -49,6 +55,10 @@ const REVIEW_MOVETIME_MS = DEFAULT_GAME_ANALYSIS_MOVETIME_MS;
 const QUICK_ANALYSIS_MAIN_LINE: Move[] = [];
 
 export default function AnalysisPage() {
+  return useAnalysisPageScreen();
+}
+
+function useAnalysisPageScreen() {
   const workerRef = useRef<Worker | null>(null);
   const analysisRunKeyRef = useRef<string | null>(null);
   const { gameId } = useParams<{ gameId: string }>();
@@ -509,50 +519,30 @@ export default function AnalysisPage() {
   }, [authLoading, editorAnalysisKey, editorPositionStatus.canAnalyze, editorSnapshot, t, user]);
 
   const handleEditorSquareClick = useCallback((pos: Position) => {
-    setEditorBoard(prev => {
-      const next = cloneBoard(prev);
-
-      if (editorTool === 'erase') {
-        next[pos.row][pos.col] = null;
-        setEditorSelectedSquare(null);
-        return next;
-      }
-
-      if (editorTool !== 'move') {
-        const [color, type] = editorTool.split(':') as ['white' | 'black', 'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'];
-        next[pos.row][pos.col] = { color, type };
-        setEditorSelectedSquare(null);
-        return next;
-      }
-
-      if (!editorSelectedSquare) {
-        setEditorSelectedSquare(next[pos.row][pos.col] ? pos : null);
-        return next;
-      }
-
-      const movingPiece = next[editorSelectedSquare.row][editorSelectedSquare.col];
-      if (!movingPiece) {
-        setEditorSelectedSquare(null);
-        return next;
-      }
-
-      next[editorSelectedSquare.row][editorSelectedSquare.col] = null;
-      next[pos.row][pos.col] = movingPiece;
+    if (editorTool === 'erase') {
+      setEditorBoard((prev) => withPieceAt(prev, pos, null));
       setEditorSelectedSquare(null);
-      return next;
-    });
-  }, [editorSelectedSquare, editorTool]);
+      return;
+    }
+
+    if (editorTool !== 'move') {
+      const [color, type] = editorTool.split(':') as ['white' | 'black', 'K' | 'M' | 'S' | 'R' | 'N' | 'P' | 'PM'];
+      setEditorBoard((prev) => withPieceAt(prev, pos, { color, type }));
+      setEditorSelectedSquare(null);
+      return;
+    }
+
+    if (!editorSelectedSquare) {
+      setEditorSelectedSquare(editorBoard[pos.row][pos.col] ? pos : null);
+      return;
+    }
+
+    setEditorBoard((prev) => movePieceOnBoard(prev, editorSelectedSquare, pos));
+    setEditorSelectedSquare(null);
+  }, [editorBoard, editorSelectedSquare, editorTool]);
 
   const handleEditorPieceDrop = useCallback((from: Position, to: Position) => {
-    setEditorBoard(prev => {
-      const next = cloneBoard(prev);
-      const movingPiece = next[from.row][from.col];
-      if (!movingPiece) return prev;
-
-      next[from.row][from.col] = null;
-      next[to.row][to.col] = movingPiece;
-      return next;
-    });
+    setEditorBoard((prev) => movePieceOnBoard(prev, from, to));
     setEditorSelectedSquare(null);
     setEditorTool(DEFAULT_EDITOR_TOOL);
   }, []);
@@ -704,7 +694,7 @@ export default function AnalysisPage() {
             <div className="text-4xl mb-4">⚠️</div>
             <h2 data-testid="analysis-error-title" className="text-lg font-bold text-danger mb-2">{t('game.error')}</h2>
             <p data-testid="analysis-error-message" className="text-text-dim mb-4">{error}</p>
-            <button data-testid="analysis-back-home" onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold">
+            <button type="button" data-testid="analysis-back-home" onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold">
               {t('common.back_home')}
             </button>
           </div>
@@ -739,13 +729,13 @@ export default function AnalysisPage() {
                 <div className="flex items-center gap-2 text-sm w-full justify-between rounded-lg border border-surface-hover bg-surface-alt/80 px-2.5 py-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-text-dim text-xs">{t('local.view_as')}</span>
-                    <button
+                    <button type="button"
                       onClick={() => setViewAs('white')}
                       className={`px-3 py-1 rounded text-xs ${viewAs === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
                       {t('common.white')}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => setViewAs('black')}
                       className={`px-3 py-1 rounded text-xs ${viewAs === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
@@ -777,28 +767,28 @@ export default function AnalysisPage() {
                 </BoardErrorBoundary>
 
                 <div className="flex items-center justify-center gap-1 rounded-lg border border-surface-hover bg-surface-alt/80 px-2 py-1.5">
-                  <button
+                  <button type="button"
                     onClick={navigateToStart}
                     className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     aria-label={t('analysis.quick.to_start')}
                   >
                     ⏮
                   </button>
-                  <button
+                  <button type="button"
                     onClick={navigateBackward}
                     className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     aria-label={t('analysis.quick.back')}
                   >
                     ◀
                   </button>
-                  <button
+                  <button type="button"
                     onClick={navigateForward}
                     className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     aria-label={t('analysis.quick.forward')}
                   >
                     ▶
                   </button>
-                  <button
+                  <button type="button"
                     onClick={navigateToEnd}
                     className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     aria-label={t('analysis.quick.to_end')}
@@ -822,20 +812,20 @@ export default function AnalysisPage() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
                     className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
                   >
                     {t('analysis.quick.flip_board')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleResetQuickAnalysis}
                     disabled={!review.canResetAnalysis && review.analysisLine.length === 0}
                     className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
                   >
                     {t('analysis.quick.reset')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => navigate(buildEditorAnalysisRoute())}
                     className="col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
                   >
@@ -909,13 +899,13 @@ export default function AnalysisPage() {
                 <div className="flex items-center gap-2 text-sm w-full justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-text-dim">{t('analysis.editor.label')}</span>
-                    <button
+                    <button type="button"
                       onClick={() => setEditorTurn('white')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
                       {t('analysis.editor.turn_to_move', { color: t('common.white') })}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => setEditorTurn('black')}
                       className={`px-3 py-1 rounded text-xs ${editorTurn === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                     >
@@ -965,13 +955,13 @@ export default function AnalysisPage() {
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.tools')}</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => setEditorTool('move')}
                     className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'move' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
                   >
                     {t('analysis.editor.move_pieces')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setEditorTool('erase')}
                     className={`rounded-lg border px-3 py-2 text-sm ${editorTool === 'erase' ? 'border-primary bg-primary/15 text-primary-light' : 'border-surface-hover bg-surface-alt text-text'}`}
                   >
@@ -1005,25 +995,25 @@ export default function AnalysisPage() {
               <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.actions')}</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs(viewAs === 'white' ? 'black' : 'white')}
                     className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
                   >
                     {t('analysis.editor.flip_board')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setEditorBoard(createInitialBoard())}
                     className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
                   >
                     {t('analysis.editor.reset_board')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setEditorBoard(createEmptyEditorBoard())}
                     className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text"
                   >
                     {t('analysis.editor.clear_board')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={handleAnalyzeEditorPosition}
                     disabled={positionAnalyzing || !editorPositionStatus.canAnalyze}
                     className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -1039,14 +1029,15 @@ export default function AnalysisPage() {
                 <h3 className="mb-2 text-sm font-semibold text-text-bright">{t('analysis.editor.position')}</h3>
                 <textarea
                   readOnly
+                  aria-label={t('analysis.editor.position')}
                   value={serialized.position}
                   className="min-h-24 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text"
                 />
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button onClick={handleCopyEditorPosition} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
+                  <button type="button" onClick={handleCopyEditorPosition} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
                     {t('analysis.editor.copy_position')}
                   </button>
-                  <button onClick={handleCopyEditorLink} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
+                  <button type="button" onClick={handleCopyEditorLink} className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text">
                     {t('analysis.editor.copy_link')}
                   </button>
                 </div>
@@ -1091,7 +1082,7 @@ export default function AnalysisPage() {
               )}
 
               <div className="grid grid-cols-1 gap-2">
-                <button
+                <button type="button"
                   onClick={() => navigate('/')}
                   className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
                 >
@@ -1147,13 +1138,13 @@ export default function AnalysisPage() {
               <div className="flex items-center gap-2 text-sm w-full justify-between rounded-lg border border-surface-hover bg-surface-alt/80 px-2.5 py-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-text-dim text-xs">{t('local.view_as')}</span>
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs('white')}
                     className={`px-3 py-1 rounded text-xs ${viewAs === 'white' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                   >
                     {t('common.white')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs('black')}
                     className={`px-3 py-1 rounded text-xs ${viewAs === 'black' ? 'bg-primary text-white' : 'bg-surface-hover text-text'}`}
                   >
@@ -1189,25 +1180,25 @@ export default function AnalysisPage() {
 
               {/* Nav buttons */}
               <div className="flex items-center justify-center gap-1 rounded-lg border border-surface-hover bg-surface-alt/80 px-2 py-1.5">
-                <button
+                <button type="button"
                   onClick={navigateToStart}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ⏮
                 </button>
-                <button
+                <button type="button"
                   onClick={navigateBackward}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ◀
                 </button>
-                <button
+                <button type="button"
                   onClick={navigateForward}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
                   ▶
                 </button>
-                <button
+                <button type="button"
                   onClick={navigateToEnd}
                   className="px-3 py-1.5 text-sm rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                 >
@@ -1242,25 +1233,25 @@ export default function AnalysisPage() {
                     </label>
                   )}
                   <div className="hidden sm:flex items-center gap-1">
-                    <button
+                    <button type="button"
                       onClick={navigateToStart}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ⏮
                     </button>
-                    <button
+                    <button type="button"
                       onClick={navigateBackward}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ◀
                     </button>
-                    <button
+                    <button type="button"
                       onClick={navigateForward}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
                       ▶
                     </button>
-                    <button
+                    <button type="button"
                       onClick={navigateToEnd}
                       className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
                     >
@@ -1278,10 +1269,11 @@ export default function AnalysisPage() {
                     {movePairs.map(({ num, white, black, whiteIdx, blackIdx, whiteClass, blackClass }, pairIndex) => (
                       <div key={num} className="contents">
                         <span className="text-text px-2 py-1 text-right">{num}.</span>
-                        <span
+                        <button
+                          type="button"
                           ref={highlightedMainLineMoveIndex === whiteIdx ? setActiveMoveElement : undefined}
                           data-testid={`analysis-main-move-${whiteIdx}`}
-                          className={`px-2 py-1 font-mono rounded cursor-pointer transition-colors ${
+                          className={`bg-transparent border-0 text-left px-2 py-1 font-mono rounded cursor-pointer transition-colors ${
                             highlightedMainLineMoveIndex === whiteIdx ? 'move-active shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable'
                           }`}
                           onClick={() => handleMoveClick(whiteIdx)}
@@ -1292,16 +1284,18 @@ export default function AnalysisPage() {
                               {getClassificationSymbol(whiteClass)}
                             </span>
                           )}
-                        </span>
-                        <span
+                        </button>
+                        <button
+                          type="button"
                           ref={highlightedMainLineMoveIndex === blackIdx ? setActiveMoveElement : undefined}
                           data-testid={black ? `analysis-main-move-${blackIdx}` : undefined}
-                          className={`px-2 py-1 font-mono rounded ${
+                          className={`bg-transparent border-0 text-left px-2 py-1 font-mono rounded ${
                             black
                               ? highlightedMainLineMoveIndex === blackIdx ? 'move-active cursor-pointer shadow-[inset_0_0_0_1px_rgba(134,204,99,0.2)]' : 'move-clickable cursor-pointer'
                               : ''
                           }`}
                           onClick={() => black && handleMoveClick(blackIdx)}
+                          disabled={!black}
                         >
                           {black && (
                             <>
@@ -1313,10 +1307,12 @@ export default function AnalysisPage() {
                               )}
                             </>
                           )}
-                        </span>
-                        {review.analysisVariations
-                          .filter((variation) => variation.rootMoveIndex >= 0 && Math.floor(variation.rootMoveIndex / 2) === pairIndex)
-                          .map((variation) => renderVariationLine(variation.rootMoveIndex))}
+                        </button>
+                        {review.analysisVariations.flatMap((variation) => (
+                            variation.rootMoveIndex >= 0 && Math.floor(variation.rootMoveIndex / 2) === pairIndex
+                              ? [renderVariationLine(variation.rootMoveIndex)]
+                              : []
+                          ))}
                       </div>
                     ))}
                   </div>
@@ -1325,13 +1321,13 @@ export default function AnalysisPage() {
               <div className="shrink-0 border-t border-surface-hover px-2.5 py-2 flex flex-wrap items-center gap-2">
                 {review.mode === 'analysis' ? (
                   <>
-                    <button
+                    <button type="button"
                       onClick={review.returnToMainLine}
                       className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
                     >
                       {reviewT('review.return_to_game')}
                     </button>
-                    <button
+                    <button type="button"
                       onClick={review.resetAnalysis}
                       disabled={!review.canResetAnalysis}
                       className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
@@ -1340,7 +1336,7 @@ export default function AnalysisPage() {
                     </button>
                   </>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={review.enterAnalysis}
                     disabled={!review.canEnterAnalysis}
                     data-testid="analysis-enter-analysis"
@@ -1392,325 +1388,9 @@ export default function AnalysisPage() {
   );
 }
 
+
 /* ─── Sub-components ─────────────────────────────────────────────── */
 
-function EvalBar({ eval: rawEval, mate }: { eval: number; mate?: number | null }) {
-  const clamped = Math.max(-2000, Math.min(2000, rawEval));
-  const whitePercent = 50 + (clamped / 2000) * 50;
-  const isWhiteAdvantage = rawEval >= 0;
-
-  return (
-    <div className="eval-bar w-6 sm:w-7 rounded-lg overflow-hidden flex flex-col relative shadow-[0_10px_20px_rgba(0,0,0,0.18)]" style={{ minHeight: '100%' }}>
-      <div
-        className="transition-all duration-500 ease-out"
-        style={{ backgroundColor: 'oklch(0.23 0.015 65)', height: `${100 - whitePercent}%` }}
-      />
-      <div
-        className="transition-all duration-500 ease-out"
-        style={{ backgroundColor: 'oklch(0.93 0.01 65)', height: `${whitePercent}%` }}
-      />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span
-          className="text-[9px] font-bold tracking-[0.08em]"
-          style={{
-            color: isWhiteAdvantage ? 'oklch(0.16 0.015 65)' : 'oklch(0.92 0.01 65)',
-            writingMode: 'vertical-rl',
-            textOrientation: 'mixed',
-            transform: 'rotate(180deg)',
-          }}
-        >
-          {formatEval(rawEval, mate)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function AccuracyCard({
-  color, accuracy, summary, t,
-}: {
-  color: PieceColor;
-  accuracy: number;
-  summary: Record<MoveClassification, number>;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  const classifications: MoveClassification[] = ['brilliant', 'best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder'];
-
-  return (
-    <div className="rounded-xl border border-white/8 bg-surface-hover/70 p-3">
-      <div className="flex items-center gap-1.5 mb-2">
-        <PieceSVG type="K" color={color} size={18} />
-        <span className="text-xs font-medium text-text">{t(color === 'white' ? 'common.white' : 'common.black')}</span>
-      </div>
-      <div className="text-2xl font-bold text-text-bright mb-2">{accuracy}%</div>
-      <div className="space-y-1">
-        {classifications.map(cls => {
-          const count = summary[cls];
-          if (count === 0 && (cls === 'excellent')) return null;
-          return (
-            <div key={cls} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full inline-block ring-1 ring-black/15" style={{ backgroundColor: getClassificationColor(cls) }} />
-                <span className="text-text">{t(`analysis.${cls}`)}</span>
-              </span>
-              <span className="text-text-bright font-mono">{count}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function EvalGraph({
-  evaluations, moves, currentIndex, onClickIndex,
-}: {
-  evaluations: number[];
-  moves: AnalyzedMove[];
-  currentIndex: number;
-  onClickIndex: (index: number) => void;
-}) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const width = 320;
-  const height = 80;
-  const padding = { top: 4, bottom: 4, left: 2, right: 2 };
-  const graphW = width - padding.left - padding.right;
-  const graphH = height - padding.top - padding.bottom;
-
-  const maxAbs = Math.max(500, ...evaluations.map(e => Math.abs(e)));
-  const clamp = (v: number) => Math.max(-maxAbs, Math.min(maxAbs, v));
-
-  const points = evaluations.map((e, i) => {
-    const x = padding.left + (i / Math.max(1, evaluations.length - 1)) * graphW;
-    const y = padding.top + ((maxAbs - clamp(e)) / (2 * maxAbs)) * graphH;
-    return { x, y };
-  });
-
-  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-  const fillPath = `${pathData} L ${points[points.length - 1].x} ${padding.top + graphH} L ${padding.left} ${padding.top + graphH} Z`;
-
-  const zeroY = padding.top + graphH / 2;
-
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const ratio = (x - padding.left) / graphW;
-    const moveIdx = Math.round(ratio * (evaluations.length - 1)) - 1;
-    onClickIndex(Math.max(-1, Math.min(moves.length - 1, moveIdx)));
-  };
-
-  const currentX = currentIndex >= 0
-    ? padding.left + ((currentIndex + 1) / Math.max(1, evaluations.length - 1)) * graphW
-    : padding.left;
-
-  return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${width} ${height}`}
-      className="w-full cursor-pointer rounded-lg"
-      onClick={handleClick}
-    >
-      <rect x={padding.left} y={padding.top} width={graphW} height={graphH} rx="8" fill="rgba(255,255,255,0.03)" />
-      <rect x={padding.left} y={padding.top} width={graphW} height={graphH / 2} rx="8" fill="rgba(255,255,255,0.05)" />
-      <rect x={padding.left} y={zeroY} width={graphW} height={graphH / 2} fill="rgba(0,0,0,0.14)" />
-
-      <line x1={padding.left} y1={zeroY} x2={padding.left + graphW} y2={zeroY} stroke="rgba(255,255,255,0.22)" strokeWidth="0.75" />
-
-      <path d={fillPath} fill="rgba(255,255,255,0.12)" />
-
-      {moves.map((m, i) => {
-        const pt = points[i + 1];
-        if (!pt) return null;
-        const cls = m.classification;
-        if (cls === 'brilliant' || cls === 'best' || cls === 'excellent' || cls === 'good') return null;
-        return (
-          <circle
-            key={i}
-            cx={pt.x}
-            cy={pt.y}
-            r={cls === 'blunder' ? 3 : 2}
-            fill={getClassificationColor(cls)}
-            opacity={0.95}
-          />
-        );
-      })}
-
-      <path d={pathData} fill="none" stroke="rgba(255,255,255,0.72)" strokeWidth="1.75" />
-
-      <line x1={currentX} y1={padding.top} x2={currentX} y2={padding.top + graphH} stroke="var(--color-primary-light)" strokeWidth="1.5" opacity="0.95" />
-    </svg>
-  );
-}
-
-function CompactEnginePanel({
-  currentPlyIndex,
-  moveCount,
-  currentEval,
-  currentMate,
-  winningChances,
-  turn,
-  bestMoveText,
-  principalVariation,
-  analyzing,
-  error,
-  reviewMode,
-  currentAnalyzedMove,
-  reviewIsProvisional,
-  analyzingGame,
-  progress,
-  analysisElapsedSeconds,
-  t,
-  reviewT,
-}: {
-  currentPlyIndex: number;
-  moveCount: number;
-  currentEval: number;
-  currentMate: number | null;
-  winningChances: { white: number; black: number };
-  turn: PieceColor;
-  bestMoveText: string;
-  principalVariation: string[];
-  analyzing: boolean;
-  error: string | null;
-  reviewMode: 'mainLine' | 'analysis';
-  currentAnalyzedMove: AnalyzedMove | null;
-  reviewIsProvisional: boolean;
-  analyzingGame: boolean;
-  progress: AnalysisProgress | null;
-  analysisElapsedSeconds: number;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  reviewT: (key: 'analysis.current_position' | 'analysis.position_before_start' | 'analysis.position_after_move' | 'analysis.turn_to_move' | 'analysis.win_chances' | 'analysis.best_continuation' | 'analysis.eval_swing' | 'analysis.expected_score' | 'review.engine_loading' | 'review.engine_error' | 'review.engine' | 'review.analysis_branch', params?: Record<string, string | number>) => string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const classification = currentAnalyzedMove?.classification ?? null;
-  const classificationColor = classification ? getClassificationColor(classification) : null;
-  const swing = currentAnalyzedMove ? currentAnalyzedMove.evalAfter - currentAnalyzedMove.evalBefore : null;
-  const swingLabel = swing === null ? null : `${swing >= 0 ? '+' : ''}${formatEval(swing)}`;
-  const currentMoveText = currentAnalyzedMove
-    ? `${posToAlgebraic(currentAnalyzedMove.move.from)}${currentAnalyzedMove.move.captured ? 'x' : '-'}${posToAlgebraic(currentAnalyzedMove.move.to)}`
-    : null;
-  const pvText = principalVariation.join(' ');
-  const pvPreview = principalVariation.slice(0, 5).join(' ');
-  const positionLabel = currentPlyIndex < 0
-    ? reviewT('analysis.position_before_start')
-    : reviewT('analysis.position_after_move', { move: currentPlyIndex + 1, total: moveCount });
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-surface p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <h3 className="text-sm font-semibold text-text-bright">{reviewT('review.engine')}</h3>
-          {reviewMode === 'analysis' && (
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-              {reviewT('review.analysis_branch')}
-            </span>
-          )}
-          {reviewIsProvisional && (
-            <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">
-              Local
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 text-[11px] font-semibold text-text whitespace-nowrap">
-            {positionLabel}
-          </span>
-          <button
-            type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="rounded-lg border border-surface-hover bg-surface-alt px-2.5 py-1 text-[11px] font-semibold text-text transition-colors hover:bg-surface-hover"
-          >
-            {expanded ? 'Less' : 'More'}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-        <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-[11px] text-text-dim">{t('analysis.editor.eval')}</div>
-          <div className="font-mono text-lg font-semibold text-text-bright">{formatEval(currentEval, currentMate)}</div>
-        </div>
-        <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="text-[11px] text-text-dim">{t('analysis.editor.best_move')}</div>
-          <div className="font-mono font-semibold text-text-bright truncate">
-            {analyzing ? reviewT('review.engine_loading') : error || bestMoveText}
-          </div>
-        </div>
-      </div>
-
-      {currentAnalyzedMove && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-mono text-text-bright">
-            {currentMoveText}
-          </span>
-          {classification && classificationColor && (
-            <span
-              className="rounded-full px-2 py-1 font-semibold"
-              style={{ backgroundColor: `${classificationColor}22`, color: classificationColor }}
-            >
-              {t(`analysis.${classification}`)}
-            </span>
-          )}
-          {swingLabel && (
-            <span className={`rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-mono ${swing !== null && swing >= 0 ? 'text-primary-light' : 'text-danger'}`}>
-              {reviewT('analysis.eval_swing')} {swingLabel}
-            </span>
-          )}
-          <span className="rounded-full border border-surface-hover bg-surface-hover/70 px-2 py-1 font-semibold text-text">
-            {reviewT('analysis.expected_score')} {Math.round(currentAnalyzedMove.winPercentBefore)}% {'->'} {Math.round(currentAnalyzedMove.winPercentAfter)}%
-          </span>
-        </div>
-      )}
-
-      {!expanded && pvPreview && (
-        <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            <span>PV</span>
-            <span className="text-[10px] normal-case tracking-normal text-text-dim">{pvPreview}</span>
-          </div>
-        </div>
-      )}
-
-      {analyzingGame && (
-        <div className="mt-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-          <div className="flex items-center justify-between gap-2 text-[11px] text-text-dim">
-            <span>{t('analysis.analyzing')}</span>
-            <span>{progress ? `${progress.current}/${progress.total}` : t('analysis.elapsed', { seconds: analysisElapsedSeconds })}</span>
-          </div>
-          <div className="mt-2 h-1.5 rounded-full bg-surface">
-            <div
-              className="h-1.5 rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress ? (progress.current / progress.total) * 100 : 18}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {expanded && (
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-            <div className="text-[11px] text-text-dim">{reviewT('analysis.turn_to_move')}</div>
-            <div className="font-semibold text-text-bright">{t(turn === 'white' ? 'common.white' : 'common.black')}</div>
-          </div>
-          <div className="rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-            <div className="text-[11px] text-text-dim">{reviewT('analysis.win_chances')}</div>
-            <div className="font-semibold text-text-bright">{winningChances.white}% / {winningChances.black}%</div>
-          </div>
-          {pvText && (
-            <div className="sm:col-span-2 rounded-lg border border-surface-hover bg-surface-hover/60 px-3 py-2">
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                PV
-              </div>
-              <div className="font-mono text-xs leading-5 text-text-bright break-words">{pvText}</div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function getClassificationTheme(classification: MoveClassification): {
   iconBg: string;
@@ -1835,58 +1515,6 @@ interface MovePair {
   blackClass?: MoveClassification;
 }
 
-interface VariationToken {
-  label: string;
-  moveText: string;
-  moveIndex: number;
-  isSelected: boolean;
-}
-
-const VariationLine = forwardRef<HTMLDivElement, {
-  rootMoveIndex: number | null;
-  analysisLine: Move[];
-  selectedMoveIndex: number;
-  onSelectMove: (moveIndex: number) => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}>(({ rootMoveIndex, analysisLine, selectedMoveIndex, onSelectMove, t }, ref) => {
-  const tokens = buildVariationTokens(rootMoveIndex, analysisLine, selectedMoveIndex);
-
-  return (
-    <div
-      ref={ref}
-      data-testid="analysis-variation-line"
-      data-root-move-index={rootMoveIndex ?? ''}
-      className="ml-6 border-l border-primary/25 pl-3 py-1 text-[12px] text-text"
-    >
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-light">
-          {t('review.analysis_branch')}
-        </span>
-        {tokens.map((token) => (
-          <span key={`${token.label}-${token.moveText}`} className="contents">
-            <span className="text-text-dim">{token.label}</span>
-            <button
-              type="button"
-              onClick={() => onSelectMove(token.moveIndex)}
-              data-testid={token.isSelected ? 'analysis-active-variation-move' : undefined}
-              aria-current={token.isSelected ? 'step' : undefined}
-              className={`rounded px-1.5 py-0.5 text-left transition-colors ${
-                token.isSelected
-                  ? 'bg-primary/25 text-text-bright ring-1 ring-primary/30'
-                  : 'text-text hover:bg-surface-hover/70'
-              }`}
-            >
-              {token.moveText}
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-});
-
-VariationLine.displayName = 'VariationLine';
-
 function buildMovePairs(moves: Move[], analysis: GameAnalysis | null): MovePair[] {
   const pairs: MovePair[] = [];
 
@@ -1913,23 +1541,4 @@ function formatReviewMove(move: Move): string {
   const dest = posToAlgebraic(move.to);
   const promo = move.promoted ? '=M' : '';
   return `${from}${move.captured ? 'x' : '-'}${dest}${promo}`;
-}
-
-function buildVariationTokens(rootMoveIndex: number | null, analysisLine: Move[], selectedMoveIndex: number): VariationToken[] {
-  if (rootMoveIndex === null) return [];
-
-  let ply = rootMoveIndex + 1;
-
-  return analysisLine.map((move, index) => {
-    const moveNumber = Math.floor(ply / 2) + 1;
-    const label = ply % 2 === 0 ? `${moveNumber}.` : `${moveNumber}...`;
-    ply += 1;
-
-    return {
-      label,
-      moveText: formatReviewMove(move),
-      moveIndex: index,
-      isSelected: index === selectedMoveIndex,
-    };
-  });
 }

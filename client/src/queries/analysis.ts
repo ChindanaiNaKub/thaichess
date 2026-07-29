@@ -16,6 +16,10 @@ export interface GameApiResponse {
   status?: string;
   resultReason?: string;
   moveCount?: number;
+  timeControl?: {
+    initial: number;
+    increment: number;
+  } | null;
 }
 
 // API function

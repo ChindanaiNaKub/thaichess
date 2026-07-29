@@ -503,8 +503,6 @@ const GUIDE_CONTENT: Record<Language, Record<GuideSlug, GuideContent>> = {
   },
 };
 
-const GUIDE_ORDER: GuideSlug[] = ['what-is-makruk', 'how-to-play-makruk', 'play-makruk-online'];
-
 export default function GuidePage({ slug }: { slug: GuideSlug }) {
   const { lang, t } = useTranslation();
   const content = GUIDE_CONTENT[lang][slug];
@@ -603,8 +601,4 @@ export default function GuidePage({ slug }: { slug: GuideSlug }) {
       </main>
     </div>
   );
-}
-
-export function getGuideOrder(): GuideSlug[] {
-  return GUIDE_ORDER;
 }

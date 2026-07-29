@@ -44,7 +44,7 @@ export default function LeaderboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-text-dim text-xs sm:text-sm">{t('leaderboard.count', { count: total })}</span>
-              <button
+              <button type="button"
                 onClick={() => navigate(routes.games)}
                 className="px-3 py-2 rounded-lg border border-surface-hover bg-surface text-text-bright text-sm font-semibold hover:bg-surface-hover transition-colors"
               >
@@ -61,7 +61,7 @@ export default function LeaderboardPage() {
         ) : isError ? (
           <div className="text-center py-16 rounded-2xl border border-danger/30 bg-danger/10 px-6">
             <p className="text-danger">{error?.message || t('error.generic')}</p>
-            <button
+            <button type="button"
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
             >
@@ -75,13 +75,13 @@ export default function LeaderboardPage() {
             <p className="text-text-dim text-sm mt-2">{t('leaderboard.empty_desc')}</p>
             <p className="text-text-dim text-sm mt-3">{user ? t('quick.rated_signed_in') : t('quick.rated_sign_in')}</p>
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
+              <button type="button"
                 onClick={() => navigate(routes.quickPlay)}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary-light transition-colors"
               >
                 {t('home.find_opponent')}
               </button>
-              <button
+              <button type="button"
                 onClick={() => navigate(user ? routes.puzzles : routes.login)}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-surface-hover bg-surface text-text-bright font-semibold hover:bg-surface-hover transition-colors"
               >

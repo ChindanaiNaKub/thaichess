@@ -5,6 +5,8 @@ import { useTranslation } from '../lib/i18n';
 import BotAvatar from './BotAvatar';
 import InlineCapturedSummary from './InlineCapturedSummary';
 
+const EMPTY_CAPTURED_PIECES: Array<{ type: PieceType; count: number; capturedColor: PieceColor }> = [];
+
 interface ClockProps {
   time: number;
   isActive: boolean;
@@ -59,29 +61,33 @@ export default function Clock({
   status,
   latencyMs = null,
   subtitle = null,
-  capturedPieces = [],
+  capturedPieces = EMPTY_CAPTURED_PIECES,
   materialDelta = null,
   showTimer = true,
 }: ClockProps) {
   const { t } = useTranslation();
-  const [displayTime, setDisplayTime] = useState(time);
-  const [avatarFailed, setAvatarFailed] = useState(false);
-
-  useEffect(() => {
-    setDisplayTime(time);
-  }, [time]);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [avatarUrl]);
+  const [sync, setSync] = useState(() => ({ time, syncedAt: Date.now() }));
+  const [prevTime, setPrevTime] = useState(time);
+  if (prevTime !== time) {
+    setPrevTime(time);
+    setSync({ time, syncedAt: Date.now() });
+  }
+  const [tick, setTick] = useState(0);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const avatarFailed = failedAvatarUrl === (avatarUrl ?? null);
 
   useEffect(() => {
     if (!isActive) return;
     const interval = setInterval(() => {
-      setDisplayTime(prev => Math.max(0, prev - 100));
+      setTick((current) => current + 1);
     }, 100);
     return () => clearInterval(interval);
   }, [isActive]);
+
+  void tick;
+  const displayTime = isActive
+    ? Math.max(0, sync.time - (Date.now() - sync.syncedAt))
+    : time;
 
   const isLow = displayTime < 30000;
   const isCritical = displayTime < 10000;
@@ -129,7 +135,7 @@ export default function Clock({
   return (
     <div className={`
       w-full rounded-2xl border px-3.5 py-3 sm:px-4 lg:px-2.5
-      transition-all duration-200
+      transition-[background-color,box-shadow,color] duration-200
       ${showTimer ? 'lg:py-1.5' : 'py-2.5 lg:py-2'}
       ${isActive
         ? isCritical
@@ -155,7 +161,7 @@ export default function Clock({
               ${isActive ? 'border-primary/35 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
             `}>
               {avatarUrl && !avatarFailed ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setFailedAvatarUrl(avatarUrl)} />
               ) : (
                 <div className={`
                   flex h-full w-full items-center justify-center text-sm font-semibold lg:text-[11px]

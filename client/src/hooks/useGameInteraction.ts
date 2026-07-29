@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Position, PieceColor, ClientGameState } from '@shared/types';
 import { getLegalMoves } from '@shared/engine';
 import { socket } from '../lib/socket';
@@ -40,9 +40,17 @@ export function useGameInteraction(options: UseGameInteractionOptions): UseGameI
   const playerColorRef = useRef(playerColor);
   const legalMovesRef = useRef(legalMoves);
 
-  gameStateRef.current = gameState;
-  playerColorRef.current = playerColor;
-  legalMovesRef.current = legalMoves;
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    playerColorRef.current = playerColor;
+  }, [playerColor]);
+
+  useEffect(() => {
+    legalMovesRef.current = legalMoves;
+  }, [legalMoves]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     const state = gameStateRef.current;

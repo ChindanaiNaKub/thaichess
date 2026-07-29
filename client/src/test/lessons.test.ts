@@ -9,7 +9,7 @@ import {
   shouldValidateLessonCatalogAtRuntime,
   validateLessonCatalog,
 } from '../lib/lessons';
-import { isLessonUnlocked } from '../lib/lessonProgress';
+import { isLessonUnlocked } from '../lib/lessonUnlock';
 
 function createLessonState(board: Board, turn: PieceColor = 'white'): GameState {
   return {

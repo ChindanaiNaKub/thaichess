@@ -1,5 +1,5 @@
 import type { GameMode, PieceColor, ResultReason } from '@shared/types';
-import { translate } from './i18n';
+import { translate } from './i18nRuntime';
 
 export type TranslationFn = typeof translate;
 

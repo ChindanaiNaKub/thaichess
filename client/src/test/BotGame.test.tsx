@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import BotGame, { getBotRequestTimeoutMs } from '../components/BotGame';
+import BotGame from '../components/BotGame';
+import { getBotRequestTimeoutMs } from '../lib/botRequestTimeout';
 
 const {
   navigateMock,

@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { reportClientError } from '../lib/errorReporting';
-import { translate } from '../lib/i18n';
+import { translate } from '../lib/i18nRuntime';
 
 interface Props {
   children: ReactNode;
@@ -42,7 +42,7 @@ export class BoardErrorBoundary extends Component<Props, State> {
             <div className="text-4xl mb-3 opacity-50">♞</div>
             <p className="text-text-dim text-sm mb-4">{translate('error.board_display')}</p>
             <div className="flex gap-2 justify-center">
-              <button
+              <button type="button"
                 onClick={() => {
                   this.setState({ hasError: false });
                   this.props.onRetry?.();

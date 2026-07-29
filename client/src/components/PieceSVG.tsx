@@ -91,6 +91,39 @@ function getTraditionalAsset(type: PieceType, palette: TraditionalPiecePalette, 
   };
 }
 
+function sanitizeSvgMarkup(markup: string): string {
+  if (typeof DOMParser === 'undefined') {
+    return markup
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/javascript:/gi, '');
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(
+    `<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`,
+    'image/svg+xml',
+  );
+  const root = doc.documentElement;
+
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    if (el.tagName.toLowerCase() === 'script') {
+      el.remove();
+      continue;
+    }
+
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith('on') || value.startsWith('javascript:')) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+
+  return root.innerHTML;
+}
+
 function renderTraditional(type: PieceType, uid: string, palette: TraditionalPiecePalette) {
   const fillId = `traditional-fill-${uid}`;
   const filterId = `traditional-shadow-${uid}`;
@@ -111,12 +144,13 @@ function renderTraditional(type: PieceType, uid: string, palette: TraditionalPie
         </filter>
       </defs>
     ),
-    content: <g filter={`url(#${filterId})`} dangerouslySetInnerHTML={{ __html: asset.markup }} />,
+    content: <g filter={`url(#${filterId})`} dangerouslySetInnerHTML={{ __html: sanitizeSvgMarkup(asset.markup) }} />,
   };
 }
 
 const PieceSVG = memo(function PieceSVG({ type, color, size, className, pieceThemeId }: PieceSVGProps) {
   const { pieceThemeId: activeThemeFromContext } = useBoardAppearance();
+  const traditionalId = useId().replace(/[:]/g, '');
   const activePieceTheme = pieceThemeId ?? activeThemeFromContext;
   const pieceTheme = getPieceThemeById(activePieceTheme);
 
@@ -137,7 +171,6 @@ const PieceSVG = memo(function PieceSVG({ type, color, size, className, pieceThe
     );
   }
 
-  const traditionalId = useId().replace(/[:]/g, '');
   const traditionalAsset = renderTraditional(type, traditionalId, pieceTheme.colors![color]);
   const content = traditionalAsset.content;
 

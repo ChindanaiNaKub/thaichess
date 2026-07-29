@@ -16,17 +16,21 @@ function getMoveColor(index: number): PieceColor {
 }
 
 export function getCapturedSummary(moves: Move[], captorColor: PieceColor) {
-  const capturedPieces = moves
-    .filter((move, index) => move.captured && getMoveColor(index) === captorColor)
-    .map((move) => move.captured!.type);
+  const capturedPieces: PieceType[] = [];
+  for (let index = 0; index < moves.length; index++) {
+    const move = moves[index];
+    if (move.captured && getMoveColor(index) === captorColor) {
+      capturedPieces.push(move.captured.type);
+    }
+  }
   const capturedColor: PieceColor = captorColor === 'white' ? 'black' : 'white';
-  const pieces = CAPTURE_DISPLAY_ORDER
-    .map((type) => ({
-      type,
-      count: capturedPieces.filter((piece) => piece === type).length,
-      capturedColor,
-    }))
-    .filter((entry) => entry.count > 0);
+  const pieces: Array<{ type: PieceType; count: number; capturedColor: PieceColor }> = [];
+  for (const type of CAPTURE_DISPLAY_ORDER) {
+    const count = capturedPieces.filter((piece) => piece === type).length;
+    if (count > 0) {
+      pieces.push({ type, count, capturedColor });
+    }
+  }
   const material = capturedPieces.reduce((sum, piece) => sum + CAPTURE_VALUES[piece], 0);
 
   return {

@@ -18,9 +18,9 @@ function BotCard({ persona, isSelected, onSelect, t, getBotTranslation, index = 
   const staggerClass = index < 10 ? `stagger-${index + 1}` : '';
 
   return (
-    <button
+    <button type="button"
       onClick={onSelect}
-      className={`group relative rounded-2xl border p-3 text-left transition-all duration-200 animate-card-entrance ${staggerClass} ${
+      className={`group relative rounded-2xl border p-3 text-left transition-[border-color,box-shadow,transform] duration-200 animate-card-entrance ${staggerClass} ${
         isSelected
           ? 'border-primary/40 bg-primary/12 shadow-[0_12px_28px_rgba(92,160,26,0.22)] animate-selection-pulse'
           : 'border-surface-hover bg-surface-alt/85 hover:bg-surface-hover hover:-translate-y-1 hover:shadow-lg'
@@ -32,7 +32,7 @@ function BotCard({ persona, isSelected, onSelect, t, getBotTranslation, index = 
       )}
 
       <div className="relative flex items-start gap-3">
-        <div className={`shrink-0 transition-all duration-300 ${isSelected ? 'animate-wake-up' : 'group-hover:scale-105'}`}>
+        <div className={`shrink-0 transition-transform duration-300 ${isSelected ? 'animate-wake-up' : 'group-hover:scale-105'}`}>
           <BotAvatar 
             avatar={persona.avatar} 
             size={60} 

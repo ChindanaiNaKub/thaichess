@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -35,8 +35,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const value = useMemo<ToastContextValue>(() => ({
+    toasts,
+    showToast,
+    dismissToast,
+  }), [toasts, showToast, dismissToast]);
+
   return (
-    <ToastContext.Provider value={{ toasts, showToast, dismissToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </ToastContext.Provider>
@@ -83,7 +89,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     >
       <span className="font-bold">{icon}</span>
       <span className="text-sm font-medium">{toast.message}</span>
-      <button
+      <button type="button"
         onClick={() => onDismiss(toast.id)}
         className="ml-auto text-white/80 hover:text-white"
         aria-label="Dismiss"

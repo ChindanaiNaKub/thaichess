@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
+import { useState } from 'react';
 import type { BotAvatarDefinition } from '@shared/botPersonas';
 
 interface BotAvatarProps {
@@ -8,11 +9,8 @@ interface BotAvatarProps {
 }
 
 export default function BotAvatar({ avatar, size = 72, className = '' }: BotAvatarProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [avatar.asset]);
+  const [failedAsset, setFailedAsset] = useState<string | null>(null);
+  const imageFailed = failedAsset === (avatar.asset ?? null);
 
   const frameStyle: CSSProperties = {
     width: size,
@@ -33,7 +31,7 @@ export default function BotAvatar({ avatar, size = 72, className = '' }: BotAvat
           src={avatar.asset ?? undefined}
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
-          onError={() => setImageFailed(true)}
+          onError={() => setFailedAsset(avatar.asset ?? null)}
         />
       )}
       <div
