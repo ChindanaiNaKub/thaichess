@@ -20,7 +20,9 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@better-auth/core": "^1.6.25",
     "@better-auth/drizzle-adapter": "^1.6.25",
+    "@better-auth/utils": "0.4.2",
     "@libsql/client": "^0.17.2",
     "better-auth": "^1.6.25",
     "cors": "^2.8.5",
