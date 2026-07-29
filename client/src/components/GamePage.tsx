@@ -1,15 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, ClientGameState, Move, PlayerPresence, RatingChangeSummary, TimeControl } from '@shared/types';
-import { createInitialBoard, getBoardAtMove, getLastMoveForView, getLegalMoves } from '@shared/engine';
+import { createInitialBoard, getLastMoveForView, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound, playGameStartSound } from '../lib/sounds';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
 import { useAuth } from '../lib/auth';
 import { liveGameRoute, routes, savedGameAnalysisRoute, spectatorGameRoute } from '../lib/routes';
+import {
+  getCheckSquareForView,
+  getDisplayBoardForView,
+  getVisibleMovesForView,
+  includesPosition,
+  isViewingHistoryIndex,
+} from '../lib/boardSession';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
 import { useGameInteraction } from '../hooks/useGameInteraction';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
@@ -427,7 +435,7 @@ function useGamePageScreen() {
     const piece = gameState.board[premove.from.row][premove.from.col];
     if (piece && piece.color === playerColor) {
       const legal = getLegalMoves(gameState.board, premove.from);
-      if (legal.some(m => m.row === premove.to.row && m.col === premove.to.col)) {
+      if (includesPosition(legal, premove.to)) {
         socket.emit('make_move', { from: premove.from, to: premove.to });
       }
     }
@@ -436,30 +444,17 @@ function useGamePageScreen() {
   }, [isMyTurn, premove, gameState, playerColor, cancelPremove, clearSelection]);
 
   // Keyboard navigation for move history
-  useEffect(() => {
-    if (!gameState || gameState.moveHistory.length === 0) return;
+  const boardNavHandlers = useMemo(() => ({
+    onBack: () => review.stepBackward(),
+    onForward: () => review.stepForward(),
+    onStart: () => review.jumpToStart(),
+    onEnd: () => review.jumpToEnd(),
+  }), [review]);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!gameState.gameOver) return;
-
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        review.stepBackward();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        review.stepForward();
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        review.jumpToStart();
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        review.jumpToEnd();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, review]);
+  useBoardNavKeyboard({
+    enabled: !!gameState?.gameOver && gameState.moveHistory.length > 0,
+    handlers: boardNavHandlers,
+  });
 
   const handleResign = () => {
     if (window.confirm(t('game.resign_confirm'))) {
@@ -510,29 +505,9 @@ function useGamePageScreen() {
     return getLastMoveForView(gameState, viewMoveIndex);
   };
 
-  const getCheckSquare = (): Position | null => {
-    if (!gameState?.isCheck) return null;
-    if (viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1) return null;
-    const board = gameState.board;
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece && piece.type === 'K' && piece.color === gameState.turn) {
-          return { row, col };
-        }
-      }
-    }
-    return null;
-  };
+  const getCheckSquare = (): Position | null => getCheckSquareForView(gameState, viewMoveIndex);
 
-  const getDisplayBoard = () => {
-    if (!gameState) return createInitialBoard();
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.board;
-    }
-    if (viewMoveIndex === -1) return createInitialBoard();
-    return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
-  };
+  const getDisplayBoard = () => getDisplayBoardForView(gameState, viewMoveIndex);
 
   const handleMoveClick = useCallback((index: number) => {
     if (!gameState) return;
@@ -540,14 +515,7 @@ function useGamePageScreen() {
     setViewMoveIndex(index);
   }, [gameState, viewMoveIndex]);
 
-  const getVisibleMoves = () => {
-    if (!gameState) return [];
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.moveHistory;
-    }
-    if (viewMoveIndex < 0) return [];
-    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
-  };
+  const getVisibleMoves = () => getVisibleMovesForView(gameState?.moveHistory, viewMoveIndex);
 
   // Waiting room
   if (gameState && gameState.status === 'waiting') {
@@ -672,7 +640,7 @@ function useGamePageScreen() {
   const canReportOpponent = Boolean(user && playerColor && gameState.gameOver && gameState.rated && gameId);
   const isViewingHistory = reviewActive
     ? reviewIsViewingHistory
-    : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+    : isViewingHistoryIndex(viewMoveIndex, gameState.moveHistory.length);
   const whitePlayerName = gameState.whitePlayerName?.trim() || '';
   const blackPlayerName = gameState.blackPlayerName?.trim() || '';
   const whiteRating = gameState.whiteRating

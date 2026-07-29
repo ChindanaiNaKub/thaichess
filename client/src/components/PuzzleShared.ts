@@ -2,6 +2,7 @@ import type { Position, Move, GameState } from '@shared/types';
 import { makeMove } from '@shared/engine';
 import { PUZZLES, type Puzzle } from '@shared/puzzlesRuntime';
 import { createGameStateFromPuzzle } from '@shared/puzzleSolver';
+import { findKingInCheckSquare } from '../lib/boardSession';
 
 export type PuzzleStatus = 'playing' | 'success' | 'failed';
 export type PuzzleListFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
@@ -18,16 +19,8 @@ export function getLastMove(state: GameState | null): Move | null {
 }
 
 export function getCheckSquare(state: GameState | null): Position | null {
-  if (!state?.isCheck) return null;
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const piece = state.board[row][col];
-      if (piece && piece.type === 'K' && piece.color === state.turn) {
-        return { row, col };
-      }
-    }
-  }
-  return null;
+  if (!state) return null;
+  return findKingInCheckSquare(state);
 }
 
 export type StreakMilestoneTone = 'improving' | 'harder' | null;

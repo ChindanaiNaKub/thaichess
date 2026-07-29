@@ -22,6 +22,7 @@ import { requestBrowserPositionAnalysis } from '../lib/browserEngineAnalysis';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
 import { resolveAnalysisRouteMode } from '../lib/analysisMode';
+import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
@@ -390,30 +391,20 @@ function useAnalysisPageScreen() {
   }, [gameData?.moves.length, review]);
 
   // Keyboard navigation
-  useEffect(() => {
-    if (mode !== 'quick' && !gameData) return;
+  const boardNavHandlers = useMemo(() => ({
+    onBack: navigateBackward,
+    onForward: navigateForward,
+    onStart: navigateToStart,
+    onEnd: navigateToEnd,
+  }), [navigateBackward, navigateForward, navigateToEnd, navigateToStart]);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditableKeyboardTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return;
-
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        navigateBackward();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        navigateForward();
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        navigateToStart();
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        navigateToEnd();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [gameData, mode, navigateBackward, navigateForward, navigateToEnd, navigateToStart]);
+  useBoardNavKeyboard({
+    enabled: mode === 'quick' || !!gameData,
+    handlers: boardNavHandlers,
+    capture: true,
+    skipEditable: true,
+    skipModified: true,
+  });
 
   // Auto-scroll active move within the move list container only (never scroll the page).
   useLayoutEffect(() => {
@@ -1403,15 +1394,6 @@ function readCachedAnalysis(cacheKey: string): GameAnalysis | null {
 
 function writeCachedAnalysis(cacheKey: string, analysis: GameAnalysis): void {
   writeCachedGameAnalysis(cacheKey, analysis);
-}
-
-function isEditableKeyboardTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-
-  if (target.isContentEditable) return true;
-
-  const tagName = target.tagName.toLowerCase();
-  return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────── */

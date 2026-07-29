@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BOT_PERSONAS, DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById } from '@shared/botPersonas';
 import { getBotPublicStrengthLabel } from '@shared/botEngine';
@@ -6,11 +6,24 @@ import { formatBotEstimatedEloRange } from '@shared/botEstimatedElo';
 import { getBotDialoguePack } from '@shared/botDialogueCatalog';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
-  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove, getLastMoveForView,
+  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getLastMoveForView,
   startCounting, stopCounting, hasAnyLegalMoves, isInCheck,
 } from '@shared/engine';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
+import {
+  emptyBoardSelection,
+  getCheckSquareForView,
+  getDisplayBoardForView,
+  getVisibleMovesForView,
+  includesPosition,
+  isViewingHistoryIndex,
+  samePosition,
+  scrubViewMoveIndex,
+  selectBoardSquare,
+  viewMoveIndexFromHistoryClick,
+} from '../lib/boardSession';
 import { requestBrowserEngineBotMove } from '../lib/browserEngineBot';
+import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import {
@@ -620,49 +633,41 @@ function useBotGameScreen() {
   }, [gameState.gameOver, gameState.moveHistory.length, viewMoveIndex]);
 
   // Keyboard navigation for move history
-  useEffect(() => {
-    if (gameState.moveHistory.length === 0) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
+  const boardNavHandlers = useMemo(() => ({
+    onBack: () => {
       if (gameState.gameOver) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-          e.preventDefault();
-          review.stepBackward();
-        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          review.stepForward();
-        } else if (e.key === 'Home') {
-          e.preventDefault();
-          review.jumpToStart();
-        } else if (e.key === 'End') {
-          e.preventDefault();
-          review.jumpToEnd();
-        }
+        review.stepBackward();
         return;
       }
-
-      const moveCount = gameState.moveHistory.length;
-      const current = viewMoveIndex ?? moveCount - 1;
-
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setViewMoveIndex(Math.max(-1, current - 1));
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(moveCount - 1, current + 1);
-        setViewMoveIndex(next >= moveCount - 1 ? null : next);
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        setViewMoveIndex(-1);
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        setViewMoveIndex(null);
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'back'));
+    },
+    onForward: () => {
+      if (gameState.gameOver) {
+        review.stepForward();
+        return;
       }
-    };
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'forward'));
+    },
+    onStart: () => {
+      if (gameState.gameOver) {
+        review.jumpToStart();
+        return;
+      }
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'start'));
+    },
+    onEnd: () => {
+      if (gameState.gameOver) {
+        review.jumpToEnd();
+        return;
+      }
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'end'));
+    },
+  }), [gameState.gameOver, gameState.moveHistory.length, review, viewMoveIndex]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, review, viewMoveIndex]);
+  useBoardNavKeyboard({
+    enabled: gameState.moveHistory.length > 0,
+    handlers: boardNavHandlers,
+  });
 
   useEffect(() => {
     if (!gameStarted) {
@@ -736,36 +741,39 @@ function useBotGameScreen() {
     // Pre-move logic when bot is thinking
     if (!isPlayerTurn || botThinking) {
       if (selectedSquare) {
-        if (pos.row !== selectedSquare.row || pos.col !== selectedSquare.col) {
+        if (!samePosition(pos, selectedSquare)) {
           const fromPiece = gameState.board[selectedSquare.row][selectedSquare.col];
           if (fromPiece && fromPiece.color === playerColor) {
             setPremove({ from: selectedSquare, to: pos });
-            setSelectedSquare(null);
-            setLegalMoves([]);
+            const cleared = emptyBoardSelection();
+            setSelectedSquare(cleared.selectedSquare);
+            setLegalMoves(cleared.legalMoves);
             return;
           }
         }
       }
 
       if (piece && piece.color === playerColor) {
-        setSelectedSquare(pos);
-        setLegalMoves(getLegalMoves(gameState.board, pos));
+        const next = selectBoardSquare(gameState.board, pos);
+        setSelectedSquare(next.selectedSquare);
+        setLegalMoves(next.legalMoves);
         setPremove(null);
       } else {
-        setSelectedSquare(null);
-        setLegalMoves([]);
+        const cleared = emptyBoardSelection();
+        setSelectedSquare(cleared.selectedSquare);
+        setLegalMoves(cleared.legalMoves);
       }
       return;
     }
 
     if (selectedSquare) {
-      const isLegal = legalMoves.some(m => m.row === pos.row && m.col === pos.col);
-      if (isLegal) {
+      if (includesPosition(legalMoves, pos)) {
         const newState = makeMove(gameState, selectedSquare, pos);
         if (newState) {
           setGameState(newState);
-          setSelectedSquare(null);
-          setLegalMoves([]);
+          const cleared = emptyBoardSelection();
+          setSelectedSquare(cleared.selectedSquare);
+          setLegalMoves(cleared.legalMoves);
           setArrows([]);
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
@@ -782,11 +790,13 @@ function useBotGameScreen() {
     }
 
     if (piece && piece.color === playerColor) {
-      setSelectedSquare(pos);
-      setLegalMoves(getLegalMoves(gameState.board, pos));
+      const next = selectBoardSquare(gameState.board, pos);
+      setSelectedSquare(next.selectedSquare);
+      setLegalMoves(next.legalMoves);
     } else {
-      setSelectedSquare(null);
-      setLegalMoves([]);
+      const cleared = emptyBoardSelection();
+      setSelectedSquare(cleared.selectedSquare);
+      setLegalMoves(cleared.legalMoves);
     }
   }, [gameState, selectedSquare, legalMoves, isPlayerTurn, botThinking, playerColor]);
 
@@ -796,8 +806,9 @@ function useBotGameScreen() {
       const piece = gameState.board[from.row][from.col];
       if (piece && piece.color === playerColor) {
         setPremove({ from, to });
-        setSelectedSquare(null);
-        setLegalMoves([]);
+        const cleared = emptyBoardSelection();
+        setSelectedSquare(cleared.selectedSquare);
+        setLegalMoves(cleared.legalMoves);
         return;
       }
     }
@@ -806,12 +817,13 @@ function useBotGameScreen() {
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== playerColor) return;
     const legal = getLegalMoves(gameState.board, from);
-    if (legal.some(m => m.row === to.row && m.col === to.col)) {
+    if (includesPosition(legal, to)) {
       const newState = makeMove(gameState, from, to);
       if (newState) {
         setGameState(newState);
-        setSelectedSquare(null);
-        setLegalMoves([]);
+        const cleared = emptyBoardSelection();
+        setSelectedSquare(cleared.selectedSquare);
+        setLegalMoves(cleared.legalMoves);
         setArrows([]);
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
@@ -914,44 +926,15 @@ function useBotGameScreen() {
     return getLastMoveForView(gameState, viewMoveIndex);
   };
 
-  const getCheckSquare = (): Position | null => {
-    if (!gameState.isCheck) return null;
-    if (viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1) return null;
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = gameState.board[row][col];
-        if (piece && piece.type === 'K' && piece.color === gameState.turn) {
-          return { row, col };
-        }
-      }
-    }
-    return null;
-  };
+  const getCheckSquare = (): Position | null => getCheckSquareForView(gameState, viewMoveIndex);
 
-  const getDisplayBoard = () => {
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.board;
-    }
-    if (viewMoveIndex === -1) return createInitialBoard();
-    return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
-  };
+  const getDisplayBoard = () => getDisplayBoardForView(gameState, viewMoveIndex);
 
   const handleMoveClick = useCallback((index: number) => {
-    const latestIndex = gameState.moveHistory.length - 1;
-    if (index === latestIndex) {
-      setViewMoveIndex(null);
-      return;
-    }
-    setViewMoveIndex(index);
+    setViewMoveIndex(viewMoveIndexFromHistoryClick(index, gameState.moveHistory.length));
   }, [gameState.moveHistory.length]);
 
-  const getVisibleMoves = () => {
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.moveHistory;
-    }
-    if (viewMoveIndex < 0) return [];
-    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
-  };
+  const getVisibleMoves = () => getVisibleMovesForView(gameState.moveHistory, viewMoveIndex);
 
   const reviewActive = gameState.gameOver;
   const reviewMode = review.mode;
@@ -959,7 +942,7 @@ function useBotGameScreen() {
     || review.selectedMainLineMoveIndex !== gameState.moveHistory.length - 1;
   const isViewingHistory = reviewActive
     ? reviewIsViewingHistory
-    : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+    : isViewingHistoryIndex(viewMoveIndex, gameState.moveHistory.length);
   const difficultyLabel = getBotPublicStrengthLabel(selectedBot.engine.level);
   const levelLabel = t('bot.level_short', { level: botLevel });
   const estimatedEloLabel = t('bot.estimated_elo_range', { range: formatBotEstimatedEloRange(botLevel) });
