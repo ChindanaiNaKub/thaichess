@@ -17,7 +17,8 @@
     "test:e2e": "npm run test:e2e --workspace=client",
     "test:server": "npm run test --workspace=server",
     "validate:puzzles": "npm run validate:puzzles --workspace=server",
-    "start": "npm run start --workspace=server"
+    "start": "npm run start --workspace=server",
+    "doctor": "npx react-doctor@latest"
   },
   "workspaces": [
     "server",

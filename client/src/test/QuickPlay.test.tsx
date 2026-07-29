@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import QuickPlay from '../components/QuickPlay';
-import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
+import { I18nProvider } from '../lib/i18n';
+import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 import type { AuthUser } from '../lib/auth';
 
 const {

@@ -83,18 +83,21 @@ export default function MobileBottomSheet({
     >
       <div className="bg-surface/95 backdrop-blur-lg rounded-t-3xl border-t border-x border-surface-hover shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
         {/* Drag Handle */}
-        <div 
-          className="flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+        <button
+          type="button"
+          className="flex w-full flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing bg-transparent border-0"
           onClick={() => setIsExpanded(!isExpanded)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
         >
           <div className="w-12 h-1.5 bg-surface-hover rounded-full mb-2" />
           <div className="text-xs text-text-dim font-medium uppercase tracking-wider">
             {isExpanded ? '▼ Tap to collapse' : '▲ Swipe up for details'}
           </div>
-        </div>
+        </button>
 
         {/* Always Visible Content */}
         <div className="px-5 pb-4">
@@ -122,12 +125,12 @@ export default function MobileBottomSheet({
           </p>
 
           {/* Side Selection */}
-          <div className="mb-4">
-            <label className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</label>
+          <fieldset className="mb-4 min-w-0 border-0 p-0">
+            <legend className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</legend>
             <div className="grid grid-cols-3 gap-3">
-              <button
+              <button type="button"
                 onClick={() => onSideChange('white')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-all flex flex-col items-center gap-2 min-h-[80px] ${
+                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
                   sideChoice === 'white'
                     ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                     : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -136,9 +139,9 @@ export default function MobileBottomSheet({
                 <PieceSVG type="K" color="white" size={32} />
                 <span className="text-sm">{t('common.white')}</span>
               </button>
-              <button
+              <button type="button"
                 onClick={() => onSideChange('random')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-all flex flex-col items-center gap-2 min-h-[80px] ${
+                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
                   sideChoice === 'random'
                     ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                     : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -147,9 +150,9 @@ export default function MobileBottomSheet({
                 <span className="text-2xl">🎲</span>
                 <span className="text-sm">{t('bot.random')}</span>
               </button>
-              <button
+              <button type="button"
                 onClick={() => onSideChange('black')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-all flex flex-col items-center gap-2 min-h-[80px] ${
+                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
                   sideChoice === 'black'
                     ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
                     : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
@@ -159,13 +162,13 @@ export default function MobileBottomSheet({
                 <span className="text-sm">{t('common.black')}</span>
               </button>
             </div>
-          </div>
+          </fieldset>
 
           {/* PLAY NOW Button */}
-          <button
+          <button type="button"
             onClick={onPlay}
             data-testid="start-game-button"
-            className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-white shadow-[0_8px_24px_rgba(92,160,26,0.35)] transition-all hover:bg-primary-light hover:shadow-[0_12px_32px_rgba(92,160,26,0.45)] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[1px] flex items-center justify-center gap-2 animate-play-pulse"
+            className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-white shadow-[0_8px_24px_rgba(92,160,26,0.35)] transition-[color,background-color,box-shadow,transform] hover:bg-primary-light hover:shadow-[0_12px_32px_rgba(92,160,26,0.45)] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[1px] flex items-center justify-center gap-2 animate-play-pulse"
           >
             <span>▶</span>
             <span>{t('bot.start')}</span>
@@ -179,7 +182,7 @@ export default function MobileBottomSheet({
 
         {/* Expandable Content */}
         <div 
-          className={`overflow-hidden transition-all duration-300 ${
+          className={`overflow-hidden transition-[max-height,opacity] duration-300 ${
             isExpanded ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
@@ -226,7 +229,7 @@ export default function MobileBottomSheet({
             </div>
 
             {/* Back Button */}
-            <button
+            <button type="button"
               onClick={onBack}
               className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
             >

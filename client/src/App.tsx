@@ -81,13 +81,9 @@ function PerfRouteLogger() {
 }
 
 function RandomPuzzleRedirect() {
-  const [targetId, setTargetId] = useState<number | null>(null);
-
-  useEffect(() => {
-    setTargetId(pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1);
-  }, []);
-
-  if (targetId === null) return <RouteFallback />;
+  const [targetId] = useState(
+    () => pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1,
+  );
   return <Navigate to={`${puzzleRoute(String(targetId))}?mode=random`} replace />;
 }
 

@@ -12,10 +12,12 @@ interface PostGameReviewPanelProps {
   selectedMainLineMoveIndex: number;
   analysisRootMoveIndex: number | null;
   analysisLine: Move[];
-  canEnterAnalysis: boolean;
-  canResetAnalysis: boolean;
-  canStepBackward: boolean;
-  canStepForward: boolean;
+  controls: {
+    enterAnalysis: boolean;
+    resetAnalysis: boolean;
+    stepBackward: boolean;
+    stepForward: boolean;
+  };
   onEnterAnalysis: () => void;
   onReturnToMainLine: () => void;
   onResetAnalysis: () => void;
@@ -48,10 +50,7 @@ export default function PostGameReviewPanel({
   selectedMainLineMoveIndex,
   analysisRootMoveIndex,
   analysisLine,
-  canEnterAnalysis,
-  canResetAnalysis,
-  canStepBackward,
-  canStepForward,
+  controls,
   onEnterAnalysis,
   onReturnToMainLine,
   onResetAnalysis,
@@ -100,24 +99,24 @@ export default function PostGameReviewPanel({
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {mode === 'analysis' ? (
           <>
-            <button
+            <button type="button"
               onClick={onReturnToMainLine}
               className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
             >
               {reviewT('review.return_to_game')}
             </button>
-            <button
+            <button type="button"
               onClick={onResetAnalysis}
-              disabled={!canResetAnalysis}
+              disabled={!controls.resetAnalysis}
               className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
             >
               {reviewT('review.reset_variation')}
             </button>
           </>
         ) : (
-          <button
+          <button type="button"
             onClick={onEnterAnalysis}
-            disabled={!canEnterAnalysis}
+            disabled={!controls.enterAnalysis}
             className="sm:col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-50"
           >
             {reviewT('review.enter_analysis')}
@@ -131,30 +130,30 @@ export default function PostGameReviewPanel({
             {reviewT('review.branch_navigation')}
           </div>
           <div className="mt-2 flex items-center justify-center gap-1">
-            <button
+            <button type="button"
               onClick={onJumpToStart}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
               title={reviewT('review.branch_root')}
             >
               ⏮
             </button>
-            <button
+            <button type="button"
               onClick={onStepBackward}
-              disabled={!canStepBackward}
+              disabled={!controls.stepBackward}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
               title={reviewT('review.branch_prev')}
             >
               ◀
             </button>
-            <button
+            <button type="button"
               onClick={onStepForward}
-              disabled={!canStepForward}
+              disabled={!controls.stepForward}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
               title={reviewT('review.branch_next')}
             >
               ▶
             </button>
-            <button
+            <button type="button"
               onClick={onJumpToEnd}
               className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
               title={reviewT('review.branch_leaf')}

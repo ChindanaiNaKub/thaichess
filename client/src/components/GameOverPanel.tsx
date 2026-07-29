@@ -109,7 +109,7 @@ export default function GameOverPanel({
             </div>
           )}
           {onAnalyze && (
-            <button
+            <button type="button"
               onClick={onAnalyze}
               data-testid="analyze-game-button"
               className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-semibold text-xs rounded-lg border border-blue-600/30 transition-colors"
@@ -118,7 +118,7 @@ export default function GameOverPanel({
             </button>
           )}
           {onReport && (
-            <button
+            <button type="button"
               onClick={onReport}
               disabled={reportDisabled}
               className="w-full py-2 px-3 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 disabled:cursor-not-allowed text-amber-200 font-semibold text-xs rounded-lg border border-amber-500/30 transition-colors"
@@ -132,14 +132,14 @@ export default function GameOverPanel({
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <button
+            <button type="button"
               onClick={onRematch}
               disabled={rematchDisabled}
               className="w-full py-2 px-2 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg transition-colors"
             >
               {rematchLabel ?? t('gameover.rematch')}
             </button>
-            <button
+            <button type="button"
               onClick={onNewGame}
               className="w-full py-2 px-2 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold text-xs rounded-lg transition-colors"
             >

@@ -39,6 +39,10 @@ function createLocalGameId() {
 }
 
 export default function LocalGame() {
+  return useLocalGameScreen();
+}
+
+function useLocalGameScreen() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const reviewT = useReviewCopy();
@@ -50,7 +54,7 @@ export default function LocalGame() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
-  const [currentGameId, setCurrentGameId] = useState<string | null>(null);
+  const [currentGameId, setCurrentGameId] = useState(createLocalGameId);
   const moveCountRef = useRef(gameState.moveHistory.length);
   const review = usePostGameReview({
     enabled: gameState.gameOver,
@@ -72,7 +76,7 @@ export default function LocalGame() {
 
   // Helper to save local game and navigate to analysis
   const handleAnalyzeGame = useCallback(() => {
-    if (!currentGameId || gameState.moveHistory.length === 0) {
+    if (gameState.moveHistory.length === 0) {
       navigate('/analysis');
       return;
     }
@@ -105,13 +109,6 @@ export default function LocalGame() {
       },
     });
   }, [currentGameId, gameState, gameOverInfo, navigate, saveLocalGameMutation]);
-
-  // Initialize game ID when component mounts
-  useEffect(() => {
-    if (!currentGameId) {
-      setCurrentGameId(createLocalGameId());
-    }
-  }, []);
 
   useEffect(() => {
     if (gameState.moveHistory.length === 0) return;
@@ -162,6 +159,13 @@ export default function LocalGame() {
   }, [gameOverInfo]);
 
   useEffect(() => {
+    if (!gameState.gameOver || gameState.resultReason !== 'timeout') return;
+    if (gameOverInfo?.reason === 'timeout') return;
+    setGameOverInfo({ reason: 'timeout', winner: gameState.winner });
+    playGameOverSound();
+  }, [gameOverInfo, gameState.gameOver, gameState.resultReason, gameState.winner]);
+
+  useEffect(() => {
     const previousMoveCount = moveCountRef.current;
     const currentMoveCount = gameState.moveHistory.length;
 
@@ -176,41 +180,20 @@ export default function LocalGame() {
     if (gameState.gameOver) return;
 
     const interval = setInterval(() => {
-      let timeoutWinner: PieceColor | null = null;
-
       setGameState((prev) => {
         if (prev.gameOver) return prev;
 
         const now = Date.now();
-          const elapsed = now - prev.lastMoveTime;
-          if (elapsed <= 0) return prev;
+        const elapsed = now - prev.lastMoveTime;
+        if (elapsed <= 0) return prev;
 
-          if (prev.turn === 'white') {
-            const whiteTime = Math.max(0, prev.whiteTime - elapsed);
-            if (whiteTime === 0) {
-              const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'white');
-              timeoutWinner = timeoutOutcome.winner;
-              return {
-                ...prev,
-                whiteTime: 0,
-                lastMoveTime: now,
-                gameOver: true,
-                isDraw: timeoutOutcome.isDraw,
-                winner: timeoutOutcome.winner,
-                resultReason: 'timeout',
-                counting: null,
-              };
-            }
-            return { ...prev, whiteTime, lastMoveTime: now };
-          }
-
-          const blackTime = Math.max(0, prev.blackTime - elapsed);
-          if (blackTime === 0) {
-            const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'black');
-            timeoutWinner = timeoutOutcome.winner;
+        if (prev.turn === 'white') {
+          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
+          if (whiteTime === 0) {
+            const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'white');
             return {
               ...prev,
-              blackTime: 0,
+              whiteTime: 0,
               lastMoveTime: now,
               gameOver: true,
               isDraw: timeoutOutcome.isDraw,
@@ -219,13 +202,25 @@ export default function LocalGame() {
               counting: null,
             };
           }
-          return { ...prev, blackTime, lastMoveTime: now };
-      });
+          return { ...prev, whiteTime, lastMoveTime: now };
+        }
 
-      if (timeoutWinner) {
-        setGameOverInfo({ reason: 'timeout', winner: timeoutWinner });
-        playGameOverSound();
-      }
+        const blackTime = Math.max(0, prev.blackTime - elapsed);
+        if (blackTime === 0) {
+          const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'black');
+          return {
+            ...prev,
+            blackTime: 0,
+            lastMoveTime: now,
+            gameOver: true,
+            isDraw: timeoutOutcome.isDraw,
+            winner: timeoutOutcome.winner,
+            resultReason: 'timeout',
+            counting: null,
+          };
+        }
+        return { ...prev, blackTime, lastMoveTime: now };
+      });
     }, LOCAL_CLOCK_TICK_MS);
 
     return () => clearInterval(interval);
@@ -300,7 +295,7 @@ export default function LocalGame() {
     setShowGameOverModal(false);
     setArrows([]);
     setViewMoveIndex(null);
-    setCurrentGameId(null);
+    setCurrentGameId(createLocalGameId());
   };
 
   const getLastMove = (): Move | null => {
@@ -458,7 +453,7 @@ export default function LocalGame() {
         showCheckBadge={gameState.isCheck}
         toolbar={
           reviewActive ? null : isViewingHistory ? (
-            <button
+            <button type="button"
               onClick={() => setViewMoveIndex(null)}
               className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
             >
@@ -483,13 +478,13 @@ export default function LocalGame() {
                   {t('local.view_as')}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs('white')}
                     className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'white' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
                   >
                     {t('common.white')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setViewAs('black')}
                     className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'black' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
                   >
@@ -506,7 +501,7 @@ export default function LocalGame() {
                 </div>
                 <div className="text-sm">{countingLabel}</div>
                 {canStartLocalCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStartCounting}
                     className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors"
                   >
@@ -514,7 +509,7 @@ export default function LocalGame() {
                   </button>
                 )}
                 {canStopLocalCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStopCounting}
                     className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                   >
@@ -562,10 +557,12 @@ export default function LocalGame() {
                 selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
                 analysisRootMoveIndex={review.analysisRootMoveIndex}
                 analysisLine={review.analysisLine}
-                canEnterAnalysis={review.canEnterAnalysis}
-                canResetAnalysis={review.canResetAnalysis}
-                canStepBackward={review.canStepBackward}
-                canStepForward={review.canStepForward}
+                controls={{
+                  enterAnalysis: review.canEnterAnalysis,
+                  resetAnalysis: review.canResetAnalysis,
+                  stepBackward: review.canStepBackward,
+                  stepForward: review.canStepForward,
+                }}
                 onEnterAnalysis={review.enterAnalysis}
                 onReturnToMainLine={review.returnToMainLine}
                 onResetAnalysis={review.resetAnalysis}
@@ -593,7 +590,7 @@ export default function LocalGame() {
             )}
 
             {!gameState.gameOver && (
-              <button
+              <button type="button"
                 onClick={() => navigate('/')}
                 className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-xl transition-colors"
               >

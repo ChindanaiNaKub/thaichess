@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createInitialBoard } from '@shared/engine';
 import {
   createEmptyEditorBoard,
-  EditorPieceBank,
   getEditorAnalysisSnapshotKey,
   getEditorPositionStatus,
   getEditorValidationMessage,
-} from '../components/AnalysisEditorTools';
+} from '../components/AnalysisEditorLogic';
+import { EditorPieceBank } from '../components/AnalysisEditorTools';
 
 vi.mock('../components/PieceSVG', () => ({
   default: ({ type, color }: { type: string; color: string }) => (

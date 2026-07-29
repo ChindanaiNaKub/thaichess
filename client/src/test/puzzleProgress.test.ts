@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getPuzzleProgressSummary } from '../lib/puzzleProgress';
+import { getPuzzleProgressSummary } from '../lib/puzzleProgressSummary';
 import { PUZZLES } from '@shared/puzzles';
 
 describe('puzzleProgress summary', () => {

@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import AppearanceSettingsPage from '../components/AppearanceSettingsPage';
-import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
+import { I18nProvider } from '../lib/i18n';
+import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
 vi.mock('../components/Header', () => ({

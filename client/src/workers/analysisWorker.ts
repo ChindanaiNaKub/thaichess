@@ -84,10 +84,13 @@ async function requestGameAnalysisStream(payload: AnalyzeMessage): Promise<GameA
 
       const lines = rawEvent.split('\n');
       const eventName = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || 'message';
-      const data = lines
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).trim())
-        .join('\n');
+      const dataParts: string[] = [];
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          dataParts.push(line.slice(5).trim());
+        }
+      }
+      const data = dataParts.join('\n');
 
       if (data) {
         handleEvent(eventName, data);

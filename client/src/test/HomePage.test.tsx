@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from '../components/HomePage';
-import { I18nProvider, preloadDetectedTranslations } from '../lib/i18n';
+import { I18nProvider } from '../lib/i18n';
+import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 
 const {
@@ -137,10 +138,10 @@ describe('HomePage', () => {
     fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
       if (url.startsWith('/api/stats')) {
-        return { json: async () => ({ totalGames: 42 }) };
+        return { ok: true, json: async () => ({ totalGames: 42 }) };
       }
       if (url.startsWith('/api/live-games')) {
-        return { json: async () => ({ games: [], total: 0, status: 'live' }) };
+        return { ok: true, json: async () => ({ games: [], total: 0, status: 'live' }) };
       }
       throw new Error(`Unhandled fetch for ${url}`);
     });
@@ -356,10 +357,11 @@ describe('HomePage', () => {
     fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
       if (url.startsWith('/api/stats')) {
-        return { json: async () => ({ totalGames: 42 }) };
+        return { ok: true, json: async () => ({ totalGames: 42 }) };
       }
       if (url.startsWith('/api/live-games')) {
         return {
+          ok: true,
           json: async () => ({
             games: [{
               id: 'live-1234',

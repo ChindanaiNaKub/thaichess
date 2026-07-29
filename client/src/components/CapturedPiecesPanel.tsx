@@ -25,18 +25,25 @@ function getMoveColor(index: number): PieceColor {
 }
 
 function getCapturedPieces(moves: Move[], captorColor: PieceColor): PieceType[] {
-  return moves
-    .filter((move, index) => move.captured && getMoveColor(index) === captorColor)
-    .map((move) => move.captured!.type);
+  const captured: PieceType[] = [];
+  for (let index = 0; index < moves.length; index++) {
+    const move = moves[index];
+    if (move.captured && getMoveColor(index) === captorColor) {
+      captured.push(move.captured.type);
+    }
+  }
+  return captured;
 }
 
 function getCounts(pieces: PieceType[]): Array<{ type: PieceType; count: number }> {
-  return DISPLAY_ORDER
-    .map((type) => ({
-      type,
-      count: pieces.filter((piece) => piece === type).length,
-    }))
-    .filter((entry) => entry.count > 0);
+  const counts: Array<{ type: PieceType; count: number }> = [];
+  for (const type of DISPLAY_ORDER) {
+    const count = pieces.filter((piece) => piece === type).length;
+    if (count > 0) {
+      counts.push({ type, count });
+    }
+  }
+  return counts;
 }
 
 function getMaterialWon(pieces: PieceType[]): number {

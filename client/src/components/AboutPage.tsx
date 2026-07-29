@@ -6,10 +6,11 @@ import Header from './Header';
 import PieceSVG from './PieceSVG';
 import { aboutStatsQueryOptions } from '../queries/stats';
 
+const DIFFERENCE_KEYS = ['about.diff1', 'about.diff2', 'about.diff3', 'about.diff4'] as const;
+
 export default function AboutPage() {
   const { t } = useTranslation();
   const { data: stats } = useQuery(aboutStatsQueryOptions());
-  const differenceKeys = ['about.diff1', 'about.diff2', 'about.diff3', 'about.diff4'] as const;
   const pieceCards = [
     { type: 'K' as const, title: t('guide.king'), desc: t('guide.king_move') },
     { type: 'M' as const, title: t('guide.queen'), desc: t('guide.queen_move') },
@@ -106,7 +107,7 @@ export default function AboutPage() {
               </div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {differenceKeys.map((key) => (
+              {DIFFERENCE_KEYS.map((key) => (
                 <div key={key} className="rounded-2xl border border-surface-hover bg-surface-alt px-5 py-5">
                   <p className="text-sm leading-6 text-text">{t(key)}</p>
                 </div>

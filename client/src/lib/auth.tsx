@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { authClient } from './authClient';
 import { scheduleOnUserIntent } from './defer';
 
@@ -102,6 +102,43 @@ function shouldDeferInitialAuthRefresh() {
   return window.location.pathname === '/';
 }
 
+
+async function requestCode(email: string) {
+  const response = await authClient.emailOtp.sendVerificationOtp({
+    email,
+    type: 'sign-in',
+  });
+
+  if (response.error) {
+    throw new Error(response.error.message || 'Failed to send code.');
+  }
+
+  return { ok: true as const };
+}
+
+async function signInWithProvider(provider: 'google' | 'facebook') {
+  const callbackURL = typeof window === 'undefined'
+    ? '/account'
+    : `${window.location.origin}/account`;
+
+  const response = await authClient.signIn.social({
+    provider,
+    callbackURL,
+  });
+
+  if (response.error) {
+    throw new Error(response.error.message || 'Failed to sign in.');
+  }
+}
+
+async function signInWithGoogle() {
+  await signInWithProvider('google');
+}
+
+async function signInWithFacebook() {
+  await signInWithProvider('facebook');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialUser] = useState<AuthUser | null>(() => readCachedUser());
   const deferInitialRefresh = !initialUser && shouldDeferInitialAuthRefresh();
@@ -109,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(!initialUser && !deferInitialRefresh);
   const [authError, setAuthError] = useState<AuthContextValue['authError']>(null);
 
-  async function refreshUser() {
+  const refreshUser = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me', {
         cache: 'no-store',
@@ -123,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError('session_check_failed');
       throw error;
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (deferInitialRefresh) {
@@ -140,22 +177,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser()
       .catch(() => void 0)
       .finally(() => setLoading(false));
-  }, [deferInitialRefresh]);
+  }, [deferInitialRefresh, refreshUser]);
 
-  async function requestCode(email: string) {
-    const response = await authClient.emailOtp.sendVerificationOtp({
-      email,
-      type: 'sign-in',
-    });
-
-    if (response.error) {
-      throw new Error(response.error.message || 'Failed to send code.');
-    }
-
-    return { ok: true as const };
-  }
-
-  async function verifyCode(email: string, code: string) {
+  const verifyCode = useCallback(async (email: string, code: string) => {
     const response = await authClient.signIn.emailOtp({
       email,
       otp: code,
@@ -177,40 +201,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ok: true as const,
       twoFactorRedirect,
     };
-  }
+  }, [refreshUser]);
 
-  async function signInWithProvider(provider: 'google' | 'facebook') {
-    const callbackURL = typeof window === 'undefined'
-      ? '/account'
-      : `${window.location.origin}/account`;
-
-    const response = await authClient.signIn.social({
-      provider,
-      callbackURL,
-    });
-
-    if (response.error) {
-      throw new Error(response.error.message || 'Failed to sign in.');
-    }
-  }
-
-  async function signInWithGoogle() {
-    await signInWithProvider('google');
-  }
-
-  async function signInWithFacebook() {
-    await signInWithProvider('facebook');
-  }
-
-  async function logout() {
+  const logout = useCallback(async () => {
     await authClient.signOut();
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);
     setAuthError(null);
     writeCachedUser(null);
-  }
+  }, []);
 
-  async function updateProfile(username: string) {
+  const updateProfile = useCallback(async (username: string) => {
     const response = await fetch('/api/auth/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -220,12 +221,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     writeCachedUser(data.user as AuthUser);
     return data.user as AuthUser;
-  }
+  }, []);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    loading,
+    authError,
+    refreshUser,
+    requestCode,
+    verifyCode,
+    signInWithGoogle,
+    signInWithFacebook,
+    logout,
+    updateProfile,
+  }), [user, loading, authError, refreshUser, verifyCode, logout, updateProfile]);
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, authError, refreshUser, requestCode, verifyCode, signInWithGoogle, signInWithFacebook, logout, updateProfile }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

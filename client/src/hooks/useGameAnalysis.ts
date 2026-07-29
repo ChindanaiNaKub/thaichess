@@ -135,7 +135,7 @@ export function useGameAnalysis(options: UseGameAnalysisOptions): UseGameAnalysi
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [analysis, cacheKey, canUseWorker, depth, enabled, movetimeMs, moves]);
+  }, [analysis, analysisId, cacheKey, canUseWorker, depth, enabled, movetimeMs, moves]);
 
   return {
     analysis,

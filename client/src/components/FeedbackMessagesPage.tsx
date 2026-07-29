@@ -62,8 +62,8 @@ export default function FeedbackMessagesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: t('feedback_page.removed_by_admin') }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       throw new Error(data.error || t('feedback_page.moderate_failed'));
     }
     // Note: In a full implementation, we'd use useMutation and invalidate the query
@@ -78,11 +78,11 @@ export default function FeedbackMessagesPage() {
   }
 
   const filterButton = (type: FilterType, label: string) => (
-    <button
+    <button type="button"
       key={type}
       onClick={() => setFilter(type)}
       className={`
-        px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-150
+        px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-150
         ${filter === type
           ? 'bg-primary text-white shadow-sm'
           : 'bg-surface-alt border border-surface-hover text-text-dim hover:text-text-bright hover:bg-surface-hover'
@@ -132,11 +132,13 @@ export default function FeedbackMessagesPage() {
                 return (
                   <div
                     key={item.id}
-                    className="bg-surface-alt rounded-xl border border-surface-hover p-4 hover:border-surface-hover/80 transition-all duration-150 cursor-pointer"
+                    className="bg-surface-alt rounded-xl border border-surface-hover p-4 hover:border-surface-hover/80 transition-colors duration-150 cursor-pointer"
                   >
-                    <div
+                    <button
+                      type="button"
                       onClick={() => setExpanded(isExpanded ? null : item.id)}
-                      className="flex items-start gap-3"
+                      className="flex w-full items-start gap-3 bg-transparent border-0 p-0 text-left cursor-pointer"
+                      aria-expanded={isExpanded}
                     >
                       <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${style.bg} ${style.text}`}>
                         {style.icon} {item.type}
@@ -164,9 +166,9 @@ export default function FeedbackMessagesPage() {
                       <span className="shrink-0 text-text-dim text-xs whitespace-nowrap">
                         {timeAgo(item.created_at)}
                       </span>
-                    </div>
+                    </button>
                     <div className="mt-3 flex justify-end">
-                      <button
+                      <button type="button"
                         onClick={async (event) => {
                           event.stopPropagation();
                           try {
@@ -187,7 +189,7 @@ export default function FeedbackMessagesPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-                <button
+                <button type="button"
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="px-3 py-1.5 bg-surface-alt border border-surface-hover rounded text-sm disabled:opacity-30 hover:bg-surface-hover transition-colors text-text"
@@ -197,7 +199,7 @@ export default function FeedbackMessagesPage() {
                 <span className="text-text-dim text-xs sm:text-sm px-3">
                   {t('games.page', { current: page + 1, total: totalPages })}
                 </span>
-                <button
+                <button type="button"
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="px-3 py-1.5 bg-surface-alt border border-surface-hover rounded text-sm disabled:opacity-30 hover:bg-surface-hover transition-colors text-text"

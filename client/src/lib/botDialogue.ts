@@ -136,10 +136,17 @@ function pickLine(
   const lines = getBotDialoguePack(persona, locale)[category];
   if (!lines.length) return null;
 
-  const candidates = lines
-    .map((text, index) => ({ text, lineKey: `${category}:${index}` }))
-    .filter((line) => !recentLineKeys.includes(line.lineKey));
-  const pool = candidates.length > 0 ? candidates : lines.map((text, index) => ({ text, lineKey: `${category}:${index}` }));
+  const candidates: Array<{ text: string; lineKey: string }> = [];
+  const recentLineKeySet = new Set(recentLineKeys);
+  for (let index = 0; index < lines.length; index++) {
+    const lineKey = `${category}:${index}`;
+    if (!recentLineKeySet.has(lineKey)) {
+      candidates.push({ text: lines[index], lineKey });
+    }
+  }
+  const pool = candidates.length > 0
+    ? candidates
+    : lines.map((text, index) => ({ text, lineKey: `${category}:${index}` }));
   const picked = pool[Math.floor(Math.random() * pool.length)];
 
   if (!picked) return null;

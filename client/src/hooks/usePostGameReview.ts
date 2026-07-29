@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { CountingState, GameState, LastMove, Move, Piece, PieceColor, Position, ResultReason } from '@shared/types';
 import { createInitialGameState, createPromotedPawn, getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove } from '@shared/engine';
 
@@ -299,41 +299,50 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
       : null);
   const currentCheckSquare = useMemo(() => getCheckSquare(currentState), [currentState]);
   const analysisLine = useMemo(() => {
-    return preferredAnalysisNodes
-      .map((node) => node.move)
-      .filter((move): move is Move => Boolean(move))
-      .map(cloneMove);
+    const line: Move[] = [];
+    for (const node of preferredAnalysisNodes) {
+      if (node.move) line.push(cloneMove(node.move));
+    }
+    return line;
   }, [preferredAnalysisNodes]);
   const analysisVariations = useMemo(() => {
-    return Object.values(branches)
-      .map((branch) => ({
-        rootMoveIndex: branch.rootMoveIndex,
-        line: getPreferredBranchLine(branch)
-          .map((node) => node.move)
-          .filter((move): move is Move => Boolean(move))
-          .map(cloneMove),
-      }))
-      .filter((variation) => variation.line.length > 0)
-      .sort((left, right) => left.rootMoveIndex - right.rootMoveIndex);
+    const variations: Array<{ rootMoveIndex: number; line: Move[] }> = [];
+    for (const branch of Object.values(branches)) {
+      const line: Move[] = [];
+      for (const node of getPreferredBranchLine(branch)) {
+        if (node.move) line.push(cloneMove(node.move));
+      }
+      if (line.length > 0) {
+        variations.push({ rootMoveIndex: branch.rootMoveIndex, line });
+      }
+    }
+    variations.sort((left, right) => left.rootMoveIndex - right.rootMoveIndex);
+    return variations;
   }, [branches]);
   const selectedAnalysisMoveIndex = useMemo(() => {
     if (!activeBranch || !activeAnalysisNode) return -1;
     return preferredAnalysisNodes.findIndex((node) => node.id === activeAnalysisNode.id);
   }, [activeAnalysisNode, activeBranch, preferredAnalysisNodes]);
 
-  useEffect(() => {
+  const reviewIdentity = `${enabled}:${latestMoveIndex}:${mainLine.map((move) => `${move.from.row}${move.from.col}${move.to.row}${move.to.col}${move.promoted ? 'p' : ''}`).join(',')}`;
+  const [prevReviewIdentity, setPrevReviewIdentity] = useState(reviewIdentity);
+  if (prevReviewIdentity !== reviewIdentity) {
+    setPrevReviewIdentity(reviewIdentity);
     setMode('mainLine');
     setSelectedMainLineMoveIndex(latestMoveIndex);
     setAnalysisRootMoveIndex(null);
     setBranches({});
     setSelectedSquare(null);
     setLegalMoves([]);
-  }, [enabled, latestMoveIndex, mainLine]);
+  }
 
-  useEffect(() => {
+  const navigationIdentity = `${mode}:${selectedMainLineMoveIndex}:${activeBranch?.currentNodeId ?? ''}`;
+  const [prevNavigationIdentity, setPrevNavigationIdentity] = useState(navigationIdentity);
+  if (prevNavigationIdentity !== navigationIdentity) {
+    setPrevNavigationIdentity(navigationIdentity);
     setSelectedSquare(null);
     setLegalMoves([]);
-  }, [mode, selectedMainLineMoveIndex, activeBranch?.currentNodeId]);
+  }
 
   const jumpToMainLine = useCallback((moveIndex: number) => {
     const nextIndex = Math.max(-1, Math.min(latestMoveIndex, moveIndex));
@@ -348,20 +357,21 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     const rootMoveIndex = Math.max(-1, Math.min(latestMoveIndex, moveIndex));
     const branchKey = String(rootMoveIndex);
     const rootState = mainLineStates[rootMoveIndex + 1] ?? mainLineStates[0];
+    const existingBranch = branches[branchKey];
+    const rootNodeId = existingBranch?.rootNodeId ?? `review-node-${nodeIdRef.current++}`;
 
     setBranches((current) => {
-      const existingBranch = current[branchKey];
-      if (existingBranch) {
+      const latestBranch = current[branchKey];
+      if (latestBranch) {
         return {
           ...current,
           [branchKey]: {
-            ...existingBranch,
-            currentNodeId: existingBranch.rootNodeId,
+            ...latestBranch,
+            currentNodeId: latestBranch.rootNodeId,
           },
         };
       }
 
-      const rootNodeId = `review-node-${nodeIdRef.current++}`;
       const rootNode: AnalysisNode = {
         id: rootNodeId,
         parentId: null,
@@ -387,7 +397,7 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     setSelectedMainLineMoveIndex(rootMoveIndex);
     setMode('analysis');
     setAnalysisRootMoveIndex(rootMoveIndex);
-  }, [enabled, latestMoveIndex, mainLineStates]);
+  }, [branches, enabled, latestMoveIndex, mainLineStates]);
 
   const jumpToAnalysisMove = useCallback((moveIndex: number) => {
     if (!activeBranch || analysisRootMoveIndex === null) return;
@@ -483,77 +493,58 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     if (!enabled || analysisRootMoveIndex === null) return false;
 
     const branchKey = String(analysisRootMoveIndex);
-    let committed = false;
+    const branch = branches[branchKey];
+    if (!branch) return false;
 
-    setBranches((current) => {
-      const branch = current[branchKey];
-      if (!branch) return current;
+    const currentNode = branch.nodes[branch.currentNodeId];
+    if (!currentNode) return false;
 
-      const currentNode = branch.nodes[branch.currentNodeId];
-      if (!currentNode) return current;
+    const nextState = makeMove(currentNode.state, from, to);
+    if (!nextState) return false;
 
-      const nextState = makeMove(currentNode.state, from, to);
-      if (!nextState) return current;
+    const nextMove = nextState.moveHistory[nextState.moveHistory.length - 1] ?? null;
+    if (!nextMove) return false;
 
-      const nextMove = nextState.moveHistory[nextState.moveHistory.length - 1] ?? null;
-      if (!nextMove) return current;
+    const existingChildId = currentNode.childrenIds.find((childId) =>
+      movesEqual(branch.nodes[childId]?.move ?? null, nextMove),
+    );
+    const childId = existingChildId ?? `review-node-${nodeIdRef.current++}`;
 
-      const existingChildId = currentNode.childrenIds.find((childId) =>
-        movesEqual(branch.nodes[childId]?.move ?? null, nextMove),
-      );
+    const nodes: Record<string, AnalysisNode> = {
+      ...branch.nodes,
+      [currentNode.id]: {
+        ...currentNode,
+        childrenIds: existingChildId
+          ? currentNode.childrenIds
+          : [...currentNode.childrenIds, childId],
+        preferredChildId: childId,
+      },
+    };
 
-      const nodes: Record<string, AnalysisNode> = {
-        ...branch.nodes,
-        [currentNode.id]: {
-          ...currentNode,
-          preferredChildId: existingChildId ?? currentNode.preferredChildId,
-        },
+    if (!existingChildId) {
+      nodes[childId] = {
+        id: childId,
+        parentId: currentNode.id,
+        move: nextMove,
+        state: nextState,
+        childrenIds: [],
+        preferredChildId: null,
       };
-
-      let currentNodeId = branch.currentNodeId;
-
-      if (existingChildId) {
-        nodes[currentNode.id] = {
-          ...nodes[currentNode.id],
-          preferredChildId: existingChildId,
-        };
-        currentNodeId = existingChildId;
-      } else {
-        const childId = `review-node-${nodeIdRef.current++}`;
-        nodes[currentNode.id] = {
-          ...nodes[currentNode.id],
-          childrenIds: [...currentNode.childrenIds, childId],
-          preferredChildId: childId,
-        };
-        nodes[childId] = {
-          id: childId,
-          parentId: currentNode.id,
-          move: nextMove,
-          state: nextState,
-          childrenIds: [],
-          preferredChildId: null,
-        };
-        currentNodeId = childId;
-      }
-
-      committed = true;
-      return {
-        ...current,
-        [branchKey]: {
-          ...branch,
-          currentNodeId,
-          nodes,
-        },
-      };
-    });
-
-    if (committed) {
-      setSelectedSquare(null);
-      setLegalMoves([]);
     }
 
-    return committed;
-  }, [analysisRootMoveIndex, enabled]);
+    setBranches({
+      ...branches,
+      [branchKey]: {
+        ...branch,
+        currentNodeId: childId,
+        nodes,
+      },
+    });
+
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    return true;
+  }, [analysisRootMoveIndex, branches, enabled]);
 
   const handleSquareClick = useCallback((pos: Position) => {
     if (!enabled || mode !== 'analysis') return;

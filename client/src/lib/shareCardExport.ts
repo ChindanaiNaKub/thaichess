@@ -29,14 +29,14 @@ export async function renderShareCardBlob(node: HTMLElement): Promise<Blob> {
 
 export function downloadShareCardBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-
-  window.setTimeout(() => {
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+  } finally {
     URL.revokeObjectURL(url);
-  }, 0);
+  }
 }
 
 export async function shareShareCardBlob(blob: Blob, filename: string, title: string, text: string): Promise<boolean> {

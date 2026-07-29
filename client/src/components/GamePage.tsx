@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, ClientGameState, Move, PlayerPresence, RatingChangeSummary, TimeControl } from '@shared/types';
 import { createInitialBoard, getBoardAtMove, getLastMoveForView, getLegalMoves } from '@shared/engine';
 import { socket, connectSocket } from '../lib/socket';
@@ -13,6 +14,7 @@ import { useGameInteraction } from '../hooks/useGameInteraction';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { useReportFairPlayMutation } from '../queries/fairPlay';
+import { gameQueryOptions } from '../queries/analysis';
 import { useToast } from '../lib/toast';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -38,6 +40,18 @@ const DEFAULT_PRESENCE: PlayerPresence = {
   latencyMs: null,
   lastSeenAt: null,
 };
+
+function handleOfferDraw() {
+  socket.emit('offer_draw');
+}
+
+function handleStartCounting() {
+  socket.emit('start_counting');
+}
+
+function handleStopCounting() {
+  socket.emit('stop_counting');
+}
 
 type LocalConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 
@@ -69,6 +83,10 @@ function updateOpponentPresenceStatus(
 }
 
 export default function GamePage() {
+  return useGamePageScreen();
+}
+
+function useGamePageScreen() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -78,7 +96,6 @@ export default function GamePage() {
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [playerColor, setPlayerColor] = useState<PieceColor | null>(null);
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null; ratingChange: RatingChangeSummary | null } | null>(null);
-  const [timeControl, setTimeControl] = useState<TimeControl | null>(null);
   const [drawOffered, setDrawOffered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,10 +104,11 @@ export default function GamePage() {
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
   const [connectionState, setConnectionState] = useState<LocalConnectionState>(socket.connected ? 'connected' : 'reconnecting');
   const [localLatencyMs, setLocalLatencyMs] = useState<number | null>(null);
+  const [initialInteractionAt] = useState(() => Date.now());
   const joinedRef = useRef(false);
   const latestGameStateRef = useRef<ClientGameState | null>(null);
   const latestTRef = useRef(t);
-  const lastInteractionAtRef = useRef(Date.now());
+  const lastInteractionAtRef = useRef(initialInteractionAt);
   const lastHeartbeatAtRef = useRef(0);
   const lastMeasuredLatencyRef = useRef<number | null>(null);
 
@@ -108,30 +126,12 @@ export default function GamePage() {
   const isMyTurn = gameState?.turn === playerColor && gameState?.status === 'playing';
   const spectatorPath = gameId ? spectatorGameRoute(gameId) : routes.home;
 
+  const { data: gameMeta } = useQuery(gameQueryOptions(gameId));
+  const timeControl: TimeControl | null = gameMeta?.timeControl ?? null;
+
   useEffect(() => {
     latestGameStateRef.current = gameState;
   }, [gameState]);
-
-  useEffect(() => {
-    if (!gameId) {
-      setTimeControl(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    fetch(`/api/game/${gameId}`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => {
-        if (cancelled || !data?.timeControl) return;
-        setTimeControl(data.timeControl as TimeControl);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [gameId]);
 
   useEffect(() => {
     latestTRef.current = t;
@@ -467,18 +467,6 @@ export default function GamePage() {
     }
   };
 
-  const handleOfferDraw = () => {
-    socket.emit('offer_draw');
-  };
-
-  const handleStartCounting = () => {
-    socket.emit('start_counting');
-  };
-
-  const handleStopCounting = () => {
-    socket.emit('stop_counting');
-  };
-
   const handleRespondDraw = (accept: boolean) => {
     socket.emit('respond_draw', { accept });
     setDrawOffered(false);
@@ -600,12 +588,13 @@ export default function GamePage() {
               <input
                 type="text"
                 readOnly
+                aria-label={t('game.share')}
                 value={window.location.href}
                 className="flex-1 bg-transparent text-text-bright text-sm px-2 focus:outline-none font-mono"
               />
-              <button
+              <button type="button"
                 onClick={copyGameLink}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
                   copied
                     ? 'bg-primary text-white'
                     : 'bg-surface-hover hover:bg-primary/20 text-text-bright'
@@ -629,7 +618,7 @@ export default function GamePage() {
             }`}>
               {gameState.rated ? t('game.rated') : t('game.casual')}
             </div>
-            <button
+            <button type="button"
               onClick={handleNewGame}
               className="mt-4 px-5 py-2 rounded-lg bg-surface hover:bg-surface-hover text-text-bright border border-surface-hover font-semibold transition-colors"
             >
@@ -651,7 +640,7 @@ export default function GamePage() {
             <div className="text-4xl mb-4">⚠️</div>
             <h2 className="text-lg sm:text-xl font-bold text-danger mb-2">{t('game.error')}</h2>
             <p className="text-text-dim mb-4 text-sm sm:text-base">{error}</p>
-            <button onClick={() => navigate(routes.home)} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold text-sm sm:text-base">
+            <button type="button" onClick={() => navigate(routes.home)} className="px-6 py-2 bg-primary text-white rounded-lg font-semibold text-sm sm:text-base">
               {t('common.back_home')}
             </button>
           </div>
@@ -783,7 +772,7 @@ export default function GamePage() {
             }`}>
               {gameState.rated ? t('game.rated') : t('game.casual')}
             </span>
-            <button
+            <button type="button"
               onClick={copyGameLink}
               className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
             >
@@ -810,13 +799,13 @@ export default function GamePage() {
               <div className="bg-primary/20 border-b border-primary/30 text-center py-3 text-xs sm:text-sm flex items-center justify-center gap-3 flex-wrap px-2">
                 <span className="text-text-bright">{t('game.draw_offer_received')}</span>
                 <div className="flex gap-2">
-                  <button
+                  <button type="button"
                     onClick={() => handleRespondDraw(true)}
                     className="px-4 py-1 bg-primary text-white rounded font-semibold text-sm"
                   >
                     {t('game.accept')}
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleRespondDraw(false)}
                     className="px-4 py-1 bg-surface-hover text-text-bright rounded font-semibold text-sm"
                   >
@@ -886,7 +875,7 @@ export default function GamePage() {
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
                 {t('game.premove_set')}
               </span>
-              <button
+              <button type="button"
                 onClick={() => { cancelPremove(); clearSelection(); }}
                 className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1 text-text-dim normal-case tracking-normal transition-colors hover:text-text-bright"
               >
@@ -916,7 +905,7 @@ export default function GamePage() {
                 </div>
                 <div className="text-sm">{countingLabel}</div>
                 {canStartCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStartCounting}
                     className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors"
                   >
@@ -924,7 +913,7 @@ export default function GamePage() {
                   </button>
                 )}
                 {canStopCounting && (
-                  <button
+                  <button type="button"
                     onClick={handleStopCounting}
                     className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
                   >
@@ -985,10 +974,12 @@ export default function GamePage() {
                 selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
                 analysisRootMoveIndex={review.analysisRootMoveIndex}
                 analysisLine={review.analysisLine}
-                canEnterAnalysis={review.canEnterAnalysis}
-                canResetAnalysis={review.canResetAnalysis}
-                canStepBackward={review.canStepBackward}
-                canStepForward={review.canStepForward}
+                controls={{
+                  enterAnalysis: review.canEnterAnalysis,
+                  resetAnalysis: review.canResetAnalysis,
+                  stepBackward: review.canStepBackward,
+                  stepForward: review.canStepForward,
+                }}
                 onEnterAnalysis={review.enterAnalysis}
                 onReturnToMainLine={review.returnToMainLine}
                 onResetAnalysis={review.resetAnalysis}
@@ -1017,14 +1008,14 @@ export default function GamePage() {
 
             {!gameState.gameOver && gameState.status === 'playing' && (
               <div className="grid gap-2 sm:grid-cols-2">
-                <button
+                <button type="button"
                   onClick={handleOfferDraw}
                   className="py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
                   title={t('game.offer_draw')}
                 >
                   {t('game.offer_draw')}
                 </button>
-                <button
+                <button type="button"
                   onClick={handleResign}
                   className="py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
                   title={t('game.resign')}
@@ -1034,7 +1025,7 @@ export default function GamePage() {
               </div>
             )}
 
-            <button
+            <button type="button"
               onClick={() => setShowGuide(true)}
               className="w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright text-sm rounded-xl border border-surface-hover transition-colors"
             >

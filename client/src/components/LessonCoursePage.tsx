@@ -2,15 +2,18 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { lessonRoute, routes } from '../lib/routes';
 import { LESSON_MODULES, MAKRUK_LESSONS } from '../lib/lessons';
-import { isLessonUnlocked, useLessonProgress, useLessonProgressSummary } from '../lib/lessonProgress';
+import { useLessonProgress, useLessonProgressSummary } from '../lib/lessonProgress';
+import { isLessonUnlocked } from '../lib/lessonUnlock';
 import { useTranslation } from '../lib/i18n';
 import Header from './Header';
 import {
   CoursePreviewBoard,
+} from './LessonsShared';
+import {
   formatConceptLabel,
   getDifficultyBadgeClasses,
   shouldLogLessonDebug,
-} from './LessonsShared';
+} from '../lib/lessonSharedUtils';
 
 export default function LessonCoursePage() {
   const navigate = useNavigate();
@@ -42,7 +45,7 @@ export default function LessonCoursePage() {
         active="lessons"
         subtitle={t('nav.lessons')}
         right={(
-          <button
+          <button type="button"
             onClick={() => navigate(routes.puzzleStreak)}
             className="text-sm text-text-dim hover:text-text-bright transition-colors"
           >
@@ -88,7 +91,7 @@ export default function LessonCoursePage() {
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                    className="h-full rounded-full bg-primary transition-[width]"
                     style={{ width: `${lessonSummary.percentComplete}%` }}
                   />
                 </div>
@@ -112,7 +115,7 @@ export default function LessonCoursePage() {
                   <div className="mt-4">
                     <CoursePreviewBoard scene={nextLesson.example} />
                   </div>
-                  <button
+                  <button type="button"
                     onClick={() => navigate(lessonRoute(nextLesson.id))}
                     className="mt-5 w-full rounded-xl bg-primary hover:bg-primary-light text-white font-semibold px-4 py-3 transition-colors"
                   >
@@ -125,7 +128,7 @@ export default function LessonCoursePage() {
                   <p className="mt-2 text-sm text-text-dim leading-relaxed">
                     {t('lessons.course.complete_desc')}
                   </p>
-                  <button
+                  <button type="button"
                     onClick={() => navigate(routes.puzzles)}
                     className="mt-5 w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-text-bright font-semibold transition-colors hover:bg-surface-hover"
                   >
@@ -153,7 +156,7 @@ export default function LessonCoursePage() {
                     <div className="text-sm font-medium text-text-bright">{t('lessons.course.module_progress', { done: completedInModule, total: module.lessons.length })}</div>
                     <div className="mt-2 h-2 w-full sm:w-40 overflow-hidden rounded-full bg-surface">
                       <div
-                        className="h-full rounded-full bg-primary transition-all"
+                        className="h-full rounded-full bg-primary transition-[width]"
                         style={{ width: `${Math.round((completedInModule / module.lessons.length) * 100)}%` }}
                       />
                     </div>
@@ -177,7 +180,7 @@ export default function LessonCoursePage() {
                         type="button"
                         onClick={() => unlocked && navigate(lessonRoute(lesson.id))}
                         disabled={!unlocked}
-                        className={`rounded-2xl border p-4 text-left transition-all ${cardClasses}`}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${cardClasses}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>

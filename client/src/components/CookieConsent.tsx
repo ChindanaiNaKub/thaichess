@@ -33,13 +33,15 @@ export default function CookieConsent() {
   useEffect(() => {
     // Check if user has already dismissed the banner
     const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!consent) {
-      // Small delay for animation
-      setTimeout(() => {
-        setIsVisible(true);
-        setIsAnimating(true);
-      }, 500);
-    }
+    if (consent) return;
+
+    // Small delay for animation
+    const timeoutId = setTimeout(() => {
+      setIsVisible(true);
+      setIsAnimating(true);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const handleDismiss = () => {
@@ -58,7 +60,7 @@ export default function CookieConsent() {
     <div
       className={`
         fixed bottom-4 left-4 right-4 z-50 
-        transform transition-all duration-300 ease-out
+        transform transition-[opacity,transform] duration-300 ease-out
         ${isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}
       `}
     >
@@ -101,7 +103,7 @@ export default function CookieConsent() {
             </div>
 
             {/* Button */}
-            <button
+            <button type="button"
               onClick={handleDismiss}
               className="
                 shrink-0
@@ -111,7 +113,7 @@ export default function CookieConsent() {
                 text-sm font-semibold 
                 text-white 
                 shadow-lg shadow-primary/25
-                transition-all duration-200
+                transition-[color,background-color,box-shadow,transform] duration-200
                 hover:bg-primary-bright 
                 hover:shadow-primary/40
                 hover:scale-105

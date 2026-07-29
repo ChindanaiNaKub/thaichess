@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { getClassificationColor, type MoveClassification } from '@shared/analysis';
 import type { Board as BoardType, GameMode, Move, PieceColor, RatingChangeSummary, ResultReason, TimeControl } from '@shared/types';
 import { useGameAnalysis } from '../hooks/useGameAnalysis';
@@ -82,14 +82,19 @@ export default function PostGameSharePanel({
     const summary = playerColor === 'white' ? analysis.summary.white : analysis.summary.black;
     const preferred: MoveClassification[] = ['brilliant', 'best', 'excellent', 'good', 'inaccuracy'];
 
-    return preferred
-      .map((classification) => ({
-        classification,
-        label: t(`analysis.${classification}`),
-        count: summary[classification],
-        color: getClassificationColor(classification),
-      }))
-      .filter((item) => item.count > 0);
+    const stats: ShareCardSummaryStat[] = [];
+    for (const classification of preferred) {
+      const count = summary[classification];
+      if (count > 0) {
+        stats.push({
+          classification,
+          label: t(`analysis.${classification}`),
+          count,
+          color: getClassificationColor(classification),
+        });
+      }
+    }
+    return stats;
   }, [analysis, playerColor, t]);
 
   const userRatingChange = useMemo(() => {
@@ -143,16 +148,12 @@ export default function PostGameSharePanel({
 
   const canUseAccuracyVariant = Boolean(analysis);
   const canUseRatingVariant = Boolean(userRatingChange);
-  useEffect(() => {
-    const selectedVariantAvailable = variant === 'result'
-      || (variant === 'accuracy' && canUseAccuracyVariant)
-      || (variant === 'rating' && canUseRatingVariant);
+  const selectedVariantAvailable = variant === 'result'
+    || (variant === 'accuracy' && canUseAccuracyVariant)
+    || (variant === 'rating' && canUseRatingVariant);
+  const activeVariant = selectedVariantAvailable ? variant : PREVIEW_FALLBACK_VARIANT;
 
-    if (selectedVariantAvailable) return;
-    setVariant(PREVIEW_FALLBACK_VARIANT);
-  }, [canUseAccuracyVariant, canUseRatingVariant, variant]);
-
-  const filename = `${(analysisId ?? `${gameMode}-${moveCount}`).replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()}-${variant}.png`;
+  const filename = `${(analysisId ?? `${gameMode}-${moveCount}`).replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()}-${activeVariant}.png`;
   const shareText = `${userName} ${cardData.outcomeLabel.toLowerCase()} ${cardData.score}`;
 
   const handleDownload = async () => {
@@ -221,19 +222,19 @@ export default function PostGameSharePanel({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <VariantButton
-          active={variant === 'result'}
+          active={activeVariant === 'result'}
           disabled={false}
           label={t('sharecard.variant_result')}
           onClick={() => setVariant('result')}
         />
         <VariantButton
-          active={variant === 'accuracy'}
+          active={activeVariant === 'accuracy'}
           disabled={!canUseAccuracyVariant}
           label={t('sharecard.variant_accuracy')}
           onClick={() => setVariant('accuracy')}
         />
         <VariantButton
-          active={variant === 'rating'}
+          active={activeVariant === 'rating'}
           disabled={!canUseRatingVariant}
           label={t('sharecard.variant_rating')}
           onClick={() => setVariant('rating')}
@@ -259,7 +260,7 @@ export default function PostGameSharePanel({
                 transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
               }}
             >
-              <ShareCardExportCanvas variant={variant} data={cardData} />
+              <ShareCardExportCanvas variant={activeVariant} data={cardData} />
             </div>
           </div>
         </div>
@@ -280,14 +281,14 @@ export default function PostGameSharePanel({
               : t('sharecard.export_hint')}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
+          <button type="button"
             onClick={handleDownload}
             disabled={busyAction !== null}
             className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
           >
             {busyAction === 'download' ? t('sharecard.exporting') : t('sharecard.download_png')}
           </button>
-          <button
+          <button type="button"
             onClick={handleShare}
             disabled={busyAction !== null}
             className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-60"
@@ -305,7 +306,7 @@ export default function PostGameSharePanel({
 
       <div className="fixed left-[-200vw] top-0 pointer-events-none" aria-hidden="true">
         <div ref={exportRef}>
-          <ShareCardExportCanvas variant={variant} data={cardData} />
+          <ShareCardExportCanvas variant={activeVariant} data={cardData} />
         </div>
       </div>
     </div>
@@ -324,7 +325,7 @@ function VariantButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       disabled={disabled}
       className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors ${

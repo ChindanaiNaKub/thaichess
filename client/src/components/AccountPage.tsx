@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { USERNAME_CHANGE_COOLDOWN_SECONDS } from '@shared/authLimits';
 import { PUZZLES } from '@shared/puzzlesRuntime';
@@ -6,8 +6,48 @@ import Header from './Header';
 import { useAuth, type ApiError } from '../lib/auth';
 import { authClient } from '../lib/authClient';
 import { useTranslation } from '../lib/i18n';
+import { AccountStatTile } from './AccountStatTile';
+import { AccountSecondaryAction } from './AccountSecondaryAction';
+import { DeleteAccountSection } from './DeleteAccountSection';
 import { usePuzzleProgressSummary } from '../lib/puzzleProgress';
 import { puzzleRoute, routes } from '../lib/routes';
+
+const puzzleActivityDateFormatters = {
+  th: new Intl.DateTimeFormat('th-TH', { month: 'short', day: 'numeric' }),
+  en: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }),
+} as const;
+
+const sessionDateFormatters = {
+  th: new Intl.DateTimeFormat('th-TH', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+  en: new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+} as const;
+
+const usernameCooldownDateFormatters = {
+  th: new Intl.DateTimeFormat('th-TH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+  en: new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+} as const;
 
 function getPublicPuzzleTitle(title: string): string {
   return title
@@ -17,30 +57,18 @@ function getPublicPuzzleTitle(title: string): string {
 }
 
 function formatPuzzleActivityDate(timestamp: number, lang: string): string {
-  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(timestamp * 1000));
+  return (lang === 'th' ? puzzleActivityDateFormatters.th : puzzleActivityDateFormatters.en)
+    .format(new Date(timestamp * 1000));
 }
 
 function formatSessionDate(value: string | Date, lang: string): string {
   const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
+  return (lang === 'th' ? sessionDateFormatters.th : sessionDateFormatters.en).format(date);
 }
 
 function formatUsernameCooldownDate(timestamp: number, lang: string): string {
-  return new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(timestamp * 1000));
+  return (lang === 'th' ? usernameCooldownDateFormatters.th : usernameCooldownDateFormatters.en)
+    .format(new Date(timestamp * 1000));
 }
 
 function getProfileErrorMessage(error: unknown, t: (key: string, params?: Record<string, string | number>) => string, lang: string) {
@@ -59,52 +87,15 @@ function getProfileErrorMessage(error: unknown, t: (key: string, params?: Record
   return error instanceof Error ? error.message : t('account.update_failed');
 }
 
-function StatTile({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: ReactNode;
-  tone?: 'default' | 'primary' | 'danger';
-}) {
-  const valueClassName = tone === 'primary'
-    ? 'text-primary'
-    : tone === 'danger'
-      ? 'text-danger'
-      : 'text-text-bright';
 
-  return (
-    <div className="rounded-2xl border border-surface-hover/70 bg-surface/80 px-4 py-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-dim">{label}</div>
-      <div className={`mt-3 text-2xl font-bold tracking-tight ${valueClassName}`}>{value}</div>
-    </div>
-  );
-}
 
-function SecondaryAction({
-  children,
-  danger = false,
-  onClick,
-}: {
-  children: ReactNode;
-  danger?: boolean;
-  onClick: () => void | Promise<void>;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => void onClick()}
-      className={danger
-        ? 'w-full rounded-xl border border-danger/40 px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/8'
-        : 'w-full rounded-xl border border-surface-hover/70 bg-surface/70 px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60'}
-    >
-      {children}
-    </button>
-  );
-}
+
 
 export default function AccountPage() {
+  return useAccountPageScreen();
+}
+
+function useAccountPageScreen() {
   const navigate = useNavigate();
   const { user, loading, authError, logout, refreshUser, updateProfile } = useAuth();
   const { t, lang } = useTranslation();
@@ -370,11 +361,11 @@ export default function AccountPage() {
               )}
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <StatTile label={t('account.rating')} value={user.rating} />
-                <StatTile label={t('account.rated_games')} value={user.rated_games} />
-                <StatTile label={t('account.wins')} value={user.wins} tone="primary" />
-                <StatTile label={t('account.losses')} value={user.losses} tone="danger" />
-                <StatTile label={t('account.draws')} value={user.draws} />
+                <AccountStatTile label={t('account.rating')} value={user.rating} />
+                <AccountStatTile label={t('account.rated_games')} value={user.rated_games} />
+                <AccountStatTile label={t('account.wins')} value={user.wins} tone="primary" />
+                <AccountStatTile label={t('account.losses')} value={user.losses} tone="danger" />
+                <AccountStatTile label={t('account.draws')} value={user.draws} />
               </div>
 
               <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(16rem,0.75fr)]">
@@ -418,20 +409,20 @@ export default function AccountPage() {
                     {t('account.actions_title')}
                   </p>
                   <div className="mt-4 space-y-3">
-                    <SecondaryAction onClick={() => navigate(routes.leaderboard)}>
+                    <AccountSecondaryAction onClick={() => navigate(routes.leaderboard)}>
                       {t('leaderboard.title')}
-                    </SecondaryAction>
+                    </AccountSecondaryAction>
                     {user.role === 'admin' && user.twoFactorEnabled && (
                       <>
-                        <SecondaryAction onClick={() => navigate(routes.feedback)}>
+                        <AccountSecondaryAction onClick={() => navigate(routes.feedback)}>
                           {t('account.open_feedback')}
-                        </SecondaryAction>
-                        <SecondaryAction onClick={() => navigate(routes.fairPlay)}>
+                        </AccountSecondaryAction>
+                        <AccountSecondaryAction onClick={() => navigate(routes.fairPlay)}>
                           {t('account.open_fair_play')}
-                        </SecondaryAction>
+                        </AccountSecondaryAction>
                       </>
                     )}
-                    <SecondaryAction
+                    <AccountSecondaryAction
                       danger
                       onClick={async () => {
                         await logout();
@@ -439,7 +430,7 @@ export default function AccountPage() {
                       }}
                     >
                       {t('account.sign_out')}
-                    </SecondaryAction>
+                    </AccountSecondaryAction>
                   </div>
                 </div>
               </div>
@@ -535,12 +526,12 @@ export default function AccountPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-3 gap-3">
-                <StatTile label={t('account.puzzle_completed_label')} value={puzzleProgress.completedCount} />
-                <StatTile
+                <AccountStatTile label={t('account.puzzle_completed_label')} value={puzzleProgress.completedCount} />
+                <AccountStatTile
                   label={t('account.puzzle_remaining_label')}
                   value={Math.max(puzzleProgress.totalCount - puzzleProgress.completedCount, 0)}
                 />
-                <StatTile
+                <AccountStatTile
                   label={t('account.puzzle_focus_label')}
                   value={puzzleProgress.favoriteTheme ? t(`theme.${puzzleProgress.favoriteTheme}`) : t('account.puzzle_focus_empty')}
                 />
@@ -723,106 +714,5 @@ export default function AccountPage() {
         </div>
       </main>
     </div>
-  );
-}
-
-// Account Deletion Component
-function DeleteAccountSection() {
-  const { lang } = useTranslation();
-  const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState('');
-  const [deleted, setDeleted] = useState(false);
-
-  const isThai = lang === 'th';
-
-  async function handleDeleteAccount() {
-    setDeleting(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/auth/user', {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete account');
-      }
-
-      setDeleted(true);
-      // Clear auth state and redirect
-      setTimeout(async () => {
-        await logout();
-        navigate(routes.home);
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : isThai ? 'ไม่สามารถลบบัญชีได้' : 'Could not delete account');
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  if (deleted) {
-    return (
-      <section className="rounded-[1.6rem] border border-danger/30 bg-danger/5 p-5">
-        <p className="text-sm font-medium text-danger">
-          {isThai ? 'บัญชีของคุณถูกลบแล้ว กำลังพากลับไปหน้าแรก...' : 'Your account has been deleted. Redirecting to home...'}
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-[1.6rem] border border-danger/30 bg-danger/5 p-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-danger">
-        {isThai ? 'ลบบัญชี' : 'Delete Account'}
-      </p>
-      <p className="mb-4 text-sm text-text-dim">
-        {isThai
-          ? 'การลบบัญชีจะลบข้อมูลทั้งหมดของคุณอย่างถาวร การกระทำนี้ไม่สามารถยกเลิกได้'
-          : 'Deleting your account will permanently remove all your data. This action cannot be undone.'}
-      </p>
-
-      {!showConfirm ? (
-        <button
-          type="button"
-          onClick={() => setShowConfirm(true)}
-          className="w-full rounded-xl border border-danger/40 px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/10"
-        >
-          {isThai ? 'ลบบัญชีของฉัน' : 'Delete My Account'}
-        </button>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-danger">
-            {isThai
-              ? 'คุณแน่ใจหรือไม่? บัญชี เรตติ้ง และประวัติเกมทั้งหมดจะถูกลบอย่างถาวร'
-              : 'Are you sure? Your account, ratings, and all game history will be permanently deleted.'}
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setShowConfirm(false)}
-              disabled={deleting}
-              className="flex-1 rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
-            >
-              {isThai ? 'ยกเลิก' : 'Cancel'}
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteAccount}
-              disabled={deleting}
-              className="flex-1 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-danger-bright disabled:opacity-60"
-            >
-              {deleting ? (isThai ? 'กำลังลบ...' : 'Deleting...') : (isThai ? 'ใช่ ลบบัญชี' : 'Yes, Delete Account')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-    </section>
   );
 }

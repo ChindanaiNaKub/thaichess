@@ -29,7 +29,7 @@ export default function PieceGuide({ show, onClose }: PieceGuideProps) {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-text-bright">{t('guide.title')}</h2>
-          <button onClick={onClose} className="text-text-dim hover:text-text-bright text-2xl leading-none">&times;</button>
+          <button type="button" onClick={onClose} className="text-text-dim hover:text-text-bright text-2xl leading-none">&times;</button>
         </div>
 
         <div className="space-y-3">

@@ -99,8 +99,13 @@ export function fairPlayCasesQueryOptions(
 
 // Mutation hook for reporting fair play
 export function useReportFairPlayMutation() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: reportFairPlay,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['fairPlay', 'cases'] });
+    },
   });
 }
 

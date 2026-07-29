@@ -82,7 +82,7 @@ export default function GameOverModal({
         onClick={e => e.stopPropagation()}
       >
         {onClose && (
-          <button
+          <button type="button"
             onClick={onClose}
             className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg text-text-dim hover:text-text-bright hover:bg-surface-hover transition-colors text-lg"
             aria-label={t('common.close')}
@@ -119,7 +119,7 @@ export default function GameOverModal({
               </div>
             )}
             {onAnalyze && (
-              <button
+              <button type="button"
                 onClick={onAnalyze}
                 data-testid="analyze-game-button"
                 className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
@@ -128,7 +128,7 @@ export default function GameOverModal({
               </button>
             )}
             {onReport && (
-              <button
+              <button type="button"
                 onClick={onReport}
                 disabled={reportDisabled}
                 className="w-full py-3 px-6 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 disabled:cursor-not-allowed text-amber-200 font-semibold rounded-lg transition-colors border border-amber-500/30"
@@ -141,14 +141,14 @@ export default function GameOverModal({
                 {reportStatusMessage}
               </div>
             )}
-            <button
+            <button type="button"
               onClick={onRematch}
               disabled={rematchDisabled}
               className="w-full py-3 px-6 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
             >
               {rematchLabel ?? t('gameover.rematch')}
             </button>
-            <button
+            <button type="button"
               onClick={onNewGame}
               className="w-full py-3 px-6 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold rounded-lg transition-colors border border-surface-hover"
             >
