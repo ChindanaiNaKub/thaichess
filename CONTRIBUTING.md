@@ -33,6 +33,10 @@ cd server && npx tsc --noEmit
 npm run build
 ```
 
+### SEO sitemap / robots
+
+Do **not** add `client/public/sitemap.xml` or `client/public/robots.txt`. Production crawl files are generated dynamically by `server/src/routes/seo.ts` from `getIndexablePaths()` in `shared/seo.ts`. Static copies in `client/public/` go stale and can shadow the dynamic routes.
+
 ## Making Changes
 
 1. Create a feature branch: `git checkout -b feature/my-feature`

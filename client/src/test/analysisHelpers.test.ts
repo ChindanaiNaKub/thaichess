@@ -1,7 +1,24 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createInitialBoard } from '@shared/engine';
-import { deserializeAnalysisPosition, serializeAnalysisPosition, uciToMove } from '@shared/engineAdapter';
+import {
+  analysisPositionHash,
+  deserializeAnalysisPosition,
+  serializeAnalysisPosition,
+  uciToMove,
+} from '@shared/engineAdapter';
+import type { CountingState } from '@shared/types';
 import { buildEditorAnalysisRoute, buildInlineAnalysisRoute, readInlineAnalysisPayload } from '../lib/analysis';
+
+const sampleCounting = (currentCount: number): CountingState => ({
+  active: true,
+  type: 'board_honor',
+  countingColor: 'white',
+  strongerColor: 'white',
+  currentCount,
+  limit: 64,
+  finalAttackPending: false,
+});
+
 
 describe('analysis helpers', () => {
   beforeEach(() => {
@@ -84,5 +101,29 @@ describe('analysis helpers', () => {
       from: { row: 0, col: 0 },
       to: { row: 2, col: 0 },
     });
+  });
+
+  it('uses board+turn alone for position hash when counting is null', () => {
+    const snapshot = {
+      board: createInitialBoard(),
+      turn: 'white' as const,
+      counting: null,
+    };
+    const serialized = serializeAnalysisPosition(snapshot);
+    expect(analysisPositionHash(snapshot)).toBe(serialized.position);
+    expect(analysisPositionHash(snapshot)).not.toContain('#');
+  });
+
+  it('includes counting in position hash so different clocks do not collide', () => {
+    const board = createInitialBoard();
+    const base = { board, turn: 'white' as const };
+    const withoutCounting = analysisPositionHash({ ...base, counting: null });
+    const countA = analysisPositionHash({ ...base, counting: sampleCounting(10) });
+    const countB = analysisPositionHash({ ...base, counting: sampleCounting(11) });
+
+    expect(countA).not.toBe(withoutCounting);
+    expect(countB).not.toBe(countA);
+    expect(countA).toContain('#');
+    expect(countA).toContain('"currentCount":10');
   });
 });

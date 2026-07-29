@@ -3,19 +3,56 @@
  *
  * Run with: npx tsx server/src/scripts/backfillGamePositions.ts
  *
- * This iterates through all finished games in the database, reconstructs
- * each position from the stored move history, and inserts rows into
- * game_positions for fast opening explorer queries.
+ * This iterates through finished games that have no game_positions rows yet,
+ * reconstructs each position from move history, and inserts rows for Opening
+ * Explorer queries. Position hashes include Makruk counting state when active
+ * (see analysisPositionHash in shared/engineAdapter.ts).
+ *
+ * Safe re-runs:
+ * - Selection uses NOT EXISTS, so games that already have any positions are skipped.
+ * - Each game is written in a transaction that DELETE-then-INSERT, so a re-run
+ *   after a partial failure (or after changing hash format) can recover by first
+ *   deleting that game's rows, then re-running this script.
+ *
+ * Recovery after a failed mid-game run or hash-format change:
+ *   DELETE FROM game_positions WHERE game_id = '<id>';  -- or truncate if full re-backfill
+ *   npx tsx server/src/scripts/backfillGamePositions.ts
+ *
+ * Dry-run note: set BACKFILL_DRY_RUN=1 to only print how many games would be processed.
+ * Full rebuild (e.g. after position_hash format change): set BACKFILL_FORCE=1 to
+ * re-process every finished game (delete+insert), not only games missing positions.
  */
 
+import path from 'node:path';
 import { createClient } from '@libsql/client';
 import { getPositionAtPly } from '../../../shared/engine';
-import { serializeAnalysisPosition, moveToUci } from '../../../shared/engineAdapter';
+import { analysisPositionHash, moveToUci } from '../../../shared/engineAdapter';
 import type { Move } from '../../../shared/types';
 import '../env';
 
 const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL?.trim() || undefined;
 const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN?.trim() || undefined;
+const DRY_RUN = process.env.BACKFILL_DRY_RUN === '1';
+const FORCE = process.env.BACKFILL_FORCE === '1';
+
+/** Games finished but not yet present in game_positions (no LIMIT on the subquery). */
+export const GAMES_NEEDING_POSITIONS_SQL = `
+  SELECT id, moves, result, white_rating_before, black_rating_before
+  FROM games
+  WHERE finished_at IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM game_positions gp WHERE gp.game_id = games.id
+    )
+  ORDER BY finished_at DESC
+`;
+
+/** All finished games — used with BACKFILL_FORCE=1 for full hash rebuilds. */
+export const ALL_FINISHED_GAMES_SQL = `
+  SELECT id, moves, result, white_rating_before, black_rating_before
+  FROM games
+  WHERE finished_at IS NOT NULL
+  ORDER BY finished_at DESC
+`;
 
 function getDatabaseClient() {
   if (TURSO_DATABASE_URL) {
@@ -27,20 +64,22 @@ function getDatabaseClient() {
 async function backfill() {
   const db = getDatabaseClient();
 
-  console.log('Fetching games without positions...');
+  console.log(FORCE
+    ? 'Fetching all finished games (BACKFILL_FORCE=1)...'
+    : 'Fetching games without positions...');
 
   const gamesResult = await db.execute({
-    sql: `
-      SELECT id, moves, result, white_rating_before, black_rating_before
-      FROM games
-      WHERE finished_at IS NOT NULL
-        AND id NOT IN (SELECT DISTINCT game_id FROM game_positions LIMIT 1)
-      ORDER BY finished_at DESC
-    `,
+    sql: FORCE ? ALL_FINISHED_GAMES_SQL : GAMES_NEEDING_POSITIONS_SQL,
     args: [],
   });
 
   console.log(`Found ${gamesResult.rows.length} games to backfill.`);
+
+  if (DRY_RUN) {
+    console.log('BACKFILL_DRY_RUN=1 — exiting without writes.');
+    await db.close();
+    return;
+  }
 
   let processed = 0;
   let failed = 0;
@@ -67,20 +106,34 @@ async function backfill() {
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
 
-      for (let ply = 0; ply <= moves.length; ply += 1) {
-        const state = getPositionAtPly(moves, ply - 1);
-        const positionHash = serializeAnalysisPosition({
-          board: state.board,
-          turn: state.turn,
-          counting: state.counting,
-        }).position;
-
-        const moveUci = ply < moves.length ? moveToUci(moves[ply]) : null;
-
-        await db.execute({
-          sql: insertSql,
-          args: [gameId, ply, positionHash, moveUci, result, whiteRating, blackRating],
+      const transaction = await db.transaction('write');
+      try {
+        // Idempotent: clear any partial rows before inserting full ply set
+        await transaction.execute({
+          sql: 'DELETE FROM game_positions WHERE game_id = ?',
+          args: [gameId],
         });
+
+        for (let ply = 0; ply <= moves.length; ply += 1) {
+          const state = getPositionAtPly(moves, ply - 1);
+          const positionHash = analysisPositionHash({
+            board: state.board,
+            turn: state.turn,
+            counting: state.counting,
+          });
+
+          const moveUci = ply < moves.length ? moveToUci(moves[ply]) : null;
+
+          await transaction.execute({
+            sql: insertSql,
+            args: [gameId, ply, positionHash, moveUci, result, whiteRating, blackRating],
+          });
+        }
+
+        await transaction.commit();
+      } catch (err) {
+        await transaction.rollback();
+        throw err;
       }
 
       processed += 1;
@@ -97,7 +150,11 @@ async function backfill() {
   await db.close();
 }
 
-backfill().catch((err) => {
-  console.error('Backfill script failed:', err);
-  process.exit(1);
-});
+const isDirectExecution = (process.argv[1] ? path.parse(process.argv[1]).name : '') === 'backfillGamePositions';
+
+if (isDirectExecution) {
+  backfill().catch((err) => {
+    console.error('Backfill script failed:', err);
+    process.exit(1);
+  });
+}

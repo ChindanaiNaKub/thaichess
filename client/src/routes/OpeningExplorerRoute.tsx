@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import { createInitialGameState, getLegalMoves, makeMove } from '@shared/engine';
-import { serializeAnalysisPosition, uciToMove } from '@shared/engineAdapter';
+import { analysisPositionHash, uciToMove } from '@shared/engineAdapter';
 import { findKing } from '@shared/utils/guards';
 import { useTranslation } from '../lib/i18n';
 import { routes } from '../lib/routes';
@@ -79,13 +79,13 @@ export default function OpeningExplorerRoute() {
 
   const { currentState, moveHistory, selectedSquare, selectedMoveUci, gamesPage } = board;
 
-  // Compute position hash for API queries
+  // Compute position hash for API queries (includes counting when active)
   const positionHash = useMemo(() => {
-    return serializeAnalysisPosition({
+    return analysisPositionHash({
       board: currentState.board,
       turn: currentState.turn,
       counting: currentState.counting,
-    }).position;
+    });
   }, [currentState]);
 
   // Fetch opening stats
