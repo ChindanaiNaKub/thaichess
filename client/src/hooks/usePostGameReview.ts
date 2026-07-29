@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { CountingState, GameState, LastMove, Move, Piece, PieceColor, Position, ResultReason } from '@shared/types';
 import { createInitialGameState, createPromotedPawn, getLegalMoves, hasAnyLegalMoves, isInCheck, makeMove } from '@shared/engine';
+import {
+  emptyBoardSelection,
+  findKingInCheckSquare,
+  includesPosition,
+  selectBoardSquare,
+} from '../lib/boardSession';
 
 type ReviewMode = 'mainLine' | 'analysis';
 
@@ -223,18 +229,7 @@ function buildMainLineStates(moves: Move[], finalState?: ReviewStateSource | nul
 }
 
 function getCheckSquare(state: GameState): Position | null {
-  if (!state.isCheck) return null;
-
-  for (let row = 0; row < 8; row += 1) {
-    for (let col = 0; col < 8; col += 1) {
-      const piece = state.board[row][col];
-      if (piece && piece.type === 'K' && piece.color === state.turn) {
-        return { row, col };
-      }
-    }
-  }
-
-  return null;
+  return findKingInCheckSquare(state);
 }
 
 function getBranchStepForwardNode(branch: AnalysisBranch | null): AnalysisNode | null {
@@ -552,21 +547,22 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     const piece = currentState.board[pos.row][pos.col];
 
     if (selectedSquare) {
-      const isLegalTarget = legalMoves.some((move) => move.row === pos.row && move.col === pos.col);
-      if (isLegalTarget) {
+      if (includesPosition(legalMoves, pos)) {
         commitAnalysisMove(selectedSquare, pos);
         return;
       }
     }
 
     if (piece && piece.color === currentState.turn) {
-      setSelectedSquare(pos);
-      setLegalMoves(getLegalMoves(currentState.board, pos));
+      const next = selectBoardSquare(currentState.board, pos);
+      setSelectedSquare(next.selectedSquare);
+      setLegalMoves(next.legalMoves);
       return;
     }
 
-    setSelectedSquare(null);
-    setLegalMoves([]);
+    const cleared = emptyBoardSelection();
+    setSelectedSquare(cleared.selectedSquare);
+    setLegalMoves(cleared.legalMoves);
   }, [commitAnalysisMove, currentState, enabled, legalMoves, mode, selectedSquare]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
@@ -576,7 +572,7 @@ export function usePostGameReview(options: UsePostGameReviewOptions): UsePostGam
     if (!piece || piece.color !== currentState.turn) return;
 
     const moves = getLegalMoves(currentState.board, from);
-    if (!moves.some((move) => move.row === to.row && move.col === to.col)) return;
+    if (!includesPosition(moves, to)) return;
 
     commitAnalysisMove(from, to);
   }, [commitAnalysisMove, currentState, enabled, mode]);

@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Position, PieceColor, Move, GameState } from '@shared/types';
 import {
-  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getBoardAtMove, getLastMoveForView,
+  getLegalMoves, makeMove, createInitialGameState, createInitialBoard, getLastMoveForView,
   startCounting, stopCounting,
 } from '@shared/engine';
 import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
@@ -10,7 +10,19 @@ import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } fr
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
 import { buildInlineAnalysisRoute } from '../lib/analysis';
+import {
+  emptyBoardSelection,
+  getCheckSquareForView,
+  getDisplayBoardForView,
+  getVisibleMovesForView,
+  includesPosition,
+  isViewingHistoryIndex,
+  scrubViewMoveIndex,
+  selectBoardSquare,
+  viewMoveIndexFromHistoryClick,
+} from '../lib/boardSession';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { useSaveLocalGameMutation } from '../queries/localGames';
@@ -110,49 +122,41 @@ function useLocalGameScreen() {
     });
   }, [currentGameId, gameState, gameOverInfo, navigate, saveLocalGameMutation]);
 
-  useEffect(() => {
-    if (gameState.moveHistory.length === 0) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
+  const boardNavHandlers = useMemo(() => ({
+    onBack: () => {
       if (gameState.gameOver) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-          e.preventDefault();
-          review.stepBackward();
-        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          review.stepForward();
-        } else if (e.key === 'Home') {
-          e.preventDefault();
-          review.jumpToStart();
-        } else if (e.key === 'End') {
-          e.preventDefault();
-          review.jumpToEnd();
-        }
+        review.stepBackward();
         return;
       }
-
-      const moveCount = gameState.moveHistory.length;
-      const current = viewMoveIndex ?? moveCount - 1;
-
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setViewMoveIndex(Math.max(-1, current - 1));
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(moveCount - 1, current + 1);
-        setViewMoveIndex(next >= moveCount - 1 ? null : next);
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        setViewMoveIndex(-1);
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        setViewMoveIndex(null);
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'back'));
+    },
+    onForward: () => {
+      if (gameState.gameOver) {
+        review.stepForward();
+        return;
       }
-    };
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'forward'));
+    },
+    onStart: () => {
+      if (gameState.gameOver) {
+        review.jumpToStart();
+        return;
+      }
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'start'));
+    },
+    onEnd: () => {
+      if (gameState.gameOver) {
+        review.jumpToEnd();
+        return;
+      }
+      setViewMoveIndex(scrubViewMoveIndex(viewMoveIndex, gameState.moveHistory.length, 'end'));
+    },
+  }), [gameState.gameOver, gameState.moveHistory.length, review, viewMoveIndex]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, review, viewMoveIndex]);
+  useBoardNavKeyboard({
+    enabled: gameState.moveHistory.length > 0,
+    handlers: boardNavHandlers,
+  });
 
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
@@ -231,13 +235,13 @@ function useLocalGameScreen() {
     const piece = gameState.board[pos.row][pos.col];
 
     if (selectedSquare) {
-      const isLegal = legalMoves.some(m => m.row === pos.row && m.col === pos.col);
-      if (isLegal) {
+      if (includesPosition(legalMoves, pos)) {
         const newState = makeMove(gameState, selectedSquare, pos);
         if (newState) {
           setGameState(newState);
-          setSelectedSquare(null);
-          setLegalMoves([]);
+          const cleared = emptyBoardSelection();
+          setSelectedSquare(cleared.selectedSquare);
+          setLegalMoves(cleared.legalMoves);
           setArrows([]);
           const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
           if (newState.isCheck) playCheckSound();
@@ -254,11 +258,13 @@ function useLocalGameScreen() {
     }
 
     if (piece && piece.color === gameState.turn) {
-      setSelectedSquare(pos);
-      setLegalMoves(getLegalMoves(gameState.board, pos));
+      const next = selectBoardSquare(gameState.board, pos);
+      setSelectedSquare(next.selectedSquare);
+      setLegalMoves(next.legalMoves);
     } else {
-      setSelectedSquare(null);
-      setLegalMoves([]);
+      const cleared = emptyBoardSelection();
+      setSelectedSquare(cleared.selectedSquare);
+      setLegalMoves(cleared.legalMoves);
     }
   }, [gameState, selectedSquare, legalMoves]);
 
@@ -267,12 +273,13 @@ function useLocalGameScreen() {
     const piece = gameState.board[from.row][from.col];
     if (!piece || piece.color !== gameState.turn) return;
     const legal = getLegalMoves(gameState.board, from);
-    if (legal.some(m => m.row === to.row && m.col === to.col)) {
+    if (includesPosition(legal, to)) {
       const newState = makeMove(gameState, from, to);
       if (newState) {
         setGameState(newState);
-        setSelectedSquare(null);
-        setLegalMoves([]);
+        const cleared = emptyBoardSelection();
+        setSelectedSquare(cleared.selectedSquare);
+        setLegalMoves(cleared.legalMoves);
         setArrows([]);
         const lastMove = newState.moveHistory[newState.moveHistory.length - 1];
         if (newState.isCheck) playCheckSound();
@@ -289,8 +296,9 @@ function useLocalGameScreen() {
 
   const handleReset = () => {
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
-    setSelectedSquare(null);
-    setLegalMoves([]);
+    const cleared = emptyBoardSelection();
+    setSelectedSquare(cleared.selectedSquare);
+    setLegalMoves(cleared.legalMoves);
     setGameOverInfo(null);
     setShowGameOverModal(false);
     setArrows([]);
@@ -302,43 +310,14 @@ function useLocalGameScreen() {
     return getLastMoveForView(gameState, viewMoveIndex);
   };
 
-  const getCheckSquare = (): Position | null => {
-    if (!gameState.isCheck) return null;
-    if (viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1) return null;
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = gameState.board[row][col];
-        if (piece && piece.type === 'K' && piece.color === gameState.turn) {
-          return { row, col };
-        }
-      }
-    }
-    return null;
-  };
+  const getCheckSquare = (): Position | null => getCheckSquareForView(gameState, viewMoveIndex);
 
-  const getDisplayBoard = () => {
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.board;
-    }
-    if (viewMoveIndex === -1) return createInitialBoard();
-    return getBoardAtMove(createInitialBoard(), gameState.moveHistory, viewMoveIndex);
-  };
+  const getDisplayBoard = () => getDisplayBoardForView(gameState, viewMoveIndex);
 
-  const getVisibleMoves = () => {
-    if (viewMoveIndex === null || viewMoveIndex === gameState.moveHistory.length - 1) {
-      return gameState.moveHistory;
-    }
-    if (viewMoveIndex < 0) return [];
-    return gameState.moveHistory.slice(0, viewMoveIndex + 1);
-  };
+  const getVisibleMoves = () => getVisibleMovesForView(gameState.moveHistory, viewMoveIndex);
 
   const handleMoveClick = useCallback((index: number) => {
-    const latestIndex = gameState.moveHistory.length - 1;
-    if (index === latestIndex) {
-      setViewMoveIndex(null);
-      return;
-    }
-    setViewMoveIndex(index);
+    setViewMoveIndex(viewMoveIndexFromHistoryClick(index, gameState.moveHistory.length));
   }, [gameState.moveHistory.length]);
 
   const colorName = (c: PieceColor) => t(c === 'white' ? 'common.white' : 'common.black');
@@ -351,7 +330,7 @@ function useLocalGameScreen() {
     || reviewSelectedMainLineMoveIndex !== gameState.moveHistory.length - 1;
   const isViewingHistory = reviewActive
     ? reviewIsViewingHistory
-    : viewMoveIndex !== null && viewMoveIndex !== gameState.moveHistory.length - 1;
+    : isViewingHistoryIndex(viewMoveIndex, gameState.moveHistory.length);
   const topColor: PieceColor = viewAs === 'white' ? 'black' : 'white';
   const countingLabel = gameState.counting
     ? !gameState.counting.active
