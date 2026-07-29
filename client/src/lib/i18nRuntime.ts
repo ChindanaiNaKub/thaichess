@@ -20,7 +20,7 @@ export const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'footer.links_label': 'Useful links',
   'footer.star_github': 'Star on GitHub',
   'footer.support': 'Support ThaiChess',
-  'footer.support_desc': 'ThaiChess is free and has no ads. Running it costs $20/month. If you enjoy playing, consider supporting the project!',
+  'footer.support_desc': 'ThaiChess is free and has no ads. If you enjoy playing, consider supporting the project!',
   'footer.donate_thai': 'Donate via QR',
   'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
   'footer.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
