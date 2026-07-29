@@ -26,32 +26,46 @@ export type GamePageActiveViewProps = {
   gameState: ClientGameState;
   playerColor: PieceColor | null;
   opponentColor: PieceColor;
-  isMyTurn: boolean;
-  isViewingHistory: boolean;
-  reviewActive: boolean;
-  reviewMode: 'mainLine' | 'analysis';
-  review: ReviewControls;
-  reviewEngine: ReviewEngineControls;
+  turnState: {
+    isMyTurn: boolean;
+    isViewingHistory: boolean;
+  };
+  reviewSession: {
+    active: boolean;
+    mode: 'mainLine' | 'analysis';
+    controls: ReviewControls;
+    engine: ReviewEngineControls;
+  };
   spectatorPath: string;
-  copied: boolean;
-  drawOffered: boolean;
-  opponentDisconnected: boolean;
-  showGuide: boolean;
-  showGameOverModal: boolean;
+  shareLabel: string;
+  notices: {
+    drawOffered: boolean;
+    opponentDisconnected: boolean;
+  };
+  overlays: {
+    showGuide: boolean;
+    showGameOverModal: boolean;
+  };
   gameOverInfo: GameOverInfo | null;
-  canReportOpponent: boolean;
-  rematchLabel: string;
-  rematchNotice: string | null;
-  rematchDisabled: boolean;
-  reportLabel: string;
-  reportDisabled: boolean;
-  modalReportLabel: string;
+  rematch: {
+    label: string;
+    notice: string | null;
+    disabled: boolean;
+  };
+  reporting: {
+    allowed: boolean;
+    label: string;
+    modalLabel: string;
+    disabled: boolean;
+  };
   timeControl: TimeControl | null;
   statusText: string;
   moveCount: number;
-  countingLabel: string | null;
-  canStartCounting: boolean;
-  canStopCounting: boolean;
+  counting: {
+    label: string | null;
+    canStart: boolean;
+    canStop: boolean;
+  };
   myDisplayName: string;
   opponentDisplayName: string;
   playerSubtitle: string;
@@ -102,32 +116,19 @@ export function GamePageActiveView({
   gameState,
   playerColor,
   opponentColor,
-  isMyTurn,
-  isViewingHistory,
-  reviewActive,
-  reviewMode,
-  review,
-  reviewEngine,
+  turnState,
+  reviewSession,
   spectatorPath,
-  copied,
-  drawOffered,
-  opponentDisconnected,
-  showGuide,
-  showGameOverModal,
+  shareLabel,
+  notices,
+  overlays,
   gameOverInfo,
-  canReportOpponent,
-  rematchLabel,
-  rematchNotice,
-  rematchDisabled,
-  reportLabel,
-  reportDisabled,
-  modalReportLabel,
+  rematch,
+  reporting,
   timeControl,
   statusText,
   moveCount,
-  countingLabel,
-  canStartCounting,
-  canStopCounting,
+  counting,
   myDisplayName,
   opponentDisplayName,
   playerSubtitle,
@@ -190,7 +191,7 @@ export function GamePageActiveView({
               onClick={onCopyGameLink}
               className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
             >
-              {copied ? t('game.copied') : t('game.share')}
+              {shareLabel}
             </button>
             <a
               href={spectatorPath}
@@ -204,12 +205,12 @@ export function GamePageActiveView({
         }
         banners={
           <>
-            {opponentDisconnected && (
+            {notices.opponentDisconnected && (
               <div className="bg-accent/20 border-b border-accent/30 text-center py-2 text-xs sm:text-sm text-accent">
                 {t('game.opponent_dc')}
               </div>
             )}
-            {drawOffered && (
+            {notices.drawOffered && (
               <div className="bg-primary/20 border-b border-primary/30 text-center py-3 text-xs sm:text-sm flex items-center justify-center gap-3 flex-wrap px-2">
                 <span className="text-text-bright">{t('game.draw_offer_received')}</span>
                 <div className="flex gap-2">
@@ -247,19 +248,19 @@ export function GamePageActiveView({
         board={
           <BoardErrorBoundary onRetry={() => window.location.reload()}>
             <Board
-              board={reviewActive ? review.currentState.board : displayBoard}
+              board={reviewSession.active ? reviewSession.controls.currentState.board : displayBoard}
               playerColor={playerColor}
-              draggableColor={reviewActive && reviewMode === 'analysis' ? review.currentState.turn : undefined}
-              isMyTurn={reviewActive ? reviewMode === 'analysis' : isMyTurn}
-              legalMoves={reviewActive ? review.legalMoves : isViewingHistory ? [] : legalMoves}
-              selectedSquare={reviewActive ? review.selectedSquare : isViewingHistory ? null : selectedSquare}
-              lastMove={reviewActive ? review.currentLastMove : lastMove}
-              isCheck={reviewActive ? review.currentState.isCheck : isViewingHistory ? false : gameState.isCheck}
-              checkSquare={reviewActive ? review.currentCheckSquare : checkSquare}
-              onSquareClick={reviewActive ? review.handleSquareClick : onSquareClick}
-              onPieceDrop={reviewActive ? review.handlePieceDrop : onPieceDrop}
-              disabled={reviewActive ? reviewMode !== 'analysis' : isViewingHistory || (gameState.gameOver && !isViewingHistory)}
-              premove={reviewActive ? null : premove}
+              draggableColor={reviewSession.active && reviewSession.mode === 'analysis' ? reviewSession.controls.currentState.turn : undefined}
+              isMyTurn={reviewSession.active ? reviewSession.mode === 'analysis' : turnState.isMyTurn}
+              legalMoves={reviewSession.active ? reviewSession.controls.legalMoves : turnState.isViewingHistory ? [] : legalMoves}
+              selectedSquare={reviewSession.active ? reviewSession.controls.selectedSquare : turnState.isViewingHistory ? null : selectedSquare}
+              lastMove={reviewSession.active ? reviewSession.controls.currentLastMove : lastMove}
+              isCheck={reviewSession.active ? reviewSession.controls.currentState.isCheck : turnState.isViewingHistory ? false : gameState.isCheck}
+              checkSquare={reviewSession.active ? reviewSession.controls.currentCheckSquare : checkSquare}
+              onSquareClick={reviewSession.active ? reviewSession.controls.handleSquareClick : onSquareClick}
+              onPieceDrop={reviewSession.active ? reviewSession.controls.handlePieceDrop : onPieceDrop}
+              disabled={reviewSession.active ? reviewSession.mode !== 'analysis' : turnState.isViewingHistory || (gameState.gameOver && !turnState.isViewingHistory)}
+              premove={reviewSession.active ? null : premove}
               arrows={arrows}
               onArrowsChange={onArrowsChange}
             />
@@ -281,10 +282,10 @@ export function GamePageActiveView({
         }
         statusText={statusText}
         moveCount={moveCount}
-        isViewingHistory={isViewingHistory}
-        showCheckBadge={reviewActive ? review.currentState.isCheck : gameState.isCheck}
+        isViewingHistory={turnState.isViewingHistory}
+        showCheckBadge={reviewSession.active ? reviewSession.controls.currentState.isCheck : gameState.isCheck}
         toolbar={
-          !reviewActive && premove ? (
+          !reviewSession.active && premove ? (
             <>
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
                 {t('game.premove_set')}
@@ -306,22 +307,22 @@ export function GamePageActiveView({
             playerColor={playerColor}
             playerSubtitle={playerSubtitle}
             statusText={statusText}
-            countingLabel={countingLabel}
-            canStartCounting={canStartCounting}
-            canStopCounting={canStopCounting}
+            countingLabel={counting.label}
+            canStartCounting={counting.canStart}
+            canStopCounting={counting.canStop}
             gameOverInfo={gameOverInfo}
-            rematchLabel={rematchLabel}
-            rematchNotice={rematchNotice}
-            rematchDisabled={rematchDisabled}
-            reportLabel={reportLabel}
-            reportDisabled={reportDisabled}
-            canReportOpponent={canReportOpponent}
+            rematchLabel={rematch.label}
+            rematchNotice={rematch.notice}
+            rematchDisabled={rematch.disabled}
+            reportLabel={reporting.label}
+            reportDisabled={reporting.disabled}
+            canReportOpponent={reporting.allowed}
             timeControl={timeControl}
             whitePlayerName={whitePlayerName}
             blackPlayerName={blackPlayerName}
-            review={review}
-            reviewEngine={reviewEngine}
-            reviewActive={reviewActive}
+            review={reviewSession.controls}
+            reviewEngine={reviewSession.engine}
+            reviewActive={reviewSession.active}
             viewMoveIndex={viewMoveIndex}
             onRematch={onRematch}
             onNewGame={onNewGame}
@@ -337,7 +338,7 @@ export function GamePageActiveView({
         }
       />
 
-      {gameOverInfo && showGameOverModal && (
+      {gameOverInfo && overlays.showGameOverModal && (
         <GameOverModal
           winner={gameOverInfo.winner}
           reason={gameOverInfo.reason}
@@ -346,18 +347,18 @@ export function GamePageActiveView({
           ratingChange={gameOverInfo.ratingChange}
           onRematch={onRematch}
           onNewGame={onNewGame}
-          rematchLabel={rematchLabel}
-          rematchDisabled={rematchDisabled}
-          rematchNotice={rematchNotice}
+          rematchLabel={rematch.label}
+          rematchDisabled={rematch.disabled}
+          rematchNotice={rematch.notice}
           onAnalyze={onAnalyze}
-          onReport={canReportOpponent ? onReport : undefined}
-          reportLabel={modalReportLabel}
-          reportDisabled={reportDisabled}
+          onReport={reporting.allowed ? onReport : undefined}
+          reportLabel={reporting.modalLabel}
+          reportDisabled={reporting.disabled}
           onClose={onCloseGameOverModal}
         />
       )}
 
-      <PieceGuide show={showGuide} onClose={onCloseGuide} />
+      <PieceGuide show={overlays.showGuide} onClose={onCloseGuide} />
     </div>
   );
 }

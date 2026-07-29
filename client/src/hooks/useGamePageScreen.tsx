@@ -606,32 +606,46 @@ export function useGamePageScreen() {
       gameState={gameState}
       playerColor={playerColor}
       opponentColor={opponentColor}
-      isMyTurn={isMyTurn}
-      isViewingHistory={isViewingHistory}
-      reviewActive={reviewActive}
-      reviewMode={reviewMode}
-      review={review}
-      reviewEngine={reviewEngine}
+      turnState={{
+        isMyTurn,
+        isViewingHistory,
+      }}
+      reviewSession={{
+        active: reviewActive,
+        mode: reviewMode,
+        controls: review,
+        engine: reviewEngine,
+      }}
       spectatorPath={spectatorPath}
-      copied={copied}
-      drawOffered={drawOffered}
-      opponentDisconnected={opponentDisconnected}
-      showGuide={showGuide}
-      showGameOverModal={showGameOverModal}
+      shareLabel={copied ? t('game.copied') : t('game.share')}
+      notices={{
+        drawOffered,
+        opponentDisconnected,
+      }}
+      overlays={{
+        showGuide,
+        showGameOverModal,
+      }}
       gameOverInfo={gameOverInfo}
-      canReportOpponent={canReportOpponent}
-      rematchLabel={rematchLabel}
-      rematchNotice={rematchNotice}
-      rematchDisabled={rematchState === 'sent'}
-      reportLabel={reportLabel}
-      reportDisabled={reportDisabled}
-      modalReportLabel={modalReportLabel}
+      rematch={{
+        label: rematchLabel,
+        notice: rematchNotice,
+        disabled: rematchState === 'sent',
+      }}
+      reporting={{
+        allowed: canReportOpponent,
+        label: reportLabel,
+        modalLabel: modalReportLabel,
+        disabled: reportDisabled,
+      }}
       timeControl={timeControl}
       statusText={statusText}
       moveCount={moveCount}
-      countingLabel={countingLabel}
-      canStartCounting={canStartCounting}
-      canStopCounting={canStopCounting}
+      counting={{
+        label: countingLabel,
+        canStart: canStartCounting,
+        canStop: canStopCounting,
+      }}
       myDisplayName={myDisplayName}
       opponentDisplayName={opponentDisplayName}
       playerSubtitle={playerSubtitle}
