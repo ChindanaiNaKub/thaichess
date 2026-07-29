@@ -1,5 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 
+import 'vitest';
+
 declare module 'vitest' {
   interface Matchers<R = any> {
     toBeInTheDocument(): R;
