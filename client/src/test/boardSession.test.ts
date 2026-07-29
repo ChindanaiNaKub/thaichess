@@ -60,7 +60,12 @@ describe('boardSession helpers', () => {
   });
 
   it('only reports check square on the live tip', () => {
-    const board = createInitialBoard().map((row) => row.map(() => null));
+    const board = createInitialBoard();
+    for (let row = 0; row < 8; row += 1) {
+      for (let col = 0; col < 8; col += 1) {
+        board[row][col] = null;
+      }
+    }
     board[4][4] = { type: 'K', color: 'white' };
     const state = {
       board,
