@@ -100,7 +100,16 @@ jobs:
         run: |
           NUB_BIN="$(npm prefix -g)/bin/nub"
           "$NUB_BIN" --version
-          "$NUB_BIN" install --frozen-lockfile
+          # Registry stream failures for optional platform packages are intermittent.
+          for attempt in 1 2 3; do
+            if "$NUB_BIN" install --frozen-lockfile; then
+              exit 0
+            fi
+            echo "nub install failed (attempt ${attempt}/3); retrying..."
+            sleep $((attempt * 5))
+          done
+          echo "nub install failed after 3 attempts"
+          exit 1
 
       - name: Run server tests
         # nub install can make the first cold DB-module load slower than npm's
