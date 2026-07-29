@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 import Footer from './Footer';
 import Header from './Header';
-import { feedbackQueryOptions, type FeedbackEntry, type FilterType } from '../queries/feedback';
+import { feedbackQueryOptions, type FilterType } from '../queries/feedback';
 
 const TYPE_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
   bug: { bg: 'bg-red-500/15', text: 'text-red-400', icon: '🐛' },
@@ -173,7 +173,7 @@ export default function FeedbackMessagesPage() {
                           event.stopPropagation();
                           try {
                             await handleDelete(item.id);
-                          } catch (err) {
+                          } catch (_err) {
                             // Error is handled by the delete function's error state
                           }
                         }}

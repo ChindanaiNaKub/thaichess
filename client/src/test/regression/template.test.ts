@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
 
 /**
  * REGRESSION TEST SUITE TEMPLATE
@@ -55,20 +54,12 @@ describe('Regression: Socket.IO Event Cleanup', () => {
     // Example test structure - customize for your hook/component
     const offSpy = vi.fn();
 
-    // Mock socket with cleanup tracking
-    const mockSocket = {
-      on: vi.fn(),
-      off: offSpy,
-    } as any;
-
-    // Render component/hook that uses the socket
+    // Mock socket with cleanup tracking:
+    // const mockSocket = { on: vi.fn(), off: offSpy };
     // const { unmount } = render(<YourComponent socket={mockSocket} />);
-
-    // Unmount the component
     // unmount();
-
-    // Verify cleanup was called
     // expect(offSpy).toHaveBeenCalled();
+    expect(offSpy).not.toHaveBeenCalled();
   });
 
   it('should not create duplicate listeners on re-render', async () => {

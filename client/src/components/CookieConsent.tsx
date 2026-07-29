@@ -26,7 +26,7 @@ function CookieIcon({ className }: { className?: string }) {
 }
 
 export default function CookieConsent() {
-  const { lang, t } = useTranslation();
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -53,8 +53,6 @@ export default function CookieConsent() {
   };
 
   if (!isVisible) return null;
-
-  const isThai = lang === 'th';
 
   return (
     <div

@@ -643,7 +643,7 @@ export async function analyzePositionWithEngine(
 export async function analyzeGameWithEngine(
   moves: Move[],
   options?: GameAnalysisOptions,
-  // eslint-disable-next-line no-unused-vars
+   
   onProgress?: (_progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = getReviewMovetime(moves.length, options?.movetimeMs);
@@ -703,7 +703,7 @@ export async function analyzeGameWithEngine(
 async function analyzeGameWithEngineUncached(
   moves: Move[],
   options: GameAnalysisOptions & { movetimeMs: number },
-  // eslint-disable-next-line no-unused-vars
+   
   onProgress?: (_progress: { current: number; total: number; done: boolean }) => void,
 ): Promise<GameAnalysis> {
   const movetimeMs = options.movetimeMs;

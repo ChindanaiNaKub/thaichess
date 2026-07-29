@@ -10,7 +10,6 @@ import { getBetterAuthUserFromCookieHeader } from './betterAuth';
 import { logInfo, logWarn } from './logger';
 
 const SESSION_COOKIE_NAME = 'thaichess_session';
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const GUEST_PLAYER_ID_PATTERN = /^guest_[A-Za-z0-9-]{16,128}$/;
 const AUTH_SECRET = resolveAuthSecret();
 

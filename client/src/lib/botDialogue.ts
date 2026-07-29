@@ -248,7 +248,7 @@ export function maybeCreateMoveDialogue({
   locale,
   previousState,
   nextState,
-  botColor,
+  botColor: _botColor,
   history,
   trigger,
 }: MoveDialogueContext): BotChatDecision | null {

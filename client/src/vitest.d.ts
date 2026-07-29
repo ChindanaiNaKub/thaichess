@@ -1,7 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
 
-import type { Assertion } from 'vitest';
-
 declare module 'vitest' {
   interface Matchers<R = any> {
     toBeInTheDocument(): R;

@@ -22,7 +22,6 @@ export default function MoveHistory({ moves, currentMoveIndex, onMoveClick }: Mo
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLButtonElement>(null);
 
-  const isNavigating = currentMoveIndex !== undefined && currentMoveIndex !== moves.length - 1;
   const activeIndex = currentMoveIndex ?? moves.length - 1;
 
   const movePairs: { num: number; white: string; black?: string; whiteIdx: number; blackIdx: number }[] = [];
