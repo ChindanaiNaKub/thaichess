@@ -13,8 +13,8 @@ import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Header from './Header';
 import Board from './Board';
 import MoveHistory from './MoveHistory';
+import { PuzzleCoachSection as CoachSection } from './PuzzleCoachSection';
 import {
-  CoachSection,
   MAX_RANDOM_RESULT_HISTORY,
   buildReplayState,
   formatActivityDate,
