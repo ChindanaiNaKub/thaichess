@@ -196,25 +196,30 @@ describe('trusted write origin middleware', () => {
     expect(response.body).toEqual({ ok: true });
   });
 
-  it('pins the accepted trusted-write route scope in index.ts', () => {
-    const indexSource = fs.readFileSync(path.resolve(__dirname, '../index.ts'), 'utf8');
-    const protectedRoutes = [...indexSource.matchAll(
-      /app\.(post|patch|delete)\('([^']+)',\s*requireTrustedWriteOriginMiddleware/g,
+  it('pins the accepted trusted-write route scope in route modules', () => {
+    const routesDir = path.resolve(__dirname, '../routes');
+    const routeSources = fs.readdirSync(routesDir)
+      .filter((name) => name.endsWith('.ts'))
+      .sort()
+      .map((name) => fs.readFileSync(path.join(routesDir, name), 'utf8'))
+      .join('\n');
+    const protectedRoutes = [...routeSources.matchAll(
+      /(?:app|router)\.(post|patch|delete)\('([^']+)',\s*requireTrustedWriteOriginMiddleware/g,
     )].map(([, method, routePath]) => `${method.toUpperCase()} ${routePath}`);
 
-    expect(protectedRoutes).toEqual([
-      'POST /api/auth/logout',
-      'PATCH /api/auth/profile',
+    expect(protectedRoutes.sort()).toEqual([
       'DELETE /api/auth/user',
-      'POST /api/fair-play/report',
-      'POST /api/fair-play/cases/:id/restrict',
-      'POST /api/fair-play/cases/:id/dismiss',
-      'POST /api/fair-play/users/:id/clear',
-      'POST /api/puzzle-progress/visit',
-      'POST /api/puzzle-progress/complete',
-      'POST /api/puzzle-progress/attempt',
-      'POST /api/puzzle-progress/sync',
       'DELETE /api/feedback/:id',
+      'PATCH /api/auth/profile',
+      'POST /api/auth/logout',
+      'POST /api/fair-play/cases/:id/dismiss',
+      'POST /api/fair-play/cases/:id/restrict',
+      'POST /api/fair-play/report',
+      'POST /api/fair-play/users/:id/clear',
+      'POST /api/puzzle-progress/attempt',
+      'POST /api/puzzle-progress/complete',
+      'POST /api/puzzle-progress/sync',
+      'POST /api/puzzle-progress/visit',
     ]);
   });
 });
