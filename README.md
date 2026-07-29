@@ -78,7 +78,9 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 │   ├── src/
 │   │   ├── index.ts       # Express + Socket.IO setup
 │   │   ├── betterAuth.ts  # Better Auth configuration
-│   │   ├── database.ts    # Drizzle ORM & Turso queries
+│   │   ├── database.ts    # Database facade (re-exports domain modules)
+│   │   ├── database/      # Domain DB modules (auth, games, puzzles, …)
+│   │   ├── routes/        # Express routers (auth, games, SEO, puzzles, …)
 │   │   ├── gameManager.ts # Game room & clock management
 │   │   ├── socketHandlers.ts  # Real-time game events
 │   │   ├── engineGateway.ts   # Fairy-Stockfish integration

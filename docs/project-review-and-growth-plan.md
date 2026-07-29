@@ -9,10 +9,10 @@
 Already built properly:
 
 - CSRF/origin protection, rate limiting (HTTP + socket), CORS allowlist (`server/src/security.ts`)
-- Real CI/CD: unit tests, e2e (Playwright), build smoke test (SSH deploy to DigitalOcean was removed; Northflank builds from Git)
-- ~50 test files across client and server, including a11y and benchmark tests
+- Real CI/CD: unit tests, e2e (Playwright), lint, build smoke test (SSH deploy to DigitalOcean was removed; Northflank builds from Git)
+- Dozens of Vitest suites across client and server, including a11y and benchmark tests
 - Drizzle + Turso managed DB, Better Auth with OAuth + 2FA + email OTP
-- PWA, SEO (sitemap, robots, server meta via `seoHtml.ts`), i18n (Thai + English), error boundaries, structured logging/monitoring
+- PWA, SEO (dynamic `/robots.txt` and `/sitemap.xml` via `server/src/routes/seo.ts`, HTML meta via `seoHtml.ts`), i18n (Thai + English), error boundaries, structured logging/monitoring
 
 > Note: the build and tests were not run during this review, so they aren't certified as passing — but the structure and breadth are genuinely strong.
 
@@ -42,7 +42,7 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 - Go where Makruk players are: Thai Facebook groups (huge in Thailand), r/chess, r/makruk, chessvariants community, BoardGameGeek, Discord servers.
 - The hook: there is no good modern Makruk site. Lead with "the Lichess for Thai chess," in Thai, to a Thai audience.
 - Make sharing native: a finished game should produce a one-tap shareable image/link with the URL on it (already have `PostGameSharePanel` + share-card export). Every game becomes an ad.
-- Add privacy-friendly analytics (Plausible/Umami) — there's already a cookie-consent component. Can't improve traffic you can't measure.
+- Optionally enable privacy-friendly analytics later (`VITE_PLAUSIBLE_DOMAIN`); cookie consent already gates it, and it stays off by default. Can't improve traffic you can't measure, but don't buy Plausible Cloud just for this.
 - Seed liquidity: keep bot play and puzzles front-and-center so a solo visitor has fun immediately even when no humans are online.
 
 ### 3. Sustainability / donation model

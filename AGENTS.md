@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository uses npm workspaces with three main code areas. `client/` contains the React 19 and Vite frontend; most app code lives in `client/src/`, route entries live in `client/src/routes/`, and browser tests live in `client/e2e/`. `server/` contains the Express and Socket.IO backend in `server/src/`, with operational scripts in `server/src/scripts/` and backend tests in `server/src/test/`. `shared/` holds cross-workspace engine logic, validation schemas, and shared types. Static assets are split across `assets/` and `client/public/`; long-form design and ADR docs live in `docs/`.
+This repository uses npm workspaces with three main code areas. `client/` contains the React 19 and Vite frontend; most app code lives in `client/src/`, route entries live in `client/src/routes/`, and browser tests live in `client/e2e/`. `server/` contains the Express and Socket.IO backend in `server/src/`, with Express domain routers in `server/src/routes/`, database domain modules in `server/src/database/` (re-exported by `server/src/database.ts`), operational scripts in `server/src/scripts/`, and backend tests in `server/src/test/`. `shared/` holds cross-workspace engine logic, validation schemas, and shared types. Static assets are split across `assets/` and `client/public/`; long-form design and ADR docs live in `docs/`.
 
 ## Build, Test, and Development Commands
 Use Node `22.22.0` (`.node-version`) and install dependencies with `npm ci`.

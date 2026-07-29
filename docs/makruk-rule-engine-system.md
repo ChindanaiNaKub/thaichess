@@ -13,7 +13,7 @@ Authoritative references:
 
 Shared rule source:
 
-- [makrukRules.ts](/Users/kwanchanokroumsuk/Documents/thaichess/shared/makrukRules.ts)
+- [makrukRules.ts](../shared/makrukRules.ts)
 
 Responsibilities:
 
@@ -24,7 +24,7 @@ Responsibilities:
 
 Engine integration:
 
-- [engine.ts](/Users/kwanchanokroumsuk/Documents/thaichess/shared/engine.ts)
+- [engine.ts](../shared/engine.ts)
 
 Makruk-native behaviors now centered in the engine:
 
@@ -44,7 +44,7 @@ Makruk-native behaviors now centered in the engine:
 
 Shared design module:
 
-- [makrukRulePuzzles.ts](/Users/kwanchanokroumsuk/Documents/thaichess/shared/makrukRulePuzzles.ts)
+- [makrukRulePuzzles.ts](../shared/makrukRulePuzzles.ts)
 
 System shape:
 
@@ -71,14 +71,14 @@ This lets the product support unique Makruk puzzles such as:
 
 Example puzzle:
 
-- `sak-mak-immediate-draw` in [makrukRulePuzzles.ts](/Users/kwanchanokroumsuk/Documents/thaichess/shared/makrukRulePuzzles.ts)
+- `sak-mak-immediate-draw` in [makrukRulePuzzles.ts](../shared/makrukRulePuzzles.ts)
 - lesson-style answer: draw immediately, because the start count is already beyond the two-Rua `Sak Mak` limit
 
 ## Lesson Structure
 
 Client lesson module:
 
-- [makrukRuleLessons.ts](/Users/kwanchanokroumsuk/Documents/thaichess/client/src/lib/makrukRuleLessons.ts)
+- [makrukRuleLessons.ts](../client/src/lib/makrukRuleLessons.ts)
 
 Lesson pattern:
 
@@ -94,7 +94,7 @@ Tracks:
 
 Example lesson:
 
-- `when-sak-mak-starts` in [makrukRuleLessons.ts](/Users/kwanchanokroumsuk/Documents/thaichess/client/src/lib/makrukRuleLessons.ts)
+- `when-sak-mak-starts` in [makrukRuleLessons.ts](../client/src/lib/makrukRuleLessons.ts)
 
 It teaches:
 

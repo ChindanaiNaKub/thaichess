@@ -71,4 +71,4 @@ This keeps the experience coach-like instead of article-like.
 - Feedback: support first, because a loose high pawn becomes a target
 - Wrap: name the pattern, its purpose, and the next practical follow-up
 
-The matching data lives in [client/src/lib/makrukNativeLessonSystem.ts](/Users/kwanchanokroumsuk/Documents/thaichess/client/src/lib/makrukNativeLessonSystem.ts).
+The matching data lives in [client/src/lib/makrukNativeLessonSystem.ts](../client/src/lib/makrukNativeLessonSystem.ts).

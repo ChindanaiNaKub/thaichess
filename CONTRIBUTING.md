@@ -52,14 +52,12 @@ npm run build
 
 ## Areas Where Help is Needed
 
-- **Thai language support** — UI translations
-- **ThaiChess counting rules** — Full implementation of endgame counting
-- **AI opponent** — Basic game engine for solo play
-- **Puzzles** — Tactical puzzles for training
+- **Tournaments** — Scheduled events so players have a reason to show up together
 - **UI/UX improvements** — Especially mobile experience
 - **Accessibility** — Screen reader support, keyboard navigation
-- **Testing** — Unit tests for the game engine
-- **Documentation** — Strategy guides
+- **Testing** — Broader coverage for gameplay, auth, and regression cases
+- **Documentation** — Strategy guides and keeping docs aligned with the code
+- **Distribution** — Help players discover the site (share cards, community outreach)
 
 ## Code Style
 
@@ -74,23 +72,34 @@ npm run build
 
 ### Running Tests
 
-From the project root or client directory:
+From the project root (preferred for CI parity):
 
 ```bash
-# Unit and component tests (watch mode)
-npm run test
+# Client + server Vitest suites (one-shot run, not watch mode)
+npm test
 
-# Run tests once (without watch)
+# Playwright end-to-end tests
+npm run test:e2e
+```
+
+Client workspace only (watch / UI / coverage helpers):
+
+```bash
+cd client
+
+# Watch mode
+npm test
+
+# One-shot run
 npm run test:run
 
-# Run tests with UI
+# Vitest UI
 npm run test:ui
 
-# Generate coverage report
+# Coverage report
 npm run test:coverage
 
-# E2E tests
-npm run test:e2e
+# Playwright UI mode
 npm run test:e2e:ui
 ```
 
@@ -159,17 +168,18 @@ When fixing a bug, add a regression test to prevent it from recurring:
 
 ### Linting
 
-Run ESLint before committing:
+Run ESLint before committing. CI also runs the root lint gate on pull requests.
 
 ```bash
-# Client
-cd client && npm run lint
+# Lint client + server (preferred)
+npm run lint
 
-# Server
-cd server && npm run lint
-
-# Auto-fix issues
+# Auto-fix issues across workspaces
 npm run lint:fix
+
+# Or lint one workspace
+npm run lint --workspace=client
+npm run lint --workspace=server
 ```
 
 ### React Hooks Rules
