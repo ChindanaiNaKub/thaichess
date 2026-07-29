@@ -1,13 +1,15 @@
 # ThaiChess — Project Review & Growth Plan
 
 > Written 2026-05-29. An honest assessment of where the project stands and what to do next.
+>
+> **Hosting update (2026-07-29):** Production runs on **Northflank free cloud + Turso** only. DigitalOcean / student-credit hosting in this doc is **historical** — see [`docs/ops-production-readiness.md`](ops-production-readiness.md) for current facts.
 
 ## Is it production-ready? Yes — and it's well past hobby quality.
 
 Already built properly:
 
 - CSRF/origin protection, rate limiting (HTTP + socket), CORS allowlist (`server/src/security.ts`)
-- Real CI/CD: unit tests, e2e (Playwright), build smoke test, automated SSH deploy with health-check rollback gating
+- Real CI/CD: unit tests, e2e (Playwright), build smoke test (SSH deploy to DigitalOcean was removed; Northflank builds from Git)
 - ~50 test files across client and server, including a11y and benchmark tests
 - Drizzle + Turso managed DB, Better Auth with OAuth + 2FA + email OTP
 - PWA, SEO (sitemap, robots, server meta via `seoHtml.ts`), i18n (Thai + English), error boundaries, structured logging/monitoring
@@ -23,7 +25,7 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 
 ## The real issues, in priority order
 
-1. **Hosting will run out.** GitHub Student DigitalOcean credit is time-limited. When it expires, the site dies or starts costing money. A 24/7 Express + Socket.IO + WASM-engine server is relatively expensive. Most urgent item.
+1. **Hosting sustainability.** Live app is on **Northflank free (Sandbox)** + **Turso**. Stay inside free limits and watch billing; free tiers can change or overage into pay-as-you-go. Details: [`ops-production-readiness.md`](ops-production-readiness.md). *(Older text here about DigitalOcean student credit is obsolete.)*
 2. **Nobody knows it exists.** A world-class platform shipped into silence.
 3. **Donations as the revenue model.** Rarely works for niche free projects.
 
@@ -31,10 +33,9 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 
 ### 1. Cost / sustainability (do first)
 
-- Calculate real monthly burn and the exact credit expiry date.
-- Frontend is a static Vite build — host `client/dist` free on Cloudflare Pages or Netlify. Only the realtime server needs a paid box.
+- Stay on Northflank free + Turso; check dashboards monthly (see ops doc).
 - Lean on the browser WASM engine (`fairy-stockfish-nnue.wasm`) for analysis/bots so the server stays cheap. Reserve the server for multiplayer + persistence only.
-- Put Cloudflare in front for free CDN/caching/DDoS protection.
+- Optional later: put Cloudflare in front for free CDN/caching/DDoS protection (not required for current Northflank setup).
 
 ### 2. Get actual players (the work that matters now)
 
@@ -56,14 +57,14 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 
 ## Concrete next steps I can help with
 
-- Audit hosting and propose a split static-frontend + minimal-server architecture to cut the bill
+- Keep Northflank free-tier usage documented and within limits ([`ops-production-readiness.md`](ops-production-readiness.md))
 - Verify the share-card/share-link flow embeds the URL and works on mobile
-- Wire in privacy-friendly analytics
+- Wire in privacy-friendly analytics (consent-gated Plausible is implemented; enable with `VITE_PLAUSIBLE_DOMAIN` at build time)
 - Run the build and full test suite to confirm everything currently passes
 
 ## Key open questions
 
-- What's the monthly hosting cost?
-- When does the DigitalOcean credit run out?
+- Are we still within Northflank Sandbox free limits this month?
+- Is Turso still on the free plan / within quota?
 
-(Answers to these change which step comes first.)
+(Answers live in the Northflank + Turso dashboards; see the ops doc.)

@@ -2,31 +2,34 @@
 
 > Snapshot: 2026-07-29. Student-maintained live app at https://thaichess.dev
 
-## Current hosting
+## Current hosting (authoritative)
+
+**Active stack today: Northflank free cloud + Turso only.**  
+Nothing else hosts the app — no DigitalOcean droplet, no Render, no Oracle VM, no Fly/Railway/Vercel for production.
 
 | Layer | Provider | Notes |
 |-------|----------|--------|
-| App (Node + Socket.IO + static `client/dist`) | **Northflank** Sandbox combined service | Dockerfile build; public port **3000**; health `/api/health` |
-| Edge / DNS | Northflank domain + name.com | Apex via Northflank DNS target; responses show `server: istio-envoy` on Google Cloud |
+| App (Node + Socket.IO + static `client/dist`) | **Northflank** Developer Sandbox (free) | Combined service, Dockerfile build; public port **3000**; health `/api/health` |
+| Edge / DNS | Northflank + name.com | Custom domain `thaichess.dev`; responses may show `server: istio-envoy` (Northflank’s managed edge on their cloud) |
 | Database | **Turso** (`thaichess-chindanainakub`, `aws-ap-northeast-1`) | Primary prod DB via `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` |
-| CI | GitHub Actions (`ci.yml`) | Lint, tests, build, release artifact on `main` push — **no auto-deploy job** |
+| CI | GitHub Actions (`ci.yml`) | Lint, tests, build, release artifact on `main` push — **no auto-deploy job**; Northflank rebuilds from the tracked Git branch |
 
-History (for context): Render free → DigitalOcean droplet + SSH deploy → droplet deleted (credit expiry / teardown) → Northflank (PR #279 Dockerfile, PR #280 removed DO deploy).
+Brief history only (not current): older deploys used Render free, then a DigitalOcean droplet with SSH deploy. That droplet was deleted; CI’s DigitalOcean job was removed in PR #280. Live traffic is Northflank.
 
-Older notes in `docs/project-review-and-growth-plan.md` still mention DigitalOcean credit; treat that as **historical**. Live traffic is on Northflank now.
+`docs/project-review-and-growth-plan.md` still talks about DigitalOcean student credit — that section is **outdated**; use this file for hosting facts.
 
 ## Monthly cost & credit / expiry risk
 
 | Item | Est. cost | Risk |
 |------|-----------|------|
-| Northflank Developer Sandbox | **$0** within free limits (2 services, 2 jobs, 1 addon; card required for account) | Sandbox is “hobby / not for production” in Northflank docs. Exceeding free limits → pay-as-you-go (~$0.01667/vCPU-hr, ~$0.00833/GB-hr). Student pack email (`students@northflank.com`) can raise free service count — confirm status in the Northflank billing UI. |
-| DigitalOcean GitHub Student credit | N/A (droplet gone) | Previously cited expiry ~**2026-07-31**; no longer hosting. |
-| Oracle Always Free / $300 trial | Optional fallback | Trial credits do **not** roll over after 30 days; Always Free Ampere capacity was constrained when last checked. |
-| Turso | Free Starter if within plan quotas | Plan/quota changes or overage; confirm plan in Turso dashboard. |
-| Domains / email (name.com, Resend) | Existing maintainer costs | Independent of app host. |
+| **Northflank Developer Sandbox** | **$0** within free limits (typically 2 services, 2 jobs, 1 addon; card often required for account) | Free tier is for hobby use per Northflank docs. Leaving free limits → pay-as-you-go (~$0.01667/vCPU-hr, ~$0.00833/GB-hr). Confirm plan/usage in the Northflank billing UI. Optional: Student Developer Pack via `students@northflank.com` for higher free service limits. |
+| **Turso** | Free Starter if within plan quotas | Plan/quota changes or overage; confirm in Turso dashboard. |
+| Domains / email (name.com, Resend) | Existing maintainer costs | Independent of app compute host. |
 | Privacy analytics (Plausible) | $0 until enabled; then Plausible Cloud or self-host | Client is wired but **off** until `VITE_PLAUSIBLE_DOMAIN` is set at **build** time. |
 
-**Action for maintainer:** open Northflank billing + Turso dashboards monthly; set a calendar reminder before any student/sandbox entitlement ends; keep a documented fallback (Oracle Always Free VM or small paid VPS) if Sandbox is revoked.
+**Not in use:** DigitalOcean, Oracle Cloud, Azure, Render, Fly.io, Railway, etc. Do not plan cost/expiry around those products for this app.
+
+**Action for maintainer:** check Northflank + Turso dashboards monthly; stay inside Sandbox free limits; set a billing alert if the account can leave free tier.
 
 ## Database backup (Turso)
 
@@ -62,6 +65,6 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 ## Deploy checklist (Northflank)
 
 1. Push/merge to the branch the service tracks (`main`).
-2. Confirm build succeeds; `/api/health` → `status: ok`, `dependencies.database: ok`.
+2. Confirm Northflank build succeeds; `/api/health` → `status: ok`, `dependencies.database: ok`.
 3. Runtime secrets: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, Turso URL/token, OAuth if used.
 4. To enable analytics: set build-time `VITE_PLAUSIBLE_DOMAIN=thaichess.dev` (and rebuild), then users who accept analytics load Plausible.
