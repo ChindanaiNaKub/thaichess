@@ -59,7 +59,7 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 
 - Keep Northflank free-tier usage documented and within limits ([`ops-production-readiness.md`](ops-production-readiness.md))
 - Verify the share-card/share-link flow embeds the URL and works on mobile
-- Wire in privacy-friendly analytics (consent-gated Plausible is implemented; enable with `VITE_PLAUSIBLE_DOMAIN` at build time)
+- Privacy-friendly analytics hook exists but stays **off** ($0) unless you set `VITE_PLAUSIBLE_DOMAIN`; do not buy Plausible Cloud for this
 - Run the build and full test suite to confirm everything currently passes
 
 ## Key open questions

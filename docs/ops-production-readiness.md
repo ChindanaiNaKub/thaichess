@@ -25,7 +25,7 @@ Brief history only (not current): older deploys used Render free, then a Digital
 | **Northflank Developer Sandbox** | **$0** within free limits (typically 2 services, 2 jobs, 1 addon; card often required for account) | Free tier is for hobby use per Northflank docs. Leaving free limits → pay-as-you-go (~$0.01667/vCPU-hr, ~$0.00833/GB-hr). Confirm plan/usage in the Northflank billing UI. Optional: Student Developer Pack via `students@northflank.com` for higher free service limits. |
 | **Turso** | Free Starter if within plan quotas | Plan/quota changes or overage; confirm in Turso dashboard. |
 | Domains / email (name.com, Resend) | Existing maintainer costs | Independent of app compute host. |
-| Privacy analytics (Plausible) | $0 until enabled; then Plausible Cloud or self-host | Client is wired but **off** until `VITE_PLAUSIBLE_DOMAIN` is set at **build** time. |
+| Privacy analytics | **$0 (not enabled)** | Code can load Plausible later, but **do not set** `VITE_PLAUSIBLE_DOMAIN` unless you have a free self-host or are willing to pay for Plausible Cloud. Default = no analytics script, no cost. |
 
 **Not in use:** DigitalOcean, Oracle Cloud, Azure, Render, Fly.io, Railway, etc. Do not plan cost/expiry around those products for this app.
 
@@ -57,14 +57,19 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 
 ## Privacy-friendly analytics
 
-- Cookie banner (`CookieConsent`) stores `essential` | `analytics` in `localStorage` (`thaichess-cookie-consent`). Legacy value `true` = essential only.
-- `PrivacyAnalytics` loads Plausible **only** when consent is `analytics` **and** `VITE_PLAUSIBLE_DOMAIN` is set at client build time.
-- Optional: `VITE_PLAUSIBLE_SCRIPT_URL` (default `https://plausible.io/js/script.js`). Plausible sends `Cross-Origin-Resource-Policy: cross-origin`, compatible with this app’s COEP `require-corp`.
-- Until the env var is set and the image rebuilt, the banner stays essential-only (no third-party script).
+**We are not using Plausible (or any paid analytics) in production right now.**
+
+- Recommended for a $0 student setup: leave `VITE_PLAUSIBLE_DOMAIN` **unset**. The cookie banner stays essential-only; no third-party script loads; **$0**.
+- Plausible **Cloud** is a paid product — do **not** buy it unless you want to. The code hook is optional future wiring only.
+- If you ever want free traffic stats later (optional, not required):
+  - Self-host Plausible or Umami on free compute you already have, **or**
+  - Use another free privacy-friendly host and point `VITE_PLAUSIBLE_SCRIPT_URL` / domain at it after consent — still only if you opt in.
+- Cookie banner stores `essential` | `analytics` in `localStorage` (`thaichess-cookie-consent`). Legacy `true` = essential only.
+- `PrivacyAnalytics` loads a script **only** when consent is `analytics` **and** `VITE_PLAUSIBLE_DOMAIN` is set at client build time.
 
 ## Deploy checklist (Northflank)
 
 1. Push/merge to the branch the service tracks (`main`).
 2. Confirm Northflank build succeeds; `/api/health` → `status: ok`, `dependencies.database: ok`.
 3. Runtime secrets: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, Turso URL/token, OAuth if used.
-4. To enable analytics: set build-time `VITE_PLAUSIBLE_DOMAIN=thaichess.dev` (and rebuild), then users who accept analytics load Plausible.
+4. Analytics: **leave unset** for free (recommended). Do not set `VITE_PLAUSIBLE_DOMAIN` unless you deliberately enable a free self-hosted or paid analytics backend.
