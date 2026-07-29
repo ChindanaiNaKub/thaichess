@@ -21,12 +21,15 @@ We use query option factories to centralize query configuration. This pattern ma
 
 ### Location
 All query option factories are in `client/src/queries/`:
-- `games.ts` - Games pagination
+- `games.ts` - Games pagination, search, and opening explorer
 - `leaderboard.ts` - Leaderboard data
 - `stats.ts` - Home/About stats
 - `analysis.ts` - Game analysis
+- `botGames.ts` - Persist finished bot games
+- `localGames.ts` - Persist finished local games
 - `fairPlay.ts` - Fair play cases
 - `feedback.ts` - Feedback messages
+- `index.ts` - Re-exports every query module
 
 ### Pattern
 

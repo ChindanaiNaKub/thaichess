@@ -54,9 +54,16 @@ const env = validateServerEnv(process.env);
 
 **Validation Rules:**
 - `PORT`: Number, 1-65535, defaults to 3000
-- `NODE_ENV`: Enum, defaults to 'development'
-- `DATABASE_URL`: Optional, must be valid URL
+- `NODE_ENV`: Enum (`development` | `production` | `test`), defaults to `development`
+- `DATA_DIR`: Optional local SQLite data directory
+- `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`: Optional Turso connection (production)
+- `DATABASE_URL`: Optional alternate DB URL
 - `SESSION_SECRET`: Optional, minimum 32 characters
+- `AUTH_SECRET` / `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL`: Optional auth configuration
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET`: Optional OAuth
+- `REDIS_URL`: Optional (not required for the current single-instance setup)
+
+See `.env.example` for the variables used in local and production setup.
 
 ### 3. Puzzle Pipeline
 
@@ -190,15 +197,19 @@ export const MySchema = z.object({
 
 ### 3. Provide Clear Error Messages
 
-Use the `formatZodError` helper for user-facing errors:
+Socket handlers keep a local `formatZodError` helper (not exported) for user-facing socket errors. For new code, prefer Zod's built-in flatten output:
 
 ```typescript
-import { formatZodError } from '../socketHandlers';
-
 const result = MySchema.safeParse(data);
 if (!result.success) {
-  // Produces: "Invalid fields: fieldName (error message)"
-  const message = formatZodError(result.error);
+  // Field and form errors without importing a private helper
+  const { fieldErrors, formErrors } = result.error.flatten();
+  const message = [
+    ...Object.entries(fieldErrors).flatMap(([field, messages]) =>
+      (messages ?? []).map((msg) => `${field} (${msg})`),
+    ),
+    ...formErrors,
+  ].join(', ');
 }
 ```
 
@@ -469,6 +480,5 @@ type User = z.infer<typeof UserSchema>;
 
 ---
 
-**Last Updated:** April 2026  
-**Maintainer:** Development Team  
-**Related:** [Puzzle Generation Workflow](./puzzle-generation-workflow.md)
+**Last Updated:** July 2026
+**Related:** Puzzle pipeline modules in `shared/puzzlePipelineValidation.ts`, `shared/puzzleSourceImport.ts`, and `shared/puzzleGeneration.ts`

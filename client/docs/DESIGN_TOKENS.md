@@ -8,10 +8,14 @@ All colors use the OKLCH color space for perceptual uniformity and better hue co
 
 ### Board Colors
 
+ThaiChess uses a single warm board surface with grid lines rather than alternating light/dark squares.
+
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--color-board-light` | `oklch(0.82 0.06 75)` | Light squares on the board |
-| `--color-board-dark` | `oklch(0.62 0.08 60)` | Dark squares on the board |
+| `--color-board-base` | `oklch(0.78 0.08 78)` | Board surface background |
+| `--color-board-grid` | `oklch(0.58 0.05 72 / 0.42)` | Grid lines between squares |
+| `--color-board-light` | `var(--color-board-base)` | Alias kept for compatibility |
+| `--color-board-dark` | `var(--color-board-base)` | Alias kept for compatibility |
 | `--color-board-selected` | `oklch(0.60 0.10 130)` | Selected square highlight |
 | `--color-board-legal` | `oklch(0.50 0.08 120)` | Legal move dots (internal) |
 | `--color-board-lastmove` | `oklch(0.80 0.12 100)` | Last move indication |
@@ -43,7 +47,7 @@ Warm-tinted dark neutrals, never pure black.
 |-------|-------|-------|----------------------|
 | `--color-text` | `oklch(0.76 0.015 65)` | Body text | 5.5:1 ✓ AA |
 | `--color-text-bright` | `oklch(0.90 0.01 65)` | Headings, emphasis | 11:1 ✓ AAA |
-| `--color-text-dim` | `oklch(0.56 0.015 65)` | Secondary text, labels | 3.5:1 (large only) |
+| `--color-text-dim` | `oklch(0.68 0.015 65)` | Secondary text, labels | 3.5:1 (large only) |
 
 ## Spacing Scale
 

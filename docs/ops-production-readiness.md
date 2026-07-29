@@ -16,7 +16,7 @@ Nothing else hosts the app — no DigitalOcean droplet, no Render, no Oracle VM,
 
 Brief history only (not current): older deploys used Render free, then a DigitalOcean droplet with SSH deploy. That droplet was deleted; CI’s DigitalOcean job was removed in PR #280. Live traffic is Northflank.
 
-`docs/project-review-and-growth-plan.md` still talks about DigitalOcean student credit — that section is **outdated**; use this file for hosting facts.
+`docs/project-review-and-growth-plan.md` was updated on 2026-07-29 to mark DigitalOcean/student-credit text as historical; this file remains authoritative for hosting facts.
 
 ## Monthly cost & credit / expiry risk
 
