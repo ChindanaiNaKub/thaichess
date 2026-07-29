@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { socket, connectSocket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
@@ -29,6 +29,7 @@ function formatSearchTime(seconds: number) {
 
 export default function QuickPlay() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [selectedTime, setSelectedTime] = useState(TIME_PRESETS[3]);
@@ -42,6 +43,7 @@ export default function QuickPlay() {
   const connectHandlerRef = useRef<(() => void) | null>(null);
   const searchingRef = useRef(false);
   const requestPendingRef = useRef(false);
+  const autostartDoneRef = useRef(false);
   const latestTRef = useRef(t);
 
   useEffect(() => {
@@ -152,6 +154,22 @@ export default function QuickPlay() {
       socket.once('connect', emitSearch);
     }
   };
+
+  useEffect(() => {
+    if (autostartDoneRef.current) return;
+    if (searchParams.get('autostart') !== '1') return;
+
+    autostartDoneRef.current = true;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('autostart');
+      return next;
+    }, { replace: true });
+
+    handleFindGame();
+    // Intentional one-shot on mount / first autostart query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams]);
 
   const handleCancel = () => {
     if (connectHandlerRef.current) {

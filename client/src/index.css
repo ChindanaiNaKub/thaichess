@@ -342,19 +342,44 @@
   .button-primary-contrast {
     background: oklch(0.58 0.16 135);
     color: var(--color-surface);
+    transition: transform 100ms ease-out, background-color 150ms ease;
   }
 
   .button-primary-contrast:hover {
     background: oklch(0.62 0.17 135);
   }
 
+  .button-primary-contrast:active {
+    transform: scale(0.97);
+  }
+
   .button-accent-contrast {
     background: oklch(0.68 0.14 75);
     color: var(--color-surface);
+    transition: transform 100ms ease-out, background-color 150ms ease;
   }
 
   .button-accent-contrast:hover {
     background: oklch(0.72 0.15 75);
+  }
+
+  .button-accent-contrast:active {
+    transform: scale(0.97);
+  }
+
+  .home-hero-board {
+    animation: home-hero-fade 420ms ease-out;
+  }
+
+  @keyframes home-hero-fade {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   .ui-card {
@@ -500,6 +525,10 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .home-hero-board {
+    animation: none !important;
   }
 }
 

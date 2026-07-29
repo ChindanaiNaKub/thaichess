@@ -68,9 +68,15 @@ export const TH_TRANSLATIONS: Record<string, string> = {
 
   // Home Page
   'home.hero_title': 'เล่นหมากรุกไทยได้ทุกเวลา',
-  'home.hero_desc': 'ไม่ต้องสมัคร เริ่มเกมหมากรุกไทย เล่นกับเพื่อน หรือฝึกกับบอท',
-  'home.quick_play': 'เล่นเลย',
+  'home.hero_desc': 'ไม่ต้องสมัคร กดเล่น 5+0 เพื่อหาคู่แข่ง หรือสลับไปเล่นกับบอทเมื่อช่วงนั้นเงียบ',
+  'home.quick_play': 'เล่น 5+0',
   'home.quick_play_desc': 'เจอผู้เล่นจริงเมื่อมีคนออนไลน์ และมีบอทให้เล่นเมื่อช่วงนั้นเงียบ',
+  'home.choose_mode': 'เลือกโหมด',
+  'home.more_ways': 'วิธีเล่นอื่น',
+  'home.challenge_eyebrow': 'ระหว่างรอ',
+  'home.challenge_title': 'ลองสตรีคปริศนา',
+  'home.challenge_desc': 'ตอนนี้ยังไม่มีเกมสด วอร์มอัพด้วยสตรีคปริศนา แล้วค่อยกลับมาเล่น',
+  'home.challenge_cta': 'เริ่มสตรีคปริศนา',
   'home.find_opponent': 'หาคู่แข่ง',
   'home.no_signup': 'ไม่ต้องสมัคร',
   'home.free_to_play': 'เล่นฟรี',
