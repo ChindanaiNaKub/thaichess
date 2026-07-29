@@ -139,7 +139,7 @@ export function useCaseActionMutation() {
       // Return a context object with the snapshotted value
       return { previousQueries };
     },
-    onError: (err, { caseId }, context) => {
+    onError: (_err, _variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, data]) => {

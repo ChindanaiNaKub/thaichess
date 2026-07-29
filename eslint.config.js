@@ -4,6 +4,12 @@ import tsparser from '@typescript-eslint/parser';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
+const typescriptUnusedVars = ['error', {
+  argsIgnorePattern: '^_',
+  varsIgnorePattern: '^_',
+  caughtErrorsIgnorePattern: '^_',
+}];
+
 export default [
   // Base recommended config
   js.configs.recommended,
@@ -29,14 +35,13 @@ export default [
       'react-hooks': reactHooks
     },
     rules: {
+      // TypeScript already checks undefined identifiers; no-undef false-positives
+      // on DOM/Node/Vite types (React, process, RequestInfo, ImportMetaEnv, …).
+      'no-undef': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { 
-        'argsIgnorePattern': '^_',
-        'varsIgnorePattern': '^_',
-        'caughtErrorsIgnorePattern': '^_'
-      }]
+      '@typescript-eslint/no-unused-vars': typescriptUnusedVars,
     }
   },
 
@@ -57,7 +62,9 @@ export default [
       '@typescript-eslint': tseslint,
     },
     rules: {
-      // Server doesn't use React hooks
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': typescriptUnusedVars,
     }
   },
 
@@ -73,8 +80,9 @@ export default [
       'server/dist/**',
       'client/coverage/**',
       'coverage/**',
-      '*.config.js',
-      '*.config.ts',
+      '**/*.config.js',
+      '**/*.config.ts',
+      'client/playwright.config.ts',
     ]
   }
 ];

@@ -6,10 +6,7 @@ import {
   type AnalysisProgress,
   formatEval,
   getClassificationColor,
-  getClassificationIcon,
-  getClassificationSymbol,
 } from '@shared/analysis';
-import { EvalBar } from './EvalBar';
 
 export function CompactEnginePanel({
   currentPlyIndex,

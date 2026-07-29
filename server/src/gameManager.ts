@@ -841,7 +841,7 @@ export class GameManager {
     room.gameState.lastMoveTime = now;
   }
 
-  // eslint-disable-next-line no-unused-vars
+   
   startClock(gameId: string, onTick: (...args: [GameRoom]) => void): void {
     this.stopClock(gameId);
 

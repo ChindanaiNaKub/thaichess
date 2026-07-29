@@ -96,15 +96,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
-    const translations = getTranslations(lang);
+    // Read catalogVersion so `t` refreshes after async translation catalogs load
+    // (getTranslations() itself reads a mutable module-level cache).
+    const translations = catalogVersion >= 0 ? getTranslations(lang) : BOOTSTRAP_TRANSLATIONS;
     return applyParams(translations[key] || BOOTSTRAP_TRANSLATIONS[key] || key, params);
-  }, [lang]);
+  }, [lang, catalogVersion]);
 
   const value = useMemo<I18nContextType>(() => ({
     lang,
     setLang,
     t,
-  }), [lang, setLang, t, catalogVersion]);
+  }), [lang, setLang, t]);
 
   return (
     <I18nContext.Provider value={value}>

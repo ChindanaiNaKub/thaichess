@@ -12,7 +12,7 @@ function formatTimeControl(initial: number, increment: number): string {
   return increment > 0 ? `${mins}+${increment}` : `${mins}+0`;
 }
 
-function formatResult(result: string, reason: string): { text: string; color: string } {
+function formatResult(result: string, _reason: string): { text: string; color: string } {
   if (result === 'draw') return { text: '½-½', color: 'text-accent' };
   if (result === 'white') return { text: '1-0', color: 'text-text-bright' };
   return { text: '0-1', color: 'text-text-bright' };

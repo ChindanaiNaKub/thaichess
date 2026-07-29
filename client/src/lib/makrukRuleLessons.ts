@@ -32,10 +32,6 @@ function board(...placements: Placement[]): Board {
   return next;
 }
 
-function move(from: string, to: string): { from: Position; to: Position } {
-  return { from: square(from), to: square(to) };
-}
-
 export interface MakrukRuleLessonScene {
   id: string;
   board: Board;

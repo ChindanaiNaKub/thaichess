@@ -1064,7 +1064,7 @@ async function saveGamePositions(
       args: [gameId],
     });
 
-    const { createInitialGameState, getPositionAtPly } = await import('../../shared/engine');
+    const { getPositionAtPly } = await import('../../shared/engine');
     const { serializeAnalysisPosition } = await import('../../shared/engineAdapter');
     const { moveToUci } = await import('../../shared/engineAdapter');
 

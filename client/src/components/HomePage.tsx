@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  loadBotGameRoute,
-  loadLocalGameRoute,
-  loadQuickPlayRoute,
-} from '../lib/routePrefetch';
 import { liveGameRoute, routes } from '../lib/routes';
 import { homeStatsQueryOptions } from '../queries/stats';
 import { connectSocket, socket } from '../lib/socket';

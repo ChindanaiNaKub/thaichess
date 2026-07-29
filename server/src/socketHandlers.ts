@@ -66,9 +66,9 @@ export interface AuthenticatedSocketData {
 
 type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>;
 type IoLike = {
-  // eslint-disable-next-line no-unused-vars
+   
   to: (roomOrSocketId: string) => {
-    // eslint-disable-next-line no-unused-vars
+     
     emit: (...args: any[]) => unknown;
   };
 };
@@ -137,7 +137,7 @@ interface SocketHandlerDeps {
   socketRateLimiter: SocketRateLimiter;
   ipRateLimiter: SocketRateLimiter;
   monitoring: MonitoringStore;
-  // eslint-disable-next-line no-unused-vars
+   
   saveGameToDb: (...args: [GameRoom, string]) => Promise<{ ratingChange: RatingChangeSummary | null }>;
 }
 

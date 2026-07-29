@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import type { Position, PieceColor, Move, Board as BoardType, GameState } from '@shared/types';
+import type { Position, PieceColor, Move, Board as BoardType } from '@shared/types';
 import { createInitialBoard, posToAlgebraic } from '@shared/engine';
 import {
   GameAnalysis, AnalyzedMove, MoveClassification,
@@ -40,7 +40,6 @@ import {
 import { EditorPieceBank } from './AnalysisEditorTools';
 import Header from './Header';
 import { EvalBar } from './analysis/EvalBar';
-import { AccuracyCard } from './analysis/AccuracyCard';
 import { EvalGraph } from './analysis/EvalGraph';
 import { CompactEnginePanel } from './analysis/CompactEnginePanel';
 import { VariationLine } from './analysis/VariationLine';
@@ -73,7 +72,7 @@ function useAnalysisPageScreen() {
     data: apiGameData,
     isLoading: isLoadingApi,
     isError: isApiError,
-    error: apiError,
+    error: _apiError,
   } = useQuery(gameQueryOptions(gameId));
 
   const [gameData, setGameData] = useState<GameAnalysisData | null>(null);
@@ -654,7 +653,6 @@ function useAnalysisPageScreen() {
     : t('analysis.editor.none');
 
   const analysisElapsedSeconds = Math.max(1, Math.floor(analysisElapsedMs / 1000));
-  const showSlowAnalysisHint = analyzing && analysisElapsedSeconds >= 15;
   const reviewIsProvisional = analysis?.engine?.confidence === 'provisional';
 
   const handleMoveClick = useCallback((index: number) => {
@@ -1390,93 +1388,6 @@ function useAnalysisPageScreen() {
 
 
 /* ─── Sub-components ─────────────────────────────────────────────── */
-
-
-function getClassificationTheme(classification: MoveClassification): {
-  iconBg: string;
-  iconBorder: string;
-  iconText: string;
-  pillBg: string;
-  pillBorder: string;
-  pillText: string;
-  buttonBg: string;
-  buttonText: string;
-} {
-  switch (classification) {
-    case 'brilliant':
-      return {
-        iconBg: '#35c8c3',
-        iconBorder: '#8fe5e1',
-        iconText: '#0f2f2d',
-        pillBg: 'rgba(43, 183, 179, 0.2)',
-        pillBorder: 'rgba(127, 226, 221, 0.38)',
-        pillText: '#8fe5e1',
-        buttonBg: '#1b4d4a',
-        buttonText: '#9beae6',
-      };
-    case 'best':
-    case 'excellent':
-    case 'good':
-      return {
-        iconBg: '#a9cc57',
-        iconBorder: '#d7ec9c',
-        iconText: '#233012',
-        pillBg: 'rgba(169, 204, 87, 0.2)',
-        pillBorder: 'rgba(191, 226, 109, 0.4)',
-        pillText: '#c6e57c',
-        buttonBg: '#37411f',
-        buttonText: '#b6db63',
-      };
-    case 'inaccuracy':
-      return {
-        iconBg: '#ffd04a',
-        iconBorder: '#ffe391',
-        iconText: '#4d3400',
-        pillBg: 'rgba(247, 198, 49, 0.18)',
-        pillBorder: 'rgba(255, 221, 113, 0.4)',
-        pillText: '#ffd457',
-        buttonBg: '#4b3c13',
-        buttonText: '#ffd04a',
-      };
-    case 'mistake':
-      return {
-        iconBg: '#f0a53e',
-        iconBorder: '#f7c474',
-        iconText: '#4a2600',
-        pillBg: 'rgba(230, 157, 40, 0.18)',
-        pillBorder: 'rgba(243, 186, 90, 0.4)',
-        pillText: '#f3b85a',
-        buttonBg: '#4d3010',
-        buttonText: '#f1b14e',
-      };
-    case 'blunder':
-      return {
-        iconBg: '#df5a56',
-        iconBorder: '#f08a86',
-        iconText: '#3f1110',
-        pillBg: 'rgba(202, 52, 49, 0.18)',
-        pillBorder: 'rgba(233, 109, 106, 0.38)',
-        pillText: '#f37f7b',
-        buttonBg: '#52201f',
-        buttonText: '#f08a86',
-      };
-  }
-}
-
-function findCheckSquare(state: GameState): Position | null {
-  if (!state.isCheck) return null;
-
-  for (let row = 0; row < 8; row += 1) {
-    for (let col = 0; col < 8; col += 1) {
-      const piece = state.board[row][col];
-      if (piece && piece.type === 'K' && piece.color === state.turn) {
-        return { row, col };
-      }
-    }
-  }
-
-  return null;
-}
 
 function getAnalysisCacheKey(gameData: GameAnalysisData, movetimeMs: number): string {
   return getGameAnalysisCacheKey({

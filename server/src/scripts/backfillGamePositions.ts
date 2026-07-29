@@ -9,7 +9,7 @@
  */
 
 import { createClient } from '@libsql/client';
-import { createInitialGameState, getPositionAtPly } from '../../../shared/engine';
+import { getPositionAtPly } from '../../../shared/engine';
 import { serializeAnalysisPosition, moveToUci } from '../../../shared/engineAdapter';
 import type { Move } from '../../../shared/types';
 import '../env';

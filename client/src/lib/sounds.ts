@@ -23,7 +23,9 @@ function playTone(frequency: number, duration: number, type: OscillatorType = 's
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
-  } catch {}
+  } catch {
+    // Audio may be blocked before a user gesture; ignore playback failures.
+  }
 }
 
 export function playMoveSound() {

@@ -9,11 +9,11 @@ import type { AuthUser } from '../database';
 
 const timeControl: TimeControl = { initial: 300, increment: 0 };
 
-// eslint-disable-next-line no-unused-vars
+ 
 type Handler = (...args: [] | [any]) => void | Promise<void>;
 
 function createIoMock() {
-  // eslint-disable-next-line no-unused-vars
+   
   type IoTarget = { emit: (...args: any[]) => unknown; emitMock: ReturnType<typeof vi.fn> };
   const targets = new Map<string, IoTarget>();
 
