@@ -31,11 +31,11 @@ function parseEnvFile(contents: string): Record<string, string> {
 }
 
 function getEnvCandidates(): string[] {
+  const cwd = process.cwd();
   return [
-    path.resolve(process.cwd(), '.env'),
-    path.resolve(__dirname, '../../.env'),
-    path.resolve(__dirname, '../../../.env'),
-    path.resolve(__dirname, '../../../../.env'),
+    path.resolve(cwd, '.env'),
+    path.resolve(cwd, '../.env'),
+    path.resolve(cwd, 'server/.env'),
   ];
 }
 

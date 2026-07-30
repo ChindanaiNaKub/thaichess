@@ -122,10 +122,10 @@ function findWorkspaceRoot(startDir: string): string {
   }
 }
 
-const WORKSPACE_ROOT = findWorkspaceRoot(__dirname);
+const WORKSPACE_ROOT = findWorkspaceRoot(process.cwd());
 const DEFAULT_DATA_DIR = path.join(WORKSPACE_ROOT, 'data');
-// Resolve relative to former server/src location so legacy migration paths stay identical.
-const LEGACY_DEV_DATA_DIR = path.resolve(__dirname, '..', '../../../../data');
+// Legacy path from older layouts: data/ sitting beside the repo root.
+const LEGACY_DEV_DATA_DIR = path.resolve(WORKSPACE_ROOT, '..', 'data');
 
 function copyFileIfMissing(sourcePath: string, targetPath: string) {
   if (!fs.existsSync(sourcePath) || fs.existsSync(targetPath)) return false;
