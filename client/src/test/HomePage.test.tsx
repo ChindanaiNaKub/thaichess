@@ -159,7 +159,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(screen.getByText('No signup required. Tap Play 5+0 to search for a match — or switch to the bot if it is quiet.')).toBeInTheDocument();
+    expect(screen.getByText('No signup required. Tap Play 5+0 to search for a game — or switch to the bot if it is quiet.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /play 5\+0/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 games played/i)).not.toBeInTheDocument();
