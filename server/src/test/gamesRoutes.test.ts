@@ -2,6 +2,11 @@ import express from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGamesRouter } from '../routes/games';
 
+interface ValidationErrorResponse {
+  error: string;
+  details: Record<string, string[] | undefined>;
+}
+
 const databaseMocks = vi.hoisted(() => ({
   getGame: vi.fn(),
   getRecentGames: vi.fn(),
@@ -72,7 +77,7 @@ describe('games routes query validation', () => {
 
   it('rejects invalid game search query parameters with 400', async () => {
     const response = await fetch(`${baseUrl}/api/games/search?gameMode=blitz`);
-    const payload = await response.json();
+    const payload = await response.json() as ValidationErrorResponse;
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe('Invalid game search query');
@@ -92,7 +97,7 @@ describe('games routes query validation', () => {
 
   it('rejects one-character player searches before querying the database', async () => {
     const response = await fetch(`${baseUrl}/api/games/search?player=a`);
-    const payload = await response.json();
+    const payload = await response.json() as ValidationErrorResponse;
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe('Invalid game search query');
