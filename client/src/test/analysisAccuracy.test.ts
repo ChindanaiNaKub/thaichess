@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Move } from '@shared/types';
 import {
   analyzeGame,
+  analyzeGameWithPositionEngine,
   centipawnToWinPercent,
   classifyMove,
   computeAccuracy,
@@ -106,5 +107,46 @@ describe('analysis accuracy model', () => {
     expect(analysis.moves[0].winPercentAfter).toBeLessThanOrEqual(100);
     expect(analysis.whiteAccuracy).not.toBe(97);
     expect(analysis.engine?.confidence).toBe('provisional');
+  });
+
+  it('builds game analysis from an async position analyzer', async () => {
+    const moves = [
+      createMove('c3', 'c4'),
+      createMove('d6', 'd5'),
+    ];
+    const progressEvents: Array<{ current: number; total: number }> = [];
+    let callCount = 0;
+
+    const analysis = await analyzeGameWithPositionEngine(
+      moves,
+      async () => {
+        callCount += 1;
+        return {
+          evaluation: callCount === 1 ? 20 : callCount === 2 ? -10 : 5,
+          bestMove: callCount === 1
+            ? { from: moves[0].from, to: moves[0].to }
+            : { from: moves[1].from, to: moves[1].to },
+          principalVariation: ['c3c4'],
+          stats: { source: 'local' as const, depth: 4 },
+        };
+      },
+      (progress) => {
+        progressEvents.push({ current: progress.current, total: progress.total });
+      },
+    );
+
+    expect(callCount).toBe(3);
+    expect(analysis.moves).toHaveLength(2);
+    expect(analysis.moves[0].classification).toBe('best');
+    expect(analysis.moves[0].moveAccuracy).toBe(100);
+    expect(analysis.engine).toMatchObject({
+      label: 'Browser Fairy-Stockfish',
+      source: 'local',
+      confidence: 'authoritative',
+    });
+    expect(progressEvents).toEqual([
+      { current: 1, total: 2 },
+      { current: 2, total: 2 },
+    ]);
   });
 });

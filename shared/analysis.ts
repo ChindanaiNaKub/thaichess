@@ -3,7 +3,7 @@ import {
   getLegalMoves, makeMove, getAllPieces, isInCheck,
   createInitialBoard, createInitialGameState, getBoardAtMove,
 } from './engine';
-import type { EngineStats } from './engineAdapter';
+import type { AnalysisPositionSnapshot, EngineStats, PositionAnalysisResult } from './engineAdapter';
 
 export type MoveClassification = 'brilliant' | 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
 
@@ -654,6 +654,122 @@ export function analyzeGame(
       source: 'local',
       confidence: 'provisional',
       reason: 'local_only',
+    },
+  };
+}
+
+function getBestEvalForAnalyzedPosition(
+  state: GameState,
+  bestMove: { from: Position; to: Position } | null,
+  fallbackEval: number,
+): number {
+  if (!bestMove) return fallbackEval;
+
+  const bestState = makeMove(state, bestMove.from, bestMove.to);
+  if (!bestState) return fallbackEval;
+
+  return evaluatePosition(bestState.board, 'white');
+}
+
+/**
+ * Build a full-game review from an async position analyzer (WASM / binary / service).
+ * Mirrors server `analyzeGameWithEngineUncached` classification math.
+ */
+export async function analyzeGameWithPositionEngine(
+  moves: Move[],
+  analyzePosition: (snapshot: AnalysisPositionSnapshot) => Promise<Pick<
+    PositionAnalysisResult,
+    'evaluation' | 'bestMove' | 'principalVariation' | 'stats'
+  >>,
+  onProgress?: (progress: AnalysisProgress) => void,
+  engineMeta?: GameAnalysis['engine'],
+): Promise<GameAnalysis> {
+  const evaluatedMoves: AnalyzedMove[] = [];
+  const evaluations: number[] = [];
+  const whiteSummary = createEmptySummary();
+  const blackSummary = createEmptySummary();
+
+  let state = createInitialGameState(0, 0);
+  let currentAnalysis = await analyzePosition({
+    board: state.board,
+    turn: state.turn,
+    counting: state.counting,
+  });
+  evaluations.push(currentAnalysis.evaluation);
+
+  for (let moveIndex = 0; moveIndex < moves.length; moveIndex += 1) {
+    const move = moves[moveIndex];
+    const color = state.turn;
+    const before = currentAnalysis;
+
+    const nextState = makeMove(state, move.from, move.to);
+    if (!nextState) break;
+
+    currentAnalysis = await analyzePosition({
+      board: nextState.board,
+      turn: nextState.turn,
+      counting: nextState.counting,
+    });
+    const after = currentAnalysis;
+
+    const bestEval = getBestEvalForAnalyzedPosition(state, before.bestMove, after.evaluation);
+    evaluations.push(after.evaluation);
+
+    const evalDelta = color === 'white'
+      ? bestEval - after.evaluation
+      : after.evaluation - bestEval;
+
+    const isExactBestMove = Boolean(before.bestMove)
+      && before.bestMove!.from.row === move.from.row
+      && before.bestMove!.from.col === move.from.col
+      && before.bestMove!.to.row === move.to.row
+      && before.bestMove!.to.col === move.to.col;
+
+    const { before: winPercentBefore, after: winPercentAfter } = getMoveWinPercents(before.evaluation, after.evaluation, color);
+    const { best: bestWinPercent, played: playedWinPercent } = getMoveQualityWinPercents(bestEval, after.evaluation, color);
+    const moveAccuracy = isExactBestMove ? 100 : moveAccuracyFromWinPercent(bestWinPercent, playedWinPercent);
+    const classification = classifyMove(moveAccuracy, isExactBestMove);
+
+    evaluatedMoves.push({
+      move,
+      moveIndex,
+      evalBefore: before.evaluation,
+      evalAfter: after.evaluation,
+      evalDelta,
+      winPercentBefore,
+      winPercentAfter,
+      moveAccuracy,
+      bestMove: before.bestMove,
+      bestEval,
+      classification,
+      color,
+      principalVariation: before.principalVariation,
+      engine: before.stats as EngineStats,
+    });
+
+    if (color === 'white') {
+      whiteSummary[classification] += 1;
+    } else {
+      blackSummary[classification] += 1;
+    }
+
+    state = nextState;
+    onProgress?.({ current: moveIndex + 1, total: moves.length, done: moveIndex === moves.length - 1 });
+  }
+
+  return {
+    moves: evaluatedMoves,
+    evaluations,
+    whiteAccuracy: computeAccuracy(evaluatedMoves, 'white'),
+    blackAccuracy: computeAccuracy(evaluatedMoves, 'black'),
+    summary: {
+      white: whiteSummary,
+      black: blackSummary,
+    },
+    engine: engineMeta ?? {
+      label: 'Browser Fairy-Stockfish',
+      source: 'local',
+      confidence: 'authoritative',
     },
   };
 }
