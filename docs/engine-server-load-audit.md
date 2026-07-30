@@ -8,11 +8,12 @@
 
 | Path | Role |
 |------|------|
-| `client/src/lib/browserEngineAnalysis.ts` + `workers/browserEngineAnalysisWorker.ts` | Fairy-Stockfish **WASM** position analysis |
+| `client/src/lib/browserEngineAnalysis.ts` + `workers/browserEngineAnalysisWorker.ts` | Fairy-Stockfish **WASM** position + full-game analysis |
 | `client/src/lib/browserEngineBot.ts` + `workers/browserEngineBotWorker.ts` | WASM bot moves |
 | `client/src/lib/localBot.ts` + `workers/botWorker.ts` | JS heuristic bot (offline fallback) |
 | `client/src/hooks/useBotGameScreen.tsx` | Bot Games: WASM first → `/api/bot/move` / local JS fallback |
 | `client/src/hooks/useReviewEngineAnalysis.ts` | Live position eval during review (browser-first with server fallback) |
+| `client/src/workers/analysisWorker.ts` + `useGameAnalysis` | Full-game review: WASM first → `/api/analysis/game/stream` → non-stream |
 | `scripts/setup-browser-fairy-stockfish.mjs` | Packages `fairy-stockfish-nnue.wasm` into the client build |
 
 ### Server HTTP (CPU-heavy if hit)
@@ -21,7 +22,7 @@
 |-------|----------------|--------------|
 | `POST /api/analysis/position` | `engineGateway.analyzePositionWithEngine` → remote service or Fairy-Stockfish **binary** | Review hook fallback; Analysis editor “analyze position” |
 | `POST /api/analysis/game` | Full-game review (non-stream) | Legacy / rare |
-| `POST /api/analysis/game/stream` | Full-game review via SSE | `analysisWorker` / `useGameAnalysis` (share-card accuracy, Analysis game mode) |
+| `POST /api/analysis/game/stream` | Full-game review via SSE | Fallback when browser WASM game analysis fails (`analysisWorker` / `useGameAnalysis`) |
 | `POST /api/bot/move` | `getBotMoveWithEngine` → binary/service or local JS | Bot Game **fallback** when WASM fails / high-level race |
 
 ### Server process (always-on cost when configured)
@@ -48,17 +49,16 @@ Server `src/scripts/*` puzzle generators may call engines locally. They are not 
 |------|--------|----------------|
 | Post-game / review **position** eval defaulting to server | **Fixed:** default `engineSource` is now `browser-with-server-fallback` | Cuts routine `/api/analysis/position` traffic after every finished Game |
 | Analysis “quick” mode | Already browser-first | — |
-| Analysis full **game** stream (`/api/analysis/game/stream`) | **Stay for now** (heavier port); follow-up: WASM multipv game review | Largest remaining CPU spike when users open Analysis / accuracy share cards |
+| Analysis full **game** stream (`/api/analysis/game/stream`) | **Fixed:** `analysisWorker` runs WASM game review first, then stream / non-stream server fallback | Cuts routine `/api/analysis/game/stream` traffic for share-card accuracy and Analysis game mode |
 | Bot moves | Already WASM-first | Residual load only on fallback |
 
 ## Hosting sizing notes (Northflank Sandbox)
 
 - **Without** `FAIRY_STOCKFISH_*` env: app RAM stays on Express + Socket.IO + Turso I/O; engine warm-up is a no-op. Prefer this for free-tier baseline.
 - **With** binary configured: budget ~one Fairy-Stockfish process (Hash MB × lanes). Prefer unset binary in prod until Analysis stream is client-side.
-- Client WASM shifts CPU to the player’s browser — correct for a niche free Product; watch share-card accuracy still triggers server game analysis until that follow-up ships.
+- Client WASM shifts CPU to the player’s browser — correct for a niche free Product; server game analysis remains as fallback when the WASM asset is missing or fails.
 
 ## Follow-ups (not in this PR)
 
-1. Port `useGameAnalysis` / `analysisWorker` to browser WASM (or hybrid) so share-card accuracy and Analysis game mode stop streaming from the origin.
-2. After (1), consider removing prod binary from Northflank entirely and treating `/api/analysis/*` + `/api/bot/move` as optional/dev-only.
-3. Product/infra: Cloudflare (#246) still helps static WASM assets more than engine CPU.
+1. After WASM game review proves stable in prod, consider removing the prod Fairy-Stockfish binary from Northflank entirely and treating `/api/analysis/*` + `/api/bot/move` as optional/dev-only.
+2. Product/infra: Cloudflare (#246) still helps static WASM assets more than engine CPU.

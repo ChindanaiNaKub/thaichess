@@ -161,7 +161,12 @@ export async function requestBrowserPositionAnalysis(
         return;
       }
 
-      reject(new Error(event.data.message));
+      if (event.data.type === 'error') {
+        reject(new Error(event.data.message));
+        return;
+      }
+
+      reject(new Error('Unexpected browser engine analysis response.'));
     };
 
     worker.onerror = () => {

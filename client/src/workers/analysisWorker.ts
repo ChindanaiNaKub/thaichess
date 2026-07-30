@@ -1,6 +1,7 @@
 import type { AnalysisProgress, GameAnalysis } from '@shared/analysis';
 import type { Move } from '@shared/types';
-import { requestGameAnalysis } from '../lib/analysis';
+import { DEFAULT_GAME_ANALYSIS_MOVETIME_MS } from '../lib/analysisCache';
+import type { WorkerResponse as BrowserEngineWorkerResponse } from './browserEngineAnalysisWorker';
 
 interface AnalyzeMessage {
   type: 'analyze';
@@ -26,6 +27,54 @@ interface ErrorMessage {
 }
 
 type WorkerResponse = ProgressMessage | ResultMessage | ErrorMessage;
+
+async function requestBrowserGameAnalysis(payload: AnalyzeMessage): Promise<GameAnalysis> {
+  const movetimeMs = payload.movetimeMs ?? DEFAULT_GAME_ANALYSIS_MOVETIME_MS;
+
+  return await new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./browserEngineAnalysisWorker.ts', import.meta.url), { type: 'module' });
+
+    const cleanup = () => {
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+    };
+
+    worker.onmessage = (event: MessageEvent<BrowserEngineWorkerResponse>) => {
+      const message = event.data;
+
+      if (message.type === 'game-progress') {
+        self.postMessage({ type: 'progress', progress: message.progress } satisfies ProgressMessage);
+        return;
+      }
+
+      if (message.type === 'game-result') {
+        cleanup();
+        resolve(message.analysis);
+        return;
+      }
+
+      if (message.type === 'error') {
+        cleanup();
+        reject(new Error(message.message));
+        return;
+      }
+
+      // Ignore single-position result messages on this channel.
+    };
+
+    worker.onerror = () => {
+      cleanup();
+      reject(new Error('Browser game analysis worker failed.'));
+    };
+
+    worker.postMessage({
+      type: 'browser-game-analysis',
+      moves: payload.moves,
+      movetimeMs,
+    });
+  });
+}
 
 async function requestGameAnalysisStream(payload: AnalyzeMessage): Promise<GameAnalysis> {
   const response = await fetch('/api/analysis/game/stream', {
@@ -116,17 +165,18 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
     let analysis: GameAnalysis;
 
     try {
-      analysis = await requestGameAnalysisStream(event.data);
+      analysis = await requestBrowserGameAnalysis(event.data);
     } catch {
       try {
+        analysis = await requestGameAnalysisStream(event.data);
+      } catch {
+        const { requestGameAnalysis } = await import('../lib/analysis');
         analysis = await requestGameAnalysis({
           analysisId: event.data.analysisId,
           moves: event.data.moves,
           depth: event.data.depth,
           movetimeMs: event.data.movetimeMs,
         });
-      } catch (requestError) {
-        throw requestError instanceof Error ? requestError : new Error('Analysis request failed');
       }
     }
 

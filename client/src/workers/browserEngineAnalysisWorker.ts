@@ -1,9 +1,18 @@
 import { parseBrowserEngineAnalysisLines } from '../lib/browserEngineAnalysis';
 import type { PositionAnalysisResult } from '@shared/engineAdapter';
+import { serializeAnalysisPosition } from '@shared/engineAdapter';
+import { analyzeGameWithPositionEngine, type AnalysisProgress, type GameAnalysis } from '@shared/analysis';
+import type { Move } from '@shared/types';
 
 interface BrowserPositionAnalysisMessage {
   type: 'browser-position-analysis';
   position: string;
+  movetimeMs: number;
+}
+
+interface BrowserGameAnalysisMessage {
+  type: 'browser-game-analysis';
+  moves: Move[];
   movetimeMs: number;
 }
 
@@ -12,12 +21,27 @@ interface BrowserPositionAnalysisResultMessage {
   analysis: PositionAnalysisResult;
 }
 
+interface BrowserGameAnalysisResultMessage {
+  type: 'game-result';
+  analysis: GameAnalysis;
+}
+
+interface BrowserGameAnalysisProgressMessage {
+  type: 'game-progress';
+  progress: AnalysisProgress;
+}
+
 interface BrowserPositionAnalysisErrorMessage {
   type: 'error';
   message: string;
 }
 
-type WorkerResponse = BrowserPositionAnalysisResultMessage | BrowserPositionAnalysisErrorMessage;
+type WorkerIncomingMessage = BrowserPositionAnalysisMessage | BrowserGameAnalysisMessage;
+type WorkerResponse =
+  | BrowserPositionAnalysisResultMessage
+  | BrowserGameAnalysisResultMessage
+  | BrowserGameAnalysisProgressMessage
+  | BrowserPositionAnalysisErrorMessage;
 
 const ENGINE_WORKER_URL = '/engines/fairy-stockfish.js';
 const ENGINE_READY_TIMEOUT_MS = 1800;
@@ -112,13 +136,36 @@ function runEngineSearch(position: string, movetimeMs: number): Promise<Position
   });
 }
 
-self.onmessage = async (event: MessageEvent<BrowserPositionAnalysisMessage>) => {
-  if (event.data.type !== 'browser-position-analysis') return;
-
+self.onmessage = async (event: MessageEvent<WorkerIncomingMessage>) => {
   try {
-    await ensureEngineWorker();
-    const analysis = await runEngineSearch(event.data.position, event.data.movetimeMs);
-    self.postMessage({ type: 'result', analysis } satisfies WorkerResponse);
+    if (event.data.type === 'browser-position-analysis') {
+      await ensureEngineWorker();
+      const analysis = await runEngineSearch(event.data.position, event.data.movetimeMs);
+      self.postMessage({ type: 'result', analysis } satisfies WorkerResponse);
+      return;
+    }
+
+    if (event.data.type === 'browser-game-analysis') {
+      await ensureEngineWorker();
+      const movetimeMs = event.data.movetimeMs;
+      const analysis = await analyzeGameWithPositionEngine(
+        event.data.moves,
+        async (snapshot) => {
+          const serialized = serializeAnalysisPosition(snapshot);
+          return runEngineSearch(serialized.position, movetimeMs);
+        },
+        (progress) => {
+          self.postMessage({ type: 'game-progress', progress } satisfies WorkerResponse);
+        },
+        {
+          label: 'Browser Fairy-Stockfish',
+          source: 'local',
+          confidence: 'authoritative',
+        },
+      );
+      self.postMessage({ type: 'game-result', analysis } satisfies WorkerResponse);
+      return;
+    }
   } catch (error) {
     const response: BrowserPositionAnalysisErrorMessage = {
       type: 'error',
