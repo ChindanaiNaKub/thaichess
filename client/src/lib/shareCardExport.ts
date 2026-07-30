@@ -1,7 +1,42 @@
 import { toBlob } from 'html-to-image';
+import { savedGameAnalysisRoute } from './routes';
 
 export const SHARE_CARD_WIDTH = 1200;
 export const SHARE_CARD_HEIGHT = 630;
+
+/** Public host printed on share images (always production branding). */
+export const SHARE_CARD_SITE_HOST = 'thaichess.dev';
+
+const PRODUCTION_SITE_ORIGIN = `https://${SHARE_CARD_SITE_HOST}`;
+
+export function getShareCardSiteOrigin(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+
+  return PRODUCTION_SITE_ORIGIN;
+}
+
+/**
+ * Prefer the saved-game analysis/replay route when we have a real game id.
+ * Local ephemeral ids (`local-*`) only advertise the site origin.
+ */
+export function buildPostGameShareUrl(analysisId?: string | null): string {
+  const origin = getShareCardSiteOrigin();
+  if (analysisId && !analysisId.startsWith('local-')) {
+    return `${origin}${savedGameAnalysisRoute(analysisId)}`;
+  }
+
+  return origin;
+}
+
+export function buildPostGameShareText(
+  summary: string,
+  analysisId?: string | null,
+): string {
+  const shareUrl = buildPostGameShareUrl(analysisId);
+  return `${summary}\n${shareUrl}`;
+}
 
 export async function renderShareCardBlob(node: HTMLElement): Promise<Blob> {
   const blob = await toBlob(node, {

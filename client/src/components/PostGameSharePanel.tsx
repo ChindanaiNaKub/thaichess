@@ -3,7 +3,14 @@ import { getClassificationColor, type MoveClassification } from '@shared/analysi
 import type { Board as BoardType, GameMode, Move, PieceColor, RatingChangeSummary, ResultReason, TimeControl } from '@shared/types';
 import { useGameAnalysis } from '../hooks/useGameAnalysis';
 import { getGameModeLabel, getPlayerOutcome, getPlayerOutcomeLabel, getResultReasonLabel, getResultScore, getSideLabel, formatTimeControl } from '../lib/gamePresentation';
-import { SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH, downloadShareCardBlob, renderShareCardBlob, shareShareCardBlob } from '../lib/shareCardExport';
+import {
+  SHARE_CARD_HEIGHT,
+  SHARE_CARD_WIDTH,
+  buildPostGameShareText,
+  downloadShareCardBlob,
+  renderShareCardBlob,
+  shareShareCardBlob,
+} from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import ShareCardExportCanvas, { type GameShareCardData, type ShareCardSummaryStat, type ShareCardVariant } from './ShareCardExportCanvas';
@@ -154,7 +161,10 @@ export default function PostGameSharePanel({
   const activeVariant = selectedVariantAvailable ? variant : PREVIEW_FALLBACK_VARIANT;
 
   const filename = `${(analysisId ?? `${gameMode}-${moveCount}`).replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()}-${activeVariant}.png`;
-  const shareText = `${userName} ${cardData.outcomeLabel.toLowerCase()} ${cardData.score}`;
+  const shareText = buildPostGameShareText(
+    `${userName} ${cardData.outcomeLabel.toLowerCase()} ${cardData.score}`,
+    analysisId,
+  );
 
   const handleDownload = async () => {
     if (!exportRef.current) return;

@@ -1,6 +1,6 @@
 import type { MoveClassification } from '@shared/analysis';
 import type { Board as BoardType, Move, PieceColor } from '@shared/types';
-import { SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH } from '../lib/shareCardExport';
+import { SHARE_CARD_HEIGHT, SHARE_CARD_SITE_HOST, SHARE_CARD_WIDTH } from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
 import BoardSnapshot from './BoardSnapshot';
 
@@ -94,6 +94,12 @@ function Header({
     <div className="flex items-start justify-between gap-6">
       <div>
         <div className="text-[13px] font-semibold uppercase tracking-[0.34em] text-[#d3ab5d]">ThaiChess</div>
+        <div
+          className="mt-2 text-[20px] font-semibold tracking-[0.04em] text-[#f5ebde]"
+          data-testid="share-card-site-url"
+        >
+          {SHARE_CARD_SITE_HOST}
+        </div>
         <div className="mt-2 text-[17px] text-[#c8b9aa]">{t('sharecard.premium_label')}</div>
       </div>
       <div className={`shrink-0 rounded-full border px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.24em] ${accentClass}`}>
