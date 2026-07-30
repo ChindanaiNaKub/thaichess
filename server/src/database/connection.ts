@@ -222,6 +222,10 @@ export function assertProductionUsesDurableDatabase(
     return;
   }
 
+  if (env.ALLOW_PRODUCTION_LOCAL_DB_FOR_SMOKE === '1') {
+    return;
+  }
+
   const tursoUrl = env.TURSO_DATABASE_URL?.trim() || '';
   if (!tursoUrl) {
     throw new Error(
