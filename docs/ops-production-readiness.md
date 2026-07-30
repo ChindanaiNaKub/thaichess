@@ -31,6 +31,12 @@ Brief history only (not current): older deploys used Render free, then a Digital
 
 **Action for maintainer:** check Northflank + Turso dashboards monthly; stay inside Sandbox free limits; set a billing alert if the account can leave free tier.
 
+## Engine CPU / RAM (client WASM vs server)
+
+See **[`docs/engine-server-load-audit.md`](./engine-server-load-audit.md)** (#247).
+
+Summary: bot play and position review prefer browser Fairy-Stockfish WASM; keep `shared/engine` on the server for live Games. Avoid setting `FAIRY_STOCKFISH_BINARY_PATH` / `FAIRY_STOCKFISH_SERVICE_URL` on Northflank unless you need server Analysis fallbacks — unset keeps Sandbox RAM for Socket.IO + persistence.
+
 ## Database backup (Turso)
 
 **In-repo:** no automated dump/cron. Security hardening script exists (`server/scripts/apply-security-hardening.sh`); that is not a backup.

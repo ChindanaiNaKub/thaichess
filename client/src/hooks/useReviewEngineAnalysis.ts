@@ -24,6 +24,11 @@ const RETRY_DELAY_BASE_MS = 2000; // Start with 2 second delay for retries
 // Simple request deduplication cache
 const requestCache = new Map<string, Promise<PositionAnalysisResult>>();
 
+/** Test helper — clears in-flight/deduped analysis promises between cases. */
+export function clearReviewEngineRequestCache() {
+  requestCache.clear();
+}
+
 function getCacheKey(snapshot: AnalysisPositionSnapshot, options: {
   movetimeMs: number;
   multipv: number;
@@ -40,7 +45,7 @@ export function useReviewEngineAnalysis(
   const {
     enabled,
     snapshot,
-    engineSource = 'server',
+    engineSource = 'browser-with-server-fallback',
     serverFallbackEnabled = true,
   } = options;
   const requestIdRef = useRef(0);
