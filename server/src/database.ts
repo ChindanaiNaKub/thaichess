@@ -8,6 +8,7 @@ export {
   getDatabaseStats,
   getLibsqlConnectionOptions,
   getDatabaseConfig,
+  assertProductionUsesDurableDatabase,
 } from './database/connection';
 
 export {

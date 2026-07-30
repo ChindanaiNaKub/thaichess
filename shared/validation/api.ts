@@ -252,6 +252,29 @@ export type ClientDebugPayload = z.infer<typeof ClientDebugSchema>;
 // Opening Explorer Endpoints
 // ============================================
 
+export const GameSearchSchema = z.object({
+  page: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  player: z.preprocess((value) => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  }, z.string().min(2, 'Player search requires at least 2 characters').max(50).optional()),
+  minRating: z.coerce.number().int().min(0).optional(),
+  maxRating: z.coerce.number().int().min(0).optional(),
+  result: z.enum(['white', 'black', 'draw']).optional(),
+  gameMode: z.enum(['quick_play', 'private', 'bot', 'local']).optional(),
+  rated: z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  }, z.boolean().optional()),
+  fromDate: z.coerce.number().int().min(0).optional(),
+  toDate: z.coerce.number().int().min(0).optional(),
+});
+export type GameSearchPayload = z.infer<typeof GameSearchSchema>;
+
 export const OpeningStatsSchema = z.object({
   position: z.string().min(1, 'Position is required').max(200),
 });
@@ -260,7 +283,7 @@ export type OpeningStatsPayload = z.infer<typeof OpeningStatsSchema>;
 export const OpeningGamesSchema = z.object({
   position: z.string().min(1, 'Position is required').max(200),
   move: z.string().max(10).optional(),
-  page: z.number().int().min(0).default(0),
-  limit: z.number().int().min(1).max(50).default(20),
+  page: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 export type OpeningGamesPayload = z.infer<typeof OpeningGamesSchema>;
