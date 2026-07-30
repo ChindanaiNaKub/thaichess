@@ -10,6 +10,9 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, '../shared'),
     },
   },
+  worker: {
+    format: 'es',
+  },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
