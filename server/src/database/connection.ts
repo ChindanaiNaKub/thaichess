@@ -210,6 +210,36 @@ export function getDatabaseConfig() {
   };
 }
 
+/**
+ * Production must use durable Turso/libSQL. Local `file:` SQLite is fine for
+ * development and tests, but accounts/ratings/saved Games cannot rely on
+ * ephemeral disk in production (ADR-0001 follow-up).
+ */
+export function assertProductionUsesDurableDatabase(
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if ((env.NODE_ENV || '').trim() !== 'production') {
+    return;
+  }
+
+  if (env.ALLOW_PRODUCTION_LOCAL_DB_FOR_SMOKE === '1') {
+    return;
+  }
+
+  const tursoUrl = env.TURSO_DATABASE_URL?.trim() || '';
+  if (!tursoUrl) {
+    throw new Error(
+      'Production requires TURSO_DATABASE_URL (durable Turso/libSQL). Local file SQLite is not allowed when NODE_ENV=production.',
+    );
+  }
+
+  if (tursoUrl.startsWith('file:')) {
+    throw new Error(
+      'Production TURSO_DATABASE_URL must be a remote Turso/libSQL URL, not a local file: database.',
+    );
+  }
+}
+
 async function runSchemaMigration() {
   // First pass: Create all tables
   const tableStatements: InStatement[] = [
@@ -415,6 +445,10 @@ async function runSchemaMigration() {
     'CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC)',
     'CREATE INDEX IF NOT EXISTS idx_games_white_user_id ON games(white_user_id)',
     'CREATE INDEX IF NOT EXISTS idx_games_black_user_id ON games(black_user_id)',
+    // B-tree name indexes help equality/prefix lookups. Leading-wildcard LIKE '%x%' still scans;
+    // keep player search to >= 2 chars and consider FTS later if scrape cost grows.
+    'CREATE INDEX IF NOT EXISTS idx_games_white_name ON games(white_name)',
+    'CREATE INDEX IF NOT EXISTS idx_games_black_name ON games(black_name)',
     'CREATE INDEX IF NOT EXISTS idx_games_game_mode ON games(game_mode)',
     'CREATE INDEX IF NOT EXISTS idx_games_rated ON games(rated)',
     'CREATE INDEX IF NOT EXISTS idx_games_user_games ON games(white_user_id, finished_at DESC)',
@@ -625,6 +659,7 @@ export async function executeWithTiming(
 }
 
 export async function initDatabase(): Promise<void> {
+  assertProductionUsesDurableDatabase();
   const config = getDatabaseConfig();
   db = config.client;
 

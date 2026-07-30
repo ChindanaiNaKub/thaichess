@@ -440,8 +440,10 @@ export async function searchGames(params: GameSearchParams): Promise<GameSearchR
   const conditions: string[] = ['finished_at IS NOT NULL'];
   const args: (string | number)[] = [];
 
-  if (params.player && params.player.trim()) {
-    const playerPattern = `%${params.player.trim()}%`;
+  const playerQuery = params.player?.trim() ?? '';
+  if (playerQuery.length >= 2) {
+    // Leading-wildcard LIKE cannot use B-tree name indexes; min length limits abuse cost.
+    const playerPattern = `%${playerQuery}%`;
     conditions.push('(white_name LIKE ? OR black_name LIKE ?)');
     args.push(playerPattern, playerPattern);
   }

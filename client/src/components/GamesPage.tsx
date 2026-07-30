@@ -210,13 +210,13 @@ export default function GamesPage() {
                   onClick={() => navigate(routes.gameDatabase)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
-                  Database
+                  {t('nav.database')}
                 </button>
                 <button type="button"
                   onClick={() => navigate(routes.openingExplorer)}
                   className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
                 >
-                  Openings
+                  {t('nav.openings')}
                 </button>
                 <button type="button"
                   onClick={() => navigate(routes.leaderboard)}

@@ -72,7 +72,6 @@ function explorerBoardReducer(state: ExplorerBoardState, action: ExplorerBoardAc
 export default function OpeningExplorerRoute() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  void t; // i18n hook used for future translations
 
   const [board, dispatch] = useReducer(explorerBoardReducer, undefined, createInitialExplorerBoardState);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
@@ -230,10 +229,10 @@ export default function OpeningExplorerRoute() {
 
       <main id="main-content" className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h2 className="ui-title text-xl sm:text-2xl">Opening Explorer</h2>
+          <h2 className="ui-title text-xl sm:text-2xl">{t('openings.title')}</h2>
           <div className="flex gap-2">
             <button type="button" onClick={() => navigate(routes.gameDatabase)} className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
-              Game Database
+              {t('openings.database_link')}
             </button>
             <button type="button" onClick={() => navigate(routes.leaderboard)} className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
               Leaderboard

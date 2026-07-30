@@ -71,5 +71,64 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 
 1. Push/merge to the branch the service tracks (`main`).
 2. Confirm Northflank build succeeds; `/api/health` → `status: ok`, `dependencies.database: ok`.
-3. Runtime secrets: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, Turso URL/token, OAuth if used.
+3. Runtime secrets: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, **`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (required in production)**, OAuth if used.
 4. Analytics: **leave unset** for free (recommended). Do not set `VITE_PLAUSIBLE_DOMAIN` unless you deliberately enable a free self-hosted or paid analytics backend.
+
+Production refuses to start without a remote Turso URL (`assertProductionUsesDurableDatabase`). Local `file:` SQLite remains available for development and tests only.
+
+## Opening Explorer backfill (`game_positions`)
+
+Opening Explorer reads from `game_positions`. New finished Games write positions automatically; older Games need a one-time (or recovery) backfill.
+
+### When to run
+
+- After deploying Opening Explorer the first time against an existing Turso database
+- After changing `position_hash` format (use `BACKFILL_FORCE=1`)
+- After a failed mid-run (script is idempotent via `NOT EXISTS` / delete-then-insert)
+
+### Dev / local
+
+```bash
+# From repo root, against local SQLite in DATA_DIR / data/
+npx tsx server/src/scripts/backfillGamePositions.ts
+
+# Preview only
+BACKFILL_DRY_RUN=1 npx tsx server/src/scripts/backfillGamePositions.ts
+```
+
+### Production (Turso)
+
+Requires maintainer credentials — this repo does not auto-run backfill on deploy.
+
+```bash
+export TURSO_DATABASE_URL='libsql://…'
+export TURSO_AUTH_TOKEN='…'
+BACKFILL_DRY_RUN=1 npx tsx server/src/scripts/backfillGamePositions.ts
+npx tsx server/src/scripts/backfillGamePositions.ts
+```
+
+Full rebuild after hash-format changes:
+
+```bash
+BACKFILL_FORCE=1 npx tsx server/src/scripts/backfillGamePositions.ts
+```
+
+### Runtime / disk impact
+
+- Cost scales with finished Games × plies (one `game_positions` row per ply including the starting position)
+- Expect multi-minute runs and noticeable Turso write volume on large archives; prefer `BACKFILL_DRY_RUN=1` first
+- Until backfill completes, Opening Explorer correctly shows the empty state (“No data yet”) for unindexed positions
+
+**Status (2026-07-30):** prod backfill is still a maintainer action. Code and docs are ready; run against Turso when convenient and confirm `/openings` shows non-zero games for the starting position.
+
+## Public API rate limits (Game Database / Opening Explorer)
+
+These sit **on top of** the global `/api/` limiter (60 requests / IP / minute):
+
+| Route | Limit | Why |
+|-------|-------|-----|
+| `GET /api/games/search` | **20 / IP / minute** | Heavier `LIKE` + filter SQL against `games` |
+| `GET /api/openings/stats` | **30 / IP / minute** | Aggregations over `game_positions` |
+| `GET /api/openings/games` | **30 / IP / minute** | Joined position → game lookups |
+
+Player name search also requires **at least 2 characters**. Indexes exist on `games.white_name` / `games.black_name` for equality/prefix use; leading-wildcard `LIKE '%x%'` still cannot use B-tree indexes — consider FTS later if scrape cost grows.

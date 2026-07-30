@@ -49,4 +49,32 @@ describe('database connection config', () => {
       url: 'file:/tmp/thaichess-custom-data/thaichess.db',
     });
   });
+
+  it('allows local SQLite outside production and requires remote Turso in production', async () => {
+    vi.doMock('../env', () => ({ env: {} }));
+    const database = await import('../database');
+
+    expect(() => database.assertProductionUsesDurableDatabase({
+      NODE_ENV: 'development',
+    })).not.toThrow();
+
+    expect(() => database.assertProductionUsesDurableDatabase({
+      NODE_ENV: 'production',
+    })).toThrow(/TURSO_DATABASE_URL/);
+
+    expect(() => database.assertProductionUsesDurableDatabase({
+      NODE_ENV: 'production',
+      TURSO_DATABASE_URL: 'file:data/thaichess.db',
+    })).toThrow(/remote Turso/);
+
+    expect(() => database.assertProductionUsesDurableDatabase({
+      NODE_ENV: 'production',
+      TURSO_DATABASE_URL: 'libsql://thaichess-example.turso.io',
+    })).not.toThrow();
+
+    expect(() => database.assertProductionUsesDurableDatabase({
+      NODE_ENV: 'production',
+      ALLOW_PRODUCTION_LOCAL_DB_FOR_SMOKE: '1',
+    })).not.toThrow();
+  });
 });

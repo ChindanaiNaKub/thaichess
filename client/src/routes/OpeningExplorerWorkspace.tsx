@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Position, PieceColor, Move, Board as BoardType } from '@shared/types';
 import { useNavigate } from 'react-router-dom';
 import { moveToUci } from '@shared/engineAdapter';
-import { savedGameAnalysisRoute } from '../lib/routes';
+import { routes, savedGameAnalysisRoute } from '../lib/routes';
+import { useTranslation } from '../lib/i18n';
 import { type OpeningMoveStat } from '../queries/games';
 import Board from '../components/Board';
 
@@ -79,6 +80,7 @@ export interface OpeningExplorerWorkspaceProps {
 
 export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
   const navigate = useNavigate();
+  const { t, lang } = useTranslation();
   const {
     currentState, viewAs, legalMoves, selectedSquare, lastMove, checkSquare,
     moveHistory, totalGames, statsLoading, stats, selectedMoveUci, setSelectedMoveUci,
@@ -93,12 +95,12 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
             <div className="ui-card p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button type="button" onClick={handleReset} className="ui-btn-secondary px-2 py-1 text-xs">Reset</button>
-                  <button type="button" onClick={handleUndo} disabled={moveHistory.length === 0} className="ui-btn-secondary px-2 py-1 text-xs disabled:opacity-40">Undo</button>
-                  <button type="button" onClick={handleFlip} className="ui-btn-secondary px-2 py-1 text-xs">Flip</button>
+                  <button type="button" onClick={handleReset} className="ui-btn-secondary px-2 py-1 text-xs">{t('database.reset')}</button>
+                  <button type="button" onClick={handleUndo} disabled={moveHistory.length === 0} className="ui-btn-secondary px-2 py-1 text-xs disabled:opacity-40">{t('analysis.quick.back')}</button>
+                  <button type="button" onClick={handleFlip} className="ui-btn-secondary px-2 py-1 text-xs">{t('analysis.quick.flip_board')}</button>
                 </div>
                 <span className="text-text-dim text-xs">
-                  {totalGames.toLocaleString()} games in database
+                  {t('openings.games_in_database', { count: totalGames.toLocaleString() })}
                 </span>
               </div>
 
@@ -106,7 +108,7 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
               {moveHistory.length > 0 && (
                 <div className="mb-3 p-2 bg-surface-hover/30 rounded-lg overflow-x-auto">
                   <div className="flex items-center gap-1 text-xs text-text-dim whitespace-nowrap">
-                    <span className="font-semibold text-text-bright">Moves:</span>
+                    <span className="font-semibold text-text-bright">{t('openings.moves')}</span>
                     {moveHistory.map((move, ply) => {
                       const moveNum = Math.floor(ply / 2) + 1;
                       const isWhite = ply % 2 === 0;
@@ -145,7 +147,7 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
           <div className="lg:col-span-1">
             <div className="ui-card p-3 sm:p-4">
               <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-dim mb-3">
-                Move Statistics
+                {t('openings.move_statistics')}
               </h3>
 
               {statsLoading ? (
@@ -154,8 +156,25 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
                 </div>
               ) : stats.moves.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-text-dim text-sm">No games with this position</p>
-                  <p className="text-text-dim text-xs mt-1">Make a move on the board to explore</p>
+                  <p className="text-text-bright text-sm font-semibold">{t('openings.empty_title')}</p>
+                  <p className="text-text-dim text-xs mt-1">{t('openings.empty_desc')}</p>
+                  <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+                    <button
+                      type="button"
+                      onClick={() => navigate(routes.quickPlay)}
+                      className="ui-btn-primary px-3 py-1.5 text-xs"
+                    >
+                      {t('home.find_opponent')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(routes.games)}
+                      className="ui-btn-secondary px-3 py-1.5 text-xs"
+                    >
+                      {t('games.title')}
+                    </button>
+                  </div>
+                  <p className="text-text-dim text-xs mt-3">{t('openings.empty_hint')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -194,7 +213,9 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
                         </div>
 
                         <div className="flex items-center justify-between text-[10px] text-text-dim">
-                          <span className="text-text-bright">{winRate}% wins for {currentState.turn}</span>
+                          <span className="text-text-bright">
+                            {t('openings.win_rate', { rate: winRate, color: t(`common.${currentState.turn}`) })}
+                          </span>
                           <span>W:{move.whiteWins} D:{move.draws} B:{move.blackWins}</span>
                         </div>
 
@@ -213,7 +234,7 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
             {selectedMoveUci && (
               <div className="ui-card p-3 sm:p-4 mt-4">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-dim mb-3">
-                  Games with {selectedMoveUci}
+                  {t('openings.games_for_move', { move: selectedMoveUci })}
                 </h3>
 
                 {gamesLoading ? (
@@ -238,9 +259,9 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
                             </span>
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-text-dim mt-0.5">
-                            <span>{game.move_count} moves</span>
+                            <span>{t('games.moves_count', { count: game.move_count })}</span>
                             <span>•</span>
-                            <span>{new Date(game.finished_at * 1000).toLocaleDateString()}</span>
+                            <span>{new Date(game.finished_at * 1000).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US')}</span>
                           </div>
                         </button>
                       ))}
@@ -253,23 +274,23 @@ export function OpeningExplorerWorkspace(props: OpeningExplorerWorkspaceProps) {
                           disabled={gamesPage === 0}
                           className="ui-btn-secondary px-2 py-1 text-xs disabled:opacity-40"
                         >
-                          Prev
+                          {t('database.prev')}
                         </button>
                         <span className="text-text-dim text-xs">
-                          {gamesPage + 1} / {Math.ceil(gamesData.total / 10)}
+                          {t('openings.pagination', { current: gamesPage + 1, total: Math.ceil(gamesData.total / 10) })}
                         </span>
                         <button type="button"
                           onClick={() => setGamesPage(p => p + 1)}
                           disabled={(gamesPage + 1) * 10 >= gamesData.total}
                           className="ui-btn-secondary px-2 py-1 text-xs disabled:opacity-40"
                         >
-                          Next
+                          {t('database.next')}
                         </button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p className="text-text-dim text-xs text-center py-4">No games found</p>
+                  <p className="text-text-dim text-xs text-center py-4">{t('openings.no_games_found')}</p>
                 )}
               </div>
             )}

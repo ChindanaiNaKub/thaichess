@@ -24,6 +24,7 @@ const child = spawn(process.execPath, [serverEntry], {
     DATA_DIR: tempDataDir,
     TURSO_DATABASE_URL: '',
     TURSO_AUTH_TOKEN: '',
+    ALLOW_PRODUCTION_LOCAL_DB_FOR_SMOKE: '1',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

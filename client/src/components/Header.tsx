@@ -136,6 +136,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                     <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
                       {dropdownMenuItem('editor', editorPath, t('nav.tools_editor'))}
                       {dropdownMenuItem('analysis', routes.analysisRoot, t('nav.tools_analysis'))}
+                      {dropdownMenuItem('database', routes.gameDatabase, t('nav.database'))}
+                      {dropdownMenuItem('openings', routes.openingExplorer, t('nav.openings'))}
                       {dropdownMenuItem('import', routes.analysisRoot, t('nav.tools_import_game'), true)}
                     </div>
                   </div>
@@ -216,6 +218,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
                 {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
                 {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
+                {mobileNavItem('tools', routes.gameDatabase, t('nav.database'))}
+                {mobileNavItem('tools', routes.openingExplorer, t('nav.openings'))}
                 {mobileNavItem('games', routes.games, t('nav.games'))}
               </nav>
             )}
