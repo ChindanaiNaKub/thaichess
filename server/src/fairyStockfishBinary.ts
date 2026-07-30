@@ -8,9 +8,7 @@ const BINARY_PATH_RAW = process.env.FAIRY_STOCKFISH_BINARY_PATH?.trim() || '';
 const PROJECT_ROOT_CANDIDATES = [
   process.cwd(),
   path.resolve(process.cwd(), '..'),
-  path.resolve(__dirname, '../../'),
-  path.resolve(__dirname, '../../../'),
-  path.resolve(__dirname, '../../../../'),
+  path.resolve(process.cwd(), '../..'),
 ];
 
 function resolveBinaryPath(rawPath: string): string {

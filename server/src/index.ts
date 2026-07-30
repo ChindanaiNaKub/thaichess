@@ -144,7 +144,7 @@ app.use((req, _res, next) => {
 });
 
 // Serve static files in production from the repo root regardless of tsx vs compiled output.
-const workspaceRoot = findWorkspaceRoot(__dirname);
+const workspaceRoot = findWorkspaceRoot(process.cwd());
 const clientDist = path.join(workspaceRoot, 'client', 'dist');
 const assetDist = path.join(clientDist, 'assets');
 
