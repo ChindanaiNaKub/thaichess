@@ -328,6 +328,68 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     };
   }
 
+  if (cleanPath === '/database') {
+    return {
+      title: 'Makruk Game Database | Search Finished ThaiChess Games',
+      description: 'Search finished ThaiChess games by player, result, rating, and mode to study real Makruk positions and review complete game records.',
+      path: '/database',
+      keywords: [...defaultKeywords, 'Makruk database', 'Thai chess game database', 'Makruk archive'],
+      image: defaultImage,
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'ThaiChess Game Database',
+          url: `${baseUrl}/database`,
+          description: 'A searchable archive of finished ThaiChess games.',
+        },
+      ],
+      snapshot: {
+        heading: { text: 'Makruk Game Database' },
+        paragraphs: [
+          { text: 'Search finished Makruk games by player, result, rating, and mode, then open full analysis for any game.' },
+          { text: 'ค้นหาเกมหมากรุกไทยที่จบแล้วตามชื่อผู้เล่น ผลลัพธ์ เรต และโหมดการเล่น แล้วเปิดวิเคราะห์ต่อได้ทันที', lang: 'th' },
+        ],
+        links: [
+          { href: '/openings', label: 'Opening Explorer' },
+          { href: '/games', label: 'Recent games' },
+          { href: '/leaderboard', label: 'Leaderboard' },
+        ],
+      },
+    };
+  }
+
+  if (cleanPath === '/openings') {
+    return {
+      title: 'Makruk Opening Explorer | Study ThaiChess Positions',
+      description: 'Explore ThaiChess opening positions, browse common continuations, and jump from a Makruk position into matching finished games.',
+      path: '/openings',
+      keywords: [...defaultKeywords, 'Makruk openings', 'Thai chess opening explorer', 'Makruk position explorer'],
+      image: defaultImage,
+      structuredData: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'ThaiChess Opening Explorer',
+          url: `${baseUrl}/openings`,
+          description: 'An interactive explorer for Makruk opening positions and related finished games.',
+        },
+      ],
+      snapshot: {
+        heading: { text: 'Makruk Opening Explorer' },
+        paragraphs: [
+          { text: 'Explore common continuations from a Makruk position and jump into finished games that reached the same setup.' },
+          { text: 'สำรวจรูปแบบโอเพนนิงหมากรุกไทยจากตำแหน่งบนกระดาน และเปิดดูเกมจริงที่เดินมาถึงตำแหน่งเดียวกัน', lang: 'th' },
+        ],
+        links: [
+          { href: '/database', label: 'Game Database' },
+          { href: '/games', label: 'Recent games' },
+          { href: '/bot', label: 'Practice vs bot' },
+        ],
+      },
+    };
+  }
+
   if (cleanPath === '/what-is-makruk') {
     return {
       title: 'What Is Makruk (หมากรุกไทย)? | Learn Thai Chess',
@@ -726,6 +788,8 @@ export function getIndexablePaths(): string[] {
     '/',
     '/about',
     '/games',
+    '/database',
+    '/openings',
     '/leaderboard',
     '/what-is-makruk',
     '/how-to-play-makruk',
