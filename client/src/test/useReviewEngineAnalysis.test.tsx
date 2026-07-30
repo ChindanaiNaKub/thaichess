@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialBoard } from '@shared/engine';
-import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
+import { useReviewEngineAnalysis, clearReviewEngineRequestCache } from '../hooks/useReviewEngineAnalysis';
 
 const { requestPositionAnalysisMock, requestBrowserPositionAnalysisMock } = vi.hoisted(() => ({
   requestPositionAnalysisMock: vi.fn(),
@@ -38,9 +38,21 @@ const browserAnalysis = {
   stats: { source: 'local' as const, depth: 3 },
 };
 
+async function flushReviewAnalysis() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(800);
+  });
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe('useReviewEngineAnalysis', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    clearReviewEngineRequestCache();
     requestPositionAnalysisMock.mockReset();
     requestBrowserPositionAnalysisMock.mockReset();
     requestPositionAnalysisMock.mockResolvedValue(serverAnalysis);
@@ -48,23 +60,21 @@ describe('useReviewEngineAnalysis', () => {
   });
 
   afterEach(() => {
+    clearReviewEngineRequestCache();
     vi.useRealTimers();
   });
 
-  it('uses server analysis by default', async () => {
+  it('uses browser analysis by default', async () => {
     const { result } = renderHook(() => useReviewEngineAnalysis({
       enabled: true,
       snapshot,
     }));
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
-      await Promise.resolve();
-    });
+    await flushReviewAnalysis();
 
-    expect(result.current.analysis).toEqual(serverAnalysis);
-    expect(requestBrowserPositionAnalysisMock).not.toHaveBeenCalled();
-    expect(requestPositionAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(result.current.analysis).toEqual(browserAnalysis);
+    expect(requestBrowserPositionAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(requestPositionAnalysisMock).not.toHaveBeenCalled();
   });
 
   it('uses browser analysis first and falls back to the server when the browser engine fails', async () => {
@@ -76,10 +86,7 @@ describe('useReviewEngineAnalysis', () => {
       engineSource: 'browser-with-server-fallback',
     }));
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
-      await Promise.resolve();
-    });
+    await flushReviewAnalysis();
 
     expect(result.current.analysis).toEqual(serverAnalysis);
     expect(requestBrowserPositionAnalysisMock).toHaveBeenCalledTimes(1);
@@ -96,10 +103,7 @@ describe('useReviewEngineAnalysis', () => {
       serverFallbackEnabled: false,
     }));
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
-      await Promise.resolve();
-    });
+    await flushReviewAnalysis();
 
     expect(result.current.analysis).toBeNull();
     expect(result.current.error).toBe('browser unavailable');

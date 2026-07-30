@@ -451,14 +451,12 @@ export function useAnalysisPageScreen() {
     analyzing: currentPositionAnalyzing,
     error: currentPositionError,
   } = useReviewEngineAnalysis({
-    enabled: (mode === 'game' && Boolean(gameData) && Boolean(user) && !authLoading) || mode === 'quick',
+    enabled: (mode === 'game' && Boolean(gameData) && !authLoading) || mode === 'quick',
     snapshot: currentReviewSnapshot,
-    engineSource: mode === 'quick' ? 'browser-with-server-fallback' : 'server',
+    engineSource: 'browser-with-server-fallback',
     serverFallbackEnabled: Boolean(user) && !authLoading,
   });
-  const currentEngineError = mode !== 'quick' && !authLoading && !user
-    ? t('analysis.sign_in_required')
-    : currentPositionError;
+  const currentEngineError = currentPositionError;
 
   const editorSnapshot = useMemo<AnalysisPositionSnapshot>(() => ({
     board: editorBoard,
