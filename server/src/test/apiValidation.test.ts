@@ -3,6 +3,9 @@ import {
   AnalyzeGameSchema,
   AnalyzePositionSchema,
   BotMoveSchema,
+  GameSearchSchema,
+  OpeningGamesSchema,
+  OpeningStatsSchema,
   ReportFairPlaySchema,
   SaveBotGameSchema,
   SaveLocalGameSchema,
@@ -111,5 +114,35 @@ describe('API validation schemas', () => {
       position: '8/8/8/8/8/8/8/8 w - - 0 1',
       multipv: 5,
     }).success).toBe(false);
+  });
+
+  it('validates public game search and opening explorer queries', () => {
+    expect(GameSearchSchema.safeParse({
+      page: '1',
+      limit: '20',
+      player: '  Prab  ',
+      result: 'draw',
+      gameMode: 'bot',
+      rated: 'true',
+    }).success).toBe(true);
+
+    expect(GameSearchSchema.safeParse({
+      gameMode: 'blitz',
+    }).success).toBe(false);
+
+    expect(GameSearchSchema.safeParse({
+      player: 'a',
+    }).success).toBe(false);
+
+    expect(OpeningStatsSchema.safeParse({
+      position: 'hash-with-counting',
+    }).success).toBe(true);
+
+    expect(OpeningGamesSchema.safeParse({
+      position: 'hash-with-counting',
+      move: 'e2e4',
+      page: 0,
+      limit: 20,
+    }).success).toBe(true);
   });
 });

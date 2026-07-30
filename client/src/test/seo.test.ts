@@ -22,6 +22,8 @@ describe('shared SEO routes', () => {
       routes.home,
       routes.about,
       routes.games,
+      routes.gameDatabase,
+      routes.openingExplorer,
       routes.leaderboard,
       routes.whatIsMakruk,
       routes.howToPlayMakruk,
@@ -42,6 +44,21 @@ describe('shared SEO routes', () => {
     expect(seo.title).toContain('Leaderboard');
     expect(seo.description).toContain('Makruk ratings');
     expect(seo.robots).toBeUndefined();
+  });
+
+  it('returns dedicated metadata for the game database and opening explorer', () => {
+    const database = getPublicSeoRoute(routes.gameDatabase, 'https://thaichess.dev');
+    const openings = getPublicSeoRoute(routes.openingExplorer, 'https://thaichess.dev');
+
+    expect(database.path).toBe(routes.gameDatabase);
+    expect(database.title).toContain('Game Database');
+    expect(database.description).toContain('finished ThaiChess games');
+    expect(database.robots).toBeUndefined();
+
+    expect(openings.path).toBe(routes.openingExplorer);
+    expect(openings.title).toContain('Opening Explorer');
+    expect(openings.description).toContain('Makruk position');
+    expect(openings.robots).toBeUndefined();
   });
 
   it('returns dedicated guide metadata for the evergreen content pages', () => {

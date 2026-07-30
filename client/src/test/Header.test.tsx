@@ -106,6 +106,20 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenCalledWith('/analysis');
   });
 
+  it('shows database and openings shortcuts in the desktop Tools menu', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    fireEvent.click(screen.getByRole('button', { name: /^database$/i }));
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: /^openings$/i }));
+
+    expect(navigateMock).toHaveBeenNthCalledWith(1, '/database');
+    expect(navigateMock).toHaveBeenNthCalledWith(2, '/openings');
+  });
+
   it('shows Import game in Tools as unavailable until import support exists', () => {
     render(<Header active="play" />, { wrapper });
 
