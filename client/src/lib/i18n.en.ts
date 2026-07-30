@@ -72,9 +72,9 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Home Page
   'home.hero_title': 'Play Thai Chess Anytime',
-  'home.hero_desc': 'No signup required. Tap Play 5+0 to search for a match — or switch to the bot if it is quiet.',
+  'home.hero_desc': 'No signup required. Tap Play 5+0 to search for a game — or switch to the bot if it is quiet.',
   'home.quick_play': 'Play 5+0',
-  'home.quick_play_desc': 'Human match when available, bot fallback when it is quiet.',
+  'home.quick_play_desc': 'Human game when available, bot fallback when it is quiet.',
   'home.choose_mode': 'Choose mode',
   'home.more_ways': 'More ways to play',
   'home.challenge_eyebrow': 'While you wait',
@@ -113,7 +113,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'home.live_now_desc': 'Active public games update in real time. Open any board in read-only spectator mode.',
   'home.view_all_live': 'View All Live Games',
   'home.no_live_games': 'No live games right now',
-  'home.no_live_games_desc': 'Check back soon for active public matches to watch.',
+  'home.no_live_games_desc': 'Check back soon for active public games to watch.',
   'home.join_prompt': 'Have a game code?',
   'home.join_link': 'Join a game',
   'home.join_title': 'Join a Game',
@@ -378,7 +378,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'bot.marut_rattanak.chat_style': 'Smooth, understated remarks that hint more than they say.',
 
   // Laksit Prasert (Level 8) - Archivist of the Elephant Ledger
-  'bot.laksit_prasert.backstory': 'The chief archivist of the Elephant Ledger, a great Siwalai record of old matches, old errors, and endings younger players neglect.',
+  'bot.laksit_prasert.backstory': 'The chief archivist of the Elephant Ledger, a great Siwalai record of old games, old errors, and endings younger players neglect.',
   'bot.laksit_prasert.hook': 'Rarely wastes material, rarely forgets a weakness, and almost always knows which ending the Ledger would approve.',
   'bot.laksit_prasert.opening': 'Chooses reliable development, then leans toward structures the Elephant Ledger has proven rich in long-term chances.',
   'bot.laksit_prasert.signature': 'Small pluses accumulated into a precise ending.',
@@ -624,8 +624,8 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Quick Play / Matchmaking
   'quick.title': 'Quick Play',
-  'quick.desc': 'Search for a human match. If nobody is around, you can switch to bot play without waiting.',
-  'quick.fallback_desc': 'Play a bot now, or keep searching for a human match.',
+  'quick.desc': 'Search for a human game. If nobody is around, you can switch to bot play without waiting.',
+  'quick.fallback_desc': 'Play a bot now, or keep searching for a human game.',
   'quick.fallback_title': 'No opponent yet',
   'quick.searching': 'Finding opponent...',
   'quick.search_time': 'Searching for {time}',
@@ -694,13 +694,13 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'game.piece_style_current': 'Current',
   'game.piece_style_western': 'Western',
   'game.piece_style_makruk': 'Makruk',
-  'game.match_status': 'Match Status',
+  'game.match_status': 'Game Status',
   'game.playing_as_label': 'Playing as',
   'game.review_mode': 'Board View',
   'game.reviewing_history': 'Reviewing history',
   'game.live_position': 'Live position',
   'game.return_to_live': 'Back to current move',
-  'game.live_match_title': 'Live Makruk Match',
+  'game.live_match_title': 'Live Makruk Game',
   'game.live_match_desc': 'The board comes first. Clocks, review, and controls stay close without competing with the game.',
   'game.spectator_mode': 'Spectator Mode',
   'game.watching_live_game': 'Watching Live Game',
@@ -716,7 +716,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'game.spectator_controls_hidden': 'Player controls are hidden in spectator mode.',
   'game.post_game_title': 'Review the Finished Game',
   'game.post_game_desc': 'Step through the moves, study the ending, or jump straight into analysis.',
-  'game.side_title': 'Match Panel',
+  'game.side_title': 'Game Panel',
   'game.you_label': 'You',
   'game.reviewing_position': 'Finished game',
 

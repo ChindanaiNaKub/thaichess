@@ -63,6 +63,9 @@ describe('PostGameSharePanel', () => {
     const exportCanvases = screen.getAllByTestId('share-card-export-canvas');
     expect(exportCanvases).toHaveLength(2);
     expect(exportCanvases[0]).toHaveStyle({ width: '1200px', height: '630px' });
+    const siteUrls = screen.getAllByTestId('share-card-site-url');
+    expect(siteUrls.length).toBeGreaterThan(0);
+    expect(siteUrls[0]).toHaveTextContent('thaichess.dev');
     const previewViewport = screen.getByTestId('share-card-preview-viewport');
     expect(previewViewport.style.width).toBe('252px');
     expect(Number.parseFloat(previewViewport.style.height)).toBeCloseTo(132.3);
