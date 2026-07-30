@@ -1,3 +1,5 @@
+import { logInfo } from './logger';
+
 interface SocketMonitoringCounters {
   connected: number;
   disconnected: number;
@@ -5,6 +7,13 @@ interface SocketMonitoringCounters {
   rateLimited: number;
   invalidPayload: number;
   activeConnections: number;
+}
+
+interface GameOperationalCounters {
+  reconnectSuccess: number;
+  reconnectFailure: number;
+  ratedSaveRetry: number;
+  ratedDuplicate: number;
 }
 
 interface MonitoringCounters {
@@ -20,6 +29,7 @@ interface MonitoringCounters {
   activeGames: number;
   requestLatencyMs: number;
   socket: SocketMonitoringCounters;
+  game: GameOperationalCounters;
 }
 
 export class MonitoringStore {
@@ -43,6 +53,12 @@ export class MonitoringStore {
       invalidPayload: 0,
       activeConnections: 0,
     },
+    game: {
+      reconnectSuccess: 0,
+      reconnectFailure: 0,
+      ratedSaveRetry: 0,
+      ratedDuplicate: 0,
+    },
   };
 
   private latencySamples: number[] = [];
@@ -58,6 +74,15 @@ export class MonitoringStore {
 
     const leaf = parts[parts.length - 1];
     target[leaf] = Number(target[leaf] ?? 0) + 1;
+  }
+
+  /**
+   * Increment a counter and emit a structured log line (no PII in details).
+   * Prefer this for operational ADR follow-up metrics so logs and /api/metrics stay aligned.
+   */
+  recordEvent(path: string, event: string, details: Record<string, unknown> = {}) {
+    this.increment(path);
+    logInfo(event, details);
   }
 
   recordLatency(ms: number) {
@@ -128,6 +153,22 @@ export class MonitoringStore {
       `# HELP thaichess_client_errors Total number of client-reported errors`,
       `# TYPE thaichess_client_errors counter`,
       `thaichess_client_errors ${c.clientErrors}`,
+      ``,
+      `# HELP thaichess_game_reconnect_success_total Successful live-game seat reconnects by durable player id`,
+      `# TYPE thaichess_game_reconnect_success_total counter`,
+      `thaichess_game_reconnect_success_total ${c.game.reconnectSuccess}`,
+      ``,
+      `# HELP thaichess_game_reconnect_failure_total Failed reconnect attempts or disconnect TTL expiries`,
+      `# TYPE thaichess_game_reconnect_failure_total counter`,
+      `thaichess_game_reconnect_failure_total ${c.game.reconnectFailure}`,
+      ``,
+      `# HELP thaichess_rated_game_save_retry_total Busy/retry attempts while saving rated games`,
+      `# TYPE thaichess_rated_game_save_retry_total counter`,
+      `thaichess_rated_game_save_retry_total ${c.game.ratedSaveRetry}`,
+      ``,
+      `# HELP thaichess_rated_game_duplicate_total Idempotent rated-game save hits (row already present)`,
+      `# TYPE thaichess_rated_game_duplicate_total counter`,
+      `thaichess_rated_game_duplicate_total ${c.game.ratedDuplicate}`,
     ].join('\n');
 
     return metrics;

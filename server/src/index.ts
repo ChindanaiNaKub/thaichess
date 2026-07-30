@@ -177,7 +177,16 @@ app.use(express.static(clientDist, {
 }));
 
 // Cleanup old games every 30 minutes
-setInterval(() => gameManager.cleanupOldGames(), 1800000);
+setInterval(() => {
+  gameManager.cleanupOldGames({
+    onDisconnectedExpired: (gameId) => {
+      monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
+        gameId,
+        reason: 'disconnect_ttl_expired',
+      });
+    },
+  });
+}, 1800000);
 // Cleanup stale matchmaking entries every minute
 setInterval(() => matchmaking.cleanupStale(), 60000);
 // Cleanup rate limiter buckets every minute
@@ -190,7 +199,7 @@ setInterval(() => runAllCleanupJobs(), 3600000);
 
 async function saveGameToDb(room: GameRoom, reason: string) {
   const winner = room.gameState.winner;
-  return await saveCompletedGame({
+  const result = await saveCompletedGame({
     id: room.id,
     result: winner || 'draw',
     resultReason: reason,
@@ -206,6 +215,22 @@ async function saveGameToDb(room: GameRoom, reason: string) {
     finalBoard: room.gameState.board,
     moveCount: room.gameState.moveCount,
   });
+
+  if (room.rated) {
+    for (let i = 0; i < result.busyRetries; i += 1) {
+      monitoring.recordEvent('game.ratedSaveRetry', 'rated_game_save_retry', {
+        gameId: room.id,
+        retryIndex: i + 1,
+      });
+    }
+    if (result.persistence === 'duplicate') {
+      monitoring.recordEvent('game.ratedDuplicate', 'rated_game_duplicate', {
+        gameId: room.id,
+      });
+    }
+  }
+
+  return { ratingChange: result.ratingChange };
 }
 
 io.use(async (socket, next) => {

@@ -72,6 +72,14 @@ function rowToSavedGame(row: Row): SavedGame {
   };
 }
 
+export type SaveCompletedGamePersistence = 'saved' | 'duplicate' | 'failed';
+
+export type SaveCompletedGameResult = {
+  ratingChange: RatingChangeSummary | null;
+  persistence: SaveCompletedGamePersistence;
+  busyRetries: number;
+};
+
 export async function saveCompletedGame(data: {
   id: string;
   result: 'white' | 'black' | 'draw';
@@ -95,7 +103,9 @@ export async function saveCompletedGame(data: {
   blackRatingBefore?: number | null;
   whiteRatingAfter?: number | null;
   blackRatingAfter?: number | null;
-}): Promise<{ ratingChange: RatingChangeSummary | null }> {
+}): Promise<SaveCompletedGameResult> {
+  let busyRetries = 0;
+
   for (let attempt = 0; attempt < 3; attempt += 1) {
     let transaction: Awaited<ReturnType<Client['transaction']>> | null = null;
 
@@ -127,10 +137,12 @@ export async function saveCompletedGame(data: {
               whiteAfter: Number(existingRow.white_rating_after),
               blackAfter: Number(existingRow.black_rating_after),
             },
+            persistence: 'duplicate',
+            busyRetries,
           };
         }
 
-        return { ratingChange: null };
+        return { ratingChange: null, persistence: 'duplicate', busyRetries };
       }
 
       if (shouldRate) {
@@ -240,13 +252,16 @@ export async function saveCompletedGame(data: {
             whiteAfter: whiteRatingAfter!,
             blackAfter: blackRatingAfter!,
           },
+          persistence: 'saved' as const,
+          busyRetries,
         }
-        : { ratingChange: null };
+        : { ratingChange: null, persistence: 'saved' as const, busyRetries };
     } catch (err) {
       if (transaction && !transaction.closed) {
         await transaction.rollback().catch(() => undefined);
       }
       if (isSqliteBusyError(err) && attempt < 2) {
+        busyRetries += 1;
         await new Promise<void>((resolve) => setImmediate(resolve));
         continue;
       }
@@ -270,20 +285,22 @@ export async function saveCompletedGame(data: {
                 whiteAfter: Number(existingRow.white_rating_after),
                 blackAfter: Number(existingRow.black_rating_after),
               },
+              persistence: 'duplicate',
+              busyRetries,
             };
           }
 
-          return { ratingChange: null };
+          return { ratingChange: null, persistence: 'duplicate', busyRetries };
         }
       }
       logError('database_save_completed_game_failed', err, { gameId: data.id, attempt: attempt + 1 });
-      return { ratingChange: null };
+      return { ratingChange: null, persistence: 'failed', busyRetries };
     } finally {
       transaction?.close();
     }
   }
 
-  return { ratingChange: null };
+  return { ratingChange: null, persistence: 'failed', busyRetries };
 }
 
 async function saveGamePositions(

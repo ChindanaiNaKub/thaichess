@@ -890,7 +890,7 @@ export class GameManager {
     }
   }
 
-  cleanupOldGames(): void {
+  cleanupOldGames(hooks: { onDisconnectedExpired?: (gameId: string) => void } = {}): void {
     const now = Date.now();
     for (const [id, room] of this.games) {
       const lastActivity = this.roomLastActivity.get(id) ?? room.createdAt;
@@ -903,6 +903,9 @@ export class GameManager {
           || (blackDisconnectedAt !== undefined && now - blackDisconnectedAt > GameManager.DISCONNECTED_GAME_TTL_MS));
 
       if (waitingExpired || finishedExpired || disconnectedExpired) {
+        if (disconnectedExpired) {
+          hooks.onDisconnectedExpired?.(id);
+        }
         this.deleteGame(id, room);
       }
     }
