@@ -132,3 +132,25 @@ These sit **on top of** the global `/api/` limiter (60 requests / IP / minute):
 | `GET /api/openings/games` | **30 / IP / minute** | Joined position → game lookups |
 
 Player name search also requires **at least 2 characters**. Indexes exist on `games.white_name` / `games.black_name` for equality/prefix use; leading-wildcard `LIKE '%x%'` still cannot use B-tree indexes — consider FTS later if scrape cost grows.
+
+## Operational metrics (ADR-0001 follow-up)
+
+Live reconnect and rated-game persistence emit **structured JSON logs** and counters on the existing `/api/metrics` scrape (Prometheus text).
+
+| Log `event` | Counter | When |
+|-------------|---------|------|
+| `game_reconnect_success` | `thaichess_game_reconnect_success_total` | Seat restored by durable `playerId` |
+| `game_reconnect_failure` | `thaichess_game_reconnect_failure_total` | Disconnect TTL expiry, or seat reclaim failure/exception |
+| `rated_game_save_retry` | `thaichess_rated_game_save_retry_total` | SQLite busy retry while saving a rated Game |
+| `rated_game_duplicate` | `thaichess_rated_game_duplicate_total` | Idempotent hit: rated Game row already present |
+
+Details use `gameId` / reason codes only — **no display names, emails, or other PII**.
+
+### How to alert
+
+Until a hosted metrics backend exists, watch Northflank logs (or any log drain) for sustained bursts:
+
+1. **Reconnect health:** many `game_reconnect_failure` with `reason=disconnect_ttl_expired` relative to `game_reconnect_success` over ~15–30 minutes.
+2. **Rated save health:** repeated `rated_game_save_retry` or rising `database_save_completed_game_failed` errors; occasional `rated_game_duplicate` after double finish is expected (idempotent), but a sudden spike with save failures needs investigation.
+
+Optional later: scrape `GET /api/metrics` into Prometheus/Grafana and alert on counter rate thresholds.

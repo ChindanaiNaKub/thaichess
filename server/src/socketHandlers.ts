@@ -377,6 +377,17 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
         });
         if (!result) {
           const existingRoom = deps.gameManager.getGame(gameId);
+          const intendedReconnect = Boolean(
+            existingRoom
+            && (existingRoom.whitePlayerId === socket.data.playerId
+              || existingRoom.blackPlayerId === socket.data.playerId),
+          );
+          if (intendedReconnect) {
+            deps.monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
+              gameId,
+              reason: 'seat_reclaim_failed',
+            });
+          }
           rejectSocketEvent(
             deps.monitoring,
             socket,
@@ -389,6 +400,12 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
 
         const { room, color, reconnected } = result;
         socket.join(gameId);
+
+        if (reconnected) {
+          deps.monitoring.recordEvent('game.reconnectSuccess', 'game_reconnect_success', {
+            gameId,
+          });
+        }
 
         socket.emit('game_joined', { color, gameState: deps.gameManager.getClientGameState(room, socket.id) });
         emitGameStateToParticipants(deps.io, deps.gameManager, room, socket.id);
@@ -417,6 +434,17 @@ export function createSocketConnectionHandler(deps: SocketHandlerDeps) {
           });
         }
       } catch (error) {
+        const existingRoom = deps.gameManager.getGame(gameId);
+        if (
+          existingRoom
+          && (existingRoom.whitePlayerId === socket.data.playerId
+            || existingRoom.blackPlayerId === socket.data.playerId)
+        ) {
+          deps.monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
+            gameId,
+            reason: 'join_exception',
+          });
+        }
         rejectSocketEvent(
           deps.monitoring,
           socket,
