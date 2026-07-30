@@ -26,7 +26,7 @@ _Avoid_: User (when the person may be a Guest), socket (transport only, not iden
 
 **Game**:
 A single played Makruk contest between two Players, whether live over Socket.IO or saved after completion.
-_Avoid_: Match (except informal UI copy), round, session
+_Avoid_: Match (prefer Game in user-facing copy; rematch and matchmaking are fine), round, session
 
 **Rated game**:
 A Game with `rated: true` whose completion updates player Elo and is persisted atomically.

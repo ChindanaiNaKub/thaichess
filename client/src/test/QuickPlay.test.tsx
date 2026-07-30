@@ -243,7 +243,7 @@ describe('QuickPlay', () => {
     });
 
     expect(screen.getByText('No opponent yet')).toBeInTheDocument();
-    expect(screen.getByText('Play a bot now, or keep searching for a human match.')).toBeInTheDocument();
+    expect(screen.getByText('Play a bot now, or keep searching for a human game.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /play bot now/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /keep searching/i })).toBeInTheDocument();
   });
@@ -302,7 +302,7 @@ describe('QuickPlay', () => {
   it('uses measured copy that does not promise instant human pairing', () => {
     render(<QuickPlay />, { wrapper });
 
-    expect(screen.getByText('Search for a human match. If nobody is around, you can switch to bot play without waiting.')).toBeInTheDocument();
+    expect(screen.getByText('Search for a human game. If nobody is around, you can switch to bot play without waiting.')).toBeInTheDocument();
     expect(screen.queryByText(/find an opponent instantly/i)).not.toBeInTheDocument();
   });
 
