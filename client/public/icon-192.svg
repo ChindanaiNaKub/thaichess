@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="ThaiChess">
-  <rect width="192" height="192" rx="40" fill="#201913"/>
-  <rect x="30" y="30" width="132" height="132" rx="18" fill="#d4b27d"/>
-  <path fill="#201913" fill-opacity="0.22" d="M30 96h132v66H30z"/>
-  <path fill="#d58d25" d="M96 48 L116 76 H106 V90 H112 V102 H106 V136 H86 V102 H80 V90 H86 V76 H76 Z"/>
-  <rect x="74" y="136" width="44" height="12" rx="3" fill="#d58d25"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#2f7d32"/>
+  <path fill="#ffffff" d="M42 42h108v30h-36v78H78V72H42z"/>
+  <path fill="#c9f45c" d="M60 24h72v18H60z"/>
 </svg>
