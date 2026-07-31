@@ -69,29 +69,28 @@ export function HomeHeroSection({
   const showGamesPlayed = Boolean(stats && stats.totalGames > 0);
   const [moreWaysOpen, setMoreWaysOpen] = useState(false);
 
+  const boardClassName =
+    'w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.02] contrast-[1.02] sm:brightness-[1.06] sm:contrast-[1.04]';
+
   return (
     <section className="relative min-h-[min(92vh,58rem)] overflow-hidden">
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
-        {/* Mobile: board low as underglow. Desktop: board is the right-side light source. */}
-        <div className="absolute inset-x-0 bottom-0 top-[32%] flex items-end justify-center px-3 pb-6 sm:inset-y-0 sm:right-0 sm:left-auto sm:top-0 sm:w-[min(72%,46rem)] sm:items-center sm:justify-end sm:px-0 sm:pb-0 sm:pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] xl:right-[6%]">
-          <div className="home-hero-board w-full max-w-[22rem] opacity-[0.88] sm:max-w-[40rem] sm:opacity-100">
+      {/* Desktop / tablet: board as right-side light source under a left-to-right veil */}
+      <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden>
+        <div className="absolute inset-y-0 right-0 flex w-[min(72%,46rem)] items-center justify-end pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] xl:right-[6%]">
+          <div className="home-hero-board w-full max-w-[40rem]">
             <BoardSnapshot
               board={heroBoard}
               playerColor="white"
               lastMove={null}
-              className="w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.02] contrast-[1.02] sm:brightness-[1.06] sm:contrast-[1.04]"
+              className={boardClassName}
             />
           </div>
         </div>
-
-        {/* Mobile: dense cloth over the copy band so type never sits on light squares */}
-        <div className="absolute inset-0 bg-gradient-to-b from-surface from-0% via-surface via-[42%] to-surface/55 to-[78%] sm:hidden" />
-        {/* Desktop / tablet: left-to-right veil — board stays readable as the light source */}
-        <div className="absolute inset-0 hidden bg-gradient-to-r from-surface from-0% via-surface/70 via-30% to-transparent to-65% sm:block lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface from-0% via-surface/70 via-30% to-transparent to-65% lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl items-start px-4 pb-36 pt-16 sm:items-center sm:px-6 sm:py-20">
-        <div className="max-w-lg">
+      <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl flex-col items-stretch px-4 pb-16 pt-16 sm:items-center sm:px-6 sm:py-20 sm:pb-20">
+        <div className="w-full max-w-lg sm:self-start">
           <h1 className="ui-title font-display text-4xl font-bold leading-[1.1] tracking-tight text-text-bright sm:text-5xl lg:text-[3.25rem]">
             {t('home.hero_title')}
           </h1>
@@ -198,6 +197,19 @@ export function HomeHeroSection({
               handleJoinGame={handleJoinGame}
             />
           )}
+        </div>
+
+        {/* Mobile: board below the play path — never under type (veil hacks removed) */}
+        <div
+          className="home-hero-board mx-auto mt-12 w-full max-w-[22rem] opacity-90 sm:hidden"
+          aria-hidden
+        >
+          <BoardSnapshot
+            board={heroBoard}
+            playerColor="white"
+            lastMove={null}
+            className={boardClassName}
+          />
         </div>
       </div>
     </section>
