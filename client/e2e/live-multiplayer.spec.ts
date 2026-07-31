@@ -24,8 +24,8 @@ async function createPrivateGameAsWhite(page: Page): Promise<string> {
   await waitForApiReady(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const main = page.locator('#main-content');
-  await expect(main.getByRole('button', { name: /choose mode/i })).toBeVisible();
-  await main.getByRole('button', { name: /choose mode/i }).click();
+  await expect(main.getByRole('button', { name: /play a friend/i })).toBeVisible();
+  await main.getByRole('button', { name: /play a friend/i }).click();
 
   await expect(main.getByRole('heading', { name: /play a friend/i })).toBeVisible();
   await main.getByRole('button', { name: /^white$/i }).click();
