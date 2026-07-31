@@ -106,11 +106,12 @@ export function HomeHeroSection({
               onClick={() => navigate(QUICK_PLAY_AUTOSTART)}
               onMouseEnter={() => void loadQuickPlayRoute()}
               onFocus={() => void loadQuickPlayRoute()}
-              className="button-accent-contrast rounded-md px-8 py-3.5 text-base font-bold"
+              aria-label={`${t('home.quick_play')} ${t('home.quick_play_time')}`}
+              className="button-accent-contrast inline-flex items-baseline gap-2 rounded-md px-8 py-3.5 text-base font-bold"
             >
-              {t('home.quick_play')}
+              <span>{t('home.quick_play')}</span>
+              <span className="text-sm font-semibold opacity-80">{t('home.quick_play_time')}</span>
             </button>
-            <p className="mt-2 text-sm text-text-dim">{t('home.quick_play_desc')}</p>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">

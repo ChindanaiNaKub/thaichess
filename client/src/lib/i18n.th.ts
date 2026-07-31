@@ -69,8 +69,9 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   // Home Page
   'home.hero_title': 'เล่นหมากรุกไทยได้ทุกเวลา',
   'home.hero_desc': 'ไม่ต้องสมัคร มีผู้เล่นจริงเมื่อโต๊ะไม่ว่าง — หรือบอทเมื่อช่วงนั้นเงียบ',
-  'home.quick_play': 'เล่น 5+0',
-  'home.quick_play_desc': 'เจอคนเมื่อมี — บอทเมื่อเงียบ',
+  'home.quick_play': 'เล่นเลย',
+  'home.quick_play_time': '5+0',
+  'home.quick_play_desc': '5+0 · เริ่มเกม',
   'home.choose_mode': 'เลือกโหมด',
   'home.more_ways': 'วิธีเล่นอื่นๆ',
   'home.more_times': 'เวลาเพิ่มเติม',

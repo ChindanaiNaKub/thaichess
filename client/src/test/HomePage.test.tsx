@@ -155,12 +155,12 @@ describe('HomePage', () => {
     expect(screen.queryByText(/how to play thaichess/i)).not.toBeInTheDocument();
   });
 
-  it('sets mobile-first Play 5+0 expectations without promising instant pairing', () => {
+  it('sets mobile-first Play now expectations without promising instant pairing', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
     expect(screen.getByText('No signup. A human when the table is busy — a bot when it is quiet.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /play 5\+0/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /play now 5\+0/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 games played/i)).not.toBeInTheDocument();
   });
@@ -341,7 +341,7 @@ describe('HomePage', () => {
     expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.getByText('Have a game code?')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /play 5\+0/i }));
+    fireEvent.click(screen.getByRole('button', { name: /play now 5\+0/i }));
     expect(navigateMock).toHaveBeenCalledWith('/quick-play?autostart=1');
 
     fireEvent.click(screen.getByRole('button', { name: /more ways to play/i }));

@@ -73,8 +73,9 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   // Home Page
   'home.hero_title': 'Play Makruk anytime',
   'home.hero_desc': 'No signup. A human when the table is busy — a bot when it is quiet.',
-  'home.quick_play': 'Play 5+0',
-  'home.quick_play_desc': 'Human when available. Bot when quiet.',
+  'home.quick_play': 'Play now',
+  'home.quick_play_time': '5+0',
+  'home.quick_play_desc': '5+0 · starts a game',
   'home.choose_mode': 'Choose mode',
   'home.more_ways': 'More ways to play',
   'home.more_times': 'More times',
