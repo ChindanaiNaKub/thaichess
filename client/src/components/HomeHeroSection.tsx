@@ -72,23 +72,27 @@ export function HomeHeroSection({
   return (
     <section className="relative min-h-[min(92vh,58rem)] overflow-hidden">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="absolute inset-y-0 right-0 flex w-[min(72%,46rem)] items-center justify-center pr-2 sm:pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] lg:justify-end xl:right-[6%]">
-          <div className="home-hero-board w-full max-w-[40rem]">
+        {/* Mobile: board low as underglow. Desktop: board is the right-side light source. */}
+        <div className="absolute inset-x-0 bottom-0 top-[32%] flex items-end justify-center px-3 pb-6 sm:inset-y-0 sm:right-0 sm:left-auto sm:top-0 sm:w-[min(72%,46rem)] sm:items-center sm:justify-end sm:px-0 sm:pb-0 sm:pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] xl:right-[6%]">
+          <div className="home-hero-board w-full max-w-[22rem] opacity-[0.88] sm:max-w-[40rem] sm:opacity-100">
             <BoardSnapshot
               board={heroBoard}
               playerColor="white"
               lastMove={null}
-              className="w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.06] contrast-[1.04]"
+              className="w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.02] contrast-[1.02] sm:brightness-[1.06] sm:contrast-[1.04]"
             />
           </div>
         </div>
-        {/* Keep text readable on the left; let the board read as the light source on the right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-surface from-0% via-surface/88 via-35% to-transparent to-75% sm:via-surface/70 sm:via-30% sm:to-transparent sm:to-65% lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
+
+        {/* Mobile: dense cloth over the copy band so type never sits on light squares */}
+        <div className="absolute inset-0 bg-gradient-to-b from-surface from-0% via-surface via-[42%] to-surface/55 to-[78%] sm:hidden" />
+        {/* Desktop / tablet: left-to-right veil — board stays readable as the light source */}
+        <div className="absolute inset-0 hidden bg-gradient-to-r from-surface from-0% via-surface/70 via-30% to-transparent to-65% sm:block lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl items-center px-4 py-20 sm:px-6">
+      <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl items-start px-4 pb-36 pt-16 sm:items-center sm:px-6 sm:py-20">
         <div className="max-w-lg">
-          <h1 className="ui-title font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-[3.25rem]">
+          <h1 className="ui-title font-display text-4xl font-bold leading-[1.1] tracking-tight text-text-bright sm:text-5xl lg:text-[3.25rem]">
             {t('home.hero_title')}
           </h1>
           <p className="ui-body mt-5 max-w-md text-base sm:text-lg">
@@ -107,7 +111,7 @@ export function HomeHeroSection({
               onMouseEnter={() => void loadQuickPlayRoute()}
               onFocus={() => void loadQuickPlayRoute()}
               aria-label={`${t('home.quick_play')} ${t('home.quick_play_time')}`}
-              className="button-accent-contrast inline-flex items-baseline gap-2 rounded-md px-8 py-3.5 text-base font-bold"
+              className="button-accent-contrast inline-flex min-h-12 items-baseline gap-2 rounded-md px-8 py-3.5 text-base font-bold"
             >
               <span>{t('home.quick_play')}</span>
               <span className="text-sm font-semibold opacity-80">{t('home.quick_play_time')}</span>
