@@ -1,7 +1,6 @@
 import type { RefObject } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import type { PrivateGameColorPreference } from '@shared/types';
-import { useTranslation } from '../lib/i18n';
 import Header from './Header';
 import Footer from './Footer';
 import { HomeHeroSection } from './HomeHeroSection';
@@ -69,11 +68,9 @@ export function HomePageView({
   handleCreateGame,
   handleJoinGame,
 }: HomePageViewProps) {
-  const { t } = useTranslation();
-
   return (
     <div className="home-brand min-h-screen bg-surface flex flex-col">
-      <Header active="play" subtitle={t('app.tagline')} />
+      <Header active="play" />
 
       <main id="main-content" className="relative flex-1">
         <HomeHeroSection
