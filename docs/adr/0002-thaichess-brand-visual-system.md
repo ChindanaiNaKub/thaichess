@@ -33,7 +33,7 @@ Map [#306](https://github.com/ChindanaiNaKub/thaichess/issues/306) needs a hando
 | `--font-display` | `"Chakra Petch", sans-serif` | Hero / brand moments |
 | `--font-body` | `"IBM Plex Sans Thai", sans-serif` | UI, body, controls |
 
-Source constants: `client/src/components/prototype/brandTokens/makrukStroke.ts` on branch `prototype/tokens-icons-310`.
+Source constants: `client/src/lib/makrukStroke.ts` (shipped); prototype specimen on `prototype/tokens-icons-310`.
 
 ## Rejected alternatives
 

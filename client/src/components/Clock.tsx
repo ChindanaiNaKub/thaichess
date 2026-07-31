@@ -140,7 +140,7 @@ export default function Clock({
       ${isActive
         ? isCritical
           ? 'border-danger/35 bg-[linear-gradient(180deg,rgba(120,36,36,0.18),rgba(41,27,24,0.95))] shadow-[0_10px_30px_rgba(80,24,24,0.18)]'
-          : 'border-primary/35 bg-[linear-gradient(180deg,rgba(72,108,48,0.18),rgba(34,29,22,0.96))] shadow-[0_10px_28px_rgba(43,72,36,0.16)]'
+          : 'border-gold/40 bg-[linear-gradient(180deg,oklch(0.74_0.09_85/0.16),rgba(34,29,22,0.96))] shadow-[0_10px_28px_oklch(0.74_0.09_85/0.18)]'
         : 'border-surface-hover/70 bg-[linear-gradient(180deg,rgba(51,42,32,0.46),rgba(30,26,22,0.96))] shadow-[0_10px_24px_rgba(0,0,0,0.16)]'
       }
     `}>
@@ -158,7 +158,7 @@ export default function Clock({
           ) : (
             <div className={`
               relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border lg:h-8 lg:w-8
-              ${isActive ? 'border-primary/35 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
+              ${isActive ? 'border-gold/40 bg-surface-alt' : 'border-surface-hover/70 bg-surface'}
             `}>
               {avatarUrl && !avatarFailed ? (
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setFailedAvatarUrl(avatarUrl)} />
@@ -189,7 +189,7 @@ export default function Clock({
                 materialDelta={materialDelta}
               />
               {isActive && showTimer && (
-                <span className="hidden shrink-0 rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light sm:inline-flex lg:px-1.5">
+                <span className="hidden shrink-0 rounded-full border border-gold/35 bg-gold/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold sm:inline-flex lg:px-1.5">
                   {t('game.to_move')}
                 </span>
               )}
@@ -226,7 +226,7 @@ export default function Clock({
             ${isCritical
               ? 'border-danger/30 bg-danger/10'
               : isActive
-                ? 'border-primary/25 bg-surface/72'
+                ? 'border-gold/30 bg-gold/10'
                 : 'border-surface-hover/65 bg-surface/55'
             }
           `}>

@@ -1,41 +1,18 @@
 import { memo } from 'react';
+import { MakrukChromeIcon } from './MakrukChromeIcon';
 
-interface QuickPlaySVGProps {
-
+interface ChromeIconProps {
   size?: number;
-
   className?: string;
-
 }
 
-const QuickPlaySVG = memo(function QuickPlaySVG({ size = 80, className }: QuickPlaySVGProps) {
-
+/** Play triangle — quick play / watch */
+const QuickPlaySVG = memo(function QuickPlaySVG({ size = 80, className }: ChromeIconProps) {
   return (
-
-    <svg
-
-      width={size}
-
-      height={size}
-
-      viewBox="0 0 80 80"
-
-      className={className}
-
-      xmlns="http://www.w3.org/2000/svg"
-
-    >
-
-      <g stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-
-        <polygon points="20,15 60,40 20,65" />
-
-      </g>
-
-    </svg>
-
+    <MakrukChromeIcon size={size} className={className}>
+      <path d="M30 22 L58 40 L30 58 Z" />
+    </MakrukChromeIcon>
   );
-
 });
 
 export default QuickPlaySVG;

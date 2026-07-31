@@ -604,19 +604,19 @@ function usePuzzlePlayerScreen() {
                   : (isSolverTurn
                     ? t('puzzle.find_best', { color: solverColorLabel })
                     : t('puzzle.to_move', { color: currentTurnLabel }))}
-              tone={status === 'failed' ? 'danger' : 'primary'}
+              tone={status === 'failed' ? 'danger' : status === 'success' ? 'gold' : 'primary'}
             >
               {status !== 'playing' && (
                 <div className="flex items-center gap-3 mt-3">
                   <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-xl font-bold ${
                     status === 'success'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                      ? 'bg-gold/15 text-gold border border-gold/40'
                       : 'bg-red-500/20 text-red-400 border border-red-500/40'
                   }`}>
                     {status === 'success' ? '✓' : '✕'}
                   </span>
                   <span className={`text-sm font-medium ${
-                    status === 'success' ? 'text-green-400' : 'text-red-400'
+                    status === 'success' ? 'text-gold' : 'text-red-400'
                   }`}>
                     {status === 'success' ? t('puzzle.solved_badge') : t('puzzle.failed_badge')}
                   </span>

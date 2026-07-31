@@ -43,7 +43,7 @@ export default function GameScreenLayout({
                   {t('moves.title')} {moveCount}
                 </span>
                 {showCheckBadge && !isViewingHistory && (
-                  <span className="rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
+                  <span className="rounded-full border border-gold/35 bg-gold/12 px-2.5 py-1 text-gold">
                     {t('game.check_status')}
                   </span>
                 )}
