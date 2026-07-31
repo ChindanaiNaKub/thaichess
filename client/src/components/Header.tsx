@@ -43,25 +43,28 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
     setMenuOpen(true);
   };
 
-  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => (
+  const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => {
+    const isActive = active === key || (key === 'tools' && active === 'watch');
+    return (
     <button type="button"
       key={key}
       onClick={() => handleNavigate(path)}
       onMouseEnter={onHover}
       className={`
         relative px-1 py-0.5 text-sm transition-colors duration-150
-        ${active === key
+        ${isActive
           ? 'text-primary font-semibold'
           : 'text-text-dim hover:text-text-bright'
         }
       `}
     >
       {label}
-      {active === key && (
+      {isActive && (
         <span className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-primary rounded-full" />
       )}
     </button>
-  );
+    );
+  };
 
   const mobileNavItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string) => (
     <button type="button"
@@ -120,9 +123,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
 
         <div className="flex items-center gap-2 sm:gap-5">
           {active !== undefined && (
-            <nav className="hidden sm:flex items-center gap-5">
+            <nav className="hidden sm:flex items-center gap-4 lg:gap-5">
               {navItem('play', routes.home, t('nav.play'), prefetchLeaderboard)}
-              {navItem('watch', routes.watch, t('nav.watch'))}
               {navItem('lessons', routes.lessons, t('nav.lessons'))}
               <div
                 className="relative"
@@ -148,11 +150,11 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {toolsMenuOpen && (
                   <div className="absolute left-0 top-full z-50 min-w-[200px] pt-2">
                     <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
+                      {dropdownMenuItem('watch', routes.watch, t('nav.watch'))}
                       {dropdownMenuItem('editor', editorPath, t('nav.tools_editor'))}
                       {dropdownMenuItem('analysis', routes.analysisRoot, t('nav.tools_analysis'))}
                       {dropdownMenuItem('database', routes.gameDatabase, t('nav.database'))}
                       {dropdownMenuItem('openings', routes.openingExplorer, t('nav.openings'))}
-                      {dropdownMenuItem('import', routes.analysisRoot, t('nav.tools_import_game'), true)}
                     </div>
                   </div>
                 )}
@@ -225,9 +227,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
             {active !== undefined && (
               <nav className="flex flex-col gap-2">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {mobileNavItem('play', routes.home, t('nav.play'))}
-                  {mobileNavItem('watch', routes.watch, t('nav.watch'))}
                   {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
                 </div>
 
@@ -267,7 +268,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                     }}
                     aria-expanded={mobileToolsOpen}
                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
-                      active === 'tools'
+                      active === 'tools' || active === 'watch'
                         ? 'bg-primary/12 font-semibold text-primary-light'
                         : 'bg-surface text-text-bright'
                     }`}
@@ -279,6 +280,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                   </button>
                   {mobileToolsOpen && (
                     <div className="grid gap-1 border-t border-surface-hover/60 bg-surface-alt p-2">
+                      {mobileNavItem('watch', routes.watch, t('nav.watch'))}
                       {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
                       {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
                       {mobileNavItem('tools', routes.gameDatabase, t('nav.database'))}

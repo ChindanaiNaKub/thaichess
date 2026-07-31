@@ -188,13 +188,35 @@ describe('Header', () => {
     expect(navigateMock).toHaveBeenNthCalledWith(2, '/openings');
   });
 
-  it('shows Import game in Tools as unavailable until import support exists', () => {
+  it('opens Watch from the desktop Tools menu', () => {
     render(<Header active="play" />, { wrapper });
 
     const toolsButton = screen.getByRole('button', { name: /^tools$/i });
     fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
 
-    expect(screen.getByRole('button', { name: /^import game$/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /^watch$/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/watch');
+  });
+
+  it('does not expose a disabled Import game shortcut in Tools', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const toolsButton = screen.getByRole('button', { name: /^tools$/i });
+    fireEvent.mouseEnter(toolsButton.parentElement as HTMLElement);
+
+    expect(screen.queryByRole('button', { name: /^import game$/i })).toBeNull();
+  });
+
+  it('keeps desktop top-level nav to Play, Lessons, Puzzles, and Tools', () => {
+    render(<Header active="play" />, { wrapper });
+
+    const desktopNav = screen.getByRole('navigation');
+    expect(within(desktopNav).getByRole('button', { name: /^play$/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('button', { name: /^lessons$/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('button', { name: /^puzzles$/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('button', { name: /^tools$/i })).toBeInTheDocument();
+    expect(within(desktopNav).queryByRole('button', { name: /^watch$/i })).toBeNull();
   });
 
   it('localizes the language switch tooltip in Thai mode', async () => {
