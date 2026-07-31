@@ -1,0 +1,442 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-31T13:23:44Z",
+  "title": "Design System: ThaiChess",
+  "extensions": {
+    "colorMeta": {
+      "cloth-dusk": {
+        "role": "neutral",
+        "displayName": "Cloth Dusk",
+        "canonical": "oklch(0.22 0.015 65)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 65)",
+          "oklch(0.19 0.015 65)",
+          "oklch(0.22 0.015 65)",
+          "oklch(0.26 0.015 65)",
+          "oklch(0.32 0.015 65)",
+          "oklch(0.45 0.015 65)",
+          "oklch(0.68 0.015 65)",
+          "oklch(0.90 0.01 65)"
+        ]
+      },
+      "cloth-deeper": {
+        "role": "neutral",
+        "displayName": "Cloth Deeper",
+        "canonical": "oklch(0.19 0.015 65)",
+        "tonalRamp": [
+          "oklch(0.12 0.015 65)",
+          "oklch(0.16 0.015 65)",
+          "oklch(0.19 0.015 65)",
+          "oklch(0.22 0.015 65)",
+          "oklch(0.28 0.015 65)",
+          "oklch(0.40 0.015 65)",
+          "oklch(0.62 0.015 65)",
+          "oklch(0.88 0.01 65)"
+        ]
+      },
+      "cloth-lift": {
+        "role": "neutral",
+        "displayName": "Cloth Lift",
+        "canonical": "oklch(0.26 0.015 65)",
+        "tonalRamp": [
+          "oklch(0.16 0.015 65)",
+          "oklch(0.20 0.015 65)",
+          "oklch(0.26 0.015 65)",
+          "oklch(0.32 0.015 65)",
+          "oklch(0.40 0.015 65)",
+          "oklch(0.55 0.015 65)",
+          "oklch(0.72 0.015 65)",
+          "oklch(0.92 0.01 65)"
+        ]
+      },
+      "play-amber": {
+        "role": "primary",
+        "displayName": "Play Amber",
+        "canonical": "oklch(0.70 0.14 70)",
+        "tonalRamp": [
+          "oklch(0.28 0.10 70)",
+          "oklch(0.40 0.12 70)",
+          "oklch(0.52 0.13 70)",
+          "oklch(0.62 0.14 70)",
+          "oklch(0.70 0.14 70)",
+          "oklch(0.78 0.12 70)",
+          "oklch(0.86 0.08 70)",
+          "oklch(0.94 0.04 70)"
+        ]
+      },
+      "state-gold": {
+        "role": "tertiary",
+        "displayName": "State Gold",
+        "canonical": "oklch(0.74 0.09 85)",
+        "tonalRamp": [
+          "oklch(0.30 0.06 85)",
+          "oklch(0.42 0.07 85)",
+          "oklch(0.54 0.08 85)",
+          "oklch(0.64 0.09 85)",
+          "oklch(0.74 0.09 85)",
+          "oklch(0.82 0.07 85)",
+          "oklch(0.90 0.05 85)",
+          "oklch(0.96 0.02 85)"
+        ]
+      },
+      "state-gold-soft": {
+        "role": "tertiary",
+        "displayName": "State Gold Soft",
+        "canonical": "oklch(0.74 0.09 85 / 0.55)",
+        "tonalRamp": [
+          "oklch(0.30 0.06 85 / 0.55)",
+          "oklch(0.42 0.07 85 / 0.55)",
+          "oklch(0.54 0.08 85 / 0.55)",
+          "oklch(0.64 0.09 85 / 0.55)",
+          "oklch(0.74 0.09 85 / 0.55)",
+          "oklch(0.82 0.07 85 / 0.55)",
+          "oklch(0.90 0.05 85 / 0.55)",
+          "oklch(0.96 0.02 85 / 0.55)"
+        ]
+      },
+      "lacquer-green": {
+        "role": "secondary",
+        "displayName": "Lacquer Green",
+        "canonical": "oklch(0.58 0.16 135)",
+        "tonalRamp": [
+          "oklch(0.22 0.10 135)",
+          "oklch(0.34 0.13 135)",
+          "oklch(0.46 0.15 135)",
+          "oklch(0.58 0.16 135)",
+          "oklch(0.66 0.18 135)",
+          "oklch(0.74 0.14 135)",
+          "oklch(0.84 0.08 135)",
+          "oklch(0.94 0.04 135)"
+        ]
+      },
+      "lacquer-green-light": {
+        "role": "secondary",
+        "displayName": "Lacquer Green Light",
+        "canonical": "oklch(0.66 0.18 135)",
+        "tonalRamp": [
+          "oklch(0.26 0.10 135)",
+          "oklch(0.38 0.13 135)",
+          "oklch(0.50 0.16 135)",
+          "oklch(0.58 0.16 135)",
+          "oklch(0.66 0.18 135)",
+          "oklch(0.76 0.14 135)",
+          "oklch(0.86 0.08 135)",
+          "oklch(0.95 0.03 135)"
+        ]
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "Danger",
+        "canonical": "oklch(0.52 0.20 25)",
+        "tonalRamp": [
+          "oklch(0.22 0.12 25)",
+          "oklch(0.32 0.16 25)",
+          "oklch(0.42 0.18 25)",
+          "oklch(0.52 0.20 25)",
+          "oklch(0.62 0.18 25)",
+          "oklch(0.74 0.12 25)",
+          "oklch(0.86 0.06 25)",
+          "oklch(0.95 0.02 25)"
+        ]
+      },
+      "success": {
+        "role": "neutral",
+        "displayName": "Success",
+        "canonical": "oklch(0.58 0.16 120)",
+        "tonalRamp": [
+          "oklch(0.22 0.10 120)",
+          "oklch(0.34 0.13 120)",
+          "oklch(0.46 0.15 120)",
+          "oklch(0.58 0.16 120)",
+          "oklch(0.68 0.14 120)",
+          "oklch(0.78 0.10 120)",
+          "oklch(0.88 0.05 120)",
+          "oklch(0.95 0.02 120)"
+        ]
+      },
+      "text-body": {
+        "role": "neutral",
+        "displayName": "Text Body",
+        "canonical": "oklch(0.76 0.015 65)",
+        "tonalRamp": [
+          "oklch(0.40 0.015 65)",
+          "oklch(0.52 0.015 65)",
+          "oklch(0.62 0.015 65)",
+          "oklch(0.68 0.015 65)",
+          "oklch(0.76 0.015 65)",
+          "oklch(0.84 0.01 65)",
+          "oklch(0.90 0.01 65)",
+          "oklch(0.96 0.005 65)"
+        ]
+      },
+      "text-bright": {
+        "role": "neutral",
+        "displayName": "Text Bright",
+        "canonical": "oklch(0.90 0.01 65)",
+        "tonalRamp": [
+          "oklch(0.45 0.015 65)",
+          "oklch(0.58 0.015 65)",
+          "oklch(0.68 0.015 65)",
+          "oklch(0.76 0.015 65)",
+          "oklch(0.84 0.01 65)",
+          "oklch(0.90 0.01 65)",
+          "oklch(0.94 0.008 65)",
+          "oklch(0.98 0.004 65)"
+        ]
+      },
+      "text-dim": {
+        "role": "neutral",
+        "displayName": "Text Dim",
+        "canonical": "oklch(0.68 0.015 65)",
+        "tonalRamp": [
+          "oklch(0.35 0.015 65)",
+          "oklch(0.45 0.015 65)",
+          "oklch(0.55 0.015 65)",
+          "oklch(0.62 0.015 65)",
+          "oklch(0.68 0.015 65)",
+          "oklch(0.76 0.015 65)",
+          "oklch(0.86 0.01 65)",
+          "oklch(0.94 0.005 65)"
+        ]
+      },
+      "board-base": {
+        "role": "neutral",
+        "displayName": "Board Base",
+        "canonical": "oklch(0.78 0.08 78)",
+        "tonalRamp": [
+          "oklch(0.35 0.06 78)",
+          "oklch(0.48 0.07 78)",
+          "oklch(0.58 0.08 78)",
+          "oklch(0.68 0.08 78)",
+          "oklch(0.78 0.08 78)",
+          "oklch(0.86 0.06 78)",
+          "oklch(0.92 0.04 78)",
+          "oklch(0.97 0.02 78)"
+        ]
+      },
+      "board-grid": {
+        "role": "neutral",
+        "displayName": "Board Grid",
+        "canonical": "oklch(0.58 0.05 72 / 0.42)",
+        "tonalRamp": [
+          "oklch(0.30 0.04 72 / 0.42)",
+          "oklch(0.40 0.045 72 / 0.42)",
+          "oklch(0.50 0.05 72 / 0.42)",
+          "oklch(0.58 0.05 72 / 0.42)",
+          "oklch(0.66 0.05 72 / 0.42)",
+          "oklch(0.76 0.04 72 / 0.42)",
+          "oklch(0.86 0.03 72 / 0.42)",
+          "oklch(0.94 0.02 72 / 0.42)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero and brand moments via Chakra Petch (.font-display)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "UI copy, lessons, and controls — Thai-capable IBM Plex Sans Thai stack."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section and card titles (.ui-title) in bright text."
+      },
+      "label": {
+        "displayName": "Eyebrow / Label",
+        "purpose": "Rare uppercase section markers (.ui-eyebrow) in Play Amber."
+      }
+    },
+    "shadows": [
+      {
+        "name": "board-frame",
+        "value": "0 20px 36px oklch(0.10 0.02 65 / 0.28)",
+        "purpose": "Lifts the Makruk board off the cloth felt."
+      },
+      {
+        "name": "menu-popover",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        "purpose": "Transient header dropdown panels only."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 8px 18px rgba(0, 0, 0, 0.14)",
+        "purpose": "Optional 1px translate lift on interactive tiles."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 4px oklch(0.58 0.16 135 / 0.2)",
+        "purpose": "Keyboard focus companion under Lacquer Green Light outline."
+      },
+      {
+        "name": "piece-drag",
+        "value": "drop-shadow(0 8px 14px oklch(0.10 0.02 65 / 0.28))",
+        "purpose": "Physical weight while dragging a piece."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-physical",
+        "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        "purpose": "Default piece and fade transitions."
+      },
+      {
+        "name": "ease-expressive",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Score float and streak pulse."
+      },
+      {
+        "name": "duration-fast",
+        "value": "100ms–160ms",
+        "purpose": "Button active scale and soft button hover."
+      },
+      {
+        "name": "duration-enter",
+        "value": "180ms–420ms",
+        "purpose": "fadeIn, slideUp, home-hero-board entrance."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce → near-zero durations; check pulse disabled",
+        "purpose": "Honor accessibility for animation-sensitive players."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "short-viewport", "value": "700px max-height" },
+      { "name": "content-max", "value": "72rem (max-w-6xl)" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Play Button",
+      "kind": "button",
+      "refersTo": "button-play",
+      "description": "Primary start-game / matchmaking CTA in Play Amber.",
+      "html": "<button type=\"button\" class=\"ds-btn-play\">Play Makruk</button>",
+      "css": ".ds-btn-play { background: var(--color-accent, oklch(0.70 0.14 70)); color: var(--color-surface, oklch(0.22 0.015 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-weight: 700; font-size: 1.125rem; padding: 12px 24px; border: none; border-radius: 0.6rem; cursor: pointer; transition: transform 100ms ease-out, background-color 150ms ease; } .ds-btn-play:hover { background: oklch(0.72 0.15 75); } .ds-btn-play:active { transform: scale(0.97); } .ds-btn-play:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; box-shadow: 0 0 0 4px oklch(0.58 0.16 135 / 0.2); }"
+    },
+    {
+      "name": "Primary Soft Button",
+      "kind": "button",
+      "refersTo": "button-primary-soft",
+      "description": "Secondary emphasis with translucent Lacquer Green wash — not the main Play path.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary-soft\">Continue</button>",
+      "css": ".ds-btn-primary-soft { border-radius: 0.6rem; border: 1px solid color-mix(in oklab, var(--color-primary, oklch(0.58 0.16 135)) 35%, transparent); background: color-mix(in oklab, var(--color-primary, oklch(0.58 0.16 135)) 18%, transparent); color: var(--color-primary-light, oklch(0.66 0.18 135)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-weight: 700; padding: 8px 16px; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease; } .ds-btn-primary-soft:hover { background: color-mix(in oklab, var(--color-primary, oklch(0.58 0.16 135)) 24%, transparent); border-color: color-mix(in oklab, var(--color-primary, oklch(0.58 0.16 135)) 42%, transparent); } .ds-btn-primary-soft:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet chrome control on cloth — cancel, lang toggle, mobile nav items.",
+      "html": "<button type=\"button\" class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { border-radius: 0.6rem; border: 1px solid color-mix(in oklab, var(--color-surface-hover, oklch(0.26 0.015 65)) 78%, transparent); background: var(--color-surface, oklch(0.22 0.015 65)); color: var(--color-text-bright, oklch(0.90 0.01 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-weight: 600; padding: 8px 16px; cursor: pointer; transition: background-color 160ms ease, color 160ms ease; } .ds-btn-secondary:hover { background: var(--color-surface-hover, oklch(0.26 0.015 65)); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; }"
+    },
+    {
+      "name": "UI Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Translucent cloth panel for setup dialogs and content blocks — flat, soft border.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-title\">Quick Play</p><p class=\"ds-card-body\">Find an opponent or fall back to a bot.</p></div>",
+      "css": ".ds-card { border: 1px solid color-mix(in oklab, var(--color-surface-hover, oklch(0.26 0.015 65)) 70%, transparent); border-radius: 0.9rem; background: color-mix(in oklab, var(--color-surface-alt, oklch(0.19 0.015 65)) 92%, transparent); padding: 24px; color: var(--color-text, oklch(0.76 0.015 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); } .ds-card-title { margin: 0 0 8px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text-bright, oklch(0.90 0.01 65)); } .ds-card-body { margin: 0; color: var(--color-text-dim, oklch(0.68 0.015 65)); line-height: 1.6; }"
+    },
+    {
+      "name": "Soft Card",
+      "kind": "card",
+      "refersTo": "card-soft",
+      "description": "Lighter nested container for secondary groupings.",
+      "html": "<div class=\"ds-card-soft\">Nested panel</div>",
+      "css": ".ds-card-soft { border: 1px solid color-mix(in oklab, var(--color-surface-hover, oklch(0.26 0.015 65)) 62%, transparent); border-radius: 0.75rem; background: color-mix(in oklab, var(--color-surface, oklch(0.22 0.015 65)) 88%, transparent); padding: 16px; color: var(--color-text, oklch(0.76 0.015 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Cloth-surface field with Lacquer Green focus ring.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Username</span><input class=\"ds-input\" type=\"text\" placeholder=\"Guest\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); } .ds-field-label { font-size: 0.875rem; color: var(--color-text-dim, oklch(0.68 0.015 65)); } .ds-input { background: var(--color-surface, oklch(0.22 0.015 65)); color: var(--color-text-bright, oklch(0.90 0.01 65)); border: 1px solid color-mix(in oklab, var(--color-surface-hover, oklch(0.26 0.015 65)) 78%, transparent); border-radius: 0.6rem; padding: 8px 12px; font: inherit; } .ds-input:focus-visible { outline: 2px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 2px; box-shadow: 0 0 0 4px oklch(0.58 0.16 135 / 0.2); } .ds-input::placeholder { color: var(--color-text-dim, oklch(0.68 0.015 65)); }"
+    },
+    {
+      "name": "Site Nav Link",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Header text link with Lacquer Green active underline.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><button type=\"button\" class=\"ds-nav-link\">Play</button><button type=\"button\" class=\"ds-nav-link is-active\">Puzzles</button></nav>",
+      "css": ".ds-nav { display: flex; gap: 16px; align-items: center; font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); } .ds-nav-link { position: relative; background: transparent; border: none; padding: 2px 4px; font-size: 0.875rem; color: var(--color-text-dim, oklch(0.68 0.015 65)); cursor: pointer; transition: color 150ms ease; } .ds-nav-link:hover { color: var(--color-text-bright, oklch(0.90 0.01 65)); } .ds-nav-link.is-active { color: var(--color-primary, oklch(0.58 0.16 135)); font-weight: 600; } .ds-nav-link.is-active::after { content: \"\"; position: absolute; left: 0; right: 0; bottom: -10px; height: 2px; background: var(--color-primary, oklch(0.58 0.16 135)); border-radius: 999px; } .ds-nav-link:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; }"
+    },
+    {
+      "name": "Time Control Chip",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "Selectable time-control preset on Quick Play setup.",
+      "html": "<div class=\"ds-chips\"><button type=\"button\" class=\"ds-chip\">3+2</button><button type=\"button\" class=\"ds-chip is-selected\">5+3</button></div>",
+      "css": ".ds-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .ds-chip { padding: 8px 12px; border-radius: 0.5rem; border: 1px solid color-mix(in oklab, var(--color-surface-hover, oklch(0.26 0.015 65)) 78%, transparent); background: var(--color-surface, oklch(0.22 0.015 65)); color: var(--color-text-bright, oklch(0.90 0.01 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; } .ds-chip:hover { background: var(--color-surface-hover, oklch(0.26 0.015 65)); } .ds-chip.is-selected { background: color-mix(in oklab, var(--color-accent, oklch(0.70 0.14 70)) 18%, transparent); border-color: color-mix(in oklab, var(--color-accent, oklch(0.70 0.14 70)) 45%, transparent); color: var(--color-text-bright, oklch(0.90 0.01 65)); font-weight: 700; } .ds-chip:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Eyebrow Label",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Rare uppercase section marker in Play Amber.",
+      "html": "<p class=\"ds-eyebrow\">Learn Makruk</p>",
+      "css": ".ds-eyebrow { margin: 0; font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-accent, oklch(0.70 0.14 70)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Felt Table",
+    "overview": "ThaiChess sits on a warm cloth-dark table — isotropic felt noise over ember-tinted neutrals — so the Makruk board and pieces read as the light source, not a SaaS dashboard chrome stack. The room is quiet: soft tonal steps, restrained borders, and motion that respects prefers-reduced-motion. Personality is curious and welcoming without elitism; tradition shows up in material and stroke discipline, not ornamental gold.\n\nAction is amber. Antique gold is rare on purpose — it signals turn, check, and puzzle-solved only. Lacquer green remains for legacy chrome (nav active, soft primary washes, focus rings) but does not compete with Play Amber for “start a game.” Icons share the Bia (เบี้ย) stroke ratio so chrome and pieces feel like one family.",
+    "keyCharacteristics": [
+      "Cloth-dark felt surfaces (never pure black; never chess.com wood as app chrome)",
+      "Play Amber for CTAs; State Gold reserved for three game states",
+      "Display Chakra Petch + body IBM Plex Sans Thai (Thai-first stacks)",
+      "Flat-by-default elevation; board and menus lift sparingly",
+      "Tactile board-first: chrome recedes; pieces and board carry weight"
+    ],
+    "rules": [
+      {
+        "name": "The Gold-Is-State Rule",
+        "body": "State Gold appears only for active turn, check pulse, and puzzle-solved. Never on buttons, nav, or badges.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cloth-Not-Wood Rule",
+        "body": "App chrome is felt dusk. Wood/jade/ivory board themes are player board skins, not the product shell.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Play Voice Rule",
+        "body": "Starting a game uses Play Amber (or solid accent fills). Do not promote Lacquer Green to the primary play CTA on home/marketing surfaces.",
+        "section": "colors"
+      },
+      {
+        "name": "The Thai-First Stack Rule",
+        "body": "Always keep Thai-capable fallbacks in the body stack; do not ship Latin-only body fonts as the sole face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces rest flat. Shadows appear for board presence, open menus, drag, or focus — not for every card.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Soft-Corner Rule",
+        "body": "Prefer 0.6–0.9rem radii for chrome; reserve sharp 4px only for dense in-game chips (e.g. active move highlight).",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do put Play Amber on start-game / matchmaking CTAs.",
+      "Do keep State Gold limited to turn, check, and puzzle-solved.",
+      "Do preserve cloth felt noise and warm-tinted neutrals (never pure #000 / pure gray text).",
+      "Do use Chakra Petch for display moments and IBM Plex Sans Thai for UI/body.",
+      "Do let the board bleed or dominate play surfaces; chrome stays subordinate."
+    ],
+    "donts": [
+      "Don't use gold on buttons, nav, badges, or marketing chrome.",
+      "Don't restyle the app shell as wood/stone to “look like chess sites.”",
+      "Don't invent purple SaaS gradients or glow-heavy dashboard cards as the default look.",
+      "Don't drop Thai font fallbacks from the body stack.",
+      "Don't ignore prefers-reduced-motion for check pulse, hero fade, or piece motion."
+    ]
+  }
+}
