@@ -68,9 +68,9 @@ export const TH_TRANSLATIONS: Record<string, string> = {
 
   // Home Page
   'home.hero_title': 'เล่นหมากรุกไทยได้ทุกเวลา',
-  'home.hero_desc': 'ไม่ต้องสมัคร กดเล่น 5+0 เพื่อหาคู่แข่ง หรือสลับไปเล่นกับบอทเมื่อช่วงนั้นเงียบ',
+  'home.hero_desc': 'ไม่ต้องสมัคร มีผู้เล่นจริงเมื่อโต๊ะไม่ว่าง — หรือบอทเมื่อช่วงนั้นเงียบ',
   'home.quick_play': 'เล่น 5+0',
-  'home.quick_play_desc': 'เจอผู้เล่นจริงเมื่อมีคนออนไลน์ และมีบอทให้เล่นเมื่อช่วงนั้นเงียบ',
+  'home.quick_play_desc': 'เจอคนเมื่อมี — บอทเมื่อเงียบ',
   'home.choose_mode': 'เลือกโหมด',
   'home.more_ways': 'วิธีเล่นอื่นๆ',
   'home.more_times': 'เวลาเพิ่มเติม',
@@ -132,8 +132,8 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'home.streak_resume': 'บทเรียนล่าสุดที่เล่น: {title}',
   'home.streak_recent': 'บทเรียนล่าสุดที่แก้ได้: {title}',
   'home.learn_eyebrow': 'คู่มือเริ่มต้น',
-  'home.learn_title': 'เริ่มจากหน้าที่อ่านแล้วเข้าใจจริง',
-  'home.learn_desc': 'ถ้าคุณเพิ่งเข้ามาใหม่ 3 หน้านี้จะพาคุณจากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง',
+  'home.learn_title': 'เรียนรู้หมากรุกไทย',
+  'home.learn_desc': 'สามหน้าสั้น ๆ จากรู้จักเกม ไปจนถึงเริ่มเล่นได้จริง',
   'home.learn_card.what_is_title': 'หมากรุกไทยคืออะไร',
   'home.learn_card.what_is_desc': 'ดูภาพรวมของเกมก่อน ว่าทำไมหมากรุกไทยถึงต่างจากหมากรุกสากล',
   'home.learn_card.how_to_title': 'วิธีเล่นหมากรุกไทย',
