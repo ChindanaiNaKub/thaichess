@@ -25,7 +25,7 @@ Brief history only (not current): older deploys used Render free, then a Digital
 | **Northflank Developer Sandbox** | **$0** within free limits (typically 2 services, 2 jobs, 1 addon; card often required for account) | Free tier is for hobby use per Northflank docs. Leaving free limits → pay-as-you-go (~$0.01667/vCPU-hr, ~$0.00833/GB-hr). Confirm plan/usage in the Northflank billing UI. Optional: Student Developer Pack via `students@northflank.com` for higher free service limits. |
 | **Turso** | Free Starter if within plan quotas | Plan/quota changes or overage; confirm in Turso dashboard. |
 | Domains / email (name.com, Resend) | Existing maintainer costs | Independent of app compute host. |
-| Privacy analytics | **$0 (not enabled)** | Code can load Plausible later, but **do not set** `VITE_PLAUSIBLE_DOMAIN` unless you have a free self-host or are willing to pay for Plausible Cloud. Default = no analytics script, no cost. |
+| Privacy analytics | **$0 if unset / free tier** | Optional PostHog free cloud. Leave `VITE_POSTHOG_KEY` unset for no analytics. Default = no PostHog init, no cost. |
 
 **Not in use:** DigitalOcean, Oracle Cloud, Azure, Render, Fly.io, Railway, etc. Do not plan cost/expiry around those products for this app.
 
@@ -63,15 +63,13 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 
 ## Privacy-friendly analytics
 
-**We are not using Plausible (or any paid analytics) in production right now.**
+**Analytics are opt-in and off by default.** We use **PostHog free cloud** (US) when enabled — not Google Analytics.
 
-- Recommended for a $0 student setup: leave `VITE_PLAUSIBLE_DOMAIN` **unset**. The cookie banner stays essential-only; no third-party script loads; **$0**.
-- Plausible **Cloud** is a paid product — do **not** buy it unless you want to. The code hook is optional future wiring only.
-- If you ever want free traffic stats later (optional, not required):
-  - Self-host Plausible or Umami on free compute you already have, **or**
-  - Use another free privacy-friendly host and point `VITE_PLAUSIBLE_SCRIPT_URL` / domain at it after consent — still only if you opt in.
+- Recommended for a $0 student setup until you want metrics: leave `VITE_POSTHOG_KEY` **unset**. The cookie banner stays essential-only; PostHog never initializes; **$0**.
+- When enabling: set `VITE_POSTHOG_KEY` (and optionally `VITE_POSTHOG_HOST`, default `https://us.i.posthog.com`) at **client build time**. Stay on PostHog free tier for early traffic.
+- Product analytics only: pageviews + explicit events (`game_start`, `puzzle_complete`, `signup`). No autocapture, heatmaps, or session replay. Anonymous — no `identify()`, no PII in properties.
 - Cookie banner stores `essential` | `analytics` in `localStorage` (`thaichess-cookie-consent`). Legacy `true` = essential only.
-- `PrivacyAnalytics` loads a script **only** when consent is `analytics` **and** `VITE_PLAUSIBLE_DOMAIN` is set at client build time.
+- `PrivacyAnalytics` initializes PostHog **only** when consent is `analytics` **and** `VITE_POSTHOG_KEY` is set. Revoking consent opts out and resets.
 
 ## Capacity on free Sandbox (0.2 vCPU / 512 MB / 1 instance)
 
@@ -93,7 +91,7 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 
 **Rough expectation:** comfortable for low concurrent live Games (think single digits of simultaneous playing sockets), plus many more visitors browsing/puzzles/bots in-browser. If you ever see OOM kills or sustained CPU throttle in Northflank metrics, the free levers are: keep WASM-first, batch merges, and optionally ask Northflank students pack for higher free limits — **not** turning on paid replicas while budget is $0.
 
-**What stays $0 (do not do):** second replica for rolling deploys, paid Redis for live rooms, Plausible Cloud, upsizing past Sandbox free limits without a billing plan.
+**What stays $0 (do not do):** second replica for rolling deploys, paid Redis for live rooms, paid analytics beyond PostHog free tier, upsizing past Sandbox free limits without a billing plan.
 
 ## Deploy checklist (Northflank) — free tier, don’t surprise players
 
@@ -104,7 +102,7 @@ Assumes **1 instance** auto-rebuild on `main`. Zero-downtime rolling deploys nee
 1. Prefer merging when few people are likely mid-Game (avoid Thai evening peak if you know players are on).
 2. Batch small docs/UI merges — each `main` push can restart the only container.
 3. Confirm secrets still present: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, **`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`**, OAuth if used.
-4. Analytics: **leave unset** for free. Do not set `VITE_PLAUSIBLE_DOMAIN` unless you deliberately enable a free self-hosted backend.
+4. Analytics: **leave unset** for free. Do not set `VITE_POSTHOG_KEY` unless you deliberately enable PostHog (free tier).
 5. Engine: leave `FAIRY_STOCKFISH_BINARY_PATH` / `FAIRY_STOCKFISH_SERVICE_URL` **unset** on this free service.
 
 ### During deploy (expected)

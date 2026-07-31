@@ -42,7 +42,7 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 - Go where Makruk players are: Thai Facebook groups (huge in Thailand), r/chess, r/makruk, chessvariants community, BoardGameGeek, Discord servers.
 - The hook: there is no good modern Makruk site. Lead with "the Lichess for Thai chess," in Thai, to a Thai audience.
 - Make sharing native: a finished game should produce a one-tap shareable image/link with the URL on it (already have `PostGameSharePanel` + share-card export). Every game becomes an ad.
-- Optionally enable privacy-friendly analytics later (`VITE_PLAUSIBLE_DOMAIN`); cookie consent already gates it, and it stays off by default. Can't improve traffic you can't measure, but don't buy Plausible Cloud just for this.
+- Optionally enable privacy-friendly analytics later (`VITE_POSTHOG_KEY`); cookie consent already gates it, and it stays off by default. Can't improve traffic you can't measure — PostHog free tier is enough for early traffic.
 - Seed liquidity: keep bot play and puzzles front-and-center so a solo visitor has fun immediately even when no humans are online.
 
 ### 3. Sustainability / donation model
@@ -59,7 +59,7 @@ The problem is **not the code**. The thing hurting the project — no traffic, n
 
 - Keep Northflank free-tier usage documented and within limits ([`ops-production-readiness.md`](ops-production-readiness.md))
 - Verify the share-card/share-link flow embeds the URL and works on mobile
-- Privacy-friendly analytics hook exists but stays **off** ($0) unless you set `VITE_PLAUSIBLE_DOMAIN`; do not buy Plausible Cloud for this
+- Privacy-friendly analytics hook exists but stays **off** ($0) unless you set `VITE_POSTHOG_KEY`; use PostHog free cloud when you turn it on
 - Run the build and full test suite to confirm everything currently passes
 
 ## Key open questions

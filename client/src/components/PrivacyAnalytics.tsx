@@ -1,36 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
+  disablePrivacyAnalytics,
+  enablePrivacyAnalytics,
+  isPostHogConfigured,
+} from '../lib/analytics';
+import {
   COOKIE_CONSENT_CHANGE_EVENT,
-  getPlausibleDomain,
-  getPlausibleScriptUrl,
   hasAnalyticsConsent,
   type CookieConsentChoice,
 } from '../lib/cookieConsent';
 
-const SCRIPT_ID = 'thaichess-plausible-analytics';
-
-function removePlausibleScript() {
-  document.getElementById(SCRIPT_ID)?.remove();
-}
-
-function ensurePlausibleScript(domain: string) {
-  if (document.getElementById(SCRIPT_ID)) return;
-
-  const script = document.createElement('script');
-  script.id = SCRIPT_ID;
-  script.defer = true;
-  script.dataset.domain = domain;
-  script.src = getPlausibleScriptUrl();
-  document.head.appendChild(script);
-}
-
 /**
- * Loads Plausible only after analytics consent and when VITE_PLAUSIBLE_DOMAIN is set.
- * Plausible.js sends Cross-Origin-Resource-Policy: cross-origin, so it works with COEP.
+ * Initializes PostHog only after analytics consent and when VITE_POSTHOG_KEY is set.
+ * No autocapture, heatmaps, or session replay — product events are captured explicitly.
  */
 export default function PrivacyAnalytics() {
   const [analyticsAllowed, setAnalyticsAllowed] = useState(() => hasAnalyticsConsent());
-  const domain = getPlausibleDomain();
+  const configured = isPostHogConfigured();
 
   useEffect(() => {
     const onConsentChange = (event: Event) => {
@@ -43,13 +29,13 @@ export default function PrivacyAnalytics() {
   }, []);
 
   useEffect(() => {
-    if (!domain || !analyticsAllowed) {
-      removePlausibleScript();
+    if (!configured || !analyticsAllowed) {
+      disablePrivacyAnalytics();
       return;
     }
 
-    ensurePlausibleScript(domain);
-  }, [analyticsAllowed, domain]);
+    enablePrivacyAnalytics();
+  }, [analyticsAllowed, configured]);
 
   return null;
 }

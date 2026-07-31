@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { captureProductEvent } from '../lib/analytics';
 import { liveGameRoute, routes } from '../lib/routes';
 import { homeStatsQueryOptions } from '../queries/stats';
 import { connectSocket, socket } from '../lib/socket';
@@ -82,6 +83,7 @@ export default function HomePage() {
     const handleCreated = ({ gameId }: { gameId: string }) => {
       setIsCreating(false);
       cleanupCreateHandlers();
+      captureProductEvent('game_start', { source: 'create' });
       navigate(liveGameRoute(gameId));
     };
 
@@ -190,6 +192,7 @@ export default function HomePage() {
 
   const handleJoinGame = () => {
     if (!joinId.trim()) return;
+    captureProductEvent('game_start', { source: 'join' });
     navigate(liveGameRoute(joinId.trim()));
   };
 
