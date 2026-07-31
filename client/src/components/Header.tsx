@@ -34,13 +34,13 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   };
 
   const toggleMobileMenu = () => {
-    setMenuOpen((open) => {
-      if (open) {
-        setMobilePuzzlesOpen(false);
-        setMobileToolsOpen(false);
-      }
-      return !open;
-    });
+    if (menuOpen) {
+      setMobilePuzzlesOpen(false);
+      setMobileToolsOpen(false);
+      setMenuOpen(false);
+      return;
+    }
+    setMenuOpen(true);
   };
 
   const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => (

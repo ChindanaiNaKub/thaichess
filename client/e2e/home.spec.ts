@@ -3,8 +3,13 @@ import { test, expect, type Page } from '@playwright/test';
 async function gotoHome(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#main-content')).toBeVisible();
-  await expect(page.locator('#main-content').getByRole('button', { name: /play 5\+0/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /play thai chess anytime/i })).toBeVisible();
+  await expect(page.locator('#main-content').getByRole('button', { name: /play now 5\+0/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /play makruk anytime/i })).toBeVisible();
+}
+
+async function openMoreWays(page: Page) {
+  const main = page.locator('#main-content');
+  await main.getByRole('button', { name: /more ways to play/i }).click();
 }
 
 test.describe('Homepage', () => {
@@ -27,7 +32,7 @@ test.describe('Homepage', () => {
   test('navigates to quick play', async ({ page }) => {
     await gotoHome(page);
 
-    await page.locator('#main-content').getByRole('button', { name: /play 5\+0/i }).click();
+    await page.locator('#main-content').getByRole('button', { name: /play now 5\+0/i }).click();
     await expect(page).toHaveURL('/quick-play');
     await expect(page.getByRole('button', { name: /5\+0 blitz/i })).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole('button', { name: /sending/i })).toBeDisabled({ timeout: 30000 });
@@ -35,6 +40,7 @@ test.describe('Homepage', () => {
 
   test('navigates to puzzle streak', async ({ page }) => {
     await gotoHome(page);
+    await openMoreWays(page);
 
     await page.locator('#main-content').getByRole('button', { name: /puzzles tactical training/i }).click();
     await expect(page).toHaveURL('/puzzles/streak');
@@ -55,6 +61,7 @@ test.describe('Homepage', () => {
 
   test('navigates to local game', async ({ page }) => {
     await gotoHome(page);
+    await openMoreWays(page);
 
     await page.locator('#main-content').getByRole('button', { name: /play locally/i }).click();
     await expect(page).toHaveURL(/\/local/);
@@ -64,6 +71,7 @@ test.describe('Homepage', () => {
 
   test('navigates to bot game', async ({ page }) => {
     await gotoHome(page);
+    await openMoreWays(page);
 
     await page.locator('#main-content').getByRole('button', { name: /play vs bot/i }).click();
     await expect(page).toHaveURL('/bot');
