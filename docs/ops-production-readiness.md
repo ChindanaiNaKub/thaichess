@@ -9,7 +9,7 @@ Nothing else hosts the app — no DigitalOcean droplet, no Render, no Oracle VM,
 
 | Layer | Provider | Notes |
 |-------|----------|--------|
-| App (Node + Socket.IO + static `client/dist`) | **Northflank** Developer Sandbox (free) | Combined service, Dockerfile build; public port **3000**; health `/api/health` |
+| App (Node + Socket.IO + static `client/dist`) | **Northflank** Developer Sandbox (free) | Combined service, Dockerfile build; public port **3000**; health `/api/health`; **1 instance**, currently **0.2 vCPU / 512 MB** (confirm in Northflank UI) |
 | Edge / DNS | Northflank + name.com | Custom domain `thaichess.dev`; responses may show `server: istio-envoy` (Northflank’s managed edge on their cloud) |
 | Database | **Turso** (`thaichess-chindanainakub`, `aws-ap-northeast-1`) | Primary prod DB via `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` |
 | CI | GitHub Actions (`ci.yml`) | Lint, tests, build, release artifact on `main` push — **no auto-deploy job**; Northflank rebuilds from the tracked Git branch |
@@ -73,12 +73,52 @@ Restore from dump: `turso db create thaichess-from-dump --from-dump ./path/to/du
 - Cookie banner stores `essential` | `analytics` in `localStorage` (`thaichess-cookie-consent`). Legacy `true` = essential only.
 - `PrivacyAnalytics` loads a script **only** when consent is `analytics` **and** `VITE_PLAUSIBLE_DOMAIN` is set at client build time.
 
-## Deploy checklist (Northflank)
+## Capacity on free Sandbox (0.2 vCPU / 512 MB / 1 instance)
+
+**Can it handle the site?** Yes for **hobby / early traffic** — with clear ceilings. The architecture is already skewed for this:
+
+| Workload | Who pays CPU/RAM | Fit on 512 MB |
+|----------|------------------|---------------|
+| Homepage, static assets, puzzles UI | Mostly client + Envoy cache | Fine |
+| Bot play / analysis | Prefer **browser WASM** ([engine audit](./engine-server-load-audit.md)) | Fine if `FAIRY_STOCKFISH_*` **unset** on Northflank |
+| Live multiplayer + clocks | **This one Node process** + Socket.IO | Fine for a **handful** of concurrent Games |
+| Finished rated Games | Turso (off-box) | Fine within Turso free quotas |
+
+**Hard limits of this free shape:**
+
+1. **One instance** — every redeploy replaces the only process. Envoy briefly returns `upstream connect error` / connection refused until the new container listens on **3000**.
+2. **Live rooms are in-memory** (ADR 0001) — a redeploy **wipes all in-progress multiplayer Games**. Client reconnect (10 attempts) and the server’s **10 min** disconnect TTL only help if the *same* process is still up (Wi‑Fi blips), not after a container replace.
+3. **0.2 vCPU** — enough for light Socket.IO + Turso I/O; not enough if you also run Fairy-Stockfish **on the server**. Keep engine env unset in prod.
+4. **512 MB** — Node + Express + Socket.IO + static serving is the budget. Do not add Redis / second stockfish / heavy addons on this service.
+
+**Rough expectation:** comfortable for low concurrent live Games (think single digits of simultaneous playing sockets), plus many more visitors browsing/puzzles/bots in-browser. If you ever see OOM kills or sustained CPU throttle in Northflank metrics, the free levers are: keep WASM-first, batch merges, and optionally ask Northflank students pack for higher free limits — **not** turning on paid replicas while budget is $0.
+
+**What stays $0 (do not do):** second replica for rolling deploys, paid Redis for live rooms, Plausible Cloud, upsizing past Sandbox free limits without a billing plan.
+
+## Deploy checklist (Northflank) — free tier, don’t surprise players
+
+Assumes **1 instance** auto-rebuild on `main`. Zero-downtime rolling deploys need **≥2 instances** (usually leaves free Sandbox) — out of scope while budget is $0.
+
+### Before merge
+
+1. Prefer merging when few people are likely mid-Game (avoid Thai evening peak if you know players are on).
+2. Batch small docs/UI merges — each `main` push can restart the only container.
+3. Confirm secrets still present: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, **`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`**, OAuth if used.
+4. Analytics: **leave unset** for free. Do not set `VITE_PLAUSIBLE_DOMAIN` unless you deliberately enable a free self-hosted backend.
+5. Engine: leave `FAIRY_STOCKFISH_BINARY_PATH` / `FAIRY_STOCKFISH_SERVICE_URL` **unset** on this free service.
+
+### During deploy (expected)
 
 1. Push/merge to the branch the service tracks (`main`).
-2. Confirm Northflank build succeeds; `/api/health` → `status: ok`, `dependencies.database: ok`.
-3. Runtime secrets: `SITE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `AUTH_SECRET`, **`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (required in production)**, OAuth if used.
-4. Analytics: **leave unset** for free (recommended). Do not set `VITE_PLAUSIBLE_DOMAIN` unless you deliberately enable a free self-hosted or paid analytics backend.
+2. Northflank rebuilds → old instance stops → **brief site outage** (Envoy “upstream connect error… Connection refused” is normal here).
+3. **All live in-memory Games end** when the process dies. Finished rated Games already on Turso are fine.
+4. Optional (still free): post a one-line note in whatever community channel you use (“deploying — live games will reset”).
+
+### After deploy
+
+1. Wait until Northflank shows **Running** and `GET https://thaichess.dev/api/health` returns `status: ok`, `dependencies.database: ok` (and rising `uptime`).
+2. Smoke: open homepage, start a bot or puzzle, optional quick friend Game.
+3. If health stays bad: check Northflank logs for boot/Turso errors — do **not** spam redeploys.
 
 Production refuses to start without a remote Turso URL (`assertProductionUsesDurableDatabase`). Local `file:` SQLite remains available for development and tests only.
 
