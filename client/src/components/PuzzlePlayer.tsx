@@ -19,13 +19,11 @@ import {
   buildReplayState,
   formatActivityDate,
   getCheckSquare,
-  getDifficultyBadgeClasses,
   getDifficultyTextClasses,
   getLastMove,
   getPuzzleFailureDetail,
   getPuzzleIdentityBadges,
   getPublicPuzzleTitle,
-  getPuzzleOriginBadgeClasses,
   getPuzzleOriginLabel,
   getPuzzleSourceLabel,
   getVerificationLabel,
@@ -565,33 +563,30 @@ function usePuzzlePlayerScreen() {
             className="flex min-h-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto lg:pr-1"
             style={{ overflowAnchor: 'none' }}
           >
-            <div className="rounded-[28px] border border-primary/20 bg-[linear-gradient(160deg,rgba(92,160,26,0.12),rgba(32,24,19,0.95)_48%,rgba(19,15,12,0.98))] p-5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-primary-light/90">{t('puzzle.lesson')} #{puzzle.id}</p>
-                  <h3 className="mt-2 text-xl font-bold text-text-bright">{translatePuzzleContent(getPublicPuzzleTitle(puzzle.title), t)}</h3>
-                  <p className="mt-2 text-sm leading-6 text-text-dim">{translatePuzzleContent(puzzle.description, t)}</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${getDifficultyBadgeClasses(puzzle.difficulty)}`}>
-                  {t(`puzzle.${puzzle.difficulty}`)}
-                </span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {lessonIdentityBadges.map((badge) => (
-                  <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
-                    {badge}
-                  </span>
-                ))}
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
-                  {t('puzzle.rating_short', { score: puzzle.difficultyScore })}
-                </span>
-                <span className={`rounded-full border px-2.5 py-1 text-[11px] ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
-                  {getPuzzleOriginLabel(puzzle, t)}
-                </span>
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
-                  {t('puzzle.to_move', { color: currentTurnLabel })}
-                </span>
-              </div>
+            <div className="ui-card p-5">
+              <h3 className="text-xl font-bold tracking-tight text-text-bright">
+                {translatePuzzleContent(getPublicPuzzleTitle(puzzle.title), t)}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-dim">
+                {translatePuzzleContent(puzzle.description, t)}
+              </p>
+              <p className="mt-3 text-sm text-text-dim">
+                {t('puzzle.lesson')} #{puzzle.id}
+                {' · '}
+                {t(`puzzle.${puzzle.difficulty}`)}
+                {' · '}
+                {t('puzzle.rating_short', { score: puzzle.difficultyScore })}
+                {' · '}
+                {getPuzzleOriginLabel(puzzle, t)}
+                {' · '}
+                {t('puzzle.to_move', { color: currentTurnLabel })}
+                {lessonIdentityBadges.length > 0 && (
+                  <>
+                    {' · '}
+                    {lessonIdentityBadges.join(' · ')}
+                  </>
+                )}
+              </p>
             </div>
 
             <CoachSection
@@ -647,7 +642,7 @@ function usePuzzlePlayerScreen() {
                 {nextPuzzle && (
                   <button type="button"
                     onClick={() => navigate(getPuzzleUrl(nextPuzzle))}
-                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+                    className="button-accent-contrast rounded-[0.6rem] px-3 py-2 text-sm font-bold"
                   >
                     {t('puzzle.next')} →
                   </button>
@@ -667,38 +662,40 @@ function usePuzzlePlayerScreen() {
               onMoveClick={jumpToMove}
             />
 
-            <div className="rounded-2xl border border-surface-hover bg-surface-alt p-3">
-              <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(puzzle.origin)}`}>
-                  {getPuzzleOriginLabel(puzzle, t)}
-                </span>
-                <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                  {getPuzzleSourceLabel(puzzle.source, t)}
-                </span>
+            <div className="ui-card-soft p-3">
+              <p className="text-sm text-text-dim">
+                {getPuzzleOriginLabel(puzzle, t)}
+                {' · '}
+                {getPuzzleSourceLabel(puzzle.source, t)}
                 {puzzle.sourceLicense && (
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                  <>
+                    {' · '}
                     {puzzle.sourceLicense}
-                  </span>
+                  </>
                 )}
                 {verificationLabel && (
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
+                  <>
+                    {' · '}
                     {verificationLabel}
-                  </span>
+                  </>
                 )}
                 {puzzle.sourceGameUrl && (
-                  <a
-                    href={puzzle.sourceGameUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text hover:text-text-bright"
-                  >
-                    {t('puzzle.source_game_link')}
-                  </a>
+                  <>
+                    {' · '}
+                    <a
+                      href={puzzle.sourceGameUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-text underline underline-offset-2 hover:text-text-bright"
+                    >
+                      {t('puzzle.source_game_link')}
+                    </a>
+                  </>
                 )}
-              </div>
+              </p>
             </div>
 
-            <details className="rounded-2xl border border-surface-hover bg-surface-alt p-4">
+            <details className="ui-card-soft p-4">
                 <summary className="cursor-pointer text-sm font-semibold text-text-bright">{t('puzzle.more_details')}</summary>
                 <div className="mt-3 space-y-3">
                   <p className="text-sm font-semibold text-text">{t('puzzle.scene_label')}</p>
@@ -722,34 +719,36 @@ function usePuzzlePlayerScreen() {
                   <p className="text-sm text-text-dim">{puzzle.takeaway}</p>
                   <p className="text-sm font-semibold text-text">{t('puzzle.source_evidence_label')}</p>
                   <p className="text-sm text-text-dim">{puzzle.ruleImpact}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                      {t('puzzle.activity_status_label')}: {activityStatusLabel}
-                    </span>
+                  <p className="text-sm text-text-dim">
+                    {t('puzzle.activity_status_label')}: {activityStatusLabel}
                     {progressRecord && (
-                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                      <>
+                        {' · '}
                         {t('puzzle.attempts_label')}: {progressRecord.attempts}
-                      </span>
+                      </>
                     )}
                     {progressRecord && progressRecord.attempts > 0 && (
-                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                      <>
+                        {' · '}
                         {t('puzzle.success_rate')}: {Math.round((progressRecord.successes / progressRecord.attempts) * 100)}%
-                      </span>
+                      </>
                     )}
                     {progressRecord?.lastPlayedAt && (
-                      <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
+                      <>
+                        {' · '}
                         {t('puzzle.activity_last_played', { date: formatActivityDate(progressRecord.lastPlayedAt, lang) })}
-                      </span>
+                      </>
                     )}
                     {completedTimestamp !== null && (
-                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary-light">
+                      <>
+                        {' · '}
                         {t('puzzle.activity_completed_on', { date: formatActivityDate(completedTimestamp, lang) })}
-                      </span>
+                      </>
                     )}
-                  </div>
+                  </p>
                   {relatedThemePuzzles.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-primary/80">{t('puzzle.related_theme_title')}</p>
+                      <p className="text-sm font-semibold text-text-bright">{t('puzzle.related_theme_title')}</p>
                       <p className="text-xs text-text-dim">{t('puzzle.related_theme_desc', { theme: t(`theme.${puzzle.theme}`) })}</p>
                       {relatedThemePuzzles.map((relatedPuzzle) => (
                         <button type="button"

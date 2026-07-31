@@ -158,48 +158,42 @@ export function AnalysisQuickView({
           </div>
 
           <div className="flex min-w-0 flex-col gap-3 w-full max-w-[760px] lg:self-start lg:sticky lg:top-4">
-            <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-text-bright">{t('analysis.quick.title')}</h2>
-                  <p className="mt-1 text-sm text-text-dim">{t('analysis.quick.desc')}</p>
-                </div>
-                <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
-                  {reviewT('review.analysis_branch')}
-                </span>
-              </div>
+            <div className="ui-card p-4">
+              <h2 className="text-lg font-bold tracking-tight text-text-bright">{t('analysis.quick.title')}</h2>
+              <p className="mt-1 text-sm text-text-dim">{t('analysis.quick.desc')}</p>
+              <p className="mt-2 text-xs text-text-dim">{reviewT('review.analysis_branch')}</p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button type="button"
                   onClick={() => onViewAsChange(viewAs === 'white' ? 'black' : 'white')}
-                  className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
+                  className="ui-btn-secondary px-3 py-2 text-sm"
                 >
                   {t('analysis.quick.flip_board')}
                 </button>
                 <button type="button"
                   onClick={onResetQuickAnalysis}
                   disabled={!review.canResetAnalysis && review.analysisLine.length === 0}
-                  className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
+                  className="ui-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
                 >
                   {t('analysis.quick.reset')}
                 </button>
                 <button type="button"
                   onClick={onOpenEditor}
-                  className="col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+                  className="button-accent-contrast col-span-2 rounded-[0.6rem] px-3 py-2 text-sm font-bold"
                 >
                   {t('analysis.quick.open_editor')}
                 </button>
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-surface p-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+            <div className="ui-card p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-text-bright">{t('analysis.quick.variation')}</h3>
                 <span className="text-xs text-text-dim">
                   {t('analysis.quick.moves', { count: quickMoveCount })}
                 </span>
               </div>
-              <div className="mt-3 min-h-20 rounded-lg border border-surface-hover bg-surface-alt/70 px-2 py-3">
+              <div className="mt-3 min-h-20 rounded-[0.6rem] border border-surface-hover bg-surface-alt/70 px-2 py-3">
                 {quickVariationLine ?? (
                   <p className="px-2 text-sm text-text-dim">{t('analysis.quick.empty_variation')}</p>
                 )}

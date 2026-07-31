@@ -118,7 +118,7 @@ describe('LessonsPage', () => {
     );
 
     expect(screen.getByText('Opening Principles')).toBeInTheDocument();
-    expect(screen.getByText('No counting dependency')).toBeInTheDocument();
+    expect(screen.queryByText('No counting dependency')).not.toBeInTheDocument();
     expect(screen.getByText(/opening lessons always begin before any counting rule can exist/i)).toBeInTheDocument();
 
     expect(console.info).toHaveBeenCalledWith(
@@ -148,7 +148,7 @@ describe('LessonsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch lesson' }));
 
     expect(screen.getByText('Endgame Fundamentals')).toBeInTheDocument();
-    expect(screen.getByText('Counting-aware lesson')).toBeInTheDocument();
+    expect(screen.queryByText('Counting-aware lesson')).not.toBeInTheDocument();
     expect(screen.getByText(/sak mak starts automatically at count 3/i)).toBeInTheDocument();
   });
 });

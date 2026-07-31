@@ -16,23 +16,24 @@ export function PuzzleCoachSection({
   children,
 }: PuzzleCoachSectionProps) {
   const toneClasses = {
-    surface: 'border-surface-hover bg-surface-alt',
+    surface: 'border-surface-hover/70 bg-surface-alt/70',
     accent: 'border-accent/30 bg-accent/10',
-    primary: 'border-primary/30 bg-primary/10',
+    primary: 'border-surface-hover/70 bg-surface-alt/70',
     danger: 'border-danger/30 bg-danger/10',
     gold: 'border-gold/35 bg-gold/10',
   }[tone];
-  const labelClass = tone === 'gold'
-    ? 'text-gold/85'
-    : tone === 'danger'
-      ? 'text-danger/80'
-      : 'text-primary/80';
 
   return (
-    <section className={`rounded-2xl border p-4 ${toneClasses}`}>
-      <p className={`text-[11px] uppercase tracking-[0.2em] ${labelClass}`}>{label}</p>
-      {title && <h3 className="mt-2 text-base font-semibold text-text-bright">{title}</h3>}
-      <p className="mt-2 text-sm leading-6 text-text-dim">{body}</p>
+    <section className={`rounded-[0.9rem] border p-4 ${toneClasses}`}>
+      {title ? (
+        <>
+          <h3 className="text-base font-semibold text-text-bright">{title}</h3>
+          <p className="mt-1 text-sm text-text-dim">{label}</p>
+        </>
+      ) : (
+        <h3 className="text-base font-semibold text-text-bright">{label}</h3>
+      )}
+      <p className="mt-2 text-sm leading-relaxed text-text-dim">{body}</p>
       {children && <div className="mt-3 border-t border-surface-hover/70 pt-3">{children}</div>}
     </section>
   );

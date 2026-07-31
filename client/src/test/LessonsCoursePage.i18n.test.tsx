@@ -71,17 +71,16 @@ describe('LessonCoursePage i18n', () => {
 
     render(<LessonCoursePage />, { wrapper });
 
-    expect(screen.getByText('บทเรียนแบบเป็นลำดับ')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'เรียนหมากรุกไทยเหมือนมีโค้ชคอยพาไปทีละขั้น' })).toBeInTheDocument();
-    expect(screen.getByText('ความคืบหน้าของคอร์ส')).toBeInTheDocument();
-    expect(screen.getByText('สำเร็จแล้ว 15%')).toBeInTheDocument();
-    expect(screen.getByText('บทเรียนถัดไป')).toBeInTheDocument();
+    expect(screen.getByText('3/20 บทเสร็จแล้ว')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'เริ่มบทเรียน' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'สตรีคโจทย์' })).toBeInTheDocument();
-    expect(screen.getAllByText('เริ่มต้น').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('4 นาที').length).toBeGreaterThan(0);
-    expect(screen.getByText('บทเรียน 1')).toBeInTheDocument();
+    expect(screen.getAllByText(/เริ่มต้น/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/4 นาที/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/บทเรียน 1 ·/)).toBeInTheDocument();
     expect(screen.getByText('ทำต่อ')).toBeInTheDocument();
     expect(screen.queryByText('Learn Makruk like a coached course')).not.toBeInTheDocument();
+    expect(screen.queryByText('บทเรียนแบบเป็นลำดับ')).not.toBeInTheDocument();
+    expect(screen.queryByText('ความคืบหน้าของคอร์ส')).not.toBeInTheDocument();
   });
 });

@@ -683,8 +683,8 @@ describe('Puzzle surfaces', () => {
     expect(screen.queryByTestId('streak-hero')).not.toBeInTheDocument();
     expect(screen.getByTestId('streak-sidebar-summary')).toBeInTheDocument();
     expect(screen.getByText('Puzzle Streak')).toBeInTheDocument();
-    expect(screen.getByText('Score')).toBeInTheDocument();
-    expect(screen.getByText('Streak')).toBeInTheDocument();
+    expect(screen.getByText(/Score:/)).toBeInTheDocument();
+    expect(screen.getByText(/^Streak:/)).toBeInTheDocument();
     expect(screen.queryByText('Open Lessons')).not.toBeInTheDocument();
     expect(screen.queryByText('All Lessons')).not.toBeInTheDocument();
     expect(screen.queryByText('Lessons')).not.toBeInTheDocument();
@@ -705,7 +705,7 @@ describe('Puzzle surfaces', () => {
     });
 
     expect(markPuzzleCompletedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText(/Score:\s*10/)).toBeInTheDocument();
     expect(screen.getByText('+10')).toBeInTheDocument();
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(78);
   });
@@ -727,9 +727,8 @@ describe('Puzzle surfaces', () => {
     renderStreakPage();
 
     expect(screen.getByText('Checking Rua')).toBeInTheDocument();
-    expect(screen.getByText('Mate preparation')).toBeInTheDocument();
-    expect(screen.getByText('Source evidence')).toBeInTheDocument();
-    expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
+    expect(screen.getByText(/Mate preparation/)).toBeInTheDocument();
+    expect(screen.getByText(/Close the mating net before you grab material\./)).toBeInTheDocument();
     expect(screen.queryByText('Coach note')).not.toBeInTheDocument();
     expect(screen.queryByText('Task')).not.toBeInTheDocument();
     expect(screen.queryByText('Tempting mistake')).not.toBeInTheDocument();
@@ -852,8 +851,8 @@ describe('Puzzle surfaces', () => {
 
     renderLessonPlayer();
 
-    expect(screen.getAllByText('White to move').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Black to move')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/White to move/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Black to move/)).not.toBeInTheDocument();
 
     puzzleListFixtures[0].sideToMove = originalSideToMove;
     puzzleListFixtures[0].toMove = originalToMove;
@@ -866,12 +865,12 @@ describe('Puzzle surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'wrong-to' }));
 
     expect(recordPuzzleFailedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('Not quite!')).toBeInTheDocument();
+    expect(screen.getByText(/Not quite!/)).toBeInTheDocument();
     expect(screen.queryByText('Streak ended')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry puzzle' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start a new streak' })).not.toBeInTheDocument();
-    expect(screen.getByText('Greedy material wins release the king net and let Black untangle.')).toBeInTheDocument();
-    expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
+    expect(screen.getByText(/Greedy material wins release the king net and let Black untangle\./)).toBeInTheDocument();
+    expect(screen.getByText(/Close the mating net before you grab material\./)).toBeInTheDocument();
     expect(screen.getByTestId('board-turn')).toHaveTextContent('true');
     expect(screen.getByTestId('board-disabled')).toHaveTextContent('false');
 
@@ -883,7 +882,7 @@ describe('Puzzle surfaces', () => {
     });
 
     expect(markPuzzleCompletedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText(/Score:\s*10/)).toBeInTheDocument();
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(78);
   });
 
@@ -893,7 +892,7 @@ describe('Puzzle surfaces', () => {
     renderLessonsPage();
 
     expect(screen.getAllByText('Lessons').length).toBeGreaterThan(0);
-    expect(screen.getByText('Learning tracks')).toBeInTheDocument();
+    expect(screen.getByText('Practice queue')).toBeInTheDocument();
     expect(screen.getAllByText('Beginner').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Intermediate').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0);
@@ -916,9 +915,9 @@ describe('Puzzle surfaces', () => {
     renderLessonPlayer();
 
     expect(recordPuzzleVisitedMock).toHaveBeenCalledWith(77);
-    expect(screen.getByText('Lesson #77')).toBeInTheDocument();
+    expect(screen.getByText(/Lesson #77/)).toBeInTheDocument();
     expect(screen.getByText('Checking Rua')).toBeInTheDocument();
-    expect(screen.getByText('Beginner')).toBeInTheDocument();
+    expect(screen.getByText(/Beginner/)).toBeInTheDocument();
     expect(screen.getByText('More in this theme')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Play Streak' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'All Lessons' })).not.toBeInTheDocument();
@@ -933,8 +932,8 @@ describe('Puzzle surfaces', () => {
     expect(screen.getByText('Close the mating net before you grab material.')).toBeInTheDocument();
     expect(screen.getByText("Coach's eye")).toBeInTheDocument();
     expect(screen.getByText('Source evidence')).toBeInTheDocument();
-    expect(screen.getByText('CC BY-SA')).toBeInTheDocument();
-    expect(screen.getAllByText('Engine verified').length).toBeGreaterThan(0);
+    expect(screen.getByText(/CC BY-SA/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Engine verified/).length).toBeGreaterThan(0);
     expect(screen.getByText('Tempting mistake')).toBeInTheDocument();
     expect(screen.getByText('Greedy material wins release the king net and let Black untangle.')).toBeInTheDocument();
     expect(screen.getByText('Takeaway')).toBeInTheDocument();
