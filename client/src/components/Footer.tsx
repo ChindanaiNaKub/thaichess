@@ -7,30 +7,15 @@ export default function Footer() {
   return (
     <footer className="bg-surface-alt border-t border-surface-hover py-6 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Support Section */}
-        <div className="ui-card mb-6 p-4 border-accent/20 bg-accent/5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-center sm:text-left">
-              <p className="text-text-bright font-semibold text-sm">{t('footer.support')}</p>
-              <p className="text-text-dim text-xs mt-1 max-w-md">{t('footer.support_desc')}</p>
-            </div>
-            <a
-              href="/donate-qr.jpg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#4B0082] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4B0082]/85 whitespace-nowrap"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 11h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v3h-3v-3zm-2 2h3v3h-3v-3zm2 2h3v3h-3v-3zm-9 2h3v3H9v-3zm2 2h3v3h-3v-3zm-2 2h3v3H9v-3z"/>
-              </svg>
-              {t('footer.donate_thai')}
-            </a>
-          </div>
-          {/* Bank Info */}
-          <div className="mt-3 pt-3 border-t border-accent/10 text-center">
-            <p className="text-text-dim/80 text-xs">{t('footer.bank_info')}</p>
-          </div>
-        </div>
+        <p className="mb-6 text-center text-xs text-text-dim sm:text-left">
+          {t('footer.support_desc')}{' '}
+          <a
+            href={routes.donate}
+            className="footer-link font-medium text-primary hover:text-primary-light"
+          >
+            {t('footer.donate')}
+          </a>
+        </p>
 
         <h2 className="sr-only">{t('footer.links_label')}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-5 sm:gap-6 mb-4">
@@ -96,7 +81,6 @@ export default function Footer() {
               Chess.com
             </a>
           </p>
-          <p className="text-text-dim/70 text-xs mt-2">{t('footer.thanks')}</p>
         </div>
       </div>
     </footer>

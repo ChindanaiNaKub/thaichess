@@ -1242,11 +1242,13 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.links_label': 'Footer Links',
   'footer.what_is_makruk': 'What Is Makruk?',
   'footer.how_to_play_makruk': 'How to Play Makruk',
-  'footer.support': 'Support ThaiChess',
-  'footer.support_desc': 'ThaiChess is free and has no ads. If you enjoy playing, consider supporting the project!',
-  'footer.donate_thai': 'Donate via QR',
-  'footer.thanks': 'Thank you for keeping ThaiChess alive! 🙏',
-  'footer.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
+  'footer.support_desc': 'ThaiChess stays free and ad-free — if you want to help cover costs,',
+  'footer.donate': 'Donate',
+  'donate.title': 'Donate',
+  'donate.desc': 'ThaiChess stays free and ad-free. Transfers help cover hosting and development.',
+  'donate.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
+  'donate.thanks': 'Thanks.',
+  'donate.qr_alt': 'ThaiChess donation QR code',
 
   // Privacy Policy
   'privacy.title': 'Privacy Policy | นโยบายความเป็นส่วนตัว',

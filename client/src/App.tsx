@@ -36,6 +36,7 @@ const TwoFactorRoute = lazy(() => import('./routes/TwoFactorRoute'));
 const AppearanceSettingsPage = lazy(() => import('./components/AppearanceSettingsPage'));
 const PrivacyPage = lazy(() => import('./routes/PrivacyRoute'));
 const TermsPage = lazy(() => import('./routes/TermsRoute'));
+const DonatePage = lazy(() => import('./routes/DonateRoute'));
 const GameDatabasePage = lazy(() => import('./routes/GameDatabaseRoute'));
 const OpeningExplorerPage = lazy(() => import('./routes/OpeningExplorerRoute'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
@@ -148,6 +149,7 @@ export default function App() {
           <Route path={routes.appearanceSettings} element={<AppearanceSettingsPage />} />
           <Route path={routes.privacy} element={<PrivacyPage />} />
           <Route path={routes.terms} element={<TermsPage />} />
+          <Route path={routes.donate} element={<DonatePage />} />
           <Route path={routes.gameDatabase} element={<GameDatabasePage />} />
           <Route path={routes.openingExplorer} element={<OpeningExplorerPage />} />
         </Routes>
