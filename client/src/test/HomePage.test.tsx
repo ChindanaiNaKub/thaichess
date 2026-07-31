@@ -160,7 +160,7 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper: Wrapper });
 
     expect(screen.getByText('No signup. A human when the table is busy — a bot when it is quiet.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /play now 5\+0/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /play now 5 min/i })).toBeInTheDocument();
     expect(screen.queryByText(/get paired instantly/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 games played/i)).not.toBeInTheDocument();
   });
@@ -341,7 +341,7 @@ describe('HomePage', () => {
     expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.getByText('Have a game code?')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /play now 5\+0/i }));
+    fireEvent.click(screen.getByRole('button', { name: /play now 5 min/i }));
     expect(navigateMock).toHaveBeenCalledWith('/quick-play?autostart=1');
 
     fireEvent.click(screen.getByRole('button', { name: /more ways to play/i }));
