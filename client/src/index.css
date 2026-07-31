@@ -5,6 +5,17 @@
    Action accent is amber; antique gold is reserved for game state only.
    ──────────────────────────────────────────────────────────────────── */
 
+:root {
+  /* ADR 0002 aliases (token table) */
+  --surface-base: oklch(0.22 0.015 65);
+  --accent-action: oklch(0.70 0.14 70);
+  --accent-gold: oklch(0.74 0.09 85);
+  --accent-gold-soft: oklch(0.74 0.09 85 / 0.55);
+  --icon-stroke-ratio: calc(20 / 360);
+  --icon-size: 80px;
+  --icon-stroke-width: calc(var(--icon-size) / 18);
+}
+
 @theme {
   /* Board */
   --color-board-base: oklch(0.78 0.08 78);
@@ -14,7 +25,7 @@
   --color-board-selected: oklch(0.60 0.10 130);
   --color-board-legal: oklch(0.50 0.08 120);
   --color-board-lastmove: oklch(0.80 0.12 100);
-  --color-board-check: oklch(0.55 0.22 25);
+  --color-board-check: oklch(0.74 0.09 85);
 
   /* Surfaces — cloth dark (ADR --surface-base) */
   --color-surface: oklch(0.22 0.015 65);
@@ -25,6 +36,9 @@
   --color-primary: oklch(0.58 0.16 135);
   --color-primary-light: oklch(0.66 0.18 135);
   --color-accent: oklch(0.70 0.14 70);
+  /* Antique gold — turn / check / puzzle-solved only (not CTAs) */
+  --color-gold: oklch(0.74 0.09 85);
+  --color-gold-soft: oklch(0.74 0.09 85 / 0.55);
   --color-danger: oklch(0.52 0.20 25);
   --color-success: oklch(0.58 0.16 120);
 
@@ -55,6 +69,28 @@
     font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
     background-color: var(--color-surface);
     color: var(--color-text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
+  }
+
+  /* Cloth felt — isotropic noise (ADR --surface-cloth-noise) */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.2;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 180px 180px;
+    mix-blend-mode: soft-light;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
     min-height: 100vh;
     min-height: 100dvh;
   }
@@ -196,10 +232,30 @@
   .board-square-check {
     background-image: var(--board-check-overlay, radial-gradient(
       ellipse at center,
-      oklch(0.50 0.28 25 / 0.7) 0%,
-      oklch(0.45 0.18 25 / 0.35) 50%,
+      oklch(0.74 0.09 85 / 0.72) 0%,
+      oklch(0.74 0.09 85 / 0.32) 48%,
       transparent 80%
     )) !important;
+    animation: check-gold-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes check-gold-pulse {
+    0%, 100% {
+      box-shadow:
+        inset 0 0 0 1px oklch(0.74 0.09 85 / 0.35),
+        0 0 0 0 oklch(0.74 0.09 85 / 0);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 1px oklch(0.74 0.09 85 / 0.55),
+        0 0 14px 2px oklch(0.74 0.09 85 / 0.28);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .board-square-check {
+      animation: none;
+    }
   }
 
   .board-square-premove {
