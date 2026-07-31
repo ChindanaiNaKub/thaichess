@@ -72,17 +72,18 @@ export function HomeHeroSection({
   return (
     <section className="relative min-h-[min(92vh,58rem)] overflow-hidden">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="absolute inset-y-0 right-0 flex w-[min(68%,44rem)] items-center justify-center pr-4 sm:pr-8 lg:right-[4%] lg:w-[min(58%,40rem)] lg:justify-end xl:right-[8%]">
-          <div className="home-hero-board w-full max-w-[38rem]">
+        <div className="absolute inset-y-0 right-0 flex w-[min(72%,46rem)] items-center justify-center pr-2 sm:pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] lg:justify-end xl:right-[6%]">
+          <div className="home-hero-board w-full max-w-[40rem]">
             <BoardSnapshot
               board={heroBoard}
               playerColor="white"
               lastMove={null}
-              className="w-full rotate-[-1.5deg] shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+              className="w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.06] contrast-[1.04]"
             />
           </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/90 to-transparent lg:via-surface/55 lg:to-surface/10" />
+        {/* Keep text readable on the left; let the board read as the light source on the right */}
+        <div className="absolute inset-0 bg-gradient-to-r from-surface from-0% via-surface/88 via-35% to-transparent to-75% sm:via-surface/70 sm:via-30% sm:to-transparent sm:to-65% lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl items-center px-4 py-20 sm:px-6">

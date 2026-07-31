@@ -80,6 +80,26 @@ describe('Header', () => {
     expect(document.getElementById('mobile-site-menu')).toBeNull();
   });
 
+  it('nests Puzzles and Tools behind disclosure in the mobile menu', () => {
+    render(<Header active="play" />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menu = document.getElementById('mobile-site-menu') as HTMLElement;
+
+    expect(within(menu).queryByRole('button', { name: /puzzle streak/i })).toBeNull();
+    expect(within(menu).queryByRole('button', { name: /^editor$/i })).toBeNull();
+
+    fireEvent.click(within(menu).getByRole('button', { name: /^puzzles$/i }));
+    fireEvent.click(within(menu).getByRole('button', { name: /puzzle streak/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menuAgain = document.getElementById('mobile-site-menu') as HTMLElement;
+    fireEvent.click(within(menuAgain).getByRole('button', { name: /^tools$/i }));
+    fireEvent.click(within(menuAgain).getByRole('button', { name: /^editor$/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/analysis?mode=editor');
+  });
+
   it('exposes Sign In from the mobile menu for guests', () => {
     authState.user = null;
     authState.loading = false;
