@@ -1,30 +1,23 @@
-# ThaiChess - The Ancient Art of Chess ♟
+# ThaiChess
 
-A free, open-source ThaiChess platform inspired by [Lichess](https://lichess.org). Play with friends online - no registration required.
+Free online Makruk (หมากรุก), Thai chess. No signup. Play with friends, a bot, or someone online.
 
-> **Our mission:** Make ThaiChess famous worldwide. Thai chess is one of the oldest board games in existence - it deserves a world-class online platform.
+[Play at thaichess.dev](https://thaichess.dev)
 
-## Play Online
-
-🎮 **[Play ThaiChess](https://thaichess.dev)** — No registration required, start playing instantly!
+Chess evolved differently in Thailand: different pieces, different promotion, and counting rules near the endgame. ThaiChess is built for Makruk, with lessons, puzzles, live play, and a bot so you are not stuck waiting for an opponent.
 
 ## Features
 
-- **Play with Friends** — Create a game and share the link instantly
-- **Real-time Multiplayer** — WebSocket-based instant move updates
-- **Local Play** — Practice on the same screen at `/local`
-- **Time Controls** — Bullet, Blitz, Rapid, and Classical presets
-- **Full ThaiChess Rules** — Complete game engine with all 6 piece types
-- **Beautiful UI** — Lichess-inspired dark theme with custom SVG pieces
-- **Mobile Friendly** — Touch support, responsive design, installable as PWA
-- **100% Free** — No ads, no paywall, no registration
-- **AI Opponent** — Play against bot at various difficulty levels
-- **Puzzles & Tactics Trainer** — Learn through guided puzzle practice
-- **Game Analysis** — Analyze games with move annotations
-- **Lessons & Learning** — Guided learning system to improve your game
-- **Player Accounts & ELO Rating** — Optional accounts with competitive rating (anonymous play always available)
-- **Spectator Mode** — Watch live games from other players
-- **Game Controls** — Draw offers, resignation, and rematch
+- Instant play: share a link, Quick Play, or same-device local play at `/local`
+- Full Makruk rules: six piece types and counting
+- Learn as you go: lessons, puzzles, and post-game analysis
+- Bot at several strengths when no one else is free
+- Optional accounts and Elo; guests can always play
+- Spectate live games; draw, resign, rematch; bullet through classical clocks
+- Phone-friendly PWA, dark theme, custom SVG pieces
+- Free and open source: no ads, no paywall
+
+Interface habits borrow from [Lichess](https://lichess.org). The rules, learning path, and product are for Makruk.
 
 ## Quick Start
 
@@ -43,7 +36,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, and contribution guid
 
 ## How to Play
 
-ThaiChess (หมากรุก) is the traditional chess of Thailand, closely related to the ancient Indian game Chaturanga. For detailed rules and piece movements, see [How to Play Guide](docs/how-to-play.md).
+Rules, piece moves, and strategy tips: [How to Play Guide](docs/how-to-play.md).
 
 ## Tech Stack
 
@@ -105,14 +98,14 @@ ThaiChess (หมากรุก) is the traditional chess of Thailand, closely 
 
 ## Contributing
 
-We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Setup, testing, and PR guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. **Star this repo** - helps others discover it
-2. **Play and share** - invite your friends
-3. **Report bugs** - [open an issue](../../issues/new?template=bug_report.md)
-4. **Request features** - [suggest ideas](../../issues/new?template=feature_request.md)
-5. **Submit PRs** - code contributions welcome
-6. **Translate** - help us add Thai and other languages
+1. Star the repo so others can find it
+2. Play and share a link with a friend
+3. Report bugs — [open an issue](../../issues/new?template=bug_report.md)
+4. Suggest features — [feature request](../../issues/new?template=feature_request.md)
+5. Send PRs
+6. Help translate (Thai and other languages)
 
 ## Roadmap
 
@@ -139,8 +132,4 @@ Capture runs only after the user chooses **Accept analytics** in the cookie bann
 
 ## License
 
-MIT - free to use, modify, and distribute.
-
----
-
-*Made with ❤️ for Thai Chess. Inspired by [Lichess](https://lichess.org).*
+MIT — free to use, modify, and distribute.
