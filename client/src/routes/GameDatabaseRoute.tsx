@@ -57,19 +57,11 @@ function GameRow({
           <span className="text-text-bright text-xs sm:text-sm truncate block max-w-[220px] sm:max-w-[340px]">
             {formatPlayerLabel(game.white_name, game.white_rating_before ?? game.white_rating_after)} vs {formatPlayerLabel(game.black_name, game.black_rating_before ?? game.black_rating_after)}
           </span>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-dim">
             {isBot ? (
-              <span className="inline-flex w-fit rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
-                {t('database.bot')}
-              </span>
+              <span>{t('database.bot')}</span>
             ) : (
-              <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                game.rated
-                  ? 'bg-primary/15 text-primary-light'
-                  : 'bg-surface text-text-dim border border-surface-hover'
-              }`}>
-                {game.rated ? t('database.rated') : t('database.casual')}
-              </span>
+              <span>{game.rated ? t('database.rated') : t('database.casual')}</span>
             )}
           </div>
         </div>

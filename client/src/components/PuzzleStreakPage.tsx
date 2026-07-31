@@ -23,7 +23,6 @@ import {
   getFeedbackClasses,
   getPuzzleFailureDetail,
   getPublicPuzzleTitle,
-  getPuzzleOriginBadgeClasses,
   getPuzzleOriginLabel,
   getPuzzleSourceLabel,
   type PuzzleStatus,
@@ -542,152 +541,117 @@ function usePuzzleStreakPageScreen() {
             >
               <section
                 data-testid="streak-sidebar-summary"
-                className="rounded-2xl border border-primary/20 bg-[linear-gradient(155deg,rgba(92,160,26,0.14),rgba(39,30,24,0.92)_45%,rgba(22,18,14,0.98))] p-4"
+                className="ui-card p-4"
               >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-primary-light/90">{t('puzzle.streak_eyebrow')}</p>
-                    <h2 className="text-lg font-bold text-text-bright">{t('puzzle.streak_title')}</h2>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-text-dim">{t('puzzle.streak_desc')}</p>
-                </div>
+                <h2 className="text-lg font-bold tracking-tight text-text-bright">{t('puzzle.streak_title')}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-text-dim">{t('puzzle.streak_desc')}</p>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <div className="relative min-w-0 rounded-xl border border-primary/20 bg-surface/80 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_score_label')}</p>
-                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{score}</p>
-                    {scoreFlash && (
-                      <span className="pointer-events-none absolute right-3 -top-4 text-sm font-semibold text-primary-light animate-scoreFloat">
-                        {scoreFlash}
-                      </span>
-                    )}
-                  </div>
-                  <div className={`min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2 ${isStreakPulsing ? 'animate-streakPulse' : ''}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_label')}</p>
-                      {streakPulseIcon && (
-                        <span
-                          aria-label={`Streak pulse: ${milestoneMessage}`}
-                          className="pointer-events-none inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-sm leading-none text-primary-light"
-                        >
-                          {streakPulseIcon}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{streak}</p>
-                  </div>
-                  <div className="min-w-0 rounded-xl border border-surface-hover bg-surface/80 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-text-dim">{t('puzzle.streak_session_label')}</p>
-                    <p className="mt-1 text-xl font-bold text-text-bright sm:text-2xl">{solvedCount}</p>
-                  </div>
-                </div>
+                <p className={`relative mt-4 text-sm text-text-dim ${isStreakPulsing ? 'animate-streakPulse' : ''}`}>
+                  <span className="font-semibold text-text-bright">{t('puzzle.streak_score_label')}: {score}</span>
+                  {scoreFlash && (
+                    <span className="pointer-events-none absolute -top-4 right-0 text-sm font-semibold text-accent animate-scoreFloat">
+                      {scoreFlash}
+                    </span>
+                  )}
+                  {' · '}
+                  <span className="font-semibold text-text-bright">{t('puzzle.streak_label')}: {streak}</span>
+                  {streakPulseIcon && (
+                    <span
+                      aria-label={`Streak pulse: ${milestoneMessage}`}
+                      className="ml-1 inline-block text-accent"
+                    >
+                      {streakPulseIcon}
+                    </span>
+                  )}
+                  {' · '}
+                  <span className="font-semibold text-text-bright">{t('puzzle.streak_session_label')}: {solvedCount}</span>
+                </p>
 
-                <div className="mt-3 space-y-2">
-                  <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
-                      <span className="font-medium text-text-bright">{t('puzzle.streak_checkpoint_label')}</span>
-                      <span className="text-text-dim">
-                        {t('puzzle.streak_checkpoint_progress', {
-                          current: solvedCount % STREAK_CHECKPOINT_INTERVAL,
-                          total: STREAK_CHECKPOINT_INTERVAL,
-                        })}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
-                      <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${checkpointProgress}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-surface-hover bg-surface/75 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
-                      <span className="font-medium text-text-bright">{t('puzzle.streak_flow_label')}</span>
-                      <span className="text-text-dim">{t('puzzle.streak_flow_desc')}</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
-                      <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${adaptiveProgress}%` }} />
-                    </div>
-                  </div>
+                <p className="mt-3 text-sm text-text-dim">
+                  {t('puzzle.streak_checkpoint_label')}
+                  {': '}
+                  {t('puzzle.streak_checkpoint_progress', {
+                    current: solvedCount % STREAK_CHECKPOINT_INTERVAL,
+                    total: STREAK_CHECKPOINT_INTERVAL,
+                  })}
+                  {' · '}
+                  {t('puzzle.streak_flow_label')}
+                </p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface">
+                  <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${Math.max(checkpointProgress, adaptiveProgress)}%` }} />
                 </div>
               </section>
 
-              <div className={`rounded-2xl border p-4 ${getFeedbackClasses(feedback.tone)}`}>
+                <div className={`ui-card p-4 ${getFeedbackClasses(feedback.tone)}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-dim">
+                    <h3 className="text-lg font-semibold text-text-bright">{streakTitle}</h3>
+                    <p className="mt-1 text-sm text-text-dim">
                       {t('puzzle.streak_puzzle_label', { number: currentPuzzle?.id ?? solvedCount + 1 })}
+                      {' · '}
+                      {feedback.title}
+                      {' · '}
+                      {t('puzzle.to_move', { color: currentTurnLabel })}
                     </p>
-                    <h3 className="mt-1 text-lg font-semibold text-text-bright">{streakTitle}</h3>
-                    <p className="mt-1 text-sm text-text-dim">{feedback.title}</p>
                   </div>
-                  <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
-                    {t('puzzle.to_move', { color: currentTurnLabel })}
-                  </span>
                 </div>
                 {streakIdentityBadges.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {streakIdentityBadges.map((badge) => (
-                      <span key={badge} className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-[11px] text-text-dim">
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="mt-2 text-xs text-text-dim">
+                    {streakIdentityBadges.join(' · ')}
+                  </p>
                 )}
                 <div className="mt-3 border-t border-surface-hover/70 pt-3">
-                  <p className="text-sm leading-6 text-text-dim">{streakMessage}</p>
+                  <p className="text-sm leading-relaxed text-text-dim">{streakMessage}</p>
 
                   {streakSubMessage && (
-                    <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-text-dim">
+                    <p className="mt-3 text-xs leading-relaxed text-text-dim">
+                      <span className="font-medium text-text-bright">
                         {feedback.tone === 'failed' ? t('puzzle.try_this_instead_label') : t('puzzle.position_label')}
-                      </p>
-                      <p className="mt-1.5 text-xs leading-5 text-text-dim">{streakSubMessage}</p>
-                    </div>
+                        {': '}
+                      </span>
+                      {streakSubMessage}
+                    </p>
                   )}
 
                   {currentPuzzle && (
-                    <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-text-dim">{t('puzzle.source_evidence_label')}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className={`rounded-full border px-2.5 py-1 text-xs ${getPuzzleOriginBadgeClasses(currentPuzzle.origin)}`}>
-                          {getPuzzleOriginLabel(currentPuzzle, t)}
-                        </span>
-                        <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text-dim">
-                          {getPuzzleSourceLabel(currentPuzzle.source, t)}
-                        </span>
-                        {currentPuzzle.sourceGameUrl && (
+                    <p className="mt-3 text-xs text-text-dim">
+                      {getPuzzleOriginLabel(currentPuzzle, t)}
+                      {' · '}
+                      {getPuzzleSourceLabel(currentPuzzle.source, t)}
+                      {currentPuzzle.sourceGameUrl && (
+                        <>
+                          {' · '}
                           <a
                             href={currentPuzzle.sourceGameUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs text-text hover:text-text-bright"
+                            className="text-text hover:text-text-bright underline underline-offset-2"
                           >
                             {t('puzzle.source_game_link')}
                           </a>
-                        )}
-                      </div>
-                    </div>
+                        </>
+                      )}
+                    </p>
                   )}
 
-                  <div className="mt-3 rounded-xl border border-surface-hover/80 bg-surface/65 p-2.5">
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button"
-                        onClick={handleStreakHint}
-                        disabled={status !== 'playing' || !currentPuzzle}
-                        className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent transition-colors hover:border-accent/50 hover:bg-accent/15 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {t('puzzle.hint')}
-                      </button>
-                      <button type="button"
-                        onClick={handleRestartStreak}
-                        className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
-                      >
-                        ↺ {t('common.new_game')}
-                      </button>
-                    </div>
-                    <p className="mt-2 text-xs leading-5 text-text-dim">
-                      {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
-                    </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button"
+                      onClick={handleStreakHint}
+                      disabled={status !== 'playing' || !currentPuzzle}
+                      className="button-accent-contrast rounded-[0.6rem] px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {t('puzzle.hint')}
+                    </button>
+                    <button type="button"
+                      onClick={handleRestartStreak}
+                      className="ui-btn-secondary px-3 py-2 text-sm"
+                    >
+                      ↺ {t('common.new_game')}
+                    </button>
                   </div>
+                  <p className="mt-2 text-xs leading-relaxed text-text-dim">
+                    {activeHint ? `${t('puzzle.hint')} ${hintStage}` : t('puzzle.hint_nudge')}
+                  </p>
                 </div>
               </div>
 

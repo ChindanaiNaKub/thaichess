@@ -2,11 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import LiveGamesPanel from './LiveGamesPanel';
 import { useTranslation } from '../lib/i18n';
-import { routes } from '../lib/routes';
 import { usePublicLiveGames } from '../hooks/usePublicLiveGames';
 
 export default function LiveGamesPage() {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { games, loading } = usePublicLiveGames({ status: 'all', limit: 24 });
   const liveGames = games.filter((game) => game.status === 'playing');
@@ -17,17 +15,27 @@ export default function LiveGamesPage() {
       <Header active="watch" />
 
       <main id="main-content" className="flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+          <header className="max-w-2xl">
+            <h1 className="text-3xl font-bold tracking-tight text-text-bright sm:text-4xl">
+              {t('live.title')}
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-text-dim sm:text-base">
+              {t('live.desc')}
+            </p>
+          </header>
+
           <LiveGamesPanel
             games={liveGames}
             loading={loading}
-            title={t('live.title')}
+            title={t('live.live_now')}
             description={t('live.desc')}
             emptyTitle={t('live.empty_title')}
             emptyDesc={t('live.empty_desc')}
+            omitSectionChrome
           />
 
-          {(finishedGames.length > 0 || loading) && (
+          {(finishedGames.length > 0 || (loading && liveGames.length === 0)) && (
             <LiveGamesPanel
               games={finishedGames}
               loading={loading && liveGames.length === 0}
@@ -37,19 +45,6 @@ export default function LiveGamesPage() {
               emptyDesc={t('live.empty_desc')}
             />
           )}
-
-          <div className="rounded-2xl border border-surface-hover bg-surface-alt/80 px-5 py-5 text-center">
-            <p className="text-sm text-text-dim">{t('home.watch_live_desc')}</p>
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => navigate(routes.quickPlay)}
-                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-light"
-              >
-                {t('home.find_opponent')}
-              </button>
-            </div>
-          </div>
         </div>
       </main>
     </div>
