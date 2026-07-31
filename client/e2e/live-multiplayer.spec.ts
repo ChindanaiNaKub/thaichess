@@ -31,7 +31,7 @@ async function createPrivateGameAsWhite(page: Page): Promise<string> {
   await main.getByRole('button', { name: /^white$/i }).click();
   await main.getByRole('button', { name: /play with a friend/i }).click();
 
-  await expect(main.getByRole('button', { name: /creating/i })).toBeVisible({ timeout: 10_000 });
+  // Don't require "Creating..." — it can commit and navigate before Playwright samples it.
   await page.waitForURL(/\/game\/[^/?#]+/, { timeout: 45_000 });
   await expect(page.getByRole('heading', { name: /waiting for opponent/i })).toBeVisible({ timeout: 30_000 });
 
