@@ -359,12 +359,21 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/local');
   });
 
-  it('offers a puzzle streak challenge when the live queue is empty', async () => {
+  it('offers a bot challenge when the live queue is empty', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(await screen.findByText('Try a puzzle streak')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /start puzzle streak/i }));
+    expect(await screen.findByText('Play a bot while you wait')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^play vs bot$/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/bot');
+  });
+
+  it('offers puzzle streak as a secondary empty-live action', async () => {
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
+
+    expect(await screen.findByText('Play a bot while you wait')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /try a puzzle streak/i }));
     expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
   });
 

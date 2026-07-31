@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentProps, type RefObject } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import { routes } from '../lib/routes';
+import { loadBotGameRoute } from '../lib/routePrefetch';
 import { useTranslation } from '../lib/i18n';
 
 const DeferredLiveGamesPanel = lazy(() => import('./LiveGamesPanel'));
@@ -57,13 +58,24 @@ export function HomeLiveSection({
             <p className="ui-body mt-2 max-w-xl text-sm sm:text-base">
               {t('home.challenge_desc')}
             </p>
-            <button
-              type="button"
-              onClick={() => navigate(routes.puzzleStreak)}
-              className="button-accent-contrast mt-4 rounded-md px-5 py-2.5 text-sm font-bold"
-            >
-              {t('home.challenge_cta')}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <button
+                type="button"
+                onClick={() => navigate(routes.bot)}
+                onMouseEnter={() => void loadBotGameRoute()}
+                onFocus={() => void loadBotGameRoute()}
+                className="button-accent-contrast min-h-11 rounded-md px-5 py-2.5 text-sm font-bold"
+              >
+                {t('home.challenge_cta')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.puzzleStreak)}
+                className="text-sm font-semibold text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.challenge_secondary')}
+              </button>
+            </div>
           </section>
         ) : null
       ) : (

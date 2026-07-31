@@ -73,7 +73,8 @@ test.describe('Homepage', () => {
     await gotoHome(page);
     await openMoreWays(page);
 
-    await page.locator('#main-content').getByRole('button', { name: /play vs bot/i }).click();
+    // Scope to More ways — empty-live also exposes Play vs Bot.
+    await page.locator('#home-more-ways').getByRole('button', { name: /play vs bot/i }).click();
     await expect(page).toHaveURL('/bot');
     await expect(page.locator('[data-testid="start-game-button"]:visible').first()).toBeVisible({ timeout: 30000 });
   });
