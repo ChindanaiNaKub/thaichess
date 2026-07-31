@@ -1,7 +1,7 @@
 export const TH_TRANSLATIONS: Record<string, string> = {
   // Common
   'app.name': 'หมากรุก',
-  'app.tagline': 'หมากรุกไทยออนไลน์',
+  'app.tagline': 'หมากรุกไทย — เล่นได้ทันที',
   'nav.play': 'เล่น',
   'nav.watch': 'ชมสด',
   'nav.lessons': 'บทเรียน',
@@ -72,7 +72,9 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'home.quick_play': 'เล่น 5+0',
   'home.quick_play_desc': 'เจอผู้เล่นจริงเมื่อมีคนออนไลน์ และมีบอทให้เล่นเมื่อช่วงนั้นเงียบ',
   'home.choose_mode': 'เลือกโหมด',
-  'home.more_ways': 'วิธีเล่นอื่น',
+  'home.more_ways': 'วิธีเล่นอื่นๆ',
+  'home.more_times': 'เวลาเพิ่มเติม',
+  'home.fewer_times': 'แสดงน้อยลง',
   'home.challenge_eyebrow': 'ระหว่างรอ',
   'home.challenge_title': 'ลองสตรีคปริศนา',
   'home.challenge_desc': 'ตอนนี้ยังไม่มีเกมสด วอร์มอัพด้วยสตรีคปริศนา แล้วค่อยกลับมาเล่น',

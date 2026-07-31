@@ -256,6 +256,7 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper: Wrapper });
 
     openCreatePanel();
+    fireEvent.click(screen.getByRole('button', { name: /more times/i }));
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /play with a friend/i }));
 
@@ -338,9 +339,12 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /^join$/i }));
 
     expect(navigateMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Have a game code?')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /play 5\+0/i }));
     expect(navigateMock).toHaveBeenCalledWith('/quick-play?autostart=1');
+
+    fireEvent.click(screen.getByRole('button', { name: /more ways to play/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /play vs bot/i }));
     expect(navigateMock).toHaveBeenCalledWith('/bot');
@@ -355,13 +359,23 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/local');
   });
 
-  it('does not fill an empty live queue with a puzzle streak apology', async () => {
+  it('offers a puzzle streak challenge when the live queue is empty', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    await screen.findByRole('button', { name: /play 5\+0/i });
-    expect(screen.queryByText('Try a puzzle streak')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /start puzzle streak/i })).not.toBeInTheDocument();
+    expect(await screen.findByText('Try a puzzle streak')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /start puzzle streak/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
+  });
+
+  it('closes the friend panel from Close', () => {
+    const Wrapper = createWrapper();
+    render(<HomePage />, { wrapper: Wrapper });
+
+    openCreatePanel();
+    expect(screen.getByRole('button', { name: /play with a friend/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
+    expect(screen.queryByRole('button', { name: /play with a friend/i })).not.toBeInTheDocument();
   });
 
   it('exposes public live-game discovery from the homepage', async () => {
@@ -412,6 +426,7 @@ describe('HomePage', () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
+    fireEvent.click(screen.getByRole('button', { name: /more ways to play/i }));
     const streakLink = await screen.findByRole('button', { name: /puzzles tactical training/i });
     expect(streakLink).toBeInTheDocument();
 

@@ -172,8 +172,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 </>
               ) : (
                 <button type="button"
-                  onClick={() => handleNavigate('/login')}
-                  className="button-primary-contrast h-7 rounded-md px-2.5 text-xs font-semibold tracking-wide"
+                  onClick={() => handleNavigate(routes.login)}
+                  className="ui-btn-secondary h-7 px-2.5 text-xs font-semibold tracking-wide text-text-dim hover:text-text-bright"
                 >
                   {t('header.sign_in')}
                 </button>
@@ -225,6 +225,37 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             )}
 
             <div className="grid gap-3">
+              {!loading && (
+                user ? (
+                  <>
+                    {user.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleNavigate('/feedback')}
+                        className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
+                      >
+                        {t('header.admin')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleNavigate(routes.account)}
+                      className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
+                    >
+                      {user.username || user.email.split('@')[0]}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate(routes.login)}
+                    className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm font-semibold"
+                  >
+                    {t('header.sign_in')}
+                  </button>
+                )
+              )}
+
               <button type="button"
                 onClick={() => handleNavigate(routes.about)}
                 className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"

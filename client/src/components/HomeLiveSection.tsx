@@ -22,6 +22,8 @@ export function HomeLiveSection({
 }: HomeLiveSectionProps) {
   const { t } = useTranslation();
   const showLiveGames = liveGamesLoading || liveGames.length > 0;
+  const showEmptyChallenge =
+    showDeferredContent && !liveGamesLoading && liveGames.length === 0;
 
   return (
     <div ref={deferredContentRef}>
@@ -47,6 +49,22 @@ export function HomeLiveSection({
               onViewAll={() => navigate(routes.watch)}
             />
           </Suspense>
+        ) : showEmptyChallenge ? (
+          <section className="rounded-xl border border-surface-hover/60 bg-surface-alt/60 p-5 sm:p-6">
+            <h2 className="ui-title text-lg text-text-bright sm:text-xl">
+              {t('home.challenge_title')}
+            </h2>
+            <p className="ui-body mt-2 max-w-xl text-sm sm:text-base">
+              {t('home.challenge_desc')}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(routes.puzzleStreak)}
+              className="button-accent-contrast mt-4 rounded-md px-5 py-2.5 text-sm font-bold"
+            >
+              {t('home.challenge_cta')}
+            </button>
+          </section>
         ) : null
       ) : (
         <section aria-hidden="true" className="deferred-section min-h-[4rem]" />

@@ -34,6 +34,7 @@ export default function HomePage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createTicket, setCreateTicket] = useState(0);
   const [joinId, setJoinId] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [privatePanel, setPrivatePanel] = useState<'create' | 'join'>('create');
   const [privateExpanded, setPrivateExpanded] = useState(false);
   const [deferredContentReady, setDeferredContentReady] = useState(import.meta.env.MODE === 'test');
@@ -191,7 +192,11 @@ export default function HomePage() {
   };
 
   const handleJoinGame = () => {
-    if (!joinId.trim()) return;
+    if (!joinId.trim()) {
+      setJoinError(t('home.join_prompt'));
+      return;
+    }
+    setJoinError(null);
     captureProductEvent('game_start', { source: 'join' });
     navigate(liveGameRoute(joinId.trim()));
   };
@@ -199,11 +204,19 @@ export default function HomePage() {
   const openCreatePanel = () => {
     setPrivateExpanded(true);
     setPrivatePanel('create');
+    setJoinError(null);
   };
 
   const openJoinPanel = () => {
     setPrivateExpanded(true);
     setPrivatePanel('join');
+    setJoinError(null);
+  };
+
+  const closePrivatePanel = () => {
+    setPrivateExpanded(false);
+    setJoinError(null);
+    setCreateError(null);
   };
 
   const learnCards = [
@@ -241,11 +254,16 @@ export default function HomePage() {
       privatePanel={privatePanel}
       privateExpanded={privateExpanded}
       joinId={joinId}
-      setJoinId={setJoinId}
+      setJoinId={(value) => {
+        setJoinId(value);
+        if (joinError) setJoinError(null);
+      }}
+      joinError={joinError}
       timePresets={TIME_PRESETS}
       learnCards={learnCards}
       openCreatePanel={openCreatePanel}
       openJoinPanel={openJoinPanel}
+      closePrivatePanel={closePrivatePanel}
       handleCreateGame={handleCreateGame}
       handleJoinGame={handleJoinGame}
     />

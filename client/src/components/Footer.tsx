@@ -72,15 +72,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="pt-4 border-t border-surface-hover text-center">
-          <p className="text-text-dim text-xs">{t('footer.tagline')} — {t('footer.inspired')}{' '}
-            <a href="https://lichess.org" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
-              Lichess
-            </a>
-            {' '}and{' '}
-            <a href="https://chess.com" target="_blank" rel="noopener" className="footer-link text-primary hover:text-primary-light">
-              Chess.com
-            </a>
-          </p>
+          <p className="text-text-dim text-xs">{t('footer.tagline')}</p>
         </div>
       </div>
     </footer>

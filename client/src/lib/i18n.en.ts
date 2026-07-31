@@ -1,7 +1,7 @@
 export const EN_TRANSLATIONS: Record<string, string> = {
   // Common
   'app.name': 'ThaiChess',
-  'app.tagline': 'The Ancient Art of Chess',
+  'app.tagline': 'Makruk — play in seconds',
   'nav.play': 'Play',
   'nav.watch': 'Watch',
   'nav.lessons': 'Lessons',
@@ -77,6 +77,8 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'home.quick_play_desc': 'Human game when available, bot fallback when it is quiet.',
   'home.choose_mode': 'Choose mode',
   'home.more_ways': 'More ways to play',
+  'home.more_times': 'More times',
+  'home.fewer_times': 'Fewer times',
   'home.challenge_eyebrow': 'While you wait',
   'home.challenge_title': 'Try a puzzle streak',
   'home.challenge_desc': 'No live games right now. Warm up with a tactical streak, then come back to play.',

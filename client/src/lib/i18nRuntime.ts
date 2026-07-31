@@ -3,7 +3,7 @@ type TranslationCatalog = Record<string, string>;
 
 export const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'app.name': 'ThaiChess',
-  'app.tagline': 'The Ancient Art of Chess',
+  'app.tagline': 'Makruk — play in seconds',
   'appearance.open': 'Board & Pieces',
   'appearance.open_short': 'Theme',
   'common.back_home': 'Back to Home',
@@ -212,6 +212,8 @@ export const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'home.live_now_desc': 'Active public games update in real time. Open any board in read-only spectator mode.',
   'home.live_now_title': 'Live Now',
   'home.more_ways': 'More ways to play',
+  'home.more_times': 'More times',
+  'home.fewer_times': 'Fewer times',
   'home.no_live_games': 'No live games right now',
   'home.no_live_games_desc': 'Check back soon for active public games to watch.',
   'home.no_signup': 'No signup required',

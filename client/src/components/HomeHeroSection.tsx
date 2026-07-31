@@ -1,7 +1,7 @@
 import type { NavigateFunction } from 'react-router-dom';
 import type { PrivateGameColorPreference } from '@shared/types';
 import { createInitialBoard } from '@shared/engine';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { routes } from '../lib/routes';
 import {
   loadBotGameRoute,
@@ -34,9 +34,11 @@ export interface HomeHeroSectionProps {
   privateExpanded: boolean;
   joinId: string;
   setJoinId: (value: string) => void;
+  joinError: string | null;
   timePresets: TimePreset[];
   openCreatePanel: () => void;
   openJoinPanel: () => void;
+  closePrivatePanel: () => void;
   handleCreateGame: () => void;
   handleJoinGame: () => void;
 }
@@ -54,15 +56,18 @@ export function HomeHeroSection({
   privateExpanded,
   joinId,
   setJoinId,
+  joinError,
   timePresets,
   openCreatePanel,
   openJoinPanel,
+  closePrivatePanel,
   handleCreateGame,
   handleJoinGame,
 }: HomeHeroSectionProps) {
   const { t } = useTranslation();
   const heroBoard = useMemo(() => createInitialBoard(), []);
   const showGamesPlayed = Boolean(stats && stats.totalGames > 0);
+  const [moreWaysOpen, setMoreWaysOpen] = useState(false);
 
   return (
     <section className="relative min-h-[min(92vh,58rem)] overflow-hidden">
@@ -117,38 +122,55 @@ export function HomeHeroSection({
             </button>
             <button
               type="button"
-              onClick={() => navigate(routes.bot)}
-              onMouseEnter={() => void loadBotGameRoute()}
-              onFocus={() => void loadBotGameRoute()}
-              className="font-semibold text-text-bright underline-offset-4 hover:text-accent hover:underline"
+              onClick={() => setMoreWaysOpen((open) => !open)}
+              aria-expanded={moreWaysOpen}
+              aria-controls="home-more-ways"
+              className="font-semibold text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
             >
-              {t('home.play_bot')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.puzzleStreak)}
-              aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.puzzles')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.local)}
-              onMouseEnter={() => void loadLocalGameRoute()}
-              onFocus={() => void loadLocalGameRoute()}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.play_local')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.lessons)}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.lessons')}
+              {t('home.more_ways')}
             </button>
           </div>
+
+          {moreWaysOpen && (
+            <div
+              id="home-more-ways"
+              className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"
+            >
+              <button
+                type="button"
+                onClick={() => navigate(routes.bot)}
+                onMouseEnter={() => void loadBotGameRoute()}
+                onFocus={() => void loadBotGameRoute()}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.play_bot')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.puzzleStreak)}
+                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.puzzles')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.local)}
+                onMouseEnter={() => void loadLocalGameRoute()}
+                onFocus={() => void loadLocalGameRoute()}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.play_local')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.lessons)}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.lessons')}
+              </button>
+            </div>
+          )}
 
           {privateExpanded && (
             <HomeFriendPanel
@@ -161,9 +183,11 @@ export function HomeHeroSection({
               privatePanel={privatePanel}
               joinId={joinId}
               setJoinId={setJoinId}
+              joinError={joinError}
               timePresets={timePresets}
               openCreatePanel={openCreatePanel}
               openJoinPanel={openJoinPanel}
+              closePrivatePanel={closePrivatePanel}
               handleCreateGame={handleCreateGame}
               handleJoinGame={handleJoinGame}
             />
