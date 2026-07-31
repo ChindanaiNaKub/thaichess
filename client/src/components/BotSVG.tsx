@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { MakrukChromeIcon, MAKRUK_CHROME_STROKE } from './MakrukChromeIcon';
+import { MAKRUK_CHROME_STROKE } from '../lib/makrukStroke';
+import { MakrukChromeIcon } from './MakrukChromeIcon';
 
 interface ChromeIconProps {
   size?: number;

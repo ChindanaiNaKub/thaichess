@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react';
-import { makrukStrokeForViewBox } from '../lib/makrukStroke';
-
-export const MAKRUK_CHROME_VB = 80;
-export const MAKRUK_CHROME_STROKE = makrukStrokeForViewBox(MAKRUK_CHROME_VB);
+import { MAKRUK_CHROME_STROKE, MAKRUK_CHROME_VB } from '../lib/makrukStroke';
 
 export interface MakrukChromeIconProps {
   size?: number;

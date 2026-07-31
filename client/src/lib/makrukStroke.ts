@@ -3,6 +3,10 @@ export const BIA_VIEWBOX = 360;
 export const BIA_STROKE = 20;
 export const MAKRUK_STROKE_RATIO = BIA_STROKE / BIA_VIEWBOX;
 
+/** Shared chrome icon viewBox / stroke (Bia family). */
+export const MAKRUK_CHROME_VB = 80;
+export const MAKRUK_CHROME_STROKE = MAKRUK_CHROME_VB * MAKRUK_STROKE_RATIO;
+
 export function makrukStrokeForViewBox(viewBoxSize: number): number {
   return viewBoxSize * MAKRUK_STROKE_RATIO;
 }
