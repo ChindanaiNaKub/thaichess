@@ -72,9 +72,8 @@ test.describe('Homepage', () => {
   test('navigates to bot game', async ({ page }) => {
     await gotoHome(page);
 
-    const emptyLive = page.locator('#main-content').getByRole('heading', { name: /play a bot while you wait/i }).locator('..');
-    await expect(emptyLive.getByRole('button', { name: /^play vs bot$/i })).toBeVisible({ timeout: 30000 });
-    await emptyLive.getByRole('button', { name: /^play vs bot$/i }).click();
+    // Empty-live primary CTA (More ways also has Play vs Bot — do not open it here).
+    await page.locator('#main-content').getByRole('button', { name: /^play vs bot$/i }).click();
     await expect(page).toHaveURL('/bot');
     await expect(page.locator('[data-testid="start-game-button"]:visible').first()).toBeVisible({ timeout: 30000 });
   });
