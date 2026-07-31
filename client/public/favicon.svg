@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#2f7d32"/>
-  <path fill="#ffffff" d="M7 7h18v5h-6v13h-6V12H7z"/>
-  <path fill="#c9f45c" d="M10 4h12v3H10z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ThaiChess">
+  <!-- Cloth dusk tile · warm board · Play Amber Khun -->
+  <rect width="32" height="32" rx="7" fill="#201913"/>
+  <rect x="5" y="5" width="22" height="22" rx="3" fill="#d4b27d"/>
+  <path fill="#201913" fill-opacity="0.22" d="M5 16h22v11H5z"/>
+  <path fill="#d58d25" d="M16 8.2 L18.6 12 H17.3 V13.8 H18.2 V15.4 H17.3 V20.2 H14.7 V15.4 H13.8 V13.8 H14.7 V12 H13.4 Z"/>
+  <rect x="12.6" y="20.2" width="6.8" height="1.8" rx="0.4" fill="#d58d25"/>
 </svg>
