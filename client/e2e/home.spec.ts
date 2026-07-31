@@ -71,9 +71,10 @@ test.describe('Homepage', () => {
 
   test('navigates to bot game', async ({ page }) => {
     await gotoHome(page);
-    await openMoreWays(page);
 
-    await page.locator('#main-content').getByRole('button', { name: /play vs bot/i }).click();
+    const emptyLive = page.locator('#main-content').getByRole('heading', { name: /play a bot while you wait/i }).locator('..');
+    await expect(emptyLive.getByRole('button', { name: /^play vs bot$/i })).toBeVisible({ timeout: 30000 });
+    await emptyLive.getByRole('button', { name: /^play vs bot$/i }).click();
     await expect(page).toHaveURL('/bot');
     await expect(page.locator('[data-testid="start-game-button"]:visible').first()).toBeVisible({ timeout: 30000 });
   });
