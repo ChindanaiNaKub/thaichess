@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import LiveGamesPanel from './LiveGamesPanel';
 import { useTranslation } from '../lib/i18n';
