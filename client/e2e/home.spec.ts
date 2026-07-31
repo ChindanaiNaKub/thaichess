@@ -14,10 +14,10 @@ test.describe('Homepage', () => {
     await expect(page).toHaveTitle(/ThaiChess/);
 
     const main = page.locator('#main-content');
-    const chooseModeButton = main.getByRole('button', { name: /choose mode/i });
+    const playFriendButton = main.getByRole('button', { name: /play a friend/i });
 
-    await expect(chooseModeButton).toBeVisible();
-    await chooseModeButton.click();
+    await expect(playFriendButton).toBeVisible();
+    await playFriendButton.click();
 
     await expect(main.getByRole('heading', { name: /play a friend/i })).toBeVisible();
     await expect(main.getByRole('button', { name: /play with a friend/i })).toBeVisible();

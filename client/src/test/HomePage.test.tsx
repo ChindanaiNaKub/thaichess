@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -180,7 +180,7 @@ describe('HomePage', () => {
   });
 
   function openCreatePanel() {
-    fireEvent.click(screen.getByRole('button', { name: /choose mode/i }));
+    fireEvent.click(screen.getByRole('button', { name: /play a friend/i }));
   }
 
   it('cleans up create-game socket listeners on unmount', async () => {
@@ -355,15 +355,13 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/local');
   });
 
-  it('replaces an empty live panel with a puzzle streak challenge', async () => {
+  it('does not fill an empty live queue with a puzzle streak apology', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    expect(await screen.findByText('Try a puzzle streak')).toBeInTheDocument();
-    expect(screen.queryByText('No live games right now')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /start puzzle streak/i }));
-    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
+    await screen.findByRole('button', { name: /play 5\+0/i });
+    expect(screen.queryByText('Try a puzzle streak')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start puzzle streak/i })).not.toBeInTheDocument();
   });
 
   it('exposes public live-game discovery from the homepage', async () => {
@@ -410,16 +408,14 @@ describe('HomePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/watch');
   });
 
-  it('shows the puzzles entry card and routes to puzzle streak', async () => {
+  it('shows a quiet puzzles entry that routes to puzzle streak', async () => {
     const Wrapper = createWrapper();
     render(<HomePage />, { wrapper: Wrapper });
 
-    const streakCard = await screen.findByRole('button', { name: /puzzles tactical training/i });
-    expect(streakCard).toBeInTheDocument();
-    expect(within(streakCard).getByText(/puzzle streak/i)).toBeInTheDocument();
-    expect(within(streakCard).getByText(/tactical training/i)).toBeInTheDocument();
+    const streakLink = await screen.findByRole('button', { name: /puzzles tactical training/i });
+    expect(streakLink).toBeInTheDocument();
 
-    fireEvent.click(streakCard);
+    fireEvent.click(streakLink);
     expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
   });
 });
