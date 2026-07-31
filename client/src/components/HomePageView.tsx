@@ -33,10 +33,12 @@ export interface HomePageViewProps {
   privateExpanded: boolean;
   joinId: string;
   setJoinId: (value: string) => void;
+  joinError: string | null;
   timePresets: TimePreset[];
   learnCards: Array<{ href: string; title: string; desc: string }>;
   openCreatePanel: () => void;
   openJoinPanel: () => void;
+  closePrivatePanel: () => void;
   handleCreateGame: () => void;
   handleJoinGame: () => void;
 }
@@ -58,10 +60,12 @@ export function HomePageView({
   privateExpanded,
   joinId,
   setJoinId,
+  joinError,
   timePresets,
   learnCards,
   openCreatePanel,
   openJoinPanel,
+  closePrivatePanel,
   handleCreateGame,
   handleJoinGame,
 }: HomePageViewProps) {
@@ -85,9 +89,11 @@ export function HomePageView({
           privateExpanded={privateExpanded}
           joinId={joinId}
           setJoinId={setJoinId}
+          joinError={joinError}
           timePresets={timePresets}
           openCreatePanel={openCreatePanel}
           openJoinPanel={openJoinPanel}
+          closePrivatePanel={closePrivatePanel}
           handleCreateGame={handleCreateGame}
           handleJoinGame={handleJoinGame}
         />

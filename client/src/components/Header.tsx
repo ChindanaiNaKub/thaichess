@@ -20,13 +20,27 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [puzzleMenuOpen, setPuzzleMenuOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [mobilePuzzlesOpen, setMobilePuzzlesOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const { prefetchLeaderboard, prefetchFeedback } = usePrefetchQueries();
 
   const handleNavigate = (path: string) => {
     setMenuOpen(false);
     setPuzzleMenuOpen(false);
     setToolsMenuOpen(false);
+    setMobilePuzzlesOpen(false);
+    setMobileToolsOpen(false);
     navigate(path);
+  };
+
+  const toggleMobileMenu = () => {
+    if (menuOpen) {
+      setMobilePuzzlesOpen(false);
+      setMobileToolsOpen(false);
+      setMenuOpen(false);
+      return;
+    }
+    setMenuOpen(true);
   };
 
   const navItem = (key: 'play' | 'watch' | 'lessons' | 'puzzles' | 'games' | 'about' | 'tools', path: string, label: string, onHover?: () => void) => (
@@ -172,8 +186,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 </>
               ) : (
                 <button type="button"
-                  onClick={() => handleNavigate('/login')}
-                  className="button-primary-contrast h-7 rounded-md px-2.5 text-xs font-semibold tracking-wide"
+                  onClick={() => handleNavigate(routes.login)}
+                  className="ui-btn-secondary h-7 px-2.5 text-xs font-semibold tracking-wide text-text-dim hover:text-text-bright"
                 >
                   {t('header.sign_in')}
                 </button>
@@ -195,7 +209,7 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
             {right}
             <button
               type="button"
-              onClick={() => setMenuOpen((open) => !open)}
+              onClick={toggleMobileMenu}
               className="ui-btn-secondary inline-flex h-8 items-center px-2.5 text-xs tracking-wide"
               aria-expanded={menuOpen}
               aria-controls="mobile-site-menu"
@@ -210,21 +224,105 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
         <div id="mobile-site-menu" className="border-t border-surface-hover/60 bg-surface-alt/95 sm:hidden">
           <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
             {active !== undefined && (
-              <nav className="grid grid-cols-2 gap-2">
-                {mobileNavItem('play', routes.home, t('nav.play'))}
-                {mobileNavItem('watch', routes.watch, t('nav.watch'))}
-                {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
-                {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles_random'))}
-                {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
-                {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
-                {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
-                {mobileNavItem('tools', routes.gameDatabase, t('nav.database'))}
-                {mobileNavItem('tools', routes.openingExplorer, t('nav.openings'))}
-                {mobileNavItem('games', routes.games, t('nav.games'))}
+              <nav className="flex flex-col gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {mobileNavItem('play', routes.home, t('nav.play'))}
+                  {mobileNavItem('watch', routes.watch, t('nav.watch'))}
+                  {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-surface-hover/70">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobilePuzzlesOpen((open) => !open);
+                      setMobileToolsOpen(false);
+                    }}
+                    aria-expanded={mobilePuzzlesOpen}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
+                      active === 'puzzles'
+                        ? 'bg-primary/12 font-semibold text-primary-light'
+                        : 'bg-surface text-text-bright'
+                    }`}
+                  >
+                    <span>{t('nav.puzzles')}</span>
+                    <span className="text-xs text-text-dim" aria-hidden>
+                      {mobilePuzzlesOpen ? '−' : '+'}
+                    </span>
+                  </button>
+                  {mobilePuzzlesOpen && (
+                    <div className="grid gap-1 border-t border-surface-hover/60 bg-surface-alt p-2">
+                      {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles_random'))}
+                      {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-surface-hover/70">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileToolsOpen((open) => !open);
+                      setMobilePuzzlesOpen(false);
+                    }}
+                    aria-expanded={mobileToolsOpen}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
+                      active === 'tools'
+                        ? 'bg-primary/12 font-semibold text-primary-light'
+                        : 'bg-surface text-text-bright'
+                    }`}
+                  >
+                    <span>{t('nav.tools')}</span>
+                    <span className="text-xs text-text-dim" aria-hidden>
+                      {mobileToolsOpen ? '−' : '+'}
+                    </span>
+                  </button>
+                  {mobileToolsOpen && (
+                    <div className="grid gap-1 border-t border-surface-hover/60 bg-surface-alt p-2">
+                      {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
+                      {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
+                      {mobileNavItem('tools', routes.gameDatabase, t('nav.database'))}
+                      {mobileNavItem('tools', routes.openingExplorer, t('nav.openings'))}
+                    </div>
+                  )}
+                </div>
               </nav>
             )}
 
             <div className="grid gap-3">
+              {mobileNavItem('games', routes.games, t('nav.games'))}
+
+              {!loading && (
+                user ? (
+                  <>
+                    {user.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleNavigate('/feedback')}
+                        className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
+                      >
+                        {t('header.admin')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleNavigate(routes.account)}
+                      className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
+                    >
+                      {user.username || user.email.split('@')[0]}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate(routes.login)}
+                    className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm font-semibold"
+                  >
+                    {t('header.sign_in')}
+                  </button>
+                )
+              )}
+
               <button type="button"
                 onClick={() => handleNavigate(routes.about)}
                 className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"

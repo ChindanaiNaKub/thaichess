@@ -1,7 +1,7 @@
 import type { NavigateFunction } from 'react-router-dom';
 import type { PrivateGameColorPreference } from '@shared/types';
 import { createInitialBoard } from '@shared/engine';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { routes } from '../lib/routes';
 import {
   loadBotGameRoute,
@@ -34,9 +34,11 @@ export interface HomeHeroSectionProps {
   privateExpanded: boolean;
   joinId: string;
   setJoinId: (value: string) => void;
+  joinError: string | null;
   timePresets: TimePreset[];
   openCreatePanel: () => void;
   openJoinPanel: () => void;
+  closePrivatePanel: () => void;
   handleCreateGame: () => void;
   handleJoinGame: () => void;
 }
@@ -54,30 +56,34 @@ export function HomeHeroSection({
   privateExpanded,
   joinId,
   setJoinId,
+  joinError,
   timePresets,
   openCreatePanel,
   openJoinPanel,
+  closePrivatePanel,
   handleCreateGame,
   handleJoinGame,
 }: HomeHeroSectionProps) {
   const { t } = useTranslation();
   const heroBoard = useMemo(() => createInitialBoard(), []);
   const showGamesPlayed = Boolean(stats && stats.totalGames > 0);
+  const [moreWaysOpen, setMoreWaysOpen] = useState(false);
 
   return (
     <section className="relative min-h-[min(92vh,58rem)] overflow-hidden">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="absolute inset-y-0 right-0 flex w-[min(68%,44rem)] items-center justify-center pr-4 sm:pr-8 lg:right-[4%] lg:w-[min(58%,40rem)] lg:justify-end xl:right-[8%]">
-          <div className="home-hero-board w-full max-w-[38rem]">
+        <div className="absolute inset-y-0 right-0 flex w-[min(72%,46rem)] items-center justify-center pr-2 sm:pr-6 lg:right-[2%] lg:w-[min(62%,42rem)] lg:justify-end xl:right-[6%]">
+          <div className="home-hero-board w-full max-w-[40rem]">
             <BoardSnapshot
               board={heroBoard}
               playerColor="white"
               lastMove={null}
-              className="w-full rotate-[-1.5deg] shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+              className="w-full rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.06] contrast-[1.04]"
             />
           </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/90 to-transparent lg:via-surface/55 lg:to-surface/10" />
+        {/* Keep text readable on the left; let the board read as the light source on the right */}
+        <div className="absolute inset-0 bg-gradient-to-r from-surface from-0% via-surface/88 via-35% to-transparent to-75% sm:via-surface/70 sm:via-30% sm:to-transparent sm:to-65% lg:from-surface/95 lg:via-surface/40 lg:via-28% lg:to-transparent lg:to-55%" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-[min(92vh,58rem)] w-full max-w-6xl items-center px-4 py-20 sm:px-6">
@@ -100,11 +106,12 @@ export function HomeHeroSection({
               onClick={() => navigate(QUICK_PLAY_AUTOSTART)}
               onMouseEnter={() => void loadQuickPlayRoute()}
               onFocus={() => void loadQuickPlayRoute()}
-              className="button-accent-contrast rounded-md px-8 py-3.5 text-base font-bold"
+              aria-label={`${t('home.quick_play')} ${t('home.quick_play_time')}`}
+              className="button-accent-contrast inline-flex items-baseline gap-2 rounded-md px-8 py-3.5 text-base font-bold"
             >
-              {t('home.quick_play')}
+              <span>{t('home.quick_play')}</span>
+              <span className="text-sm font-semibold opacity-80">{t('home.quick_play_time')}</span>
             </button>
-            <p className="mt-2 text-sm text-text-dim">{t('home.quick_play_desc')}</p>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -117,38 +124,55 @@ export function HomeHeroSection({
             </button>
             <button
               type="button"
-              onClick={() => navigate(routes.bot)}
-              onMouseEnter={() => void loadBotGameRoute()}
-              onFocus={() => void loadBotGameRoute()}
-              className="font-semibold text-text-bright underline-offset-4 hover:text-accent hover:underline"
+              onClick={() => setMoreWaysOpen((open) => !open)}
+              aria-expanded={moreWaysOpen}
+              aria-controls="home-more-ways"
+              className="font-semibold text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
             >
-              {t('home.play_bot')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.puzzleStreak)}
-              aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.puzzles')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.local)}
-              onMouseEnter={() => void loadLocalGameRoute()}
-              onFocus={() => void loadLocalGameRoute()}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.play_local')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(routes.lessons)}
-              className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-            >
-              {t('home.lessons')}
+              {t('home.more_ways')}
             </button>
           </div>
+
+          {moreWaysOpen && (
+            <div
+              id="home-more-ways"
+              className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"
+            >
+              <button
+                type="button"
+                onClick={() => navigate(routes.bot)}
+                onMouseEnter={() => void loadBotGameRoute()}
+                onFocus={() => void loadBotGameRoute()}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.play_bot')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.puzzleStreak)}
+                aria-label={`${t('home.puzzles')} ${t('home.puzzles_desc')}`}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.puzzles')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.local)}
+                onMouseEnter={() => void loadLocalGameRoute()}
+                onFocus={() => void loadLocalGameRoute()}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.play_local')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.lessons)}
+                className="text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+              >
+                {t('home.lessons')}
+              </button>
+            </div>
+          )}
 
           {privateExpanded && (
             <HomeFriendPanel
@@ -161,9 +185,11 @@ export function HomeHeroSection({
               privatePanel={privatePanel}
               joinId={joinId}
               setJoinId={setJoinId}
+              joinError={joinError}
               timePresets={timePresets}
               openCreatePanel={openCreatePanel}
               openJoinPanel={openJoinPanel}
+              closePrivatePanel={closePrivatePanel}
               handleCreateGame={handleCreateGame}
               handleJoinGame={handleJoinGame}
             />

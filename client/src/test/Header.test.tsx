@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from '../components/Header';
+import type { AuthUser } from '../lib/auth';
 import { I18nProvider } from '../lib/i18n';
 import { preloadDetectedTranslations } from '../lib/i18nRuntime';
 import { PieceStyleProvider } from '../lib/pieceStyle';
@@ -11,7 +12,7 @@ import { PieceStyleProvider } from '../lib/pieceStyle';
 const { navigateMock, authState } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   authState: {
-    user: null,
+    user: null as AuthUser | null,
     loading: false,
   },
 }));
@@ -58,9 +59,13 @@ describe('Header', () => {
   beforeEach(() => {
     window.localStorage.clear();
     navigateMock.mockReset();
+    authState.user = null;
+    authState.loading = false;
   });
 
   it('opens the mobile menu and lets users navigate from it', () => {
+    authState.user = null;
+    authState.loading = false;
     render(<Header active="play" />, { wrapper });
 
     expect(document.getElementById('mobile-site-menu')).toBeNull();
@@ -74,6 +79,69 @@ describe('Header', () => {
 
     expect(navigateMock).toHaveBeenCalledWith('/games');
     expect(document.getElementById('mobile-site-menu')).toBeNull();
+  });
+
+  it('nests Puzzles and Tools behind disclosure in the mobile menu', () => {
+    render(<Header active="play" />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menu = document.getElementById('mobile-site-menu') as HTMLElement;
+
+    expect(within(menu).queryByRole('button', { name: /puzzle streak/i })).toBeNull();
+    expect(within(menu).queryByRole('button', { name: /^editor$/i })).toBeNull();
+
+    fireEvent.click(within(menu).getByRole('button', { name: /^puzzles$/i }));
+    fireEvent.click(within(menu).getByRole('button', { name: /puzzle streak/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menuAgain = document.getElementById('mobile-site-menu') as HTMLElement;
+    fireEvent.click(within(menuAgain).getByRole('button', { name: /^tools$/i }));
+    fireEvent.click(within(menuAgain).getByRole('button', { name: /^editor$/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/analysis?mode=editor');
+  });
+
+  it('exposes Sign In from the mobile menu for guests', () => {
+    authState.user = null;
+    authState.loading = false;
+    render(<Header active="play" />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menu = document.getElementById('mobile-site-menu');
+    expect(menu).not.toBeNull();
+
+    fireEvent.click(within(menu as HTMLElement).getByRole('button', { name: /sign in/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/login');
+  });
+
+  it('exposes the account entry from the mobile menu when signed in', () => {
+    authState.user = {
+      id: 'u1',
+      email: 'player@example.com',
+      username: 'MakrukFan',
+      role: 'user',
+      twoFactorEnabled: false,
+      fair_play_status: 'clear',
+      rated_restricted_at: null,
+      rated_restriction_note: null,
+      rating: 1500,
+      rated_games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      created_at: 0,
+      updated_at: 0,
+      last_login_at: null,
+    };
+    authState.loading = false;
+    render(<Header active="play" />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    const menu = document.getElementById('mobile-site-menu');
+    expect(menu).not.toBeNull();
+
+    fireEvent.click(within(menu as HTMLElement).getByRole('button', { name: /makrukfan/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/account');
   });
 
   it('shows Lessons as a first-class navigation item', () => {
