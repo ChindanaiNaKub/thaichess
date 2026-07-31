@@ -1238,11 +1238,13 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'footer.links_label': 'ลิงก์ส่วนท้ายเว็บไซต์',
   'footer.what_is_makruk': 'หมากรุกไทยคืออะไร',
   'footer.how_to_play_makruk': 'วิธีเล่นหมากรุกไทย',
-  'footer.support': 'สนับสนุน ThaiChess',
-  'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา หากคุณสนุกกับการเล่น ร่วมสนับสนุนโปรเจกต์ได้นะครับ!',
-  'footer.donate_thai': 'สแกนจ่ายผ่าน QR',
-  'footer.thanks': 'ขอบคุณที่ช่วยให้ ThaiChess อยู่ต่อไป! 🙏',
-  'footer.bank_info': 'ไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
+  'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา — ถ้าอยากช่วยค่าใช้จ่าย',
+  'footer.donate': 'บริจาค',
+  'donate.title': 'บริจาค',
+  'donate.desc': 'ThaiChess ฟรีและไม่มีโฆษณา การโอนช่วยค่าโฮสต์และการพัฒนา',
+  'donate.bank_info': 'ไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
+  'donate.thanks': 'ขอบคุณครับ',
+  'donate.qr_alt': 'คิวอาร์โค้ดสำหรับบริจาค ThaiChess',
 
   // Language
   'lang.switch': 'EN',

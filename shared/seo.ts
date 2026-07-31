@@ -765,7 +765,7 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     };
   }
 
-  if (cleanPath.startsWith('/game/') || cleanPath.startsWith('/analysis/') || cleanPath === '/feedback' || cleanPath === '/login' || cleanPath === '/account') {
+  if (cleanPath.startsWith('/game/') || cleanPath.startsWith('/analysis/') || cleanPath === '/feedback' || cleanPath === '/login' || cleanPath === '/account' || cleanPath === '/donate') {
     return {
       title: 'ThaiChess',
       description: 'Play ThaiChess online.',

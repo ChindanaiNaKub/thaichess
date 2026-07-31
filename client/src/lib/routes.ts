@@ -22,6 +22,7 @@ export const routes = {
   fairPlay: '/fair-play',
   privacy: '/privacy',
   terms: '/terms',
+  donate: '/donate',
   login: '/login',
   twoFactor: '/2fa',
   account: '/account',

@@ -43,3 +43,7 @@ _Avoid_: autocapture, heatmap event, session replay
 **PrivacyAnalytics**:
 Opt-in product analytics loaded only after AnalyticsConsent is analytics, with no advertising identity.
 _Avoid_: Google Analytics, marketing pixels, always-on tracking
+
+**Donation**:
+A voluntary transfer of money toward ThaiChess hosting and development costs, offered on the Product donate page.
+_Avoid_: Support card, tip jar, patronage (unless naming a third-party platform)
