@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { captureProductEvent } from './analytics';
 import { useAuth } from './auth';
 import {
   getPuzzleProgressSummary,
@@ -302,6 +303,7 @@ export function PuzzleProgressProvider({ children }: { children: ReactNode }) {
 
     const nextRecords = recordPuzzleCompletion(progressRecordsRef.current, normalizedPuzzleId);
     applyRecords(nextRecords);
+    captureProductEvent('puzzle_complete', { puzzle_id: normalizedPuzzleId });
 
     if (!user) {
       writeGuestPuzzleProgressRecords(nextRecords);

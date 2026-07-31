@@ -85,7 +85,7 @@ export const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'cookies.title': 'We use essential cookies',
   'cookies.description': 'This site uses cookies for authentication and language settings only. No marketing or tracking cookies.',
   'cookies.title_analytics': 'Cookies & optional analytics',
-  'cookies.description_analytics': 'Essential cookies keep you signed in and save language settings. You can also allow privacy-friendly analytics (Plausible) with no advertising cookies.',
+  'cookies.description_analytics': 'Essential cookies keep you signed in and save language settings. You can also allow privacy-friendly analytics (PostHog) with no advertising cookies.',
   'cookies.essential_only': 'Essential only',
   'cookies.accept_analytics': 'Accept analytics',
   'cookies.read_more': 'Read more:',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { captureProductEvent } from '../lib/analytics';
 import { socket, connectSocket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
@@ -66,6 +67,7 @@ export default function QuickPlay() {
       setRequestPending(false);
       setFallbackDismissed(false);
       setError(null);
+      captureProductEvent('game_start', { source: 'matchmaking' });
       navigate(liveGameRoute(gameId));
     };
 

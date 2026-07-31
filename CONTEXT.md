@@ -31,3 +31,15 @@ _Avoid_: Match (prefer Game in user-facing copy; rematch and matchmaking are fin
 **Rated game**:
 A Game with `rated: true` whose completion updates player Elo and is persisted atomically.
 _Avoid_: Ranked (unless quoting UI), ranked match
+
+**AnalyticsConsent**:
+A visitor's stored choice of essential-only cookies versus optional product analytics.
+_Avoid_: cookie preference, tracking preference, GDPR consent (unless speaking about law)
+
+**ProductEvent**:
+A named, anonymous analytics signal about a product action (for example game start, puzzle complete, or signup), not a raw click stream.
+_Avoid_: autocapture, heatmap event, session replay
+
+**PrivacyAnalytics**:
+Opt-in product analytics loaded only after AnalyticsConsent is analytics, with no advertising identity.
+_Avoid_: Google Analytics, marketing pixels, always-on tracking

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { maybeCaptureSignup } from './analytics';
 import { authClient } from './authClient';
 import { scheduleOnUserIntent } from './defer';
 
@@ -156,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
       writeCachedUser(nextUser);
       setAuthError(null);
+      maybeCaptureSignup(nextUser);
     } catch (error) {
       setAuthError('session_check_failed');
       throw error;

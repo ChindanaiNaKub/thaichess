@@ -126,6 +126,17 @@ We'd love your help making ThaiChess famous! See [CONTRIBUTING.md](CONTRIBUTING.
 - [x] ThaiChess counting rules (full implementation)
 - [x] Spectator mode improvements
 
+## Optional analytics (PostHog)
+
+Privacy-friendly product analytics are **off by default**. We do **not** use Google Analytics.
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `VITE_POSTHOG_KEY` | to enable | Project API key from PostHog (US cloud). Leave unset = no PostHog. |
+| `VITE_POSTHOG_HOST` | no | Defaults to `https://us.i.posthog.com`. |
+
+Capture runs only after the user chooses **Accept analytics** in the cookie banner. Events: pageviews, `game_start`, `puzzle_complete`, `signup`. See `.env.example` and [docs/ops-production-readiness.md](docs/ops-production-readiness.md).
+
 ## License
 
 MIT - free to use, modify, and distribute.

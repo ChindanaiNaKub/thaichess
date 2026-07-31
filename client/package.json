@@ -25,6 +25,7 @@
     "better-auth": "^1.6.25",
     "fairy-stockfish-nnue.wasm": "^1.1.11",
     "html-to-image": "^1.11.13",
+    "posthog-js": "^1.409.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.18.1",

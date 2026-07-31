@@ -29,21 +29,3 @@ export function setCookieConsent(choice: CookieConsentChoice): void {
 export function hasAnalyticsConsent(): boolean {
   return getCookieConsent() === 'analytics';
 }
-
-export function isPlausibleAnalyticsConfigured(): boolean {
-  const domain = import.meta.env.VITE_PLAUSIBLE_DOMAIN;
-  return typeof domain === 'string' && domain.trim().length > 0;
-}
-
-export function getPlausibleDomain(): string | null {
-  if (!isPlausibleAnalyticsConfigured()) return null;
-  return String(import.meta.env.VITE_PLAUSIBLE_DOMAIN).trim();
-}
-
-export function getPlausibleScriptUrl(): string {
-  const configured = import.meta.env.VITE_PLAUSIBLE_SCRIPT_URL;
-  if (typeof configured === 'string' && configured.trim().length > 0) {
-    return configured.trim();
-  }
-  return 'https://plausible.io/js/script.js';
-}

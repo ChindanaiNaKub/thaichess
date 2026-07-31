@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../lib/i18n';
+import { isAnalyticsConfigured } from '../lib/analytics';
 import {
   COOKIE_CONSENT_KEY,
   getCookieConsent,
-  isPlausibleAnalyticsConfigured,
   setCookieConsent,
   type CookieConsentChoice,
 } from '../lib/cookieConsent';
@@ -64,7 +64,7 @@ export default function CookieConsent() {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const analyticsConfigured = isPlausibleAnalyticsConfigured();
+  const analyticsConfigured = isAnalyticsConfigured();
 
   useEffect(() => {
     if (getCookieConsent()) return;
