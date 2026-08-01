@@ -20,7 +20,7 @@ const LocalGame = lazy(loadLocalGameRoute);
 const QuickPlay = lazy(loadQuickPlayRoute);
 const BotGame = lazy(loadBotGameRoute);
 const PuzzleStreakPage = lazy(() => import('./routes/PuzzleStreakRoute'));
-const PuzzleListPage = lazy(() => import('./components/PuzzleLessonsPage').then((m) => ({ default: m.PuzzleLessonsPage })));
+const PuzzleListPage = lazy(() => import('./routes/PuzzleLessonsRoute'));
 const LessonCoursePage = lazy(() => import('./routes/LessonCourseRoute'));
 const LessonPlayerPage = lazy(() => import('./routes/LessonPlayerRoute'));
 const PuzzlePlayer = lazy(() => import('./routes/PuzzlePlayerRoute'));
