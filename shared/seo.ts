@@ -198,8 +198,8 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
 
   if (cleanPath === '/') {
     return {
-      title: 'เล่นหมากรุกไทยออนไลน์ฟรี | Play Makruk Online Free | ThaiChess',
-      description: 'เล่นหมากรุกไทยออนไลน์ฟรี ฝึกกับบอท แก้โจทย์หมากรุกไทย และเรียนรู้กติกา วิธีเล่นหมากรุกไทยสำหรับมือใหม่ Play ThaiChess online for free.',
+      title: 'เล่นหมากรุกไทยออนไลน์ฟรี | Play Makruk Online Free',
+      description: 'เล่นหมากรุกไทยออนไลน์ฟรี ฝึกกับบอท แก้โจทย์ และเรียนรู้กติกา Play Makruk online free.',
       path: '/',
       keywords: [...defaultKeywords, 'เล่นหมากรุกไทยฟรี', 'หมากรุกไทยออนไลน์', 'สอนหมากรุกไทย', 'Makruk online free', 'Thai chess online free'],
       type: 'website',
