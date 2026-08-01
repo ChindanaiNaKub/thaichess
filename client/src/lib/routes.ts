@@ -3,6 +3,7 @@ export const routes = {
   local: '/local',
   bot: '/bot',
   puzzles: '/puzzles',
+  puzzleRandom: '/puzzles/random',
   puzzleStreak: '/puzzles/streak',
   puzzleThemes: '/puzzles/themes',
   lessons: '/lessons',

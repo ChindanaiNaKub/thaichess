@@ -20,23 +20,20 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [puzzleMenuOpen, setPuzzleMenuOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
-  const [mobilePuzzlesOpen, setMobilePuzzlesOpen] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const { prefetchLeaderboard, prefetchFeedback } = usePrefetchQueries();
 
   const handleNavigate = (path: string) => {
     setMenuOpen(false);
     setPuzzleMenuOpen(false);
     setToolsMenuOpen(false);
-    setMobilePuzzlesOpen(false);
-    setMobileToolsOpen(false);
+    setMobileMoreOpen(false);
     navigate(path);
   };
 
   const toggleMobileMenu = () => {
     if (menuOpen) {
-      setMobilePuzzlesOpen(false);
-      setMobileToolsOpen(false);
+      setMobileMoreOpen(false);
       setMenuOpen(false);
       return;
     }
@@ -135,7 +132,8 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 {puzzleMenuOpen && (
                   <div className="absolute left-0 top-full z-50 min-w-[200px] pt-2">
                     <div className="overflow-hidden rounded-xl border border-surface-hover bg-surface-alt shadow-xl">
-                      {dropdownMenuItem('random', routes.puzzles, t('nav.puzzles_random'))}
+                      {dropdownMenuItem('practice', routes.puzzles, t('nav.puzzles_practice'))}
+                      {dropdownMenuItem('random', routes.puzzleRandom, t('nav.puzzles_random'))}
                       {dropdownMenuItem('streak', routes.puzzleStreak, t('nav.puzzles_streak'))}
                     </div>
                   </div>
@@ -224,76 +222,66 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
 
       {menuOpen && (
         <div id="mobile-site-menu" className="border-t border-surface-hover/60 bg-surface-alt/95 sm:hidden">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4">
             {active !== undefined && (
-              <nav className="flex flex-col gap-2">
+              <nav className="flex flex-col gap-2" aria-label={t('header.menu')}>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate(`${routes.quickPlay}?autostart=1`)}
+                  className="button-accent-contrast w-full rounded-lg px-4 py-3 text-sm font-bold"
+                >
+                  {t('home.quick_play')}
+                </button>
+
                 <div className="grid grid-cols-2 gap-2">
-                  {mobileNavItem('play', routes.home, t('nav.play'))}
                   {mobileNavItem('lessons', routes.lessons, t('nav.lessons'))}
+                  {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles'))}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavigate(routes.bot)}
+                  className="ui-btn-secondary px-3 py-2 text-left text-sm"
+                >
+                  {t('nav.bot')}
+                </button>
 
                 <div className="overflow-hidden rounded-lg border border-surface-hover/70">
                   <button
                     type="button"
-                    onClick={() => {
-                      setMobilePuzzlesOpen((open) => !open);
-                      setMobileToolsOpen(false);
-                    }}
-                    aria-expanded={mobilePuzzlesOpen}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
-                      active === 'puzzles'
-                        ? 'bg-primary/12 font-semibold text-primary-light'
-                        : 'bg-surface text-text-bright'
-                    }`}
+                    onClick={() => setMobileMoreOpen((open) => !open)}
+                    aria-expanded={mobileMoreOpen}
+                    className="flex w-full items-center justify-between bg-surface px-3 py-2 text-left text-sm text-text-bright"
                   >
-                    <span>{t('nav.puzzles')}</span>
+                    <span>{t('nav.more')}</span>
                     <span className="text-xs text-text-dim" aria-hidden>
-                      {mobilePuzzlesOpen ? '−' : '+'}
+                      {mobileMoreOpen ? '−' : '+'}
                     </span>
                   </button>
-                  {mobilePuzzlesOpen && (
+                  {mobileMoreOpen && (
                     <div className="grid gap-1 border-t border-surface-hover/60 bg-surface-alt p-2">
-                      {mobileNavItem('puzzles', routes.puzzles, t('nav.puzzles_random'))}
+                      {mobileNavItem('puzzles', routes.puzzleRandom, t('nav.puzzles_random'))}
                       {mobileNavItem('puzzles', routes.puzzleStreak, t('nav.puzzles_streak'))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="overflow-hidden rounded-lg border border-surface-hover/70">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileToolsOpen((open) => !open);
-                      setMobilePuzzlesOpen(false);
-                    }}
-                    aria-expanded={mobileToolsOpen}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
-                      active === 'tools' || active === 'watch'
-                        ? 'bg-primary/12 font-semibold text-primary-light'
-                        : 'bg-surface text-text-bright'
-                    }`}
-                  >
-                    <span>{t('nav.tools')}</span>
-                    <span className="text-xs text-text-dim" aria-hidden>
-                      {mobileToolsOpen ? '−' : '+'}
-                    </span>
-                  </button>
-                  {mobileToolsOpen && (
-                    <div className="grid gap-1 border-t border-surface-hover/60 bg-surface-alt p-2">
                       {mobileNavItem('watch', routes.watch, t('nav.watch'))}
                       {mobileNavItem('tools', editorPath, t('nav.tools_editor'))}
                       {mobileNavItem('tools', routes.analysisRoot, t('nav.tools_analysis'))}
                       {mobileNavItem('tools', routes.gameDatabase, t('nav.database'))}
                       {mobileNavItem('tools', routes.openingExplorer, t('nav.openings'))}
+                      {mobileNavItem('games', routes.games, t('nav.games'))}
+                      <button
+                        type="button"
+                        onClick={() => handleNavigate(routes.about)}
+                        className="ui-btn-secondary px-3 py-2 text-left text-sm"
+                      >
+                        {t('nav.about')}
+                      </button>
                     </div>
                   )}
                 </div>
               </nav>
             )}
 
-            <div className="grid gap-3">
-              {mobileNavItem('games', routes.games, t('nav.games'))}
-
+            <div className="grid gap-2">
               {!loading && (
                 user ? (
                   <>
@@ -325,12 +313,6 @@ export default function Header({ active, subtitle, right }: HeaderProps) {
                 )
               )}
 
-              <button type="button"
-                onClick={() => handleNavigate(routes.about)}
-                className="ui-btn-secondary inline-flex h-9 items-center justify-center px-3 text-sm"
-              >
-                {t('nav.about')}
-              </button>
               <AppearanceSettingsButton className="w-full justify-center" />
 
               <button type="button"

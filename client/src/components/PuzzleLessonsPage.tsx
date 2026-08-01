@@ -92,6 +92,22 @@ function usePuzzleLessonsPageScreen() {
           <p className="mt-3 text-sm leading-relaxed text-text-dim sm:text-base">
             {t('puzzle.lessons_desc')}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(routes.puzzleRandom)}
+              className="ui-btn-secondary px-3 py-2 text-sm"
+            >
+              {t('nav.puzzles_random')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(routes.puzzleStreak)}
+              className="ui-btn-secondary px-3 py-2 text-sm"
+            >
+              {t('nav.puzzles_streak')}
+            </button>
+          </div>
           <p className="mt-4 text-sm text-text-dim">
             {t('puzzle.track_completed', {
               done: completedInFilter.length,
