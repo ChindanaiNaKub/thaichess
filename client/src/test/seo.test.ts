@@ -105,7 +105,7 @@ describe('shared SEO routes', () => {
     expect(seo.title).toBe(`${puzzle?.title} | ThaiChess Puzzle ${puzzle?.id}`);
     expect(seo.description).toContain(puzzle?.description ?? '');
     expect(seo.robots).toBeUndefined();
-    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg');
+    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg?v=felt-2');
   });
 
   it('noindexes puzzle ids that are not in the live SEO catalog', () => {
@@ -192,7 +192,7 @@ describe('shared SEO routes', () => {
     const seo = getPublicSeoRoute(routes.home, 'https://thaichess.dev');
 
     expect(seo.keywords).toContain('หมากรุกไทย');
-    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg');
+    expect(seo.image).toBe('https://thaichess.dev/og-image.jpg?v=felt-2');
     expect(seo.snapshot?.paragraphs?.some((paragraph) => paragraph.text.includes('หมากรุกไทย'))).toBe(true);
     expect(seo.snapshot?.links?.some((link) => link.href === '/puzzles')).toBe(true);
     expect(seo.structuredData?.some((entry) => {

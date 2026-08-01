@@ -32,7 +32,7 @@ describe('renderSeoHtml', () => {
     expect(html).toContain('What Is Makruk (หมากรุกไทย)? | Learn Thai Chess');
     expect(html).toContain('หมากรุกไทยเป็นหมากรุกดั้งเดิมของไทย');
     expect(html).toContain('application/ld+json');
-    expect(html).toContain('<meta property="og:image" content="https://thaichess.dev/og-image.jpg" />');
+    expect(html).toContain('<meta property="og:image" content="https://thaichess.dev/og-image.jpg?v=felt-2" />');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(html).toContain('href="https://thaichess.dev/how-to-play-makruk"');
   });
