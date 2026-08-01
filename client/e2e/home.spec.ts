@@ -16,7 +16,7 @@ test.describe('Homepage', () => {
   test('renders hero content and reveals the private game setup on demand', async ({ page }) => {
     await gotoHome(page);
 
-    await expect(page).toHaveTitle(/ThaiChess/);
+    await expect(page).toHaveTitle(/Play Makruk Online Free/);
 
     const main = page.locator('#main-content');
     const playFriendButton = main.getByRole('button', { name: /play a friend/i });
