@@ -1,8 +1,6 @@
 import { findSeoPuzzleById, getSeoPuzzlePaths, isIndexableSeoPuzzle } from './seoPuzzleManifest';
 
-export const DEFAULT_SEO_IMAGE_PATH = '/og-image.jpg';
-/** Bump when replacing og-image.jpg so Discord/Facebook refetch instead of serving a cached URL. */
-export const SEO_IMAGE_CACHE_BUST = 'felt-2';
+export const DEFAULT_SEO_IMAGE_PATH = '/og-felt-table.jpg';
 
 export interface SeoRouteData {
   title: string;
@@ -17,9 +15,7 @@ export interface SeoRouteData {
 }
 
 export function getSeoImageUrl(baseUrl: string, imagePath = DEFAULT_SEO_IMAGE_PATH): string {
-  const url = new URL(imagePath, `${baseUrl}/`);
-  url.searchParams.set('v', SEO_IMAGE_CACHE_BUST);
-  return url.toString();
+  return new URL(imagePath, `${baseUrl}/`).toString();
 }
 
 export interface SeoTextBlock {
