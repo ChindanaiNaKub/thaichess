@@ -75,28 +75,31 @@ describe('Header', () => {
     const menu = document.getElementById('mobile-site-menu');
     expect(menu).not.toBeNull();
 
+    fireEvent.click(within(menu as HTMLElement).getByRole('button', { name: /^more$/i }));
     fireEvent.click(within(menu as HTMLElement).getByRole('button', { name: /games/i }));
 
     expect(navigateMock).toHaveBeenCalledWith('/games');
     expect(document.getElementById('mobile-site-menu')).toBeNull();
   });
 
-  it('nests Puzzles and Tools behind disclosure in the mobile menu', () => {
+  it('keeps a play launcher on mobile with secondary destinations under More', () => {
     render(<Header active="play" />, { wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /menu/i }));
     const menu = document.getElementById('mobile-site-menu') as HTMLElement;
 
+    expect(within(menu).getByRole('button', { name: /play now/i })).toBeInTheDocument();
+    expect(within(menu).getByRole('button', { name: /^puzzles$/i })).toBeInTheDocument();
     expect(within(menu).queryByRole('button', { name: /puzzle streak/i })).toBeNull();
     expect(within(menu).queryByRole('button', { name: /^editor$/i })).toBeNull();
 
-    fireEvent.click(within(menu).getByRole('button', { name: /^puzzles$/i }));
+    fireEvent.click(within(menu).getByRole('button', { name: /^more$/i }));
     fireEvent.click(within(menu).getByRole('button', { name: /puzzle streak/i }));
     expect(navigateMock).toHaveBeenCalledWith('/puzzles/streak');
 
     fireEvent.click(screen.getByRole('button', { name: /menu/i }));
     const menuAgain = document.getElementById('mobile-site-menu') as HTMLElement;
-    fireEvent.click(within(menuAgain).getByRole('button', { name: /^tools$/i }));
+    fireEvent.click(within(menuAgain).getByRole('button', { name: /^more$/i }));
     fireEvent.click(within(menuAgain).getByRole('button', { name: /^editor$/i }));
     expect(navigateMock).toHaveBeenCalledWith('/analysis?mode=editor');
   });
