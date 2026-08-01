@@ -66,10 +66,10 @@ export default function GameOverModal({
     }
   };
 
-  const getIcon = () => {
+  const getMark = () => {
     if (isDraw) return '½';
-    if (isWinner) return '🏆';
-    return '✖';
+    if (isWinner) return '1';
+    return '0';
   };
 
   return (
@@ -92,21 +92,32 @@ export default function GameOverModal({
         )}
 
         <div className="text-center">
-          <div className="text-5xl mb-3">{getIcon()}</div>
+          <div
+            aria-hidden="true"
+            className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border text-2xl font-bold tracking-tight ${
+              isDraw
+                ? 'border-accent/35 bg-accent/10 text-accent'
+                : isWinner
+                  ? 'border-accent/35 bg-accent/10 text-accent'
+                  : 'border-danger/35 bg-danger/10 text-danger'
+            }`}
+          >
+            {getMark()}
+          </div>
           <h2 className={`text-2xl font-bold mb-1 ${
-            isDraw ? 'text-accent' : isWinner ? 'text-primary-light' : 'text-danger'
+            isDraw ? 'text-accent' : isWinner ? 'text-text-bright' : 'text-danger'
           }`}>
             {getTitle()}
           </h2>
           <p className="text-text-dim text-sm mb-6">{getReasonText()}</p>
           <div className="mb-6 flex flex-col items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-              rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
+              rated ? 'bg-accent/15 text-accent' : 'bg-surface text-text-dim'
             }`}>
               {rated ? t('game.rated') : t('game.casual')}
             </span>
             {rated && playerRatingDelta !== null && (
-              <p className={`text-sm font-semibold ${playerRatingDelta >= 0 ? 'text-primary-light' : 'text-danger'}`}>
+              <p className={`text-sm font-semibold ${playerRatingDelta >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {t('game.rating_change')} {playerRatingDelta >= 0 ? '+' : ''}{playerRatingDelta}
               </p>
             )}
@@ -114,24 +125,37 @@ export default function GameOverModal({
 
           <div className="flex flex-col gap-3">
             {rematchNotice && (
-              <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-center text-sm font-medium text-primary-light">
+              <div className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-center text-sm font-medium text-accent">
                 {rematchNotice}
               </div>
             )}
+            <button type="button"
+              onClick={onRematch}
+              disabled={rematchDisabled}
+              className="button-accent-contrast w-full rounded-lg px-6 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {rematchLabel ?? t('gameover.rematch')}
+            </button>
+            <button type="button"
+              onClick={onNewGame}
+              className="ui-btn-secondary w-full px-6 py-3 font-semibold"
+            >
+              {t('common.new_game')}
+            </button>
             {onAnalyze && (
               <button type="button"
                 onClick={onAnalyze}
                 data-testid="analyze-game-button"
-                className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+                className="ui-btn-secondary w-full px-6 py-3 font-semibold"
               >
-                🔍 {t('analysis.analyze')}
+                {t('analysis.analyze')}
               </button>
             )}
             {onReport && (
               <button type="button"
                 onClick={onReport}
                 disabled={reportDisabled}
-                className="w-full py-3 px-6 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 disabled:cursor-not-allowed text-amber-200 font-semibold rounded-lg transition-colors border border-amber-500/30"
+                className="ui-btn-secondary w-full px-6 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {reportLabel ?? t('fair_play.report_action')}
               </button>
@@ -141,19 +165,6 @@ export default function GameOverModal({
                 {reportStatusMessage}
               </div>
             )}
-            <button type="button"
-              onClick={onRematch}
-              disabled={rematchDisabled}
-              className="w-full py-3 px-6 bg-primary hover:bg-primary-light disabled:bg-primary/60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
-            >
-              {rematchLabel ?? t('gameover.rematch')}
-            </button>
-            <button type="button"
-              onClick={onNewGame}
-              className="w-full py-3 px-6 bg-surface-hover hover:bg-surface-hover/80 text-text-bright font-semibold rounded-lg transition-colors border border-surface-hover"
-            >
-              {t('common.new_game')}
-            </button>
           </div>
         </div>
       </div>
