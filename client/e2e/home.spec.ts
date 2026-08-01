@@ -33,9 +33,12 @@ test.describe('Homepage', () => {
     await gotoHome(page);
 
     await page.locator('#main-content').getByRole('button', { name: /play now 5 min/i }).click();
-    await expect(page).toHaveURL('/quick-play');
-    await expect(page.getByRole('button', { name: /5\+0 blitz/i })).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole('button', { name: /sending/i })).toBeDisabled({ timeout: 30000 });
+    await expect(page).toHaveURL(/\/quick-play/);
+    // Autostart may still be on Sending… or already in Finding opponent… once the socket connects.
+    await expect(page.getByText(/5\+0\s+blitz/i)).toBeVisible({ timeout: 30000 });
+    await expect(
+      page.getByRole('button', { name: /sending/i }).or(page.getByRole('button', { name: /cancel/i })),
+    ).toBeVisible({ timeout: 30000 });
   });
 
   test('navigates to puzzle streak', async ({ page }) => {

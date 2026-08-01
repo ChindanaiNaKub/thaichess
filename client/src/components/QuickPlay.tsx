@@ -7,31 +7,14 @@ import { useAuth } from '../lib/auth';
 import { liveGameRoute, routes } from '../lib/routes';
 import type { PieceColor } from '@shared/types';
 import Header from './Header';
-
-const TIME_PRESETS = [
-  { label: '1+0', nameKey: 'time.bullet', initial: 60, increment: 0 },
-  { label: '3+0', nameKey: 'time.blitz', initial: 180, increment: 0 },
-  { label: '3+2', nameKey: 'time.blitz', initial: 180, increment: 2 },
-  { label: '5+0', nameKey: 'time.blitz', initial: 300, increment: 0 },
-  { label: '5+3', nameKey: 'time.rapid', initial: 300, increment: 3 },
-  { label: '10+0', nameKey: 'time.rapid', initial: 600, increment: 0 },
-  { label: '10+5', nameKey: 'time.rapid', initial: 600, increment: 5 },
-  { label: '15+10', nameKey: 'time.classical', initial: 900, increment: 10 },
-  { label: '30+0', nameKey: 'time.classical', initial: 1800, increment: 0 },
-];
-
-/** Featured clocks — same progressive set as HomeFriendPanel. */
-const FEATURED_TIME_LABELS = new Set(['3+0', '5+0', '10+0', '15+10']);
-
-const BOT_FALLBACK_SECONDS = 12;
-/** Clear "Sending…" if connect / matchmaking_started never arrives. */
-const REQUEST_PENDING_TIMEOUT_MS = 12_000;
-
-function formatSearchTime(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
-}
+import QuickPlayLobbyPanel from './QuickPlayLobbyPanel';
+import QuickPlaySearchingPanel from './QuickPlaySearchingPanel';
+import {
+  BOT_FALLBACK_SECONDS,
+  FEATURED_TIME_LABELS,
+  REQUEST_PENDING_TIMEOUT_MS,
+  TIME_PRESETS,
+} from './quickPlayTimePresets';
 
 export default function QuickPlay() {
   const navigate = useNavigate();
@@ -167,11 +150,9 @@ export default function QuickPlay() {
       intervalRef.current = setInterval(() => {
         setSearchTime(prev => prev + 1);
       }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -246,126 +227,30 @@ export default function QuickPlay() {
 
       <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-8">
         {searching ? (
-          <div className="ui-card w-full max-w-md p-6 text-center animate-slideUp sm:p-8">
-            <div className="mx-auto mb-6 h-16 w-16 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-            <h2 className="text-2xl font-bold text-text-bright mb-2">{t('quick.searching')}</h2>
-            <p className="text-text-dim mb-1">
-              {selectedTime.label} {t(selectedTime.nameKey)}
-            </p>
-            <p className="text-text-dim text-sm mb-1">
-              {t('quick.search_time', { time: formatSearchTime(searchTime) })}
-            </p>
-            {queueSize > 0 && (
-              <p className="text-text-dim text-xs mb-4">
-                {t('quick.queue', { count: queueSize })}
-              </p>
-            )}
-            {showBotFallback && (
-              <div className="mt-5 rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-left">
-                <h3 className="text-sm font-semibold text-text-bright">{t('quick.fallback_title')}</h3>
-                <p className="mt-1 text-xs leading-5 text-text-dim">{t('quick.fallback_desc')}</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button type="button"
-                    onClick={handlePlayBotFallback}
-                    className="button-accent-contrast rounded-lg px-4 py-2 text-sm font-bold"
-                  >
-                    {t('quick.play_bot_now')}
-                  </button>
-                  <button type="button"
-                    onClick={() => setFallbackDismissed(true)}
-                    className="ui-btn-secondary px-4 py-2 text-sm"
-                  >
-                    {t('quick.keep_searching')}
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="flex gap-3 mt-6">
-              <button type="button"
-                onClick={handleCancel}
-                className="ui-btn-secondary flex-1 px-6 py-3 hover:bg-danger/20 hover:text-danger"
-              >
-                {t('common.cancel')}
-              </button>
-            </div>
-          </div>
+          <QuickPlaySearchingPanel
+            selectedTime={selectedTime}
+            searchTime={searchTime}
+            queueSize={queueSize}
+            showBotFallback={showBotFallback}
+            onPlayBot={handlePlayBotFallback}
+            onKeepSearching={() => setFallbackDismissed(true)}
+            onCancel={handleCancel}
+          />
         ) : (
-          <div className="ui-card w-full max-w-lg p-5 animate-slideUp sm:p-6">
-            <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">{t('quick.title')}</h2>
-            <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
-            <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
-              <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-                user && ratedEligible
-                  ? 'bg-accent/15 text-accent border border-accent/30'
-                  : user
-                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                    : 'bg-accent/15 text-accent border border-accent/30'
-              }`}>
-                {user
-                  ? ratedEligible
-                    ? t('quick.rated_available')
-                    : t('quick.rated_unavailable')
-                  : t('quick.casual_only')}
-              </div>
-              <p className="mt-2 text-xs text-text-dim">
-                {user
-                  ? ratedEligible
-                    ? t('quick.rated_signed_in')
-                    : t('quick.rated_restricted')
-                  : t('quick.rated_sign_in')}
-              </p>
-            </div>
-
-            <fieldset className="mb-5 min-w-0 border-0 p-0">
-              <legend className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</legend>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {visiblePresets.map((preset) => (
-                  <button type="button"
-                    key={preset.label}
-                    onClick={() => setSelectedTime(preset)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                      selectedTime.label === preset.label
-                        ? 'border-accent/50 bg-accent/15 text-accent'
-                        : 'border-surface-hover bg-surface text-text hover:bg-surface-hover'
-                    }`}
-                  >
-                    <div className="font-bold">{preset.label}</div>
-                    <div className="text-xs opacity-70">{t(preset.nameKey)}</div>
-                  </button>
-                ))}
-              </div>
-              {hasHiddenPresets && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllTimes((open) => !open)}
-                  className="mt-2 text-xs font-semibold text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
-                >
-                  {showAllTimes ? t('home.fewer_times') : t('home.more_times')}
-                </button>
-              )}
-            </fieldset>
-
-            <button type="button"
-              onClick={handleFindGame}
-              disabled={requestPending}
-              className="button-accent-contrast w-full rounded-lg px-6 py-3 text-lg font-bold disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {requestPending ? t('common.sending') : t('quick.find')}
-            </button>
-
-            {error && (
-              <p className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-                {error}
-              </p>
-            )}
-
-            <button type="button"
-              onClick={() => navigate(routes.home)}
-              className="ui-btn-secondary mt-3 w-full px-6 py-2"
-            >
-              {t('common.back_home')}
-            </button>
-          </div>
+          <QuickPlayLobbyPanel
+            user={user}
+            ratedEligible={Boolean(ratedEligible)}
+            selectedTime={selectedTime}
+            visiblePresets={visiblePresets}
+            hasHiddenPresets={hasHiddenPresets}
+            showAllTimes={showAllTimes}
+            requestPending={requestPending}
+            error={error}
+            onSelectTime={setSelectedTime}
+            onToggleAllTimes={() => setShowAllTimes((open) => !open)}
+            onFindGame={handleFindGame}
+            onBackHome={() => navigate(routes.home)}
+          />
         )}
       </main>
     </div>
