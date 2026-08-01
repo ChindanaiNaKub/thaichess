@@ -20,6 +20,7 @@ const LocalGame = lazy(loadLocalGameRoute);
 const QuickPlay = lazy(loadQuickPlayRoute);
 const BotGame = lazy(loadBotGameRoute);
 const PuzzleStreakPage = lazy(() => import('./routes/PuzzleStreakRoute'));
+const PuzzleListPage = lazy(() => import('./components/PuzzleLessonsPage').then((m) => ({ default: m.PuzzleLessonsPage })));
 const LessonCoursePage = lazy(() => import('./routes/LessonCourseRoute'));
 const LessonPlayerPage = lazy(() => import('./routes/LessonPlayerRoute'));
 const PuzzlePlayer = lazy(() => import('./routes/PuzzlePlayerRoute'));
@@ -121,7 +122,8 @@ export default function App() {
           <Route path={routes.watch} element={<LiveGamesPage />} />
           <Route path={routes.local} element={<LocalGame />} />
           <Route path={routes.bot} element={<BotGame />} />
-          <Route path={routes.puzzles} element={<RandomPuzzleRedirect />} />
+          <Route path={routes.puzzles} element={<PuzzleListPage />} />
+          <Route path={routes.puzzleRandom} element={<RandomPuzzleRedirect />} />
           <Route path={routes.puzzleStreak} element={<PuzzleStreakPage />} />
           <Route path={routes.puzzleThemes} element={<LessonCoursePage />} />
           <Route path={routes.lessons} element={<LessonCoursePage />} />
