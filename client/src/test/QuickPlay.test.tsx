@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import QuickPlay from '../components/QuickPlay';
 import { I18nProvider } from '../lib/i18n';
@@ -148,14 +148,48 @@ describe('QuickPlay', () => {
     expect(socketMock.emit).toHaveBeenCalledWith('cancel_matchmaking');
   });
 
-  it('queues a connect callback when searching while disconnected and clears it on cancel', () => {
+  it('still emits find_game after a StrictMode remount when the socket connects late', () => {
+    socketMock.connected = false;
+
+    render(
+      <StrictMode>
+        <QuickPlay />
+      </StrictMode>,
+      { wrapper: autostartWrapper },
+    );
+
+    const connectHandlers = socketMock.on.mock.calls
+      .filter((call: any[]) => call[0] === 'connect')
+      .map((call: any[]) => call[1]);
+    expect(connectHandlers.length).toBeGreaterThan(0);
+    const connectHandler = connectHandlers[connectHandlers.length - 1];
+
+    act(() => {
+      socketMock.connected = true;
+      connectHandler();
+    });
+
+    expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
+      timeControl: { initial: 300, increment: 0 },
+    });
+  });
+
+  it('emits find_game via the persistent connect handler and stops after cancel', () => {
     render(<QuickPlay />, { wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
 
-    const connectHandler = socketMock.once.mock.calls.find((call: any[]) => call[0] === 'connect')?.[1];
+    const connectHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'connect')?.[1];
     expect(connectSocketMock).toHaveBeenCalled();
     expect(connectHandler).toBeTypeOf('function');
+
+    act(() => {
+      socketMock.connected = true;
+      connectHandler();
+    });
+    expect(socketMock.emit).toHaveBeenCalledWith('find_game', {
+      timeControl: { initial: 300, increment: 0 },
+    });
 
     const matchmakingStartedHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'matchmaking_started')?.[1];
     act(() => {
@@ -163,9 +197,13 @@ describe('QuickPlay', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
-
-    expect(socketMock.off).toHaveBeenCalledWith('connect', connectHandler);
     expect(socketMock.emit).toHaveBeenCalledWith('cancel_matchmaking');
+
+    socketMock.emit.mockClear();
+    act(() => {
+      connectHandler();
+    });
+    expect(socketMock.emit).not.toHaveBeenCalled();
   });
 
   it('emits find_game immediately when already connected and ignores duplicate requests while pending', () => {
@@ -324,11 +362,29 @@ describe('QuickPlay', () => {
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
 
+  it('clears Sending state when the socket fails to connect', () => {
+    render(<QuickPlay />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
+    expect(screen.getByRole('button', { name: /sending/i })).toBeDisabled();
+
+    const connectErrorHandler = socketMock.on.mock.calls.find((call: any[]) => call[0] === 'connect_error')?.[1];
+    expect(connectErrorHandler).toBeTypeOf('function');
+
+    act(() => {
+      connectErrorHandler();
+    });
+
+    expect(screen.getByRole('button', { name: /find opponent/i })).toBeEnabled();
+    expect(screen.getByText('Unable to start quick play right now.')).toBeInTheDocument();
+  });
+
   it('allows changing the time preset before searching', () => {
     socketMock.connected = true;
 
     render(<QuickPlay />, { wrapper });
 
+    fireEvent.click(screen.getByRole('button', { name: /more times/i }));
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
 

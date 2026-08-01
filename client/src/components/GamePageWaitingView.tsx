@@ -31,7 +31,7 @@ export function GamePageWaitingView({
 
       <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-md w-full text-center animate-slideUp">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+          <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <h2 className="text-xl sm:text-2xl font-bold text-text-bright mb-2">{t('game.waiting_title')}</h2>
           <p className="text-text-dim mb-6 text-sm sm:text-base">{t('game.waiting_desc')}</p>
 
@@ -60,10 +60,10 @@ export function GamePageWaitingView({
             />
             <button type="button"
               onClick={onCopyGameLink}
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                 copied
-                  ? 'bg-primary text-white'
-                  : 'bg-surface-hover hover:bg-primary/20 text-text-bright'
+                  ? 'button-accent-contrast'
+                  : 'bg-surface-hover text-text-bright hover:bg-accent/15'
               }`}
             >
               {copied ? t('game.copied') : t('game.copy')}
@@ -80,7 +80,7 @@ export function GamePageWaitingView({
           </a>
 
           <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-            gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim border border-surface-hover'
+            gameState.rated ? 'bg-accent/15 text-accent' : 'bg-surface text-text-dim border border-surface-hover'
           }`}>
             {gameState.rated ? t('game.rated') : t('game.casual')}
           </div>
