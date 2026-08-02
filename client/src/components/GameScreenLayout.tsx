@@ -49,7 +49,7 @@ export default function GameScreenLayout({
                 )}
               </div>
             </div>
-            <div className="rounded-[1.75rem] border border-accent/25 bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.12),transparent_40%),linear-gradient(180deg,rgba(58,45,31,0.88),rgba(24,20,18,0.96))] p-1.5 shadow-[0_26px_70px_rgba(0,0,0,0.24)]">
+            <div className="rounded-[1.75rem] border border-surface-hover/80 bg-surface-alt/90 p-1.5 shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28)]">
               {board}
             </div>
           </div>

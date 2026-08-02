@@ -244,11 +244,11 @@ describe('BotGame', () => {
   it('starts a game with a roster-selected persona instead of the default bot', () => {
     renderBotGame();
 
-    // Click on Mekhala Saeng bot card (first occurrence from either desktop or mobile)
+    fireEvent.click(screen.getAllByRole('button', { name: /bot.show_all_bots|bot.change_opponent/i })[0]);
+
     const mekhalaButtons = screen.getAllByRole('button', { name: /Mekhala Saeng/i });
     fireEvent.click(mekhalaButtons[0]);
-    
-    // Click first start button (both desktop and mobile have this testid)
+
     fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
 
     expect(screen.getAllByText('Mekhala Saeng').length).toBeGreaterThan(0);
@@ -400,16 +400,15 @@ describe('BotGame', () => {
   });
 
   it('saves finished bot games into the shared recent-games system', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     renderBotGame();
 
     // Click first start button (both desktop and mobile have this testid)
     fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
     
-    // Click resign button (first occurrence from either desktop or mobile layout)
+    // Cloth resign confirm: open, then confirm
     const resignButtons = screen.getAllByRole('button', { name: /bot.resign/i });
     fireEvent.click(resignButtons[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'game.resign_confirm_action' })[0]);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/bot', expect.objectContaining({

@@ -182,8 +182,10 @@ export function GamePageActiveView({
           <>
             <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
-            <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-              gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim'
+            <span className={`rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] ${
+              gameState.rated
+                ? 'border border-primary/25 bg-primary/10 text-primary-light'
+                : 'bg-surface text-text-dim border border-surface-hover'
             }`}>
               {gameState.rated ? t('game.rated') : t('game.casual')}
             </span>
@@ -206,7 +208,7 @@ export function GamePageActiveView({
         banners={
           <>
             {notices.opponentDisconnected && (
-              <div className="bg-accent/20 border-b border-accent/30 text-center py-2 text-xs sm:text-sm text-accent">
+              <div className="border-b border-surface-hover bg-surface-alt/80 text-center py-2 text-xs sm:text-sm text-text-dim">
                 {t('game.opponent_dc')}
               </div>
             )}
@@ -216,7 +218,7 @@ export function GamePageActiveView({
                 <div className="flex gap-2">
                   <button type="button"
                     onClick={() => onRespondDraw(true)}
-                    className="px-4 py-1 bg-primary text-white rounded font-semibold text-sm"
+                    className="ui-btn-primary rounded px-4 py-1 text-sm font-semibold"
                   >
                     {t('game.accept')}
                   </button>

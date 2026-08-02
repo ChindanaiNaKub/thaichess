@@ -32,6 +32,7 @@ export default function LiveGamesPage() {
             emptyTitle={t('live.empty_title')}
             emptyDesc={t('live.empty_desc')}
             omitSectionChrome
+            showEmptyPlayActions
           />
 
           {(finishedGames.length > 0 || (loading && liveGames.length === 0)) && (

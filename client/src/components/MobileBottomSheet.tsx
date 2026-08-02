@@ -22,10 +22,13 @@ interface MobileBottomSheetProps {
   };
   levelLabel: string;
   difficultyLabel: string;
-  _estimatedEloLabel: string;
-  _showDetails: boolean;
-  _onToggleDetails: () => void;
   setupIntroPreview: string;
+}
+
+function sideButtonClass(active: boolean) {
+  return active
+    ? 'border-accent/40 bg-accent/15 text-accent'
+    : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover';
 }
 
 export default function MobileBottomSheet({
@@ -38,9 +41,6 @@ export default function MobileBottomSheet({
   botTranslation,
   levelLabel,
   difficultyLabel,
-  _estimatedEloLabel,
-  _showDetails,
-  _onToggleDetails,
   setupIntroPreview,
 }: MobileBottomSheetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -72,7 +72,7 @@ export default function MobileBottomSheet({
   };
 
   return (
-    <div 
+    <div
       ref={sheetRef}
       className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
         isDragging ? '' : 'transition-transform'
@@ -81,11 +81,10 @@ export default function MobileBottomSheet({
         transform: `translateY(${isExpanded ? dragY : Math.max(dragY, 0)}px)`,
       }}
     >
-      <div className="bg-surface/95 backdrop-blur-lg rounded-t-3xl border-t border-x border-surface-hover shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
-        {/* Drag Handle */}
+      <div className="rounded-t-3xl border-x border-t border-surface-hover bg-surface/95 backdrop-blur-lg">
         <button
           type="button"
-          className="flex w-full flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing bg-transparent border-0"
+          className="flex w-full cursor-grab flex-col items-center border-0 bg-transparent pb-2 pt-3 active:cursor-grabbing"
           onClick={() => setIsExpanded(!isExpanded)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -93,70 +92,56 @@ export default function MobileBottomSheet({
           aria-expanded={isExpanded}
           aria-label={isExpanded ? t('bot.sheet_collapse_aria') : t('bot.sheet_expand_aria')}
         >
-          <div className="w-12 h-1.5 bg-surface-hover rounded-full mb-2" />
-          <div className="text-xs text-text-dim font-medium uppercase tracking-wider">
+          <div className="mb-2 h-1.5 w-12 rounded-full bg-surface-hover" />
+          <div className="text-xs font-medium uppercase tracking-wider text-text-dim">
             {isExpanded ? t('bot.sheet_collapse') : t('bot.sheet_expand')}
           </div>
         </button>
 
-        {/* Always Visible Content */}
         <div className="px-5 pb-4">
-          {/* Bot Header */}
-          <div className="flex items-center gap-4 mb-4">
-            <BotAvatar 
-              avatar={bot.avatar} 
-              size={64} 
-              className="shrink-0 ring-2 ring-primary/20 animate-breathe" 
+          <div className="mb-4 flex items-center gap-4">
+            <BotAvatar
+              avatar={bot.avatar}
+              size={64}
+              className="shrink-0 ring-2 ring-accent/20"
             />
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">{t('bot.featured_opponent')}</div>
               <h3 className="text-xl font-bold text-text-bright">{bot.name}</h3>
-              <p className="text-sm text-text-dim truncate">{bot.title}</p>
+              <p className="truncate text-sm text-text-dim">{bot.title}</p>
               <div className="mt-1 flex items-center gap-2">
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">{levelLabel}</span>
+                <span className="rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-xs font-semibold text-text-dim">{levelLabel}</span>
                 <span className="text-xs text-text-dim">{difficultyLabel}</span>
               </div>
             </div>
           </div>
 
-          {/* Hook */}
-          <p className="text-base font-medium text-text italic mb-4">
+          <p className="mb-4 text-base font-medium italic text-text">
             "{botTranslation.hook || bot.personalityHook}"
           </p>
 
-          {/* Side Selection */}
           <fieldset className="mb-4 min-w-0 border-0 p-0">
             <legend className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</legend>
             <div className="grid grid-cols-3 gap-3">
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => onSideChange('white')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
-                  sideChoice === 'white'
-                    ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
-                    : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                }`}
+                className={`flex min-h-[80px] flex-col items-center gap-2 rounded-xl border px-2 py-4 font-medium transition-colors ${sideButtonClass(sideChoice === 'white')}`}
               >
                 <PieceSVG type="K" color="white" size={32} />
                 <span className="text-sm">{t('common.white')}</span>
               </button>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => onSideChange('random')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
-                  sideChoice === 'random'
-                    ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
-                    : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                }`}
+                className={`flex min-h-[80px] flex-col items-center gap-2 rounded-xl border px-2 py-4 font-medium transition-colors ${sideButtonClass(sideChoice === 'random')}`}
               >
-                <span className="text-2xl">🎲</span>
+                <span className="text-2xl" aria-hidden="true">?</span>
                 <span className="text-sm">{t('bot.random')}</span>
               </button>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => onSideChange('black')}
-                className={`rounded-xl border-2 px-2 py-4 font-medium transition-colors flex flex-col items-center gap-2 min-h-[80px] ${
-                  sideChoice === 'black'
-                    ? 'border-primary/40 bg-primary text-white shadow-[0_8px_20px_rgba(92,160,26,0.28)]'
-                    : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover'
-                }`}
+                className={`flex min-h-[80px] flex-col items-center gap-2 rounded-xl border px-2 py-4 font-medium transition-colors ${sideButtonClass(sideChoice === 'black')}`}
               >
                 <PieceSVG type="K" color="black" size={32} />
                 <span className="text-sm">{t('common.black')}</span>
@@ -164,56 +149,51 @@ export default function MobileBottomSheet({
             </div>
           </fieldset>
 
-          {/* PLAY NOW Button */}
-          <button type="button"
+          <button
+            type="button"
             onClick={onPlay}
             data-testid="start-game-button"
-            className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-bold text-white shadow-[0_8px_24px_rgba(92,160,26,0.35)] transition-[color,background-color,box-shadow,transform] hover:bg-primary-light hover:shadow-[0_12px_32px_rgba(92,160,26,0.45)] hover:scale-[1.02] active:scale-[0.98] active:translate-y-[1px] flex items-center justify-center gap-2 animate-play-pulse"
+            className="button-accent-contrast flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-lg font-bold"
           >
-            <span>▶</span>
+            <span aria-hidden="true">▶</span>
             <span>{t('bot.start')}</span>
           </button>
 
-          {/* ELO Note */}
           <p className="mt-3 text-center text-xs text-text-dim">
             {t('bot.estimated_elo_note')}
           </p>
         </div>
 
-        {/* Expandable Content */}
-        <div 
+        <div
           className={`overflow-hidden transition-[max-height,opacity] duration-300 ${
             isExpanded ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="px-5 pb-6 border-t border-surface-hover/50 pt-4">
-            {/* Backstory */}
-            <p className="text-sm leading-6 text-text mb-4">{botTranslation.backstory || bot.shortBackstory}</p>
+          <div className="border-t border-surface-hover/50 px-5 pb-6 pt-4">
+            <p className="mb-4 text-sm leading-6 text-text">{botTranslation.backstory || bot.shortBackstory}</p>
 
-            {/* Details Grid */}
-            <div className="space-y-3 mb-4">
+            <div className="mb-4 space-y-3">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.opening_preference')}</div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.opening_preference')}</div>
                 <div className="mt-1 text-sm text-text">{botTranslation.opening || bot.openingPreference}</div>
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.signature_style')}</div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.signature_style')}</div>
                 <div className="mt-1 text-sm text-text">{botTranslation.signature || bot.signatureStyle}</div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.tactical_bias')}</div>
+                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.tactical_bias')}</div>
                   <div className="mt-1 text-sm text-text">{botTranslation.tactical || bot.tacticalBias}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.strategic_weakness')}</div>
+                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.strategic_weakness')}</div>
                   <div className="mt-1 text-sm text-text">{botTranslation.weakness || bot.strategicWeakness}</div>
                 </div>
               </div>
             </div>
 
-            {/* Traits */}
-            <div className="flex flex-wrap gap-1.5 mb-4">
+            <div className="mb-4 flex flex-wrap gap-1.5">
               {bot.personalityTraits.map((trait) => (
                 <span key={trait} className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-xs text-text-dim">
                   {t(`bot.trait.${trait}`) || trait}
@@ -221,15 +201,14 @@ export default function MobileBottomSheet({
               ))}
             </div>
 
-            {/* Dialogue Preview */}
             <div className="mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim mb-2">{t('bot.dialogue_preview')}</div>
+              <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.dialogue_preview')}</div>
               <p className="text-sm italic text-text">"{setupIntroPreview}"</p>
               <p className="mt-2 text-xs text-text-dim">{botTranslation.chatStyle || bot.chatStyle}</p>
             </div>
 
-            {/* Back Button */}
-            <button type="button"
+            <button
+              type="button"
               onClick={onBack}
               className="w-full rounded-xl border border-surface-hover bg-surface-alt/85 px-6 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-hover"
             >

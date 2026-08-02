@@ -5,16 +5,15 @@ import { useTranslation } from '../lib/i18n';
 import { routes } from '../lib/routes';
 
 export function DeleteAccountSection() {
-  const { lang } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const [showSection, setShowSection] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [deleted, setDeleted] = useState(false);
   const deletingRef = useRef(false);
-
-  const isThai = lang === 'th';
 
   async function handleDeleteAccount() {
     if (deletingRef.current) return;
@@ -29,17 +28,16 @@ export function DeleteAccountSection() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete account');
+        throw new Error(t('account.delete_error'));
       }
 
       setDeleted(true);
-      // Clear auth state and redirect
       setTimeout(async () => {
         await logout();
         navigate(routes.home);
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : isThai ? 'ไม่สามารถลบบัญชีได้' : 'Could not delete account');
+      setError(err instanceof Error ? err.message : t('account.delete_error'));
     } finally {
       deletingRef.current = false;
       setDeleting(false);
@@ -48,23 +46,49 @@ export function DeleteAccountSection() {
 
   if (deleted) {
     return (
-      <section className="rounded-[1.6rem] border border-danger/30 bg-danger/5 p-5">
+      <section className="rounded-xl border border-danger/30 bg-danger/5 p-5">
         <p className="text-sm font-medium text-danger">
-          {isThai ? 'บัญชีของคุณถูกลบแล้ว กำลังพากลับไปหน้าแรก...' : 'Your account has been deleted. Redirecting to home...'}
+          {t('account.delete_redirecting')}
         </p>
       </section>
     );
   }
 
+  if (!showSection) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowSection(true)}
+          className="text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-danger hover:underline"
+        >
+          {t('account.delete_show')}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <section className="rounded-[1.6rem] border border-danger/30 bg-danger/5 p-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-danger">
-        {isThai ? 'ลบบัญชี' : 'Delete Account'}
-      </p>
-      <p className="mb-4 text-sm text-text-dim">
-        {isThai
-          ? 'การลบบัญชีจะลบข้อมูลทั้งหมดของคุณอย่างถาวร การกระทำนี้ไม่สามารถยกเลิกได้'
-          : 'Deleting your account will permanently remove all your data. This action cannot be undone.'}
+    <section className="rounded-xl border border-danger/30 bg-danger/5 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-danger">
+          {t('account.delete_title')}
+        </h3>
+        {!showConfirm ? (
+          <button
+            type="button"
+            onClick={() => {
+              setShowSection(false);
+              setError('');
+            }}
+            className="shrink-0 text-xs font-semibold text-text-dim underline-offset-4 hover:text-text-bright hover:underline"
+          >
+            {t('account.delete_hide')}
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-2 mb-4 text-sm text-text-dim">
+        {t('account.delete_desc')}
       </p>
 
       {!showConfirm ? (
@@ -73,14 +97,12 @@ export function DeleteAccountSection() {
           onClick={() => setShowConfirm(true)}
           className="w-full rounded-xl border border-danger/40 px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/10"
         >
-          {isThai ? 'ลบบัญชีของฉัน' : 'Delete My Account'}
+          {t('account.delete_action')}
         </button>
       ) : (
         <div className="space-y-3">
           <p className="text-sm font-medium text-danger">
-            {isThai
-              ? 'คุณแน่ใจหรือไม่? บัญชี เรตติ้ง และประวัติเกมทั้งหมดจะถูกลบอย่างถาวร'
-              : 'Are you sure? Your account, ratings, and all game history will be permanently deleted.'}
+            {t('account.delete_warning')}
           </p>
           <div className="flex gap-3">
             <button
@@ -89,15 +111,15 @@ export function DeleteAccountSection() {
               disabled={deleting}
               className="flex-1 rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
             >
-              {isThai ? 'ยกเลิก' : 'Cancel'}
+              {t('common.cancel')}
             </button>
             <button
               type="button"
-              onClick={handleDeleteAccount}
+              onClick={() => void handleDeleteAccount()}
               disabled={deleting}
               className="flex-1 rounded-xl bg-danger px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-danger-bright disabled:opacity-60"
             >
-              {deleting ? (isThai ? 'กำลังลบ...' : 'Deleting...') : (isThai ? 'ใช่ ลบบัญชี' : 'Yes, Delete Account')}
+              {deleting ? t('account.delete_deleting') : t('account.delete_confirm')}
             </button>
           </div>
         </div>

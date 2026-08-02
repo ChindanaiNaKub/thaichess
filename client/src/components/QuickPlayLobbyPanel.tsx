@@ -40,10 +40,10 @@ export default function QuickPlayLobbyPanel({
       <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
         <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
           user && ratedEligible
-            ? 'bg-accent/15 text-accent border border-accent/30'
+            ? 'border border-primary/25 bg-primary/10 text-primary-light'
             : user
-              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-              : 'bg-accent/15 text-accent border border-accent/30'
+              ? 'border border-danger/30 bg-danger/10 text-danger'
+              : 'border border-primary/25 bg-primary/10 text-primary-light'
         }`}>
           {user
             ? ratedEligible

@@ -132,10 +132,10 @@ export function BotGameActiveView({
           <>
             <AppearanceSettingsButton compact />
             <span className="hidden md:inline">{t('bot.vs_bot')}</span>
-            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+            <span className="rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
               {levelLabel}
             </span>
-            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+            <span className="rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
               {difficultyLabel}
             </span>
           </>

@@ -491,6 +491,19 @@ describe('GamePage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
 
+  it('leaves a waiting private room when switching to bot play', async () => {
+    renderGamePage('/game/waiting-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload({ gameId: 'waiting-room', status: 'waiting' }));
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'game.waiting_play_bot' }));
+
+    expect(socketMock.emit).toHaveBeenCalledWith('leave_game', { gameId: 'waiting-room' });
+    expect(navigateMock).toHaveBeenCalledWith('/bot');
+  });
+
   it('handles move sounds, draw flow, and active controls during play', async () => {
     renderGamePage('/game/live-room');
 
@@ -573,6 +586,7 @@ describe('GamePage', () => {
     expect(socketMock.emit).toHaveBeenCalledWith('offer_draw');
 
     fireEvent.click(screen.getByRole('button', { name: 'game.resign' }));
+    fireEvent.click(screen.getByRole('button', { name: 'game.resign_confirm_action' }));
     expect(socketMock.emit).toHaveBeenCalledWith('resign');
   });
 

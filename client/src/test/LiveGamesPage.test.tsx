@@ -98,4 +98,26 @@ describe('LiveGamesPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /open spectator mode|live\.view_spectator/i })[0]);
     expect(navigateMock).toHaveBeenCalledWith('/spectate/live-a');
   });
+
+  it('offers Find opponent and Play vs Bot when there are no live games', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/live-games')) {
+        return {
+          ok: true,
+          json: async () => ({ games: [], total: 0, status: 'all' }),
+        };
+      }
+      throw new Error(`Unhandled fetch for ${url}`);
+    });
+
+    render(<LiveGamesPage />, { wrapper });
+
+    expect(await screen.findByText(/no live games|live\.empty_title/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /find opponent|live\.empty_find/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/quick-play');
+
+    fireEvent.click(screen.getByRole('button', { name: /play vs bot|live\.empty_bot/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/bot');
+  });
 });

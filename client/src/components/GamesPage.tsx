@@ -13,7 +13,7 @@ function formatTimeControl(initial: number, increment: number): string {
 }
 
 function formatResult(result: string, _reason: string): { text: string; color: string } {
-  if (result === 'draw') return { text: '½-½', color: 'text-accent' };
+  if (result === 'draw') return { text: '½-½', color: 'text-text-dim' };
   if (result === 'white') return { text: '1-0', color: 'text-text-bright' };
   return { text: '0-1', color: 'text-text-bright' };
 }
@@ -25,6 +25,19 @@ function formatPlayerLabel(
 ): string {
   const displayName = name.trim() || t('common.anonymous');
   return typeof rating === 'number' ? `${displayName} (${rating})` : displayName;
+}
+
+function getEmptyHistoryCopy(filter: GamesFilter, t: ReturnType<typeof useTranslation>['t']) {
+  if (filter === 'bot') {
+    return { title: t('games.empty_bot'), desc: t('games.empty_bot_desc') };
+  }
+  if (filter === 'rated') {
+    return { title: t('games.empty_rated'), desc: t('games.empty_rated_desc') };
+  }
+  if (filter === 'casual') {
+    return { title: t('games.empty_casual'), desc: t('games.empty_casual_desc') };
+  }
+  return { title: t('games.empty'), desc: t('games.empty_desc') };
 }
 
 function isBotGame(game: GameEntry): boolean {
@@ -50,7 +63,7 @@ function getParticipantLabel(
     t,
   );
 
-  return isBot ? `🤖 ${label}` : label;
+  return isBot ? `${label} (${t('games.bot_badge')})` : label;
 }
 
 function formatReasonLabel(reason: string, t: ReturnType<typeof useTranslation>['t']): string {
@@ -111,26 +124,25 @@ function renderGameRow(
     >
       <td className="px-3 sm:px-4 py-3">
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-text-bright text-xs truncate block max-w-[100px] sm:max-w-[140px]">{game.id}</span>
-          <span className="text-text-bright text-xs sm:text-sm truncate block max-w-[220px] sm:max-w-[340px]">
+          <span className="block max-w-[220px] truncate text-sm font-semibold text-text-bright sm:max-w-[340px] sm:text-base">
             {getParticipantLabel(game, 'white', t)} vs {getParticipantLabel(game, 'black', t)}
           </span>
           <div className="flex flex-wrap items-center gap-2">
             {botGame ? (
-              <span className="inline-flex w-fit rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+              <span className="inline-flex w-fit rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">
                 {t('games.bot_badge')}
               </span>
             ) : (
-              <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+              <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] ${
                 game.rated
-                  ? 'bg-primary/15 text-primary-light'
-                  : 'bg-surface text-text-dim border border-surface-hover'
+                  ? 'border border-primary/25 bg-primary/10 text-primary-light'
+                  : 'border border-surface-hover bg-surface text-text-dim'
               }`}>
                 {game.rated ? t('game.rated') : t('game.casual')}
               </span>
             )}
             {subdued && (
-              <span className="inline-flex w-fit rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+              <span className="inline-flex w-fit rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">
                 {t('games.low_signal_badge')}
               </span>
             )}
@@ -153,7 +165,7 @@ function renderGameRow(
       <td className="px-3 sm:px-4 py-3 text-right">
         <button type="button"
           onClick={(e) => { e.stopPropagation(); navigate(savedGameAnalysisRoute(game.id)); }}
-          className="ui-btn-primary px-2.5 py-1 text-xs"
+          className="ui-btn-secondary px-2.5 py-1 text-xs"
           title={t('analysis.analyze')}
         >
           {t('analysis.view')}
@@ -168,15 +180,14 @@ export default function GamesPage() {
   const { t, lang } = useTranslation();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<GamesFilter>('all');
+  const [showTools, setShowTools] = useState(false);
   const limit = 20;
 
-  // Reset page when filter changes
   const handleFilterChange = (newFilter: GamesFilter) => {
     setFilter(newFilter);
     setPage(0);
   };
 
-  // Use TanStack Query for data fetching
   const {
     data,
     isLoading,
@@ -186,6 +197,7 @@ export default function GamesPage() {
 
   const games = data?.games ?? [];
   const total = data?.total ?? 0;
+  const emptyCopy = getEmptyHistoryCopy(filter, t);
   const botStats = data?.botStats ?? {
     gamesCount: 0,
     winRate: 0,
@@ -201,65 +213,80 @@ export default function GamesPage() {
       <Header active="games" />
 
       <main id="main-content" className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 w-full">
-        <div className="ui-card mb-4 px-4 py-4 sm:mb-6 sm:px-5 sm:py-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="ui-title text-xl sm:text-2xl">{t('games.title')}</h2>
-                <button type="button"
-                  onClick={() => navigate(routes.gameDatabase)}
-                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
-                >
-                  {t('nav.database')}
-                </button>
-                <button type="button"
-                  onClick={() => navigate(routes.openingExplorer)}
-                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
-                >
-                  {t('nav.openings')}
-                </button>
-                <button type="button"
-                  onClick={() => navigate(routes.leaderboard)}
-                  className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
-                >
-                  {t('games.view_leaderboard')}
-                </button>
-              </div>
-              <span className="text-text-dim text-xs sm:text-sm">{t('games.count', { count: total })}</span>
+        <div className="mb-4 space-y-4 sm:mb-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="ui-title text-xl sm:text-2xl">{t('games.title')}</h1>
+              <p className="mt-1 text-xs text-text-dim sm:text-sm">{t('games.count', { count: total })}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowTools((current) => !current)}
+              className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+              aria-expanded={showTools}
+            >
+              {showTools ? t('games.hide_tools') : t('games.more_tools')}
+            </button>
+          </div>
+
+          {showTools && (
             <div className="flex flex-wrap gap-2">
-              {(['all', 'rated', 'casual', 'bot'] as const).map((filterOption) => (
-                <button
-                  key={filterOption}
-                  type="button"
-                  onClick={() => handleFilterChange(filterOption)}
-                  className={`rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
-                    filter === filterOption
-                      ? 'bg-primary text-white'
-                      : 'ui-btn-secondary text-text-dim hover:text-text-bright'
-                  }`}
-                >
-                  {t(`games.filter_${filterOption}`)}
-                </button>
-              ))}
+              <button type="button"
+                onClick={() => navigate(routes.gameDatabase)}
+                className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+              >
+                {t('nav.database')}
+              </button>
+              <button type="button"
+                onClick={() => navigate(routes.openingExplorer)}
+                className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+              >
+                {t('nav.openings')}
+              </button>
+              <button type="button"
+                onClick={() => navigate(routes.leaderboard)}
+                className="ui-btn-secondary px-3 py-1.5 text-xs sm:text-sm"
+              >
+                {t('games.view_leaderboard')}
+              </button>
             </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {(['all', 'rated', 'casual', 'bot'] as const).map((filterOption) => (
+              <button
+                key={filterOption}
+                type="button"
+                onClick={() => handleFilterChange(filterOption)}
+                className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+                  filter === filterOption
+                    ? 'border border-primary/35 bg-primary/15 text-primary-light'
+                    : 'ui-btn-secondary text-text-dim hover:text-text-bright'
+                }`}
+              >
+                {t(`games.filter_${filterOption}`)}
+              </button>
+            ))}
+          </div>
+
+          {filter === 'bot' && (
             <div className="grid gap-2 sm:grid-cols-3">
-              <div className="ui-card-soft px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_games')}</div>
+              <div className="rounded-xl border border-surface-hover/70 bg-surface/55 px-3 py-3">
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_games')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.gamesCount}</div>
               </div>
-              <div className="ui-card-soft px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_win_rate')}</div>
+              <div className="rounded-xl border border-surface-hover/70 bg-surface/55 px-3 py-3">
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_win_rate')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">{botStats.winRate}%</div>
               </div>
-              <div className="ui-card-soft px-3 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_highest_level')}</div>
+              <div className="rounded-xl border border-surface-hover/70 bg-surface/55 px-3 py-3">
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('games.bot_highest_level')}</div>
                 <div className="mt-1 text-lg font-semibold text-text-bright">
                   {botStats.highestBotLevelDefeated ? `Lv.${botStats.highestBotLevelDefeated}` : '-'}
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {isLoading ? (
@@ -271,46 +298,68 @@ export default function GamesPage() {
             <p className="text-danger">{error?.message || t('error.generic')}</p>
             <button type="button"
               onClick={() => window.location.reload()}
-              className="ui-btn-primary mt-4 px-4 py-2"
+              className="ui-btn-secondary mt-4 px-4 py-2"
             >
               {t('common.retry')}
             </button>
           </div>
         ) : games.length === 0 ? (
-          <div className="ui-card rounded-2xl px-6 py-10 text-center sm:px-10 sm:py-12">
-            <div className="text-4xl mb-4">♟</div>
-            <p className="text-text-bright text-lg sm:text-xl font-semibold mb-2">{t('games.empty')}</p>
-            <p className="text-text-dim text-sm sm:text-base mb-6 max-w-md mx-auto">{t('games.empty_desc')}</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button type="button"
-                onClick={() => navigate(routes.quickPlay)}
-                className="ui-btn-primary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
-              >
-                {t('home.find_opponent')}
-              </button>
-              <button type="button"
-                onClick={() => navigate(routes.puzzles)}
-                className="ui-btn-secondary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
-              >
-                {t('nav.puzzles')}
-              </button>
+          <div className="rounded-2xl border border-surface-hover/70 bg-surface-alt/70 px-6 py-10 text-center sm:px-10 sm:py-12">
+            <p className="mb-2 text-lg font-semibold text-text-bright sm:text-xl">{emptyCopy.title}</p>
+            <p className="mx-auto mb-6 max-w-md text-sm text-text-dim sm:text-base">{emptyCopy.desc}</p>
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              {filter === 'bot' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.bot)}
+                    className="button-accent-contrast w-full rounded-lg px-5 py-2.5 text-sm font-bold sm:w-auto sm:px-6 sm:py-3 sm:text-base"
+                  >
+                    {t('games.empty_play_bot')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.quickPlay)}
+                    className="ui-btn-secondary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
+                  >
+                    {t('games.empty_find')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigate(routes.quickPlay)}
+                    className="button-accent-contrast w-full rounded-lg px-5 py-2.5 text-sm font-bold sm:w-auto sm:px-6 sm:py-3 sm:text-base"
+                  >
+                    {t('games.empty_find')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(filter === 'rated' || filter === 'casual' ? routes.bot : routes.puzzles)}
+                    className="ui-btn-secondary w-full px-5 py-2.5 text-sm sm:w-auto sm:px-6 sm:py-3 sm:text-base"
+                  >
+                    {filter === 'rated' || filter === 'casual' ? t('games.empty_play_bot') : t('nav.puzzles')}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : (
           <>
             {highlightedGames.length > 0 ? (
-              <div className="ui-card-soft mb-3 rounded-2xl border-primary/15 bg-primary/5 px-4 py-3 sm:px-5">
+              <div className="mb-3 rounded-xl border border-surface-hover/70 bg-surface/45 px-4 py-3 sm:px-5">
                 <p className="text-sm font-semibold text-text-bright">{t('games.featured_title')}</p>
                 <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.featured_desc')}</p>
               </div>
             ) : (
-              <div className="ui-card-soft mb-3 rounded-2xl px-4 py-3 sm:px-5">
+              <div className="mb-3 rounded-xl border border-surface-hover/70 bg-surface/45 px-4 py-3 sm:px-5">
                 <p className="text-sm font-semibold text-text-bright">{t('games.no_featured_title')}</p>
                 <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.no_featured_desc')}</p>
               </div>
             )}
 
-            <div className="ui-card overflow-x-auto rounded-xl">
+            <div className="overflow-x-auto rounded-xl border border-surface-hover/70 bg-surface-alt/70">
               <table className="w-full text-sm min-w-[320px]">
                 <thead>
                   <tr className="border-b border-surface-hover text-text-dim text-left">
@@ -329,7 +378,7 @@ export default function GamesPage() {
             </div>
 
             {lowSignalGames.length > 0 && (
-              <div className="ui-card mt-4 rounded-xl bg-surface-alt/70">
+              <div className="mt-4 rounded-xl border border-surface-hover/70 bg-surface/45">
                 <div className="border-b border-surface-hover px-4 py-3 sm:px-5">
                   <p className="text-sm font-semibold text-text-bright">{t('games.low_signal_title')}</p>
                   <p className="mt-1 text-xs sm:text-sm text-text-dim">{t('games.low_signal_desc')}</p>
