@@ -189,9 +189,7 @@ export function useGameActions() {
   const navigate = useNavigate();
 
   const handleResign = useCallback(() => {
-    if (window.confirm('Are you sure you want to resign?')) {
-      socket.emit('resign');
-    }
+    socket.emit('resign');
   }, []);
 
   const handleOfferDraw = useCallback(() => {

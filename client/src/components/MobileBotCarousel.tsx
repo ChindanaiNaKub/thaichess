@@ -9,21 +9,26 @@ interface MobileBotCarouselProps {
   onSelect: (_id: string) => void;
   t: (_key: string, _params?: Record<string, string | number>) => string;
   getBotTranslation: (_botId: string, _field: string) => string;
+  /** Carousel for featured (≤5); list for the full roster. */
+  layout?: 'carousel' | 'list';
 }
 
-export default function MobileBotCarousel({ 
-  personas, 
-  selectedId, 
-  onSelect, 
-  t, 
-  getBotTranslation 
+export default function MobileBotCarousel({
+  personas,
+  selectedId,
+  onSelect,
+  t,
+  getBotTranslation,
+  layout = 'carousel',
 }: MobileBotCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [query, setQuery] = useState('');
 
-  // Update active index based on scroll position
   useEffect(() => {
+    if (layout !== 'carousel') return;
+
     const handleScroll = () => {
       if (scrollRef.current) {
         const scrollPos = scrollRef.current.scrollLeft;
@@ -40,10 +45,11 @@ export default function MobileBotCarousel({
       ref.addEventListener('scroll', handleScroll, { passive: true });
       return () => ref.removeEventListener('scroll', handleScroll);
     }
-  }, [personas.length]);
+  }, [layout, personas.length]);
 
-  // Desktop drag-to-scroll via listeners (keeps the carousel container non-interactive in JSX)
   useEffect(() => {
+    if (layout !== 'carousel') return;
+
     const el = scrollRef.current;
     if (!el) return;
 
@@ -76,7 +82,6 @@ export default function MobileBotCarousel({
         });
         onSelect(personas[clampedIndex].id);
       }
-      // Keep the drag flag set through the click that follows mouseup.
       window.setTimeout(() => {
         isDraggingRef.current = false;
       }, 0);
@@ -90,20 +95,89 @@ export default function MobileBotCarousel({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [onSelect, personas]);
+  }, [layout, onSelect, personas]);
 
-  // Scroll to selected bot when selection changes
   useEffect(() => {
-    const index = personas.findIndex(p => p.id === selectedId);
+    if (layout !== 'carousel') return;
+
+    const index = personas.findIndex((p) => p.id === selectedId);
     if (index >= 0 && scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
       const cardWidth = scrollRef.current.offsetWidth * 0.75;
       scrollRef.current.scrollTo({
         left: index * cardWidth,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
       setActiveIndex(index);
     }
-  }, [selectedId, personas]);
+  }, [layout, selectedId, personas]);
+
+  if (layout === 'list') {
+    const normalized = query.trim().toLowerCase();
+    const filtered = normalized
+      ? personas.filter((persona) => {
+        const hook = (getBotTranslation(persona.id, 'hook') || persona.personalityHook).toLowerCase();
+        return (
+          persona.name.toLowerCase().includes(normalized)
+          || persona.title.toLowerCase().includes(normalized)
+          || hook.includes(normalized)
+        );
+      })
+      : personas;
+
+    return (
+      <div className="px-4">
+        <label className="sr-only" htmlFor="mobile-bot-search">{t('bot.search_bots')}</label>
+        <input
+          id="mobile-bot-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t('bot.search_bots_placeholder')}
+          className="mb-3 w-full rounded-xl border border-surface-hover bg-surface px-3 py-3 text-base text-text-bright outline-none placeholder:text-text-dim/75 focus:border-primary"
+        />
+        <div
+          className="max-h-[min(40vh,20rem)] space-y-2 overflow-y-auto overscroll-contain pr-1"
+          role="listbox"
+          aria-label={t('bot.roster')}
+        >
+          {filtered.map((persona) => {
+            const isSelected = persona.id === selectedId;
+            const difficultyLabel = getBotPublicStrengthLabel(persona.engine.level);
+
+            return (
+              <button
+                type="button"
+                key={persona.id}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => onSelect(persona.id)}
+                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  isSelected
+                    ? 'border-accent/40 bg-accent/10'
+                    : 'border-surface-hover bg-surface-alt/85 hover:bg-surface-hover/60'
+                }`}
+              >
+                <BotAvatar avatar={persona.avatar} size={44} className="shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-text-bright">{persona.name}</div>
+                  <div className="truncate text-xs text-text-dim">{persona.title}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[0.7rem] font-semibold text-text-dim">
+                    {t('bot.level_short', { level: persona.engine.level })}
+                  </div>
+                  <div className="text-[0.7rem] text-text-dim">{difficultyLabel}</div>
+                </div>
+              </button>
+            );
+          })}
+          {filtered.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm text-text-dim">{t('bot.search_empty')}</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   const handleCardClick = (persona: BotPersona, index: number) => {
     if (isDraggingRef.current) return;
@@ -112,17 +186,16 @@ export default function MobileBotCarousel({
       const cardWidth = scrollRef.current.offsetWidth * 0.75;
       scrollRef.current.scrollTo({
         left: index * cardWidth,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     }
   };
 
   return (
     <div className="relative">
-      {/* Carousel Container */}
       <div
         ref={scrollRef}
-        className="flex overflow-x-auto snap-x snap-mandatory gap-4 px-[12.5%] pb-4 -mx-4 scrollbar-hide cursor-grab active:cursor-grabbing"
+        className="flex cursor-grab snap-x snap-mandatory gap-4 overflow-x-auto px-[12.5%] pb-4 -mx-4 scrollbar-hide active:cursor-grabbing"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -135,30 +208,23 @@ export default function MobileBotCarousel({
           const difficultyLabel = getBotPublicStrengthLabel(persona.engine.level);
 
           return (
-            <button type="button"
+            <button
+              type="button"
               key={persona.id}
               onClick={() => handleCardClick(persona, index)}
-              className={`flex-shrink-0 w-[75vw] max-w-[320px] snap-center rounded-2xl border p-5 text-left transition-[border-color,box-shadow,transform,opacity] duration-300 ${
+              className={`w-[75vw] max-w-[320px] flex-shrink-0 snap-center rounded-2xl border p-5 text-left transition-[border-color,background-color,opacity] duration-200 ${
                 isSelected
-                  ? 'border-primary/40 bg-primary/12 shadow-[0_12px_28px_rgba(92,160,26,0.22)] scale-100'
-                  : 'border-surface-hover bg-surface-alt/85 scale-95 opacity-70'
+                  ? 'border-accent/40 bg-accent/10 opacity-100'
+                  : 'border-surface-hover bg-surface-alt/85 opacity-70'
               }`}
-              style={{
-                transform: isSelected ? 'scale(1)' : 'scale(0.95)',
-              }}
             >
-              {/* Card Content */}
               <div className="flex items-center gap-4">
-                <BotAvatar 
-                  avatar={persona.avatar} 
-                  size={72} 
-                  className={`shrink-0 transition-[border-color,box-shadow,transform,opacity] duration-300 ${isSelected ? 'animate-breathe scale-110' : ''}`}
-                />
+                <BotAvatar avatar={persona.avatar} size={72} className="shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-lg font-semibold text-text-bright">{persona.name}</div>
-                  <div className="text-sm text-text-dim truncate">{persona.title}</div>
+                  <div className="truncate text-sm text-text-dim">{persona.title}</div>
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-semibold text-primary">
+                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs font-semibold text-text-dim">
                       {t('bot.level_short', { level: persona.engine.level })}
                     </span>
                     <span className="text-xs text-text-dim">{difficultyLabel}</span>
@@ -166,8 +232,7 @@ export default function MobileBotCarousel({
                 </div>
               </div>
 
-              {/* Hook */}
-              <p className="mt-4 text-base font-medium text-text line-clamp-2 italic">
+              <p className="mt-4 line-clamp-2 text-base font-medium italic text-text">
                 "{hook}"
               </p>
             </button>
@@ -175,10 +240,10 @@ export default function MobileBotCarousel({
         })}
       </div>
 
-      {/* Pagination Dots */}
-      <div className="flex justify-center gap-2 mt-2">
+      <div className="mt-2 flex justify-center gap-2">
         {personas.map((persona, index) => (
-          <button type="button"
+          <button
+            type="button"
             key={persona.id}
             onClick={() => {
               onSelect(persona.id);
@@ -186,26 +251,18 @@ export default function MobileBotCarousel({
                 const cardWidth = scrollRef.current.offsetWidth * 0.75;
                 scrollRef.current.scrollTo({
                   left: index * cardWidth,
-                  behavior: 'smooth'
+                  behavior: 'smooth',
                 });
               }
             }}
-            className={`w-2 h-2 rounded-full transition-[border-color,box-shadow,transform,opacity] duration-300 ${
-              index === activeIndex 
-                ? 'bg-primary w-6' 
-                : 'bg-surface-hover hover:bg-surface'
+            className={`h-2 rounded-full transition-[width,background-color] duration-200 ${
+              index === activeIndex
+                ? 'w-6 bg-accent'
+                : 'w-2 bg-surface-hover hover:bg-surface'
             }`}
-            aria-label={`Go to ${persona.name}`}
+            aria-label={t('bot.carousel_go_to', { name: persona.name })}
           />
         ))}
-      </div>
-
-      {/* Scroll Hints */}
-      <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none lg:hidden">
-        <div className={`text-2xl text-text-dim/30 transition-opacity duration-300 ${activeIndex > 0 ? 'opacity-100' : 'opacity-0'}`}>◀</div>
-      </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none lg:hidden">
-        <div className={`text-2xl text-text-dim/30 transition-opacity duration-300 ${activeIndex < personas.length - 1 ? 'opacity-100' : 'opacity-0'}`}>▶</div>
       </div>
     </div>
   );

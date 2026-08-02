@@ -806,18 +806,16 @@ export function useBotGameScreen() {
   };
 
   const handleResign = () => {
-    if (window.confirm(t('bot.resign_confirm'))) {
-      clearPendingBotRequest();
-      const newState = { ...gameState };
-      newState.gameOver = true;
-      newState.winner = botColor;
-      newState.resultReason = 'resignation';
-      newState.counting = null;
-      setGameState(newState);
-      setGameOverInfo({ reason: 'resignation', winner: botColor });
-      setPremove(null);
-      playGameOverSound();
-    }
+    clearPendingBotRequest();
+    const newState = { ...gameState };
+    newState.gameOver = true;
+    newState.winner = botColor;
+    newState.resultReason = 'resignation';
+    newState.counting = null;
+    setGameState(newState);
+    setGameOverInfo({ reason: 'resignation', winner: botColor });
+    setPremove(null);
+    playGameOverSound();
   };
 
   const getLastMove = (): Move | null => {

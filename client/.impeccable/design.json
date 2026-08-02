@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-31T13:23:44Z",
+  "generatedAt": "2026-08-02T13:29:00Z",
   "title": "Design System: ThaiChess",
   "extensions": {
     "colorMeta": {
@@ -251,18 +251,18 @@
     "shadows": [
       {
         "name": "board-frame",
-        "value": "0 20px 36px oklch(0.10 0.02 65 / 0.28)",
-        "purpose": "Lifts the Makruk board off the cloth felt."
+        "value": "0 20px 36px oklch(0.10 0.02 65 / 0.28), inset 0 0 0 1px var(--board-grid-line, oklch(0.58 0.05 72 / 0.42))",
+        "purpose": "Lifts the Makruk board off the cloth felt (.board-no-select)."
       },
       {
         "name": "menu-popover",
         "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-        "purpose": "Transient header dropdown panels only."
+        "purpose": "Transient header dropdown panels only (Tailwind shadow-xl)."
       },
       {
         "name": "hover-lift",
         "value": "0 8px 18px rgba(0, 0, 0, 0.14)",
-        "purpose": "Optional 1px translate lift on interactive tiles."
+        "purpose": "Optional 1px translate lift on interactive tiles (.hover-lift:hover)."
       },
       {
         "name": "focus-halo",
@@ -270,16 +270,31 @@
         "purpose": "Keyboard focus companion under Lacquer Green Light outline."
       },
       {
+        "name": "piece-rest",
+        "value": "drop-shadow(0 1px 1px oklch(0.18 0.02 65 / 0.12))",
+        "purpose": "Quiet resting weight on pieces."
+      },
+      {
+        "name": "piece-hover",
+        "value": "drop-shadow(0 3px 8px oklch(0.12 0.02 65 / 0.18))",
+        "purpose": "Subtle lift on piece hover/select."
+      },
+      {
         "name": "piece-drag",
         "value": "drop-shadow(0 8px 14px oklch(0.10 0.02 65 / 0.28))",
         "purpose": "Physical weight while dragging a piece."
+      },
+      {
+        "name": "check-pulse-mid",
+        "value": "inset 0 0 0 1px oklch(0.74 0.09 85 / 0.55), 0 0 14px 2px oklch(0.74 0.09 85 / 0.28)",
+        "purpose": "Peak of State Gold check pulse on .board-square-check."
       }
     ],
     "motion": [
       {
         "name": "ease-physical",
         "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-        "purpose": "Default piece and fade transitions."
+        "purpose": "Default piece, fadeIn, and slideUp transitions."
       },
       {
         "name": "ease-expressive",
@@ -297,8 +312,18 @@
         "purpose": "fadeIn, slideUp, home-hero-board entrance."
       },
       {
+        "name": "piece-land",
+        "value": "pieceLand 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        "purpose": "Short physical settle when a piece lands."
+      },
+      {
+        "name": "check-gold-pulse",
+        "value": "check-gold-pulse 1.6s ease-in-out infinite",
+        "purpose": "King-in-check State Gold pulse; disabled under prefers-reduced-motion."
+      },
+      {
         "name": "reduced-motion",
-        "value": "prefers-reduced-motion: reduce → near-zero durations; check pulse disabled",
+        "value": "prefers-reduced-motion: reduce → near-zero durations; check pulse and home-hero-board disabled",
         "purpose": "Honor accessibility for animation-sensitive players."
       }
     ],
@@ -315,7 +340,7 @@
       "refersTo": "button-play",
       "description": "Primary start-game / matchmaking CTA in Play Amber.",
       "html": "<button type=\"button\" class=\"ds-btn-play\">Play Makruk</button>",
-      "css": ".ds-btn-play { background: var(--color-accent, oklch(0.70 0.14 70)); color: var(--color-surface, oklch(0.22 0.015 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-weight: 700; font-size: 1.125rem; padding: 12px 24px; border: none; border-radius: 0.6rem; cursor: pointer; transition: transform 100ms ease-out, background-color 150ms ease; } .ds-btn-play:hover { background: oklch(0.72 0.15 75); } .ds-btn-play:active { transform: scale(0.97); } .ds-btn-play:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; box-shadow: 0 0 0 4px oklch(0.58 0.16 135 / 0.2); }"
+      "css": ".ds-btn-play { background: var(--color-accent, oklch(0.70 0.14 70)); color: var(--color-surface, oklch(0.22 0.015 65)); font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; padding: 12px 24px; border: none; border-radius: 0.6rem; cursor: pointer; transition: transform 100ms ease-out, background-color 150ms ease; } .ds-btn-play:hover { background: oklch(0.72 0.15 75); } .ds-btn-play:active { transform: scale(0.97); } .ds-btn-play:focus-visible { outline: 3px solid var(--color-primary-light, oklch(0.66 0.18 135)); outline-offset: 3px; box-shadow: 0 0 0 4px oklch(0.58 0.16 135 / 0.2); }"
     },
     {
       "name": "Primary Soft Button",
@@ -380,11 +405,19 @@
       "description": "Rare uppercase section marker in Play Amber.",
       "html": "<p class=\"ds-eyebrow\">Learn Makruk</p>",
       "css": ".ds-eyebrow { margin: 0; font-family: var(--font-body, \"IBM Plex Sans Thai\", sans-serif); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-accent, oklch(0.70 0.14 70)); }"
+    },
+    {
+      "name": "Makruk Board Field",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Signature playing field — warm board base, grid inset, cloth-lift frame shadow.",
+      "html": "<div class=\"ds-board\" aria-hidden=\"true\"><div class=\"ds-board-grid\"></div></div>",
+      "css": ".ds-board { width: 220px; height: 220px; border-radius: 0.3rem; background: var(--color-board-base, oklch(0.78 0.08 78)); box-shadow: inset 0 0 0 1px var(--color-board-grid, oklch(0.58 0.05 72 / 0.42)), 0 20px 36px oklch(0.10 0.02 65 / 0.28); position: relative; overflow: hidden; } .ds-board-grid { position: absolute; inset: 0; background-image: linear-gradient(to right, var(--color-board-grid, oklch(0.58 0.05 72 / 0.42)) 1px, transparent 1px), linear-gradient(to bottom, var(--color-board-grid, oklch(0.58 0.05 72 / 0.42)) 1px, transparent 1px); background-size: 12.5% 12.5%; }"
     }
   ],
   "narrative": {
     "northStar": "The Felt Table",
-    "overview": "ThaiChess sits on a warm cloth-dark table — isotropic felt noise over ember-tinted neutrals — so the Makruk board and pieces read as the light source, not a SaaS dashboard chrome stack. The room is quiet: soft tonal steps, restrained borders, and motion that respects prefers-reduced-motion. Personality is curious and welcoming without elitism; tradition shows up in material and stroke discipline, not ornamental gold.\n\nAction is amber. Antique gold is rare on purpose — it signals turn, check, and puzzle-solved only. Lacquer green remains for legacy chrome (nav active, soft primary washes, focus rings) but does not compete with Play Amber for “start a game.” Icons share the Bia (เบี้ย) stroke ratio so chrome and pieces feel like one family.",
+    "overview": "ThaiChess sits on a warm cloth-dark table — isotropic felt noise over ember-tinted neutrals — so the Makruk board and pieces read as the light source, not a SaaS dashboard chrome stack. The room is quiet: soft tonal steps, restrained borders, and motion that respects `prefers-reduced-motion`. Personality is curious and welcoming without elitism; tradition shows up in material and stroke discipline, not ornamental gold.\n\nAction is amber. Antique gold is rare on purpose — it signals turn, check, and puzzle-solved only. Lacquer green remains for legacy chrome (nav active, soft primary washes, focus rings) but does not compete with Play Amber for “start a game.” Icons share the Bia (เบี้ย) stroke ratio so chrome and pieces feel like one family.",
     "keyCharacteristics": [
       "Cloth-dark felt surfaces (never pure black; never chess.com wood as app chrome)",
       "Play Amber for CTAs; State Gold reserved for three game states",

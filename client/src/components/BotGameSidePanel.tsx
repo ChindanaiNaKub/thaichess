@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { BotPersona } from '@shared/botPersonas';
 import type { Move, PieceColor, Position, GameState } from '@shared/types';
 import { createInitialBoard } from '@shared/engine';
@@ -7,6 +8,7 @@ import GameOverPanel from './GameOverPanel';
 import MoveHistory from './MoveHistory';
 import PostGameReviewPanel from './PostGameReviewPanel';
 import PostGameSharePanel from './PostGameSharePanel';
+import ResignConfirmControls from './ResignConfirmControls';
 import {
   BOT_GAME_TIME_CONTROL,
   type BotTranslationFields,
@@ -106,38 +108,55 @@ export function BotGameSidePanel({
   onHome,
 }: BotGameSidePanelProps) {
   const reviewActive = gameState.gameOver;
+  const [showLore, setShowLore] = useState(false);
 
   return (
     <>
-      <div className="rounded-[1.35rem] border border-surface-hover bg-[radial-gradient(circle_at_top,rgba(173,130,53,0.16),transparent_38%),linear-gradient(180deg,rgba(47,36,28,0.96),rgba(28,22,18,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
+      <div className="rounded-[1.35rem] border border-surface-hover/80 bg-surface-alt/90 p-4">
         <div className="flex items-start gap-3">
-          <BotAvatar avatar={selectedBot.avatar} size={72} className="shrink-0" />
+          <BotAvatar avatar={selectedBot.avatar} size={56} className="shrink-0" />
           <div className="min-w-0">
             <div className="text-lg font-semibold text-text-bright">{selectedBot.name}</div>
-            <div className="text-sm text-text-dim">{selectedBot.title}</div>
-            <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+            <div className="truncate text-sm text-text-dim">{selectedBot.title}</div>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">
               <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">{levelLabel}</span>
               <span className="rounded-full border border-surface-hover bg-surface px-2 py-1">{difficultyLabel}</span>
             </div>
-            <div className="mt-2 text-xs text-text-dim">{estimatedEloLabel}</div>
           </div>
         </div>
 
-        <div className="mt-3 text-sm font-medium text-text">{selectedBotTranslation.hook || selectedBot.personalityHook}</div>
-        <div className="mt-2 text-xs leading-6 text-text-dim">{selectedBotTranslation.backstory || selectedBot.shortBackstory}</div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {selectedBot.personalityTraits.map((trait) => (
-            <span key={trait} className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-[11px] text-text-dim">
-              {t(`bot.trait.${trait}`) || trait}
-            </span>
-          ))}
-        </div>
+        <p className="mt-3 text-sm font-medium italic text-text">
+          "{selectedBotTranslation.hook || selectedBot.personalityHook}"
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setShowLore((current) => !current)}
+          className="mt-3 text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+          aria-expanded={showLore}
+        >
+          {showLore ? t('bot.hide_details') : t('bot.learn_more')} {selectedBot.name}
+        </button>
+
+        {showLore ? (
+          <div className="mt-3 border-t border-surface-hover/60 pt-3">
+            <div className="text-xs leading-6 text-text-dim">{selectedBotTranslation.backstory || selectedBot.shortBackstory}</div>
+            <div className="mt-2 text-xs text-text-dim">{estimatedEloLabel}</div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {selectedBot.personalityTraits.map((trait) => (
+                <span key={trait} className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-xs text-text-dim">
+                  {t(`bot.trait.${trait}`) || trait}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {botChat && (
           <div className="mt-3 flex items-start gap-2.5">
             <BotAvatar avatar={selectedBot.avatar} size={40} className="shrink-0" />
-            <div className={`min-w-0 flex-1 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] px-3 py-2.5 text-[13px] leading-5 text-text shadow-[0_8px_18px_rgba(0,0,0,0.16)] transition-opacity duration-300 ${botChatFading ? 'opacity-0' : 'opacity-100'}`}>
-              <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+            <div className={`min-w-0 flex-1 rounded-2xl border border-surface-hover/70 bg-surface/70 px-3 py-2.5 text-sm leading-5 text-text transition-opacity duration-300 ${botChatFading ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">
                 {botChat.category === 'thinking' ? t('bot.chat_thinking') : selectedBot.name}
               </div>
               <div>{botChat.text}</div>
@@ -146,28 +165,26 @@ export function BotGameSidePanel({
         )}
       </div>
 
-      <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+      <div className="rounded-xl border border-surface-hover/80 bg-surface-alt/90 px-3 py-2.5">
         <div className="flex items-center justify-between gap-3 text-sm">
           <div className="font-semibold text-text-bright">{statusText}</div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            <span>{t('bot.vs_bot')}</span>
-            <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">{levelLabel}</span>
-            <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">{difficultyLabel}</span>
+          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">
+            {t('bot.vs_bot')}
           </div>
         </div>
       </div>
 
       {!gameState.gameOver && counting.label && (
-        <div className="rounded-xl px-4 py-3 bg-accent/10 text-accent border border-accent/30">
-          <div className="text-xs uppercase tracking-wide font-semibold mb-1">{t('game.counting_title')}</div>
-          <div className="text-sm">{counting.label}</div>
+        <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-primary-light">
+          <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]">{t('game.counting_title')}</div>
+          <div className="text-sm text-text-bright">{counting.label}</div>
           {counting.start && (
-            <button type="button" onClick={counting.start} className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors">
+            <button type="button" onClick={counting.start} className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/15 px-3 py-2 text-sm text-primary-light transition-colors hover:bg-primary/25">
               {t('game.counting_start')}
             </button>
           )}
           {counting.stop && (
-            <button type="button" onClick={counting.stop} className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors">
+            <button type="button" onClick={counting.stop} className="mt-3 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover">
               {t('game.counting_stop')}
             </button>
           )}
@@ -239,12 +256,16 @@ export function BotGameSidePanel({
       )}
 
       {!gameState.gameOver && (
-        <button type="button" onClick={onResign} className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors">
-          ⚐ {t('bot.resign')}
-        </button>
+        <ResignConfirmControls
+          onConfirm={onResign}
+          resignLabelKey="bot.resign"
+          confirmMessageKey="bot.resign_confirm"
+          fullWidth
+          className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+        />
       )}
 
-      <button type="button" onClick={onHome} className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-xl transition-colors">
+      <button type="button" onClick={onHome} className="w-full py-2.5 px-4 rounded-xl border border-surface-hover bg-surface-alt/85 text-text text-sm font-semibold transition-colors hover:bg-surface-hover">
         {t('common.back_home')}
       </button>
     </>

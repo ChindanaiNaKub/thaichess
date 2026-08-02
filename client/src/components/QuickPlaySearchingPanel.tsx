@@ -24,7 +24,7 @@ export default function QuickPlaySearchingPanel({
 
   return (
     <div className="ui-card w-full max-w-md p-6 text-center animate-slideUp sm:p-8">
-      <div className="mx-auto mb-6 h-16 w-16 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+      <div className="mx-auto mb-6 h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       <h2 className="text-2xl font-bold text-text-bright mb-2">{t('quick.searching')}</h2>
       <p className="text-text-dim mb-1">
         {selectedTime.label} {t(selectedTime.nameKey)}

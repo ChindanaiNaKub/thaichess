@@ -258,15 +258,17 @@ describe('AccountPage', () => {
     expect(screen.getByText('14')).toBeInTheDocument();
     expect(screen.getByText('6')).toBeInTheDocument();
     expect(screen.getAllByText('4').length).toBeGreaterThan(0);
-    expect(screen.getByText('account.hero_eyebrow')).toBeInTheDocument();
+    expect(screen.getByText('account.title')).toBeInTheDocument();
     expect(screen.getByDisplayValue('player_one')).toBeInTheDocument();
-    expect(screen.getByText('account.actions_title')).toBeInTheDocument();
+    expect(screen.getByText('account.sign_out')).toBeInTheDocument();
     expect(screen.getByText('account.puzzle_title')).toBeInTheDocument();
     expect(screen.getByText('3/7 completed')).toBeInTheDocument();
-    expect(screen.getAllByText('Hanging Piece').length).toBeGreaterThan(0);
     expect(screen.getAllByText('#5001 · Trapped Knight').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_history' }));
     expect(screen.getByText('account.puzzle_last_played_label')).toBeInTheDocument();
     expect(screen.getByText('#10 · Rook Harvest')).toBeInTheDocument();
+    expect(screen.getByText('Hanging Piece')).toBeInTheDocument();
     expect(headerPropsSpy).toHaveBeenCalledWith(expect.objectContaining({ active: null }));
   });
 
@@ -323,7 +325,7 @@ describe('AccountPage', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('player@example.com')).toBeInTheDocument();
+    expect(screen.getByText(/player@example\.com/)).toBeInTheDocument();
     expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
     expect(navigateMock).not.toHaveBeenCalled();
   });
@@ -364,9 +366,11 @@ describe('AccountPage', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Admin security')).toBeInTheDocument();
-    expect(screen.getByText('Status: Not enabled')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Set up admin MFA' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_security' }));
+
+    expect(screen.getByText('account.admin_security_title')).toBeInTheDocument();
+    expect(screen.getByText(/account.admin_security_status/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'account.admin_security_setup' })).toBeInTheDocument();
   });
 
   it('starts admin MFA setup and verifies the first authenticator code', async () => {
@@ -383,15 +387,16 @@ describe('AccountPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Set up admin MFA' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_security' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.admin_security_setup' }));
 
     expect(enableTwoFactorMock).toHaveBeenCalledWith({ issuer: 'ThaiChess' });
     expect(await screen.findByText('otpauth://totp/ThaiChess:admin@example.com')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Authenticator code'), {
+    fireEvent.change(screen.getByLabelText('account.admin_security_code'), {
       target: { value: '123456' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify admin MFA' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.admin_security_verify' }));
 
     expect(verifyTotpMock).toHaveBeenCalledWith({ code: '123456' });
     expect(await screen.findByText('backup-1')).toBeInTheDocument();
@@ -406,16 +411,17 @@ describe('AccountPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show active sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_security' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.sessions_show' }));
 
     expect(listSessionsMock).toHaveBeenCalled();
-    expect(await screen.findByText('Current device')).toBeInTheDocument();
-    expect(screen.getByText('Other device')).toBeInTheDocument();
+    expect(await screen.findByText('account.session_current')).toBeInTheDocument();
+    expect(screen.getByText('account.session_other')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign out other devices' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.session_sign_out_others' }));
 
     expect(revokeOtherSessionsMock).toHaveBeenCalled();
-    expect(await screen.findByText('Current device')).toBeInTheDocument();
-    expect(screen.queryByText('Other device')).not.toBeInTheDocument();
+    expect(await screen.findByText('account.session_current')).toBeInTheDocument();
+    expect(screen.queryByText('account.session_other')).not.toBeInTheDocument();
   });
 });

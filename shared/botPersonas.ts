@@ -1111,6 +1111,14 @@ export const BOT_PERSONAS: readonly BotPersona[] = [
 
 export const DEFAULT_BOT_PERSONA_ID = 'phra-suman';
 
+/** Strength ladder for first paint — novice → default → expert → master. */
+export const FEATURED_BOT_PERSONA_IDS = [
+  'saman-noi',
+  'phra-suman',
+  'chao-surasi',
+  'lady-busaba',
+] as const;
+
 export function getBotPersonaById(id: string | null | undefined): BotPersona {
   if (!id) {
     return BOT_PERSONAS.find((persona) => persona.id === DEFAULT_BOT_PERSONA_ID) ?? BOT_PERSONAS[0];
@@ -1119,4 +1127,18 @@ export function getBotPersonaById(id: string | null | undefined): BotPersona {
   return BOT_PERSONAS.find((persona) => persona.id === id)
     ?? BOT_PERSONAS.find((persona) => persona.id === DEFAULT_BOT_PERSONA_ID)
     ?? BOT_PERSONAS[0];
+}
+
+export function getFeaturedBotPersonas(): BotPersona[] {
+  return FEATURED_BOT_PERSONA_IDS.map((id) => getBotPersonaById(id));
+}
+
+/** Featured roster, always including the current selection so collapse never hides it. */
+export function getVisibleBotPersonas(selectedId: string, showAll: boolean): readonly BotPersona[] {
+  if (showAll) return BOT_PERSONAS;
+
+  const featured = getFeaturedBotPersonas();
+  if (featured.some((persona) => persona.id === selectedId)) return featured;
+
+  return [...featured, getBotPersonaById(selectedId)];
 }

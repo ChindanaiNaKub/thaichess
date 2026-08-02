@@ -4,6 +4,7 @@ import GameOverPanel from './GameOverPanel';
 import MoveHistory from './MoveHistory';
 import PostGameReviewPanel from './PostGameReviewPanel';
 import PostGameSharePanel from './PostGameSharePanel';
+import ResignConfirmControls from './ResignConfirmControls';
 import type { GameOverInfo, TranslateFn } from './gamePageHelpers';
 
 export type ReviewControls = {
@@ -112,7 +113,7 @@ export function GamePageSidePanel({
 }: GamePageSidePanelProps) {
   return (
     <>
-      <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+      <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5">
         <div className="flex items-center justify-between gap-3 text-sm">
           <div className="font-semibold text-text-bright">{statusText}</div>
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -125,15 +126,15 @@ export function GamePageSidePanel({
       </div>
 
       {!gameState.gameOver && countingLabel && (
-        <div className="rounded-xl px-4 py-3 bg-accent/10 text-accent border border-accent/30">
-          <div className="text-xs uppercase tracking-wide font-semibold mb-1">
+        <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-primary-light">
+          <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
             {t('game.counting_title')}
           </div>
-          <div className="text-sm">{countingLabel}</div>
+          <div className="text-sm text-text-bright">{countingLabel}</div>
           {canStartCounting && (
             <button type="button"
               onClick={onStartCounting}
-              className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors"
+              className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/15 px-3 py-2 text-sm text-primary-light transition-colors hover:bg-primary/25"
             >
               {t('game.counting_start')}
             </button>
@@ -141,7 +142,7 @@ export function GamePageSidePanel({
           {canStopCounting && (
             <button type="button"
               onClick={onStopCounting}
-              className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
+              className="mt-3 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
             >
               {t('game.counting_stop')}
             </button>
@@ -226,21 +227,21 @@ export function GamePageSidePanel({
       )}
 
       {!gameState.gameOver && gameState.status === 'playing' && (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-2">
           <button type="button"
             onClick={onOfferDraw}
-            className="py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
+            className="w-full py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
             title={t('game.offer_draw')}
           >
             {t('game.offer_draw')}
           </button>
-          <button type="button"
-            onClick={onResign}
-            className="py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
-            title={t('game.resign')}
-          >
-            {t('game.resign')}
-          </button>
+          <ResignConfirmControls
+            onConfirm={onResign}
+            resignLabelKey="game.resign"
+            confirmMessageKey="game.resign_confirm"
+            fullWidth
+            className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+          />
         </div>
       )}
 

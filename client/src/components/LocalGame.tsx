@@ -474,15 +474,15 @@ function useLocalGameScreen() {
             </div>
 
             {!gameState.gameOver && countingLabel && (
-              <div className="rounded-xl px-4 py-3 bg-accent/10 text-accent border border-accent/30">
-                <div className="text-xs uppercase tracking-wide font-semibold mb-1">
+              <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-primary-light">
+                <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
                   {t('game.counting_title')}
                 </div>
-                <div className="text-sm">{countingLabel}</div>
+                <div className="text-sm text-text-bright">{countingLabel}</div>
                 {canStartLocalCounting && (
                   <button type="button"
                     onClick={handleStartCounting}
-                    className="mt-3 w-full py-2 px-3 bg-accent/20 hover:bg-accent/30 text-accent text-sm rounded-lg border border-accent/30 transition-colors"
+                    className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/15 px-3 py-2 text-sm text-primary-light transition-colors hover:bg-primary/25"
                   >
                     {t('game.counting_start')}
                   </button>
@@ -490,7 +490,7 @@ function useLocalGameScreen() {
                 {canStopLocalCounting && (
                   <button type="button"
                     onClick={handleStopCounting}
-                    className="mt-3 w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-lg border border-surface-hover transition-colors"
+                    className="mt-3 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
                   >
                     {t('game.counting_stop')}
                   </button>

@@ -12,6 +12,7 @@ export type GamePageWaitingViewProps = {
   copied: boolean;
   onCopyGameLink: () => void;
   onNewGame: () => void;
+  onPlayBot: () => void;
 };
 
 export function GamePageWaitingView({
@@ -24,19 +25,21 @@ export function GamePageWaitingView({
   copied,
   onCopyGameLink,
   onNewGame,
+  onPlayBot,
 }: GamePageWaitingViewProps) {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <Header />
 
       <main id="main-content" className="flex-1 flex items-center justify-center p-4 sm:p-6">
-        <div className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-md w-full text-center animate-slideUp">
-          <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <h2 className="text-xl sm:text-2xl font-bold text-text-bright mb-2">{t('game.waiting_title')}</h2>
-          <p className="text-text-dim mb-6 text-sm sm:text-base">{t('game.waiting_desc')}</p>
+        <div className="w-full max-w-md animate-slideUp rounded-xl border border-surface-hover bg-surface-alt p-6 text-center sm:p-8">
+          <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <h2 className="mb-2 text-xl font-bold text-text-bright sm:text-2xl">{t('game.waiting_title')}</h2>
+          <p className="mb-4 text-sm text-text-dim sm:text-base">{t('game.waiting_desc')}</p>
+          <p className="mb-6 text-xs leading-5 text-text-dim">{t('game.waiting_help')}</p>
 
           <div className="mb-4 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-left">
-            <div className="text-xs uppercase tracking-[0.18em] text-text-dim">{t('game.playing_as_label')}</div>
+            <div className="text-[0.7rem] uppercase tracking-[0.18em] text-text-dim">{t('game.playing_as_label')}</div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <div>
                 <div className="text-base font-semibold text-text-bright">{waitingPlayerName}</div>
@@ -50,20 +53,21 @@ export function GamePageWaitingView({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-surface rounded-lg p-2 mb-4">
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-surface p-2">
             <input
               type="text"
               readOnly
               aria-label={t('game.share')}
               value={window.location.href}
-              className="flex-1 bg-transparent text-text-bright text-sm px-2 focus:outline-none font-mono"
+              className="flex-1 bg-transparent px-2 font-mono text-sm text-text-bright focus:outline-none"
             />
-            <button type="button"
+            <button
+              type="button"
               onClick={onCopyGameLink}
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                 copied
                   ? 'button-accent-contrast'
-                  : 'bg-surface-hover text-text-bright hover:bg-accent/15'
+                  : 'bg-surface-hover text-text-bright hover:bg-surface'
               }`}
             >
               {copied ? t('game.copied') : t('game.copy')}
@@ -80,16 +84,29 @@ export function GamePageWaitingView({
           </a>
 
           <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-            gameState.rated ? 'bg-accent/15 text-accent' : 'bg-surface text-text-dim border border-surface-hover'
+            gameState.rated
+              ? 'border border-primary/25 bg-primary/10 text-primary-light'
+              : 'border border-surface-hover bg-surface text-text-dim'
           }`}>
             {gameState.rated ? t('game.rated') : t('game.casual')}
           </div>
-          <button type="button"
-            onClick={onNewGame}
-            className="mt-4 px-5 py-2 rounded-lg bg-surface hover:bg-surface-hover text-text-bright border border-surface-hover font-semibold transition-colors"
-          >
-            {t('common.back_home')}
-          </button>
+
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={onPlayBot}
+              className="button-accent-contrast w-full rounded-xl px-5 py-3 text-sm font-bold"
+            >
+              {t('game.waiting_play_bot')}
+            </button>
+            <button
+              type="button"
+              onClick={onNewGame}
+              className="w-full rounded-xl border border-surface-hover bg-surface px-5 py-2.5 font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+            >
+              {t('common.back_home')}
+            </button>
+          </div>
         </div>
       </main>
     </div>

@@ -405,9 +405,7 @@ export function useGamePageScreen() {
   });
 
   const handleResign = () => {
-    if (window.confirm(t('game.resign_confirm'))) {
-      socket.emit('resign');
-    }
+    socket.emit('resign');
   };
 
   const handleRespondDraw = (accept: boolean) => {
@@ -426,6 +424,13 @@ export function useGamePageScreen() {
       socket.emit('leave_game', { gameId: gameState.gameId });
     }
     navigate(routes.home);
+  };
+
+  const handlePlayBotWhileWaiting = () => {
+    if (gameState?.status === 'waiting') {
+      socket.emit('leave_game', { gameId: gameState.gameId });
+    }
+    navigate(routes.bot);
   };
 
   const handleReportOpponent = async () => {
@@ -486,6 +491,7 @@ export function useGamePageScreen() {
         copied={copied}
         onCopyGameLink={copyGameLink}
         onNewGame={handleNewGame}
+        onPlayBot={handlePlayBotWhileWaiting}
       />
     );
   }

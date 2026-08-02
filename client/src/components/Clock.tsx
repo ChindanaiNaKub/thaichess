@@ -109,39 +109,35 @@ export default function Clock({
             ? t('game.active_now')
             : t('game.online');
   const statusDotClass = effectiveStatus === 'offline' || effectiveStatus === 'disconnected'
-    ? 'bg-danger shadow-[0_0_0_4px_rgb(148_54_54_/_0.16)]'
+    ? 'bg-danger'
     : effectiveStatus === 'reconnecting'
-      ? 'bg-accent shadow-[0_0_0_4px_rgb(181_123_55_/_0.18)]'
+      ? 'bg-accent'
       : effectiveStatus === 'away' || effectiveStatus === 'idle'
-        ? 'bg-slate-400 shadow-[0_0_0_4px_rgb(148_163_184_/_0.12)]'
+        ? 'bg-text-dim/70'
         : effectiveStatus === 'active'
-          ? 'bg-primary shadow-[0_0_0_4px_rgb(88_168_95_/_0.18)]'
-          : 'bg-success shadow-[0_0_0_4px_rgb(72_156_84_/_0.14)]';
+          ? 'bg-primary'
+          : 'bg-success';
   const pingLabel = latencyMs === null
     ? null
     : `${latencyMs}ms`;
-  const pingToneClass = latencyMs === null
-    ? 'border-surface-hover/70 bg-surface/45 text-text-dim'
-    : latencyMs <= 120
-      ? 'border-success/30 bg-success/10 text-success'
-      : latencyMs <= 250
-        ? 'border-accent/30 bg-accent/10 text-accent'
-        : 'border-danger/30 bg-danger/10 text-danger';
-
   const pingTitle = latencyMs === null
     ? t('game.ping_unknown')
     : t('game.ping_value', { ms: latencyMs });
 
+  const avatarStatusTitle = pingLabel
+    ? `${statusLabel} · ${pingTitle}`
+    : statusLabel;
+
   return (
     <div className={`
       w-full rounded-2xl border px-3.5 py-3 sm:px-4 lg:px-2.5
-      transition-[background-color,box-shadow,color] duration-200
+      transition-[background-color,border-color,color] duration-200
       ${showTimer ? 'lg:py-1.5' : 'py-2.5 lg:py-2'}
       ${isActive
         ? isCritical
-          ? 'border-danger/35 bg-[linear-gradient(180deg,rgba(120,36,36,0.18),rgba(41,27,24,0.95))] shadow-[0_10px_30px_rgba(80,24,24,0.18)]'
-          : 'border-gold/40 bg-[linear-gradient(180deg,oklch(0.74_0.09_85/0.16),rgba(34,29,22,0.96))] shadow-[0_10px_28px_oklch(0.74_0.09_85/0.18)]'
-        : 'border-surface-hover/70 bg-[linear-gradient(180deg,rgba(51,42,32,0.46),rgba(30,26,22,0.96))] shadow-[0_10px_24px_rgba(0,0,0,0.16)]'
+          ? 'border-danger/40 bg-danger/10'
+          : 'border-gold/40 bg-gold/10'
+        : 'border-surface-hover/70 bg-surface-alt/80'
       }
     `}>
       <div className={`flex w-full min-w-0 gap-3 ${showTimer ? 'items-center justify-between' : 'items-start justify-between'}`}>
@@ -151,8 +147,8 @@ export default function Clock({
               <BotAvatar avatar={botAvatar} size={40} />
               <span
                 className={`absolute bottom-1 left-1 z-30 h-2.5 w-2.5 rounded-full border border-surface-alt ${statusDotClass}`}
-                aria-label={statusLabel}
-                title={statusLabel}
+                aria-label={avatarStatusTitle}
+                title={avatarStatusTitle}
               />
             </div>
           ) : (
@@ -172,8 +168,8 @@ export default function Clock({
               )}
               <span
                 className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border border-surface-alt ${statusDotClass}`}
-                aria-label={statusLabel}
-                title={statusLabel}
+                aria-label={avatarStatusTitle}
+                title={avatarStatusTitle}
               />
             </div>
           )}
@@ -189,53 +185,54 @@ export default function Clock({
                 materialDelta={materialDelta}
               />
               {isActive && showTimer && (
-                <span className="hidden shrink-0 rounded-full border border-gold/35 bg-gold/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold sm:inline-flex lg:px-1.5">
+                <span className="hidden shrink-0 rounded-full border border-gold/35 bg-gold/12 px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gold sm:inline-flex lg:px-1.5">
                   {t('game.to_move')}
                 </span>
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-text-dim lg:mt-0 lg:gap-1 lg:text-[9px]">
-              {showColorChip && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/55 px-2 py-1 lg:px-1.25 lg:py-0.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${color === 'white' ? 'bg-[#f2eadb]' : 'bg-[#22252a]'}`} />
-                  {colorLabel}
-                </span>
-              )}
-              {typeof rating === 'number' && (
-                <span className="inline-flex items-center rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
-                  {t('leaderboard.col_rating')} {rating}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass.split(' ')[0]}`} />
-                {statusLabel}
-              </span>
-              <span
-                className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold normal-case tracking-normal lg:px-1.25 lg:py-0.5 ${pingToneClass}`}
-                title={pingTitle}
-              >
-                {pingLabel ?? t('game.ping_short')}
-              </span>
-            </div>
+            {!isCritical && (
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim lg:mt-0 lg:gap-1">
+                {showColorChip && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/55 px-2 py-1 lg:px-1.25 lg:py-0.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${color === 'white' ? 'bg-[#f2eadb]' : 'bg-[#22252a]'}`} />
+                    {colorLabel}
+                  </span>
+                )}
+                {typeof rating === 'number' && (
+                  <span className="inline-flex items-center rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
+                    {t('leaderboard.col_rating')} {rating}
+                  </span>
+                )}
+                {effectiveStatus !== 'online' && effectiveStatus !== 'active' && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5"
+                    title={avatarStatusTitle}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} />
+                    {statusLabel}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {showTimer && (
           <div className={`
             min-w-[104px] shrink-0 rounded-xl border px-3 py-2 text-right lg:min-w-[84px] lg:px-2 lg:py-1
-            ${isCritical
+            ${isCritical || isLow
               ? 'border-danger/30 bg-danger/10'
               : isActive
                 ? 'border-gold/30 bg-gold/10'
                 : 'border-surface-hover/65 bg-surface/55'
             }
           `}>
-            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-text-dim lg:text-[9px]">
-              {isActive ? t('game.to_move') : statusLabel}
+            <div className="mb-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-text-dim">
+              {isActive ? t('game.to_move') : colorLabel}
             </div>
             <div className={`
               font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl lg:text-[1.45rem]
-              ${isCritical ? 'text-danger' : isLow ? 'text-accent' : 'text-text-bright'}
+              ${isCritical || isLow ? 'text-danger' : 'text-text-bright'}
               ${isActive && isCritical ? 'animate-pulse' : ''}
             `}>
               {formatTime(displayTime)}

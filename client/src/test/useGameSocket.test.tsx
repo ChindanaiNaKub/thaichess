@@ -372,20 +372,13 @@ describe('useGameActions', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     socketMock.emit.mockReset();
-    vi.stubGlobal('confirm', vi.fn(() => true));
   });
 
-  it('emits resign only after confirmation and exposes the other game actions', () => {
-    const confirmMock = vi.mocked(window.confirm);
+  it('emits resign immediately and exposes the other game actions', () => {
     const { result } = renderHook(() => useGameActions(), { wrapper });
 
     result.current.handleResign();
-    expect(confirmMock).toHaveBeenCalledWith('Are you sure you want to resign?');
     expect(socketMock.emit).toHaveBeenCalledWith('resign');
-
-    confirmMock.mockReturnValue(false);
-    result.current.handleResign();
-    expect(socketMock.emit).toHaveBeenCalledTimes(1);
 
     result.current.handleOfferDraw();
     expect(socketMock.emit).toHaveBeenCalledWith('offer_draw');

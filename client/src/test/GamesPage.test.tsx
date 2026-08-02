@@ -117,17 +117,20 @@ describe('GamesPage', () => {
     render(<GamesPage />, { wrapper: Wrapper });
 
     // Wait for loading to finish and data to appear (increased timeout)
-    expect(await screen.findByText('rated-1', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByText('bot-1', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(await screen.findByText('casual-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('Rated White (1500) vs Rated Black (1500)', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText('Guest One vs Makruk Bot Lv.3 (Bot)')).toBeInTheDocument();
+    expect(screen.getByText('Guest One vs Guest Two')).toBeInTheDocument();
+    expect(screen.queryByText('rated-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('bot-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('casual-1')).not.toBeInTheDocument();
 
     expect(screen.getAllByText('Rated').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Casual').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bot').length).toBeGreaterThan(0);
-    expect(screen.getByText('Rated White (1500) vs Rated Black (1500)')).toBeInTheDocument();
-    expect(screen.getByText('Guest One vs 🤖 Makruk Bot Lv.3')).toBeInTheDocument();
-    expect(screen.getByText('Guest One vs Guest Two')).toBeInTheDocument();
-    expect(screen.getByText('Games vs bot')).toBeInTheDocument();
+    expect(screen.queryByText('Games vs bot')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bot' }));
+    expect(await screen.findByText('Games vs bot')).toBeInTheDocument();
     expect(screen.getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('Lv.6')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
@@ -173,6 +176,34 @@ describe('GamesPage', () => {
     }, { timeout: 3000 });
   });
 
+  it('offers Play vs Bot when the bot filter history is empty', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        games: [],
+        total: 0,
+        botStats: {
+          gamesCount: 0,
+          winRate: 0,
+          highestBotLevelDefeated: null,
+        },
+      }),
+    });
+
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/games/recent?page=0&limit=20&filter=all');
+    }, { timeout: 3000 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bot' }));
+
+    expect(await screen.findByText('No bot games yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Play vs Bot' }));
+    expect(navigateMock).toHaveBeenCalledWith('/bot');
+  });
+
   it('opens finished games in analysis instead of the live game route', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
@@ -205,9 +236,9 @@ describe('GamesPage', () => {
     render(<GamesPage />, { wrapper: Wrapper });
 
     // Wait for loading to finish and data to appear (increased timeout)
-    expect(await screen.findByText('finished-1', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('White Side vs Black Side', {}, { timeout: 3000 })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('finished-1'));
+    fireEvent.click(screen.getByText('White Side vs Black Side'));
 
     expect(navigateMock).toHaveBeenCalledWith('/analysis/finished-1');
   });
