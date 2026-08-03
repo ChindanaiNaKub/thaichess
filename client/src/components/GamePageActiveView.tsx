@@ -1,17 +1,25 @@
 import type { RefObject } from 'react';
+import { useState } from 'react';
 import type { ClientGameState, Move, PieceColor, Position, TimeControl } from '@shared/types';
+import { useLgUp } from '../hooks/useLgUp';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import Clock from './Clock';
 import ConnectionStatus from './ConnectionStatus';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
+import GameHeaderToolsMenu, { gameHeaderMenuItemClass } from './GameHeaderToolsMenu';
+import CountingBoardStrip from './CountingBoardStrip';
+import GameMobileActions from './GameMobileActions';
 import InGameShell from './InGameShell';
 import GameOverModal from './GameOverModal';
 import PieceGuide from './PieceGuide';
+import PostGameSharePanel from './PostGameSharePanel';
 import { GamePageSidePanel } from './GamePageSidePanel';
 import type { ReviewControls, ReviewEngineControls } from './GamePageSidePanel';
 import type { GameOverInfo, TranslateFn } from './gamePageHelpers';
+import { CLOCK_CRITICAL_MS, gameMetaChipClass, shouldOfferPieceGuideStatusHelp } from './gamePageHelpers';
+import PieceGuideStatusHelp from './PieceGuideStatusHelp';
 
 type CaptureSummary = {
   pieces: ReturnType<typeof import('../lib/capturedSummary').getCapturedSummary>['pieces'];
@@ -41,7 +49,9 @@ export type GamePageActiveViewProps = {
   notices: {
     drawOffered: boolean;
     opponentDisconnected: boolean;
+    liveError: string | null;
   };
+  onDismissLiveError: () => void;
   overlays: {
     showGuide: boolean;
     showGameOverModal: boolean;
@@ -154,6 +164,7 @@ export function GamePageActiveView({
   containerRef,
   onHome,
   onCopyGameLink,
+  onDismissLiveError,
   onRespondDraw,
   onSquareClick,
   onPieceDrop,
@@ -172,6 +183,17 @@ export function GamePageActiveView({
   onShowGuide,
   onCloseGuide,
 }: GamePageActiveViewProps) {
+  const lgUp = useLgUp();
+  const [peakShareOpen, setPeakShareOpen] = useState(false);
+  const myClockMs = playerColor === 'white'
+    ? gameState.whiteTime
+    : playerColor === 'black'
+      ? gameState.blackTime
+      : null;
+  const countingLeaveUrgent = typeof myClockMs === 'number' && myClockMs < CLOCK_CRITICAL_MS;
+  const showCounting = Boolean(!gameState.gameOver && counting.label);
+  const canPeakShare = Boolean(gameOverInfo && playerColor);
+
   return (
     <div ref={containerRef}>
       <ConnectionStatus />
@@ -180,51 +202,79 @@ export function GamePageActiveView({
         onHome={onHome}
         headerMeta={
           <>
-            <AppearanceSettingsButton compact />
-            <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
-            <span className={`rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] ${
-              gameState.rated
-                ? 'border border-primary/25 bg-primary/10 text-primary-light'
-                : 'bg-surface text-text-dim border border-surface-hover'
-            }`}>
+            <span
+              data-testid="game-rated-chip"
+              className={`${gameMetaChipClass} px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]`}
+            >
               {gameState.rated ? t('game.rated') : t('game.casual')}
             </span>
-            <button type="button"
-              onClick={onCopyGameLink}
-              className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
-            >
-              {shareLabel}
-            </button>
-            <a
-              href={spectatorPath}
-              target="_blank"
-              rel="noreferrer"
-              className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
-            >
-              {t('game.open_spectator')}
-            </a>
+            <AppearanceSettingsButton compact mode="popover" />
+            <GameHeaderToolsMenu t={t}>
+              <button
+                type="button"
+                onClick={onCopyGameLink}
+                className={gameHeaderMenuItemClass}
+              >
+                {shareLabel}
+              </button>
+              <a
+                href={spectatorPath}
+                target="_blank"
+                rel="noreferrer"
+                className={gameHeaderMenuItemClass}
+              >
+                {t('game.open_spectator')}
+              </a>
+              {gameId ? (
+                <div className="px-3 py-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim">
+                  {t('game.game_label')}{' '}
+                  <span className="font-mono normal-case tracking-normal text-text-bright">{gameId}</span>
+                </div>
+              ) : null}
+            </GameHeaderToolsMenu>
           </>
         }
         banners={
           <>
+            {notices.liveError && (
+              <div
+                role="alert"
+                className="flex items-center justify-center gap-3 border-b border-danger/30 bg-danger/15 px-3 py-2.5 text-center text-xs sm:text-sm text-danger"
+              >
+                <span className="min-w-0 flex-1 font-medium">{notices.liveError}</span>
+                <button
+                  type="button"
+                  onClick={onDismissLiveError}
+                  className="shrink-0 rounded-lg border border-danger/30 px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                  aria-label={t('common.close')}
+                >
+                  {t('common.close')}
+                </button>
+              </div>
+            )}
             {notices.opponentDisconnected && (
               <div className="border-b border-surface-hover bg-surface-alt/80 text-center py-2 text-xs sm:text-sm text-text-dim">
                 {t('game.opponent_dc')}
               </div>
             )}
             {notices.drawOffered && (
-              <div className="bg-primary/20 border-b border-primary/30 text-center py-3 text-xs sm:text-sm flex items-center justify-center gap-3 flex-wrap px-2">
-                <span className="text-text-bright">{t('game.draw_offer_received')}</span>
+              <div
+                data-testid="draw-offer-banner"
+                className="flex flex-wrap items-center justify-center gap-3 border-b border-surface-hover/80 bg-surface-alt/95 px-2 py-3 text-center text-xs sm:text-sm"
+              >
+                <span className="font-medium text-text-bright">{t('game.draw_offer_received')}</span>
                 <div className="flex gap-2">
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => onRespondDraw(true)}
-                    className="ui-btn-primary rounded px-4 py-1 text-sm font-semibold"
+                    className="ui-btn-primary px-4 py-2 text-sm"
                   >
                     {t('game.accept')}
                   </button>
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => onRespondDraw(false)}
-                    className="px-4 py-1 bg-surface-hover text-text-bright rounded font-semibold text-sm"
+                    className="rounded-lg border border-surface-hover bg-transparent px-4 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
                   >
                     {t('game.decline')}
                   </button>
@@ -286,10 +336,41 @@ export function GamePageActiveView({
         moveCount={moveCount}
         isViewingHistory={turnState.isViewingHistory}
         showCheckBadge={reviewSession.active ? reviewSession.controls.currentState.isCheck : gameState.isCheck}
+        statusHelp={
+          !reviewSession.active
+          && shouldOfferPieceGuideStatusHelp(
+            moveCount,
+            gameState.isCheck,
+            gameState.gameOver,
+          )
+            ? <PieceGuideStatusHelp t={t} onShowGuide={onShowGuide} />
+            : null
+        }
+        boardNotice={
+          showCounting && !lgUp && counting.label ? (
+            <CountingBoardStrip
+              t={t}
+              label={counting.label}
+              canStart={counting.canStart}
+              canStop={counting.canStop}
+              onStart={onStartCounting}
+              onStop={onStopCounting}
+              onOfferDraw={onOfferDraw}
+              onResign={onResign}
+              leaveUrgent={countingLeaveUrgent}
+            />
+          ) : null
+        }
+        boardActions={
+          /* Counting strip owns Start/Stop + compact exits; demote the separate thumb row to avoid stacking. */
+          !lgUp && !showCounting && !gameState.gameOver && gameState.status === 'playing' ? (
+            <GameMobileActions t={t} onOfferDraw={onOfferDraw} onResign={onResign} />
+          ) : null
+        }
         toolbar={
           !reviewSession.active && premove ? (
             <>
-              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
+              <span data-testid="game-premove-chip" className={gameMetaChipClass}>
                 {t('game.premove_set')}
               </span>
               <button type="button"
@@ -307,9 +388,7 @@ export function GamePageActiveView({
             gameId={gameId}
             gameState={gameState}
             playerColor={playerColor}
-            playerSubtitle={playerSubtitle}
-            statusText={statusText}
-            countingLabel={counting.label}
+            countingLabel={showCounting && lgUp ? counting.label : null}
             canStartCounting={counting.canStart}
             canStopCounting={counting.canStop}
             gameOverInfo={gameOverInfo}
@@ -336,6 +415,9 @@ export function GamePageActiveView({
             onStartCounting={onStartCounting}
             onStopCounting={onStopCounting}
             onShowGuide={onShowGuide}
+            showHighStakesActions={lgUp}
+            endgamePeakOpen={overlays.showGameOverModal}
+            leaveUrgent={countingLeaveUrgent}
           />
         }
       />
@@ -356,7 +438,51 @@ export function GamePageActiveView({
           onReport={reporting.allowed ? onReport : undefined}
           reportLabel={reporting.modalLabel}
           reportDisabled={reporting.disabled}
-          onClose={onCloseGameOverModal}
+          onClose={() => {
+            setPeakShareOpen(false);
+            onCloseGameOverModal();
+          }}
+          moreExtrasOnly={peakShareOpen}
+          moreExtras={
+            canPeakShare && playerColor ? (
+              peakShareOpen ? (
+                <div className="space-y-2 text-left" data-testid="post-game-share-path">
+                  <button
+                    type="button"
+                    onClick={() => setPeakShareOpen(false)}
+                    className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                  >
+                    {t('game.hide_share')}
+                  </button>
+                  <PostGameSharePanel
+                    analysisId={gameId}
+                    board={gameState.board}
+                    lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                    moves={gameState.moveHistory}
+                    moveCount={gameState.moveCount}
+                    playerColor={playerColor}
+                    whitePlayerName={whitePlayerName || t('common.white')}
+                    blackPlayerName={blackPlayerName || t('common.black')}
+                    winner={gameOverInfo.winner}
+                    resultReason={gameOverInfo.reason}
+                    gameMode={gameState.gameMode}
+                    rated={gameState.rated}
+                    timeControl={timeControl}
+                    ratingChange={gameOverInfo.ratingChange}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="post-game-share-expand"
+                  onClick={() => setPeakShareOpen(true)}
+                  className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                >
+                  {t('game.show_share')}
+                </button>
+              )
+            ) : null
+          }
         />
       )}
 

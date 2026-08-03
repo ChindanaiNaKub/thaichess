@@ -22,13 +22,12 @@ interface MobileBottomSheetProps {
   };
   levelLabel: string;
   difficultyLabel: string;
+  estimatedEloLabel: string;
   setupIntroPreview: string;
 }
 
 function sideButtonClass(active: boolean) {
-  return active
-    ? 'border-accent/40 bg-accent/15 text-accent'
-    : 'border-surface-hover bg-surface-alt/85 text-text hover:bg-surface-hover';
+  return active ? 'ui-choice ui-choice-selected' : 'ui-choice bg-surface-alt/85';
 }
 
 export default function MobileBottomSheet({
@@ -41,6 +40,7 @@ export default function MobileBottomSheet({
   botTranslation,
   levelLabel,
   difficultyLabel,
+  estimatedEloLabel,
   setupIntroPreview,
 }: MobileBottomSheetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -108,16 +108,11 @@ export default function MobileBottomSheet({
             <div className="min-w-0 flex-1">
               <h3 className="text-xl font-bold text-text-bright">{bot.name}</h3>
               <p className="truncate text-sm text-text-dim">{bot.title}</p>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1">
                 <span className="rounded-full border border-surface-hover bg-surface px-2 py-0.5 text-xs font-semibold text-text-dim">{levelLabel}</span>
-                <span className="text-xs text-text-dim">{difficultyLabel}</span>
               </div>
             </div>
           </div>
-
-          <p className="mb-4 text-base font-medium italic text-text">
-            "{botTranslation.hook || bot.personalityHook}"
-          </p>
 
           <fieldset className="mb-4 min-w-0 border-0 p-0">
             <legend className="mb-2 block text-xs font-medium text-text-dim">{t('bot.play_as')}</legend>
@@ -158,10 +153,6 @@ export default function MobileBottomSheet({
             <span aria-hidden="true">▶</span>
             <span>{t('bot.start')}</span>
           </button>
-
-          <p className="mt-3 text-center text-xs text-text-dim">
-            {t('bot.estimated_elo_note')}
-          </p>
         </div>
 
         <div
@@ -169,7 +160,16 @@ export default function MobileBottomSheet({
             isExpanded ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
+          {isExpanded ? (
           <div className="border-t border-surface-hover/50 px-5 pb-6 pt-4">
+            <p className="mb-3 text-base font-medium italic text-text">
+              "{botTranslation.hook || bot.personalityHook}"
+            </p>
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-text-dim">
+              <span className="rounded-full border border-surface-hover bg-surface px-2 py-0.5 font-semibold">{difficultyLabel}</span>
+              <span>{estimatedEloLabel}</span>
+            </div>
+            <p className="mb-3 text-xs leading-5 text-text-dim">{t('bot.estimated_elo_note')}</p>
             <p className="mb-4 text-sm leading-6 text-text">{botTranslation.backstory || bot.shortBackstory}</p>
 
             <div className="mb-4 space-y-3">
@@ -215,6 +215,7 @@ export default function MobileBottomSheet({
               {t('common.back_home')}
             </button>
           </div>
+          ) : null}
         </div>
       </div>
     </div>

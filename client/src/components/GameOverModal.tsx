@@ -1,5 +1,12 @@
+import { useState, type ReactNode } from 'react';
 import type { PieceColor, RatingChangeSummary } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
+import { GameOverOutcomeMark } from './GameOverOutcomeMark';
+import {
+  getGameOverResultLabel,
+  isGameOverCelebratory,
+  resolveGameOverOutcome,
+} from './gameOverClimax';
 
 interface GameOverModalProps {
   winner: PieceColor | null;
@@ -18,6 +25,10 @@ interface GameOverModalProps {
   rematchLabel?: string;
   rematchDisabled?: boolean;
   rematchNotice?: string | null;
+  /** Quiet Share (and similar) under More — peak-end discovery without dismissing Rematch. */
+  moreExtras?: ReactNode;
+  /** When Share owns More, hide Study/Report siblings. */
+  moreExtrasOnly?: boolean;
 }
 
 export default function GameOverModal({
@@ -37,21 +48,21 @@ export default function GameOverModal({
   rematchLabel,
   rematchDisabled = false,
   rematchNotice = null,
+  moreExtras = null,
+  moreExtrasOnly = false,
 }: GameOverModalProps) {
   const { t } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
   const isDraw = !winner;
-  const isWinner = winner === playerColor;
+  const celebratory = isGameOverCelebratory(winner, playerColor);
   const playerRatingDelta = playerColor === 'white'
     ? ratingChange ? ratingChange.whiteAfter - ratingChange.whiteBefore : null
     : playerColor === 'black'
       ? ratingChange ? ratingChange.blackAfter - ratingChange.blackBefore : null
       : null;
-
-  const getTitle = () => {
-    if (isDraw) return t('gameover.draw');
-    if (isWinner) return t('gameover.you_win');
-    return t('gameover.you_lost');
-  };
+  /* Study CTA is Analyze — no nested Study → Analyze toggle. */
+  const hasStudyContent = Boolean(onAnalyze);
+  const hasMoreTools = Boolean(hasStudyContent || moreExtras || onReport || reportStatusMessage);
 
   const getReasonText = () => {
     switch (reason) {
@@ -66,20 +77,18 @@ export default function GameOverModal({
     }
   };
 
-  const getMark = () => {
-    if (isDraw) return '½';
-    if (isWinner) return '1';
-    return '0';
-  };
+  const outcome = resolveGameOverOutcome(winner, playerColor);
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fadeIn p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[oklch(0.12_0.02_65_/_0.72)] p-4 animate-fadeIn"
       onClick={onClose}
+      data-testid="game-over-modal-scrim"
     >
       <div
-        className="bg-surface-alt border border-surface-hover rounded-xl p-6 sm:p-8 max-w-sm w-full animate-slideUp shadow-2xl relative"
+        className="relative w-full max-w-sm rounded-2xl border border-surface-hover/80 bg-surface-alt p-6 sm:p-8 animate-slideUp shadow-[0_10px_24px_oklch(0.10_0.02_65_/_0.14)]"
         onClick={e => e.stopPropagation()}
+        data-testid="game-over-modal"
       >
         {onClose && (
           <button type="button"
@@ -92,32 +101,31 @@ export default function GameOverModal({
         )}
 
         <div className="text-center">
-          <div
-            aria-hidden="true"
-            className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border text-2xl font-bold tracking-tight ${
-              isDraw
-                ? 'border-accent/35 bg-accent/10 text-accent'
-                : isWinner
-                  ? 'border-accent/35 bg-accent/10 text-accent'
-                  : 'border-danger/35 bg-danger/10 text-danger'
-            }`}
-          >
-            {getMark()}
+          <div className="mb-4">
+            <GameOverOutcomeMark outcome={outcome} />
           </div>
-          <h2 className={`text-2xl font-bold mb-1 ${
-            isDraw ? 'text-accent' : isWinner ? 'text-text-bright' : 'text-danger'
+          <h2 className={`font-display text-2xl font-bold tracking-tight mb-1 ${
+            celebratory ? 'text-gold' : 'text-danger'
           }`}>
-            {getTitle()}
+            {getGameOverResultLabel(t, winner, playerColor)}
           </h2>
           <p className="text-text-dim text-sm mb-6">{getReasonText()}</p>
           <div className="mb-6 flex flex-col items-center gap-2">
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
-              rated ? 'bg-accent/15 text-accent' : 'bg-surface text-text-dim'
-            }`}>
+            <span
+              data-testid="game-over-rated-chip"
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+                rated
+                  ? 'border border-primary/25 bg-primary/10 text-primary-light'
+                  : 'bg-surface text-text-dim'
+              }`}
+            >
               {rated ? t('game.rated') : t('game.casual')}
             </span>
             {rated && playerRatingDelta !== null && (
-              <p className={`text-sm font-semibold ${playerRatingDelta >= 0 ? 'text-accent' : 'text-danger'}`}>
+              <p
+                data-testid="game-over-rating-delta"
+                className={`text-sm font-semibold ${playerRatingDelta >= 0 ? 'text-primary-light' : 'text-danger'}`}
+              >
                 {t('game.rating_change')} {playerRatingDelta >= 0 ? '+' : ''}{playerRatingDelta}
               </p>
             )}
@@ -129,42 +137,73 @@ export default function GameOverModal({
                 {rematchNotice}
               </div>
             )}
-            <button type="button"
+            {/* Peak-end: Rematch owns the climax — tools match GameOverPanel More pattern. */}
+            <button
+              type="button"
+              data-testid="game-over-modal-rematch"
               onClick={onRematch}
               disabled={rematchDisabled}
               className="button-accent-contrast w-full rounded-lg px-6 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               {rematchLabel ?? t('gameover.rematch')}
             </button>
-            <button type="button"
+            <button
+              type="button"
+              data-testid="game-over-modal-new-game"
               onClick={onNewGame}
-              className="ui-btn-secondary w-full px-6 py-3 font-semibold"
+              className="w-full rounded-lg px-3 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover/60 hover:text-text-bright"
             >
               {t('common.new_game')}
             </button>
-            {onAnalyze && (
-              <button type="button"
-                onClick={onAnalyze}
-                data-testid="analyze-game-button"
-                className="ui-btn-secondary w-full px-6 py-3 font-semibold"
-              >
-                {t('analysis.analyze')}
-              </button>
-            )}
-            {onReport && (
-              <button type="button"
-                onClick={onReport}
-                disabled={reportDisabled}
-                className="ui-btn-secondary w-full px-6 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {reportLabel ?? t('fair_play.report_action')}
-              </button>
-            )}
-            {reportStatusMessage && (
-              <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-sm text-text-dim">
-                {reportStatusMessage}
+            {hasMoreTools ? (
+              <div className="border-t border-surface-hover/60 pt-3 text-left">
+                <button
+                  type="button"
+                  data-testid="game-over-modal-more-toggle"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((open) => !open)}
+                  className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                >
+                  {moreOpen ? t('game.endgame_hide_tools') : t('game.endgame_more_tools')}
+                </button>
+                {moreOpen ? (
+                  <div className="mt-2 flex flex-col gap-2" data-testid="game-over-modal-more-tools">
+                    {moreExtrasOnly ? (
+                      moreExtras
+                    ) : (
+                      <>
+                        {onAnalyze ? (
+                          <button
+                            type="button"
+                            onClick={onAnalyze}
+                            data-testid="analyze-game-button"
+                            className="w-full rounded-lg px-3 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover/60 hover:text-text-bright"
+                          >
+                            {t('game.endgame_study')}
+                          </button>
+                        ) : null}
+                        {moreExtras}
+                        {onReport && (
+                          <button
+                            type="button"
+                            onClick={onReport}
+                            disabled={reportDisabled}
+                            className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {reportLabel ?? t('fair_play.report_action')}
+                          </button>
+                        )}
+                        {reportStatusMessage && (
+                          <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-sm text-text-dim">
+                            {reportStatusMessage}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

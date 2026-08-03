@@ -1,24 +1,32 @@
 import { useState } from 'react';
 import { useTranslation } from '../lib/i18n';
 
+type ConfirmTone = 'danger' | 'neutral';
+
 interface ResignConfirmControlsProps {
   onConfirm: () => void;
-  /** i18n key for the idle resign button label */
+  /** i18n key for the idle action button label */
   resignLabelKey: string;
   /** i18n key for the confirmation warning copy */
   confirmMessageKey: string;
+  /** i18n key for the confirm CTA (defaults to resign) */
+  confirmActionKey?: string;
+  /** danger = resign/loss; neutral = offer-draw and other soft confirms */
+  tone?: ConfirmTone;
   className?: string;
   fullWidth?: boolean;
 }
 
 /**
- * In-cloth resign confirm (DeleteAccount-style progressive disclosure).
- * Callers pass a confirm-free `onConfirm` that performs the resign.
+ * In-cloth progressive confirm (DeleteAccount-style disclosure).
+ * Callers pass a confirm-free `onConfirm` that performs the action.
  */
 export default function ResignConfirmControls({
   onConfirm,
   resignLabelKey,
   confirmMessageKey,
+  confirmActionKey = 'game.resign_confirm_action',
+  tone = 'danger',
   className = '',
   fullWidth = false,
 }: ResignConfirmControlsProps) {
@@ -41,13 +49,21 @@ export default function ResignConfirmControls({
     );
   }
 
+  const panelClass = tone === 'danger'
+    ? 'border-danger/30 bg-danger/5'
+    : 'border-primary/25 bg-primary/5';
+  const messageClass = tone === 'danger' ? 'text-danger' : 'text-primary-light';
+  const confirmClass = tone === 'danger'
+    ? 'flex-1 rounded-xl bg-danger px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-danger-bright'
+    : 'ui-btn-primary flex-1 px-3 py-2.5 text-sm';
+
   return (
     <div
-      className={`space-y-2 rounded-xl border border-danger/30 bg-danger/5 p-3 ${fullWidth ? 'w-full' : ''}`}
+      className={`space-y-2 rounded-xl border p-3 ${panelClass} ${fullWidth ? 'w-full' : ''}`}
       role="group"
       aria-label={t(confirmMessageKey)}
     >
-      <p className="text-sm font-medium text-danger">{t(confirmMessageKey)}</p>
+      <p className={`text-sm font-medium ${messageClass}`}>{t(confirmMessageKey)}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -62,9 +78,9 @@ export default function ResignConfirmControls({
             setShowConfirm(false);
             onConfirm();
           }}
-          className="flex-1 rounded-xl bg-danger px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-danger-bright"
+          className={confirmClass}
         >
-          {t('game.resign_confirm_action')}
+          {t(confirmActionKey)}
         </button>
       </div>
     </div>

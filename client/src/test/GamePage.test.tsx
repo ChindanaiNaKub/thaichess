@@ -26,6 +26,7 @@ const {
   pieceGuidePropsMock,
   socketMock,
   pieceStyleState,
+  showToastMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   connectSocketMock: vi.fn(),
@@ -61,6 +62,7 @@ const {
     pieceStyle: 'classic',
     setPieceStyle: vi.fn(),
   },
+  showToastMock: vi.fn(),
 }));
 
 type EventHandler = (...args: any[]) => void;
@@ -118,7 +120,7 @@ vi.mock('../lib/sounds', () => ({
 
 vi.mock('../lib/toast', () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: showToastMock,
   }),
 }));
 
@@ -339,6 +341,7 @@ describe('GamePage', () => {
     gameOverModalPropsMock.mockReset();
     gameOverPanelPropsMock.mockReset();
     pieceGuidePropsMock.mockReset();
+    showToastMock.mockReset();
     interactionState.selectedSquare = null;
     interactionState.legalMoves = [];
     interactionState.premove = null;
@@ -579,10 +582,16 @@ describe('GamePage', () => {
     expect(screen.getByText('game.draw_offer_received')).toBeInTheDocument();
     expect(screen.getByText('game.opponent_dc')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'game.accept' }));
+    const accept = screen.getByRole('button', { name: 'game.accept' });
+    expect(accept).toHaveClass('ui-btn-primary');
+    expect(accept).not.toHaveClass('button-accent-contrast');
+    fireEvent.click(accept);
     expect(socketMock.emit).toHaveBeenCalledWith('respond_draw', { accept: true });
 
+    expect(screen.getByTestId('game-mobile-actions')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'game.offer_draw' }));
+    expect(socketMock.emit).not.toHaveBeenCalledWith('offer_draw');
+    fireEvent.click(screen.getByRole('button', { name: 'game.offer_draw_confirm_action' }));
     expect(socketMock.emit).toHaveBeenCalledWith('offer_draw');
 
     fireEvent.click(screen.getByRole('button', { name: 'game.resign' }));
@@ -607,8 +616,28 @@ describe('GamePage', () => {
       }));
     });
 
+    expect(screen.getByTestId('counting-board-strip')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-mobile-actions')).not.toBeInTheDocument();
+    expect(screen.getByTestId('counting-start-consequence')).toBeInTheDocument();
+    expect(screen.queryByTestId('counting-board-strip-exits')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('counting-board-strip-leave-toggle')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('counting-board-strip-details-toggle'));
+    fireEvent.click(screen.getByTestId('counting-board-strip-leave-toggle'));
+    expect(screen.getByTestId('counting-board-strip-exits')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'game.offer_draw' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'game.resign' })).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'game.counting_start' }));
     expect(socketMock.emit).toHaveBeenCalledWith('start_counting');
+
+    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what' }));
+    expect(screen.getByText('game.counting_explain')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'game.counting_learn_more' })).toHaveAttribute(
+      'href',
+      '/how-to-play-makruk',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what_hide' }));
+    expect(screen.queryByText('game.counting_explain')).not.toBeInTheDocument();
 
     await act(async () => {
       emitSocketEvent('clock_update', { whiteTime: 111_000, blackTime: 222_000 });
@@ -726,12 +755,12 @@ describe('GamePage', () => {
       });
     });
 
-    expect(screen.getByTestId('game-over-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-panel')).not.toBeInTheDocument();
     expect(screen.getByTestId('game-over-modal')).toBeInTheDocument();
     expect(playGameOverSoundMock).toHaveBeenCalledTimes(1);
     expect(interactionState.cancelPremove).toHaveBeenCalled();
-    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rated).toBe(false);
-    expect(gameOverPanelPropsMock.mock.lastCall?.[0].ratingChange).toEqual({
+    expect(gameOverModalPropsMock.mock.lastCall?.[0].rated).toBe(false);
+    expect(gameOverModalPropsMock.mock.lastCall?.[0].ratingChange).toEqual({
       whiteBefore: 1500,
       blackBefore: 1500,
       whiteAfter: 1512,
@@ -740,6 +769,14 @@ describe('GamePage', () => {
 
     fireEvent.click(screen.getByText('close-modal'));
     expect(screen.queryByTestId('game-over-modal')).not.toBeInTheDocument();
+    expect(screen.getByTestId('game-over-panel')).toBeInTheDocument();
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rated).toBe(false);
+    expect(gameOverPanelPropsMock.mock.lastCall?.[0].ratingChange).toEqual({
+      whiteBefore: 1500,
+      blackBefore: 1500,
+      whiteAfter: 1512,
+      blackAfter: 1488,
+    });
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(boardPropsMock.mock.lastCall?.[0].disabled).toBe(true);
@@ -770,9 +807,12 @@ describe('GamePage', () => {
       emitSocketEvent('rematch_offered', { by: 'black' });
     });
 
-    expect(gameOverPanelPropsMock.mock.lastCall?.[0].rematchNotice).toBe('gameover.rematch_waiting');
+    // Rematch peak returns to the modal; rail endgame chrome stays suppressed.
+    expect(screen.getByTestId('game-over-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-panel')).not.toBeInTheDocument();
+    expect(gameOverModalPropsMock.mock.lastCall?.[0].rematchNotice).toBe('gameover.rematch_waiting');
 
-    fireEvent.click(screen.getByText('panel-new-game'));
+    fireEvent.click(screen.getByText('modal-new-game'));
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
 
@@ -801,7 +841,8 @@ describe('GamePage', () => {
       emitSocketEvent('error', { message: 'Game not found' });
     });
 
-    expect(screen.getByText('Game not found')).toBeInTheDocument();
+    expect(screen.getByText('game.error_not_found')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'game.retry' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'common.back_home' }));
     expect(navigateMock).toHaveBeenCalledWith('/');
@@ -810,7 +851,7 @@ describe('GamePage', () => {
       emitSocketEvent('game_joined', joinPayload());
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'game.piece_guide' }));
+    fireEvent.click(screen.getByTestId('piece-guide-side'));
     expect(screen.getByTestId('piece-guide')).toBeInTheDocument();
     expect(pieceGuidePropsMock.mock.lastCall?.[0].show).toBe(true);
 
@@ -821,6 +862,28 @@ describe('GamePage', () => {
     expect(interactionState.clearSelection).toHaveBeenCalled();
     expect(interactionState.cancelPremove).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('/game/replacement-room');
+  });
+
+  it('shows a sticky mapped error banner during an active game instead of a full-page takeover', async () => {
+    renderGamePage('/game/live-error-room');
+
+    await act(async () => {
+      emitSocketEvent('game_joined', joinPayload());
+    });
+
+    await act(async () => {
+      emitSocketEvent('error', { message: 'Invalid move' });
+    });
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('game.error_invalid_move');
+    expect(alert.closest('[data-testid="in-game-sticky-chrome"]')).not.toBeNull();
+    expect(showToastMock).not.toHaveBeenCalled();
+    expect(screen.queryByText('game.error')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid move')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.close' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('redirects third-party visitors to spectator mode when the live game is already full', async () => {
@@ -843,6 +906,17 @@ describe('GamePage', () => {
       emitSocketEvent('game_joined', joinPayload());
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'game.tools' }));
+    expect(screen.getByRole('button', { name: 'appearance.open_short' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'appearance.open_short' }));
+    expect(screen.getByTestId('appearance-popover')).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalledWith('/settings/board-pieces');
+    expect(screen.getByRole('tab', { name: 'appearance.pieces_tab' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'appearance.pieces_tab' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('appearance-popover')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'appearance.open_short' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'game.tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'game.share' }));
 
     await act(async () => {

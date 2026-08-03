@@ -226,6 +226,7 @@ describe('SpectatorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'game.flip_board' }));
     expect(boardPropsMock.mock.lastCall?.[0].playerColor).toBe('black');
 
+    fireEvent.click(screen.getByRole('button', { name: 'game.tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'game.share' }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(window.location.href);

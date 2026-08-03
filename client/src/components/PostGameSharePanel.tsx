@@ -13,6 +13,7 @@ import {
 } from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { TOAST_LIFT_CLASS } from '../lib/toast';
 import ShareCardExportCanvas, { type GameShareCardData, type ShareCardSummaryStat, type ShareCardVariant } from './ShareCardExportCanvas';
 
 interface PostGameSharePanelProps {
@@ -57,14 +58,16 @@ export default function PostGameSharePanel({
   const { user, loading: authLoading } = useAuth();
   const exportRef = useRef<HTMLDivElement>(null);
   const [variant, setVariant] = useState<ShareCardVariant>('result');
+  const [stylesOpen, setStylesOpen] = useState(false);
   const [actionLabel, setActionLabel] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'download' | 'share' | null>(null);
+  /* Accuracy/Rating analysis only when guest asks for more card styles — peak stays Result-only. */
   const { analysis, analyzing, error } = useGameAnalysis({
-    enabled: moves.length > 0 && Boolean(user) && !authLoading,
+    enabled: stylesOpen && moves.length > 0 && Boolean(user) && !authLoading,
     analysisId,
     moves,
   });
-  const analysisAuthRequired = moves.length > 0 && !authLoading && !user;
+  const analysisAuthRequired = stylesOpen && moves.length > 0 && !authLoading && !user;
 
   const whiteName = whitePlayerName.trim() || t('common.white');
   const blackName = blackPlayerName.trim() || t('common.black');
@@ -206,7 +209,10 @@ export default function PostGameSharePanel({
   };
 
   return (
-    <div className="min-w-0 rounded-xl border border-surface-hover bg-surface-alt/90 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+    <div
+      data-testid="post-game-share-panel"
+      className={`min-w-0 rounded-xl border border-surface-hover bg-surface-alt/90 p-4 ${TOAST_LIFT_CLASS}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -219,39 +225,62 @@ export default function PostGameSharePanel({
             {t('sharecard.desc')}
           </div>
         </div>
-        <div className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-          outcome === 'win'
-            ? 'bg-primary/15 text-primary-light'
-            : outcome === 'loss'
-              ? 'bg-danger/10 text-danger'
-              : 'bg-accent/15 text-accent'
-        }`}>
+        <div
+          data-testid="post-game-share-outcome-chip"
+          className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+            outcome === 'win'
+              ? 'border border-gold/25 bg-gold/10 text-gold'
+              : outcome === 'loss'
+                ? 'bg-danger/10 text-danger'
+                : 'bg-surface text-text-dim'
+          }`}
+        >
           {cardData.outcomeLabel}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <VariantButton
-          active={activeVariant === 'result'}
-          disabled={false}
-          label={t('sharecard.variant_result')}
-          onClick={() => setVariant('result')}
-        />
-        <VariantButton
-          active={activeVariant === 'accuracy'}
-          disabled={!canUseAccuracyVariant}
-          label={t('sharecard.variant_accuracy')}
-          onClick={() => setVariant('accuracy')}
-        />
-        <VariantButton
-          active={activeVariant === 'rating'}
-          disabled={!canUseRatingVariant}
-          label={t('sharecard.variant_rating')}
-          onClick={() => setVariant('rating')}
-        />
+      <div className="mt-3">
+        <button
+          type="button"
+          data-testid="post-game-share-styles-toggle"
+          aria-expanded={stylesOpen}
+          onClick={() => {
+            if (stylesOpen) {
+              setStylesOpen(false);
+              setVariant('result');
+              return;
+            }
+            setStylesOpen(true);
+          }}
+          className="text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+        >
+          {stylesOpen ? t('sharecard.hide_styles') : t('sharecard.more_styles')}
+        </button>
+        {stylesOpen ? (
+          <div className="mt-2 flex flex-wrap gap-2" data-testid="post-game-share-styles">
+            <VariantButton
+              active={activeVariant === 'result'}
+              disabled={false}
+              label={t('sharecard.variant_result')}
+              onClick={() => setVariant('result')}
+            />
+            <VariantButton
+              active={activeVariant === 'accuracy'}
+              disabled={!canUseAccuracyVariant}
+              label={t('sharecard.variant_accuracy')}
+              onClick={() => setVariant('accuracy')}
+            />
+            <VariantButton
+              active={activeVariant === 'rating'}
+              disabled={!canUseRatingVariant}
+              label={t('sharecard.variant_rating')}
+              onClick={() => setVariant('rating')}
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="mt-4 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#120d0a]">
+      <div className="mt-4 min-w-0 overflow-hidden rounded-xl border border-surface-hover/80 bg-surface">
         <div className="flex justify-center overflow-hidden p-3" style={{ height: `${PREVIEW_HEIGHT + 24}px` }}>
           <div
             className="relative shrink overflow-hidden"
@@ -294,14 +323,15 @@ export default function PostGameSharePanel({
           <button type="button"
             onClick={handleDownload}
             disabled={busyAction !== null}
-            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
+            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright disabled:opacity-60"
           >
             {busyAction === 'download' ? t('sharecard.exporting') : t('sharecard.download_png')}
           </button>
           <button type="button"
             onClick={handleShare}
             disabled={busyAction !== null}
-            className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-60"
+            data-testid="post-game-share-export"
+            className="ui-btn-secondary rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60"
           >
             {busyAction === 'share' ? t('sharecard.exporting') : t('sharecard.share_image')}
           </button>
@@ -340,7 +370,7 @@ function VariantButton({
       disabled={disabled}
       className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors ${
         active
-          ? 'border-primary/30 bg-primary/15 text-primary-light'
+          ? 'border-gold/30 bg-gold/10 text-gold'
           : 'border-surface-hover bg-surface text-text-dim hover:text-text-bright'
       } disabled:cursor-not-allowed disabled:opacity-45`}
     >

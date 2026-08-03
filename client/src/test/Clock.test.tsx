@@ -6,6 +6,7 @@ vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === 'game.ping_value') return `${params?.ms}ms`;
+      if (key === 'game.ping_degraded') return `Slow · ${params?.ms} ms`;
       return key;
     },
   }),
@@ -72,5 +73,113 @@ describe('Clock', () => {
     );
 
     expect(screen.queryByTestId('inline-captured-summary')).not.toBeInTheDocument();
+  });
+
+  it('shows to-move only on the timer, not as a name-row chip', () => {
+    const { container } = render(
+      <Clock
+        time={60000}
+        isActive={true}
+        color="white"
+        playerName="Guest"
+      />
+    );
+
+    expect(screen.getAllByText('game.to_move')).toHaveLength(1);
+    expect(container.querySelector('.text-gold')).not.toBeInTheDocument();
+  });
+
+  it('marks reconnecting presence with lacquer, not play amber', () => {
+    const { container } = render(
+      <Clock
+        time={60000}
+        isActive={false}
+        color="white"
+        playerName="Guest"
+        status="reconnecting"
+        showTimer={false}
+      />
+    );
+
+    const presenceDot = container.querySelector('.bg-primary-light');
+    expect(presenceDot).toBeInTheDocument();
+    expect(container.querySelector('.bg-accent')).not.toBeInTheDocument();
+  });
+
+  it('keeps active timed clocks to name + timer; parks rating and color chips', () => {
+    render(
+      <Clock
+        time={60000}
+        isActive={true}
+        color="white"
+        playerName="Guest"
+        rating={1540}
+        subtitle="White"
+        status="idle"
+        latencyMs={42}
+      />
+    );
+
+    expect(screen.getByText('game.to_move')).toBeInTheDocument();
+    expect(screen.queryByText(/leaderboard.col_rating/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('game.idle')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('clock-latency-chip')).not.toBeInTheDocument();
+  });
+
+  it('surfaces degraded latency as a visible chip while healthy ping stays on the avatar title', () => {
+    const { rerender } = render(
+      <Clock
+        time={60000}
+        isActive={false}
+        color="black"
+        playerName="Rival"
+        latencyMs={210}
+      />
+    );
+
+    expect(screen.getByTestId('clock-latency-chip')).toHaveTextContent('Slow · 210 ms');
+    expect(screen.getByTestId('clock-latency-chip').className).not.toMatch(/primary/);
+
+    rerender(
+      <Clock
+        time={60000}
+        isActive={false}
+        color="black"
+        playerName="Rival"
+        latencyMs={420}
+      />
+    );
+
+    expect(screen.getByTestId('clock-latency-chip')).toHaveClass('text-danger');
+  });
+
+  it('surfaces reconnecting as a text chip while rating stays on idle clocks only', () => {
+    const { rerender } = render(
+      <Clock
+        time={60000}
+        isActive={false}
+        color="black"
+        playerName="Rival"
+        rating={1600}
+        status="reconnecting"
+      />
+    );
+
+    expect(screen.getByText('conn.reconnecting')).toBeInTheDocument();
+    expect(screen.getByText(/leaderboard.col_rating/i)).toBeInTheDocument();
+
+    rerender(
+      <Clock
+        time={60000}
+        isActive={true}
+        color="black"
+        playerName="Rival"
+        rating={1600}
+        status="reconnecting"
+      />
+    );
+
+    expect(screen.getByText('conn.reconnecting')).toBeInTheDocument();
+    expect(screen.queryByText(/leaderboard.col_rating/i)).not.toBeInTheDocument();
   });
 });

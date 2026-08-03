@@ -10,6 +10,7 @@ import Clock from './Clock';
 import MoveHistory from './MoveHistory';
 import ConnectionStatus from './ConnectionStatus';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
+import GameHeaderToolsMenu, { gameHeaderMenuItemClass } from './GameHeaderToolsMenu';
 import InGameShell from './InGameShell';
 import { SpectatorResultCard } from './SpectatorResultCard';
 
@@ -79,12 +80,10 @@ export function SpectatorActiveView({
         onHome={onHome}
         headerMeta={
           <>
-            <AppearanceSettingsButton compact />
-            <span className="hidden md:inline">{t('game.game_label')} <span className="font-mono text-text">{gameId}</span></span>
-            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-light">
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-primary-light">
               {t('game.spectator_mode')}
             </span>
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+            <span className={`rounded-full px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] ${
               gameState.status === 'playing'
                 ? 'border border-danger/25 bg-danger/10 text-danger'
                 : 'border border-surface-hover bg-surface text-text-dim'
@@ -94,12 +93,22 @@ export function SpectatorActiveView({
                 {gameState.status === 'playing' ? t('game.live_now') : t('game.final_position')}
               </span>
             </span>
-            <button type="button"
-              onClick={copySpectatorLink}
-              className="px-2 py-1 rounded bg-surface-hover hover:bg-primary/20 text-text text-xs transition-colors"
-            >
-              {copied ? t('game.copied') : t('game.share')}
-            </button>
+            <AppearanceSettingsButton compact mode="popover" />
+            <GameHeaderToolsMenu t={t}>
+              <button
+                type="button"
+                onClick={copySpectatorLink}
+                className={gameHeaderMenuItemClass}
+              >
+                {copied ? t('game.copied') : t('game.share')}
+              </button>
+              {gameId ? (
+                <div className="px-3 py-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim">
+                  {t('game.game_label')}{' '}
+                  <span className="font-mono normal-case tracking-normal text-text-bright">{gameId}</span>
+                </div>
+              ) : null}
+            </GameHeaderToolsMenu>
           </>
         }
         topPanel={
