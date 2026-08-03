@@ -1,5 +1,12 @@
+import { useState, type ReactNode } from 'react';
 import type { PieceColor, RatingChangeSummary } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
+import { GameOverOutcomeMark } from './GameOverOutcomeMark';
+import {
+  getGameOverResultLabel,
+  isGameOverCelebratory,
+  resolveGameOverOutcome,
+} from './gameOverClimax';
 
 interface GameOverPanelProps {
   winner: PieceColor | null;
@@ -17,6 +24,10 @@ interface GameOverPanelProps {
   rematchLabel?: string;
   rematchDisabled?: boolean;
   rematchNotice?: string | null;
+  /** Share / review peers under More (not inside the Study door). */
+  moreExtras?: ReactNode;
+  /** When Share/Review owns More, hide Study/Report siblings. */
+  moreExtrasOnly?: boolean;
 }
 
 export default function GameOverPanel({
@@ -35,21 +46,21 @@ export default function GameOverPanel({
   rematchLabel,
   rematchDisabled = false,
   rematchNotice = null,
+  moreExtras = null,
+  moreExtrasOnly = false,
 }: GameOverPanelProps) {
   const { t } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
   const isDraw = !winner;
-  const isWinner = winner === playerColor;
+  const celebratory = isGameOverCelebratory(winner, playerColor);
   const playerRatingDelta = playerColor === 'white'
     ? ratingChange ? ratingChange.whiteAfter - ratingChange.whiteBefore : null
     : playerColor === 'black'
       ? ratingChange ? ratingChange.blackAfter - ratingChange.blackBefore : null
       : null;
-
-  const getScore = () => {
-    if (isDraw) return '½-½';
-    if (winner === 'white') return '1-0';
-    return '0-1';
-  };
+  /* Study CTA is Analyze — no nested Study → Analyze toggle. */
+  const hasStudyContent = Boolean(onAnalyze);
+  const hasMoreTools = Boolean(hasStudyContent || moreExtras || onReport || reportStatusMessage);
 
   const getReasonText = () => {
     switch (reason) {
@@ -64,37 +75,46 @@ export default function GameOverPanel({
     }
   };
 
-  const getResultLabel = () => {
-    if (isDraw) return t('gameover.draw');
-    if (winner === 'white') return `${t('common.white')} ${t('gameover.is_victorious')}`;
-    return `${t('common.black')} ${t('gameover.is_victorious')}`;
-  };
+  const outcome = resolveGameOverOutcome(winner, playerColor);
 
   return (
-    <div className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden">
+    <div
+      data-testid="game-over-panel"
+      className="bg-surface-alt rounded-lg border border-surface-hover overflow-hidden"
+    >
       <div className={`px-4 py-3 text-center border-b border-surface-hover ${
-        isDraw
-          ? 'bg-accent/10'
-          : isWinner
-            ? 'bg-accent/10'
-            : 'bg-danger/10'
+        celebratory ? 'bg-gold/10' : 'bg-danger/10'
       }`}>
-        <div className={`text-2xl font-bold mb-0.5 ${
-          isDraw ? 'text-accent' : 'text-text-bright'
-        }`}>
-          {getScore()}
+        <div className="mb-2">
+          <GameOverOutcomeMark outcome={outcome} size={44} />
+        </div>
+        <div
+          data-testid="game-over-panel-title"
+          className={`font-display text-lg font-bold tracking-tight mb-0.5 ${
+            celebratory ? 'text-gold' : 'text-danger'
+          }`}
+        >
+          {getGameOverResultLabel(t, winner, playerColor)}
         </div>
         <div className="text-xs text-text-dim">
-          {getResultLabel()} · {getReasonText()}
+          {getReasonText()}
         </div>
         <div className="mt-2 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.18em]">
-          <span className={`rounded-full px-2 py-1 ${
-            rated ? 'bg-accent/15 text-accent' : 'bg-surface text-text-dim'
-          }`}>
+          <span
+            data-testid="game-over-rated-chip"
+            className={`rounded-full px-2 py-1 ${
+              rated
+                ? 'border border-primary/25 bg-primary/10 text-primary-light'
+                : 'bg-surface text-text-dim'
+            }`}
+          >
             {rated ? t('game.rated') : t('game.casual')}
           </span>
           {rated && playerRatingDelta !== null && (
-            <span className={playerRatingDelta >= 0 ? 'text-accent' : 'text-danger'}>
+            <span
+              data-testid="game-over-rating-delta"
+              className={playerRatingDelta >= 0 ? 'text-primary-light' : 'text-danger'}
+            >
               {t('game.rating_change')} {playerRatingDelta >= 0 ? '+' : ''}{playerRatingDelta}
             </span>
           )}
@@ -102,51 +122,78 @@ export default function GameOverPanel({
       </div>
 
       <div className="grid gap-2 p-2.5">
-        <div className="grid gap-2">
-          {rematchNotice && (
-            <div className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-center text-[11px] font-medium text-accent">
-              {rematchNotice}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button"
-              onClick={onRematch}
-              disabled={rematchDisabled}
-              className="button-accent-contrast w-full rounded-lg px-2 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {rematchLabel ?? t('gameover.rematch')}
-            </button>
-            <button type="button"
-              onClick={onNewGame}
-              className="ui-btn-secondary w-full px-2 py-2 text-xs font-semibold"
-            >
-              {t('common.new_game')}
-            </button>
+        {rematchNotice && (
+          <div className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-center text-[11px] font-medium text-accent">
+            {rematchNotice}
           </div>
-          {onAnalyze && (
-            <button type="button"
-              onClick={onAnalyze}
-              data-testid="analyze-game-button"
-              className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
+        )}
+        {/* Post-dismiss rail: one Rematch heartbeat — New Game stays secondary. */}
+        <button
+          type="button"
+          data-testid="game-over-panel-rematch"
+          onClick={onRematch}
+          disabled={rematchDisabled}
+          className="button-accent-contrast w-full rounded-lg px-3 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {rematchLabel ?? t('gameover.rematch')}
+        </button>
+        <button
+          type="button"
+          data-testid="game-over-panel-new-game"
+          onClick={onNewGame}
+          className="w-full rounded-lg px-3 py-2 text-xs font-semibold text-text-dim transition-colors hover:bg-surface-hover/60 hover:text-text-bright"
+        >
+          {t('common.new_game')}
+        </button>
+        {hasMoreTools ? (
+          <div className="border-t border-surface-hover/60 pt-2">
+            <button
+              type="button"
+              data-testid="game-over-panel-more-toggle"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+              className="w-full text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
             >
-              {t('analysis.analyze')}
+              {moreOpen ? t('game.endgame_hide_tools') : t('game.endgame_more_tools')}
             </button>
-          )}
-          {onReport && (
-            <button type="button"
-              onClick={onReport}
-              disabled={reportDisabled}
-              className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {reportLabel ?? t('fair_play.report_action')}
-            </button>
-          )}
-          {reportStatusMessage && (
-            <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-[11px] text-text-dim">
-              {reportStatusMessage}
-            </div>
-          )}
-        </div>
+            {moreOpen ? (
+              <div className="mt-2 grid gap-2" data-testid="game-over-panel-more-tools">
+                {moreExtrasOnly ? (
+                  moreExtras
+                ) : (
+                  <>
+                    {onAnalyze ? (
+                      <button
+                        type="button"
+                        onClick={onAnalyze}
+                        data-testid="analyze-game-button"
+                        className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
+                      >
+                        {t('game.endgame_study')}
+                      </button>
+                    ) : null}
+                    {moreExtras}
+                    {onReport && (
+                      <button
+                        type="button"
+                        onClick={onReport}
+                        disabled={reportDisabled}
+                        className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {reportLabel ?? t('fair_play.report_action')}
+                      </button>
+                    )}
+                    {reportStatusMessage && (
+                      <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-[11px] text-text-dim">
+                        {reportStatusMessage}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

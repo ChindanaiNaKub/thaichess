@@ -9,6 +9,7 @@ import {
   getLegalMoves, makeMove, createInitialGameState, getLastMoveForView,
   startCounting, stopCounting,
 } from '@shared/engine';
+import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
 import {
   emptyBoardSelection,
@@ -59,6 +60,8 @@ import {
   type SideChoice,
 } from '../components/botGameHelpers';
 
+const BOT_CLOCK_TICK_MS = 500;
+
 export function useBotGameScreen() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
@@ -75,6 +78,7 @@ export function useBotGameScreen() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
   const [botChat, setBotChat] = useState<BotChatMessage | null>(null);
   const [botChatFading, setBotChatFading] = useState(false);
@@ -471,6 +475,63 @@ export function useBotGameScreen() {
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
   }, [gameOverInfo]);
+
+  useEffect(() => {
+    if (!gameStarted || !gameState.gameOver || gameState.resultReason !== 'timeout') return;
+    if (gameOverInfo?.reason === 'timeout') return;
+    setGameOverInfo({ reason: 'timeout', winner: gameState.winner });
+    playGameOverSound();
+  }, [gameOverInfo, gameStarted, gameState.gameOver, gameState.resultReason, gameState.winner]);
+
+  useEffect(() => {
+    if (!gameStarted || gameState.gameOver) return;
+
+    const interval = setInterval(() => {
+      setGameState((prev) => {
+        if (prev.gameOver) return prev;
+
+        const now = Date.now();
+        const elapsed = now - prev.lastMoveTime;
+        if (elapsed <= 0) return prev;
+
+        if (prev.turn === 'white') {
+          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
+          if (whiteTime === 0) {
+            const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'white');
+            return {
+              ...prev,
+              whiteTime: 0,
+              lastMoveTime: now,
+              gameOver: true,
+              isDraw: timeoutOutcome.isDraw,
+              winner: timeoutOutcome.winner,
+              resultReason: 'timeout',
+              counting: null,
+            };
+          }
+          return { ...prev, whiteTime, lastMoveTime: now };
+        }
+
+        const blackTime = Math.max(0, prev.blackTime - elapsed);
+        if (blackTime === 0) {
+          const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'black');
+          return {
+            ...prev,
+            blackTime: 0,
+            lastMoveTime: now,
+            gameOver: true,
+            isDraw: timeoutOutcome.isDraw,
+            winner: timeoutOutcome.winner,
+            resultReason: 'timeout',
+            counting: null,
+          };
+        }
+        return { ...prev, blackTime, lastMoveTime: now };
+      });
+    }, BOT_CLOCK_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [gameStarted, gameState.gameOver]);
 
   // Save bot game result when game ends
   useEffect(() => {
@@ -947,6 +1008,9 @@ export function useBotGameScreen() {
       onCloseGameOverModal={() => setShowGameOverModal(false)}
       onMoveClick={handleMoveClick}
       onResign={handleResign}
+      showGuide={showGuide}
+      onShowGuide={() => setShowGuide(true)}
+      onCloseGuide={() => setShowGuide(false)}
     />
   );
 }

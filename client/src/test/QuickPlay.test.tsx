@@ -355,7 +355,8 @@ describe('QuickPlay', () => {
       errorHandler({ message: 'No servers available.' });
     });
 
-    expect(screen.getByText('No servers available.')).toBeInTheDocument();
+    expect(screen.getByText('Unable to start quick play right now.')).toBeInTheDocument();
+    expect(screen.queryByText('No servers available.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /find opponent/i })).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: /back to home/i }));
@@ -385,6 +386,8 @@ describe('QuickPlay', () => {
     render(<QuickPlay />, { wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: /more times/i }));
+    expect(screen.getByRole('button', { name: /fewer times/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Rapid/i }));
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
 
@@ -415,5 +418,26 @@ describe('QuickPlay', () => {
 
     expect(screen.getByText('Casual Only')).toBeInTheDocument();
     expect(screen.getByText('Sign in to unlock rated games.')).toBeInTheDocument();
+  });
+
+  it('expands more times as a single-pace accordion instead of a 9-clock wall', () => {
+    render(<QuickPlay />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: 'More times' }));
+
+    expect(screen.getByRole('button', { name: /^Blitz/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('5+0')).toBeInTheDocument();
+    expect(screen.getByText('3+2')).toBeInTheDocument();
+    expect(screen.queryByText('1+0')).not.toBeInTheDocument();
+    expect(screen.queryByText('30+0')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Classical/i }));
+
+    expect(screen.getByRole('button', { name: /^Classical/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^Blitz/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('30+0')).toBeInTheDocument();
+    expect(screen.getByText('15+10')).toBeInTheDocument();
+    expect(screen.queryByText('5+0')).not.toBeInTheDocument();
+    expect(screen.queryByText('1+0')).not.toBeInTheDocument();
   });
 });

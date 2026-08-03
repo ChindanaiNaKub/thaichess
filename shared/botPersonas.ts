@@ -1119,6 +1119,34 @@ export const FEATURED_BOT_PERSONA_IDS = [
   'lady-busaba',
 ] as const;
 
+/** Strength bands for expanded roster — each band keeps ≤4 visible choices. */
+export type BotStrengthBand = 'learning' | 'club' | 'strong' | 'elite';
+
+export const BOT_STRENGTH_BANDS: readonly {
+  id: BotStrengthBand;
+  tiers: readonly BotDifficultyTier[];
+  labelKey: string;
+}[] = [
+  { id: 'learning', tiers: ['novice', 'beginner'], labelKey: 'bot.band_learning' },
+  { id: 'club', tiers: ['intermediate'], labelKey: 'bot.band_club' },
+  { id: 'strong', tiers: ['advanced', 'expert'], labelKey: 'bot.band_strong' },
+  { id: 'elite', tiers: ['master'], labelKey: 'bot.band_elite' },
+] as const;
+
+export function getBotStrengthBand(persona: BotPersona): BotStrengthBand {
+  const match = BOT_STRENGTH_BANDS.find((band) => band.tiers.includes(persona.difficultyLevel));
+  return match?.id ?? 'club';
+}
+
+export function getStrengthBandForBotId(id: string): BotStrengthBand {
+  return getBotStrengthBand(getBotPersonaById(id));
+}
+
+export function getBotPersonasInBand(band: BotStrengthBand): BotPersona[] {
+  const tiers = BOT_STRENGTH_BANDS.find((entry) => entry.id === band)?.tiers ?? [];
+  return BOT_PERSONAS.filter((persona) => tiers.includes(persona.difficultyLevel));
+}
+
 export function getBotPersonaById(id: string | null | undefined): BotPersona {
   if (!id) {
     return BOT_PERSONAS.find((persona) => persona.id === DEFAULT_BOT_PERSONA_ID) ?? BOT_PERSONAS[0];

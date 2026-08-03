@@ -6,7 +6,7 @@ import { useTranslation } from '../lib/i18n';
 import type { BoardThemeCategory, BoardThemeConfig } from '../themes/boards';
 import type { PieceThemeId } from '../themes/pieces';
 
-type SettingsTab = 'boards' | 'colors';
+type SettingsTab = 'boards' | 'pieces';
 type PreviewVariant = 'makruk' | 'legacy';
 
 const PREVIEW_PIECES = [
@@ -215,10 +215,10 @@ export default function AppearanceSettingsPage() {
                 {t('appearance.boards_tab')}
               </button>
               <button type="button"
-                onClick={() => setActiveTab('colors')}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'colors' ? 'bg-primary text-white shadow-sm' : 'border border-surface-hover bg-surface text-text-dim hover:text-text-bright'}`}
+                onClick={() => setActiveTab('pieces')}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'pieces' ? 'bg-primary text-white shadow-sm' : 'border border-surface-hover bg-surface text-text-dim hover:text-text-bright'}`}
               >
-                {t('appearance.colors_tab')}
+                {t('appearance.pieces_tab')}
               </button>
             </div>
 

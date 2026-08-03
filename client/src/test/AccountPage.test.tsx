@@ -299,6 +299,30 @@ describe('AccountPage', () => {
 
     expect(screen.getByText('account.rated_restricted_title')).toBeInTheDocument();
     expect(screen.getByText('Restricted pending review')).toBeInTheDocument();
+    expect(screen.queryByText('account.puzzle_title')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'account.save_profile' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_details' }));
+    expect(screen.getByText('account.puzzle_title')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'account.save_profile' })).toBeInTheDocument();
+  });
+
+  it('collapses account details when cached auth is stale until the player expands them', () => {
+    authState.authError = 'session_check_failed';
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/player@example\.com/)).toBeInTheDocument();
+    expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
+    expect(screen.queryByText('account.puzzle_title')).not.toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
+    expect(refreshUserMock).toHaveBeenCalled();
   });
 
   it('shows a session check error instead of redirecting to login during auth outages', () => {
@@ -313,20 +337,6 @@ describe('AccountPage', () => {
 
     expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'common.retry' })).toBeInTheDocument();
-    expect(navigateMock).not.toHaveBeenCalled();
-  });
-
-  it('keeps the account page visible with a warning when cached auth is stale', () => {
-    authState.authError = 'session_check_failed';
-
-    render(
-      <MemoryRouter>
-        <AccountPage />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText(/player@example\.com/)).toBeInTheDocument();
-    expect(screen.getByText('auth.session_check_failed')).toBeInTheDocument();
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
@@ -352,6 +362,24 @@ describe('AccountPage', () => {
     expect(screen.getByRole('button', { name: 'account.save_profile' })).toBeDisabled();
   });
 
+  it('shows a friendly profile update failure instead of raw exception text', async () => {
+    updateProfileMock.mockRejectedValue(new Error('ECONNRESET boom'));
+
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByDisplayValue('player_one'), {
+      target: { value: 'player_two' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'account.save_profile' }));
+
+    expect(await screen.findByText('account.update_failed')).toBeInTheDocument();
+    expect(screen.queryByText(/ECONNRESET/i)).not.toBeInTheDocument();
+  });
+
   it('shows the admin security section when admin MFA is disabled', () => {
     authState.user = {
       ...(authState.user as AuthUser),
@@ -370,6 +398,10 @@ describe('AccountPage', () => {
 
     expect(screen.getByText('account.admin_security_title')).toBeInTheDocument();
     expect(screen.getByText(/account.admin_security_status/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'account.admin_security_setup' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_admin_security' }));
+
     expect(screen.getByRole('button', { name: 'account.admin_security_setup' })).toBeInTheDocument();
   });
 
@@ -388,6 +420,7 @@ describe('AccountPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'account.show_security' }));
+    fireEvent.click(screen.getByRole('button', { name: 'account.show_admin_security' }));
     fireEvent.click(screen.getByRole('button', { name: 'account.admin_security_setup' }));
 
     expect(enableTwoFactorMock).toHaveBeenCalledWith({ issuer: 'ThaiChess' });
@@ -412,7 +445,6 @@ describe('AccountPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'account.show_security' }));
-    fireEvent.click(screen.getByRole('button', { name: 'account.sessions_show' }));
 
     expect(listSessionsMock).toHaveBeenCalled();
     expect(await screen.findByText('account.session_current')).toBeInTheDocument();

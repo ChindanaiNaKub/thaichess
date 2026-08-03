@@ -4,6 +4,7 @@ import { formatEval } from '@shared/analysis';
 import type { PositionAnalysisResult } from '@shared/engineAdapter';
 import { useTranslation } from '../lib/i18n';
 import { useReviewCopy } from '../lib/reviewCopy';
+import { MakrukChromeIcon } from './MakrukChromeIcon';
 
 type ReviewMode = 'mainLine' | 'analysis';
 
@@ -45,6 +46,30 @@ function formatBranchAnchor(moveIndex: number | null, t: (key: string, params?: 
   return t('review.from_move', { move: moveIndex + 1 });
 }
 
+const navButtonClass =
+  'inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-surface-hover/80 bg-surface px-2 text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright disabled:opacity-50';
+
+function BranchNavIcon({ kind }: { kind: 'root' | 'prev' | 'next' | 'leaf' }) {
+  return (
+    <MakrukChromeIcon size={14} className="shrink-0">
+      {kind === 'root' && (
+        <>
+          <path d="M22 22v36" />
+          <path d="M54 24L28 40l26 16" />
+        </>
+      )}
+      {kind === 'prev' && <path d="M50 22L26 40l24 18" />}
+      {kind === 'next' && <path d="M30 22l24 18-24 18" />}
+      {kind === 'leaf' && (
+        <>
+          <path d="M58 22v36" />
+          <path d="M26 24l26 16-26 16" />
+        </>
+      )}
+    </MakrukChromeIcon>
+  );
+}
+
 export default function PostGameReviewPanel({
   mode,
   selectedMainLineMoveIndex,
@@ -70,7 +95,7 @@ export default function PostGameReviewPanel({
     : reviewT('review.no_best_move');
 
   return (
-    <div className="rounded-xl border border-surface-hover bg-surface-alt/90 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+    <div className="rounded-xl border border-surface-hover/80 bg-surface-alt/90 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -87,12 +112,12 @@ export default function PostGameReviewPanel({
                 : reviewT('review.official_move', { move: selectedMainLineMoveIndex + 1 })}
           </div>
         </div>
-        <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold normal-case tracking-normal ${
           mode === 'analysis'
-            ? 'bg-primary/15 text-primary-light'
-            : 'bg-surface text-text-dim border border-surface-hover'
+            ? 'border-primary/30 bg-primary/10 text-primary-light'
+            : 'border-surface-hover/80 bg-surface-alt/90 text-text-dim'
         }`}>
-          {mode === 'analysis' ? reviewT('review.analysis_branch') : reviewT('review.main_line')}
+          {mode === 'analysis' ? reviewT('review.analysis_status') : reviewT('review.main_status')}
         </span>
       </div>
 
@@ -101,14 +126,14 @@ export default function PostGameReviewPanel({
           <>
             <button type="button"
               onClick={onReturnToMainLine}
-              className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+              className="ui-btn-secondary px-3 py-2 text-sm"
             >
               {reviewT('review.return_to_game')}
             </button>
             <button type="button"
               onClick={onResetAnalysis}
               disabled={!controls.resetAnalysis}
-              className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary-light transition-colors hover:bg-primary/15 disabled:opacity-50"
+              className="ui-btn-primary px-3 py-2 text-sm disabled:opacity-50"
             >
               {reviewT('review.reset_variation')}
             </button>
@@ -117,7 +142,7 @@ export default function PostGameReviewPanel({
           <button type="button"
             onClick={onEnterAnalysis}
             disabled={!controls.enterAnalysis}
-            className="sm:col-span-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-light disabled:opacity-50"
+            className="ui-btn-primary sm:col-span-2 px-3 py-2 text-sm disabled:opacity-50"
           >
             {reviewT('review.enter_analysis')}
           </button>
@@ -129,43 +154,47 @@ export default function PostGameReviewPanel({
           <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
             {reviewT('review.branch_navigation')}
           </div>
-          <div className="mt-2 flex items-center justify-center gap-1">
+          <div className="mt-2 flex items-center justify-center gap-1.5">
             <button type="button"
               onClick={onJumpToStart}
-              className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+              className={navButtonClass}
               title={reviewT('review.branch_root')}
+              aria-label={reviewT('review.branch_root')}
             >
-              ⏮
+              <BranchNavIcon kind="root" />
             </button>
             <button type="button"
               onClick={onStepBackward}
               disabled={!controls.stepBackward}
-              className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
+              className={navButtonClass}
               title={reviewT('review.branch_prev')}
+              aria-label={reviewT('review.branch_prev')}
             >
-              ◀
+              <BranchNavIcon kind="prev" />
             </button>
             <button type="button"
               onClick={onStepForward}
               disabled={!controls.stepForward}
-              className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors disabled:opacity-50"
+              className={navButtonClass}
               title={reviewT('review.branch_next')}
+              aria-label={reviewT('review.branch_next')}
             >
-              ▶
+              <BranchNavIcon kind="next" />
             </button>
             <button type="button"
               onClick={onJumpToEnd}
-              className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface-hover text-text-dim hover:text-text-bright transition-colors"
+              className={navButtonClass}
               title={reviewT('review.branch_leaf')}
+              aria-label={reviewT('review.branch_leaf')}
             >
-              ⏭
+              <BranchNavIcon kind="leaf" />
             </button>
           </div>
 
           <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
             {reviewT('review.current_variation')}
           </div>
-          <div className="mt-2 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-xs text-text">
+          <div className="mt-2 rounded-lg border border-surface-hover/80 bg-surface px-3 py-2 text-xs text-text">
             {analysisLine.length > 0 ? analysisLine.map(formatMove).join(' ') : reviewT('review.variation_empty')}
           </div>
         </>
@@ -174,7 +203,7 @@ export default function PostGameReviewPanel({
       <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
         {reviewT('review.engine')}
       </div>
-      <div className="mt-2 rounded-lg border border-surface-hover bg-surface px-3 py-3">
+      <div className="mt-2 rounded-lg border border-surface-hover/80 bg-surface px-3 py-3">
         {engineAnalyzing ? (
           <div className="text-sm text-text-dim">{reviewT('review.engine_loading')}</div>
         ) : engineError ? (
@@ -204,7 +233,7 @@ export default function PostGameReviewPanel({
                 <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
                   {t('analysis.editor.pv')}
                 </div>
-                <div className="rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 font-mono text-xs text-text">
+                <div className="rounded-lg border border-surface-hover/80 bg-surface-alt px-3 py-2 font-mono text-xs text-text">
                   {engineAnalysis.principalVariation.join(' ')}
                 </div>
               </div>

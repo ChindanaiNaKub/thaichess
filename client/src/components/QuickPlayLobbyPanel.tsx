@@ -1,6 +1,12 @@
+import { useEffect, useMemo, useState } from 'react';
 import type { AuthUser } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
-import type { QuickPlayTimePreset } from './quickPlayTimePresets';
+import {
+  getTimePaceGroup,
+  groupTimePresetsByPace,
+  type QuickPlayTimePreset,
+  type TimePaceGroup,
+} from './quickPlayTimePresets';
 
 type QuickPlayLobbyPanelProps = {
   user: AuthUser | null;
@@ -17,6 +23,31 @@ type QuickPlayLobbyPanelProps = {
   onBackHome: () => void;
 };
 
+function TimePresetButton({
+  preset,
+  selected,
+  onSelect,
+  label,
+}: {
+  preset: QuickPlayTimePreset;
+  selected: boolean;
+  onSelect: (preset: QuickPlayTimePreset) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(preset)}
+      className={`ui-choice rounded-lg px-3 py-2 text-sm font-medium ${
+        selected ? 'ui-choice-selected' : ''
+      }`}
+    >
+      <div className="font-bold">{preset.label}</div>
+      <div className="text-xs opacity-70">{label}</div>
+    </button>
+  );
+}
+
 export default function QuickPlayLobbyPanel({
   user,
   ratedEligible,
@@ -32,6 +63,17 @@ export default function QuickPlayLobbyPanel({
   onBackHome,
 }: QuickPlayLobbyPanelProps) {
   const { t } = useTranslation();
+  const paceGroups = useMemo(
+    () => (showAllTimes ? groupTimePresetsByPace(visiblePresets) : []),
+    [showAllTimes, visiblePresets],
+  );
+  const [openPace, setOpenPace] = useState<TimePaceGroup>(() => getTimePaceGroup(selectedTime));
+  const selectedPace = getTimePaceGroup(selectedTime);
+
+  useEffect(() => {
+    if (!showAllTimes) return;
+    setOpenPace(selectedPace);
+  }, [showAllTimes, selectedPace]);
 
   return (
     <div className="ui-card w-full max-w-lg p-5 animate-slideUp sm:p-6">
@@ -62,23 +104,57 @@ export default function QuickPlayLobbyPanel({
 
       <fieldset className="mb-5 min-w-0 border-0 p-0">
         <legend className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</legend>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {visiblePresets.map((preset) => (
-            <button
-              type="button"
-              key={preset.label}
-              onClick={() => onSelectTime(preset)}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                selectedTime.label === preset.label
-                  ? 'border-accent/50 bg-accent/15 text-accent'
-                  : 'border-surface-hover bg-surface text-text hover:bg-surface-hover'
-              }`}
-            >
-              <div className="font-bold">{preset.label}</div>
-              <div className="text-xs opacity-70">{t(preset.nameKey)}</div>
-            </button>
-          ))}
-        </div>
+        {showAllTimes ? (
+          <div className="space-y-2">
+            {paceGroups.map((group) => {
+              const isOpen = openPace === group.pace;
+              return (
+                <div key={group.pace} className="rounded-xl border border-surface-hover/80 bg-surface/40">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenPace(group.pace)}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors ${
+                      isOpen ? 'text-text-bright' : 'text-text-dim hover:text-text-bright'
+                    }`}
+                  >
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
+                      {t(group.nameKey)}
+                    </span>
+                    <span className="text-xs font-medium tabular-nums text-text-dim">
+                      {group.presets.length}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="grid grid-cols-2 gap-2 border-t border-surface-hover/70 p-2 sm:grid-cols-3">
+                      {group.presets.map((preset) => (
+                        <TimePresetButton
+                          key={preset.label}
+                          preset={preset}
+                          selected={selectedTime.label === preset.label}
+                          onSelect={onSelectTime}
+                          label={t(preset.nameKey)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {visiblePresets.map((preset) => (
+              <TimePresetButton
+                key={preset.label}
+                preset={preset}
+                selected={selectedTime.label === preset.label}
+                onSelect={onSelectTime}
+                label={t(preset.nameKey)}
+              />
+            ))}
+          </div>
+        )}
         {hasHiddenPresets && (
           <button
             type="button"

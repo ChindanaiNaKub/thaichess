@@ -17,6 +17,7 @@ import {
   isViewingHistoryIndex,
 } from '../lib/boardSession';
 import { getCapturedSummary } from '../lib/capturedSummary';
+import { GAME_FULL_SPECTATOR_MESSAGE, mapGameplayErrorMessage } from '../lib/gameplayErrors';
 import { useBoardNavKeyboard } from './useBoardNavKeyboard';
 import { useGameInteraction } from './useGameInteraction';
 import { usePostGameReview } from './usePostGameReview';
@@ -56,6 +57,7 @@ export function useGamePageScreen() {
   const [drawOffered, setDrawOffered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [rematchState, setRematchState] = useState<'idle' | 'sent' | 'received'>('idle');
@@ -72,6 +74,7 @@ export function useGamePageScreen() {
   // TanStack Query mutation for reporting fair play
   const reportMutation = useReportFairPlayMutation();
   const { showToast } = useToast();
+  const showToastRef = useRef(showToast);
 
   // Arrow state
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -93,6 +96,10 @@ export function useGamePageScreen() {
   useEffect(() => {
     latestTRef.current = t;
   }, [t]);
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
   // Use the game interaction hook for move handling
   const {
@@ -147,6 +154,7 @@ export function useGamePageScreen() {
       setGameState(gs);
       setConnectionState('connected');
       setError(null);
+      setLiveError(null);
       if (gs.status === 'playing') playGameStartSound();
     };
 
@@ -163,6 +171,7 @@ export function useGamePageScreen() {
     const handleMoveMade = ({ move, gameState: gs }: { move: Move; gameState: ClientGameState }) => {
       setConnectionState('connected');
       setGameState(gs);
+      setLiveError(null);
       clearSelection();
       setArrows([]);
       if (gs.isCheck) {
@@ -253,12 +262,18 @@ export function useGamePageScreen() {
     };
 
     const handleError = ({ message }: { message: string }) => {
-      if (message === 'Game is full. Redirecting to spectator mode.' && gameId) {
+      if (message === GAME_FULL_SPECTATOR_MESSAGE && gameId) {
         navigate(spectatorPath, { replace: true });
         return;
       }
+      const mapped = mapGameplayErrorMessage(message, latestTRef.current, 'game.load_failed');
       setRematchState('idle');
-      setError(message || latestTRef.current('game.load_failed'));
+      // Active/waiting games already on screen: sticky in-board banner (not ephemeral toast).
+      if (latestGameStateRef.current) {
+        setLiveError(mapped);
+        return;
+      }
+      setError(mapped);
     };
 
     socket.on('connect', handleConnect);
@@ -440,8 +455,8 @@ export function useGamePageScreen() {
       onSuccess: () => {
         showToast(t('fair_play.report_sent'), 'success');
       },
-      onError: (err) => {
-        showToast(err instanceof Error ? err.message : t('fair_play.report_failed'), 'error');
+      onError: () => {
+        showToast(t('fair_play.report_failed'), 'error');
       },
     });
   };
@@ -502,6 +517,15 @@ export function useGamePageScreen() {
       <GamePageErrorView
         t={t}
         error={error}
+        onRetry={() => {
+          setError(null);
+          joinedRef.current = false;
+          connectSocket();
+          if (socket.connected && gameId) {
+            socket.emit('join_game', { gameId });
+            joinedRef.current = true;
+          }
+        }}
         onBackHome={() => navigate(routes.home)}
       />
     );
@@ -627,7 +651,9 @@ export function useGamePageScreen() {
       notices={{
         drawOffered,
         opponentDisconnected,
+        liveError,
       }}
+      onDismissLiveError={() => setLiveError(null)}
       overlays={{
         showGuide,
         showGameOverModal,

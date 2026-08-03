@@ -1,16 +1,24 @@
 import type { BotPersona } from '@shared/botPersonas';
 import type { Move, PieceColor, Position, GameState } from '@shared/types';
+import { useState } from 'react';
 import type { BotChatMessage } from '../lib/botDialogue';
+import { useLgUp } from '../hooks/useLgUp';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
 import Clock from './Clock';
+import CountingBoardStrip from './CountingBoardStrip';
+import GameMobileActions from './GameMobileActions';
 import GameOverModal from './GameOverModal';
 import InGameShell from './InGameShell';
+import PieceGuide from './PieceGuide';
+import PostGameSharePanel from './PostGameSharePanel';
 import { BotGameSidePanel } from './BotGameSidePanel';
 import type { ReviewControls, ReviewEngineControls } from './BotGameSidePanel';
-import type { BotTranslationFields, TranslateFn } from './botGameHelpers';
+import { BOT_GAME_TIME_CONTROL, type BotTranslationFields, type TranslateFn } from './botGameHelpers';
+import { CLOCK_CRITICAL_MS, gameMetaChipClass, gameMetaChipInteractiveClass, shouldOfferPieceGuideStatusHelp } from './gamePageHelpers';
+import PieceGuideStatusHelp from './PieceGuideStatusHelp';
 
 type CaptureSummary = {
   pieces: ReturnType<typeof import('../lib/capturedSummary').getCapturedSummary>['pieces'];
@@ -71,6 +79,9 @@ export type BotGameActiveViewProps = {
   onCloseGameOverModal: () => void;
   onMoveClick: (index: number) => void;
   onResign: () => void;
+  showGuide: boolean;
+  onShowGuide: () => void;
+  onCloseGuide: () => void;
 };
 
 export function BotGameActiveView({
@@ -120,9 +131,18 @@ export function BotGameActiveView({
   onCloseGameOverModal,
   onMoveClick,
   onResign,
+  showGuide,
+  onShowGuide,
+  onCloseGuide,
 }: BotGameActiveViewProps) {
   const reviewActive = gameState.gameOver;
   const reviewMode = review.mode;
+  const lgUp = useLgUp();
+  const [peakShareOpen, setPeakShareOpen] = useState(false);
+  const countingLeaveUrgent = (
+    playerColor === 'white' ? gameState.whiteTime : gameState.blackTime
+  ) < CLOCK_CRITICAL_MS;
+  const showCounting = Boolean(!gameState.gameOver && counting.label);
 
   return (
     <>
@@ -130,14 +150,10 @@ export function BotGameActiveView({
         onHome={onHome}
         headerMeta={
           <>
-            <AppearanceSettingsButton compact />
-            <span className="hidden md:inline">{t('bot.vs_bot')}</span>
             <span className="rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
               {levelLabel}
             </span>
-            <span className="rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
-              {difficultyLabel}
-            </span>
+            <AppearanceSettingsButton compact mode="popover" />
           </>
         }
         topPanel={
@@ -150,7 +166,6 @@ export function BotGameActiveView({
             subtitle={botClockSubtitle}
             capturedPieces={botCaptureSummary.pieces}
             materialDelta={botCaptureSummary.material}
-            showTimer={false}
           />
         }
         board={
@@ -183,26 +198,58 @@ export function BotGameActiveView({
             subtitle={t(playerColor === 'white' ? 'common.white' : 'common.black')}
             capturedPieces={playerCaptureSummary.pieces}
             materialDelta={playerCaptureSummary.material}
-            showTimer={false}
           />
         }
         statusText={statusText}
         moveCount={moveCount}
         isViewingHistory={viewingHistory}
         showCheckBadge={reviewActive ? review.currentState.isCheck : gameState.isCheck}
+        statusHelp={
+          !reviewActive
+          && shouldOfferPieceGuideStatusHelp(moveCount, gameState.isCheck, gameState.gameOver)
+            ? <PieceGuideStatusHelp t={t} onShowGuide={onShowGuide} />
+            : null
+        }
+        boardNotice={
+          showCounting && !lgUp && counting.label ? (
+            <CountingBoardStrip
+              t={t}
+              label={counting.label}
+              canStart={Boolean(counting.start)}
+              canStop={Boolean(counting.stop)}
+              onStart={counting.start ?? undefined}
+              onStop={counting.stop ?? undefined}
+              onResign={onResign}
+              resignLabelKey="bot.resign"
+              confirmMessageKey="bot.resign_confirm"
+              leaveUrgent={countingLeaveUrgent}
+            />
+          ) : null
+        }
+        boardActions={
+          /* Counting strip owns Start/Stop + compact resign; demote the separate thumb row to avoid stacking. */
+          !lgUp && !showCounting && !gameState.gameOver ? (
+            <GameMobileActions
+              t={t}
+              onResign={onResign}
+              resignLabelKey="bot.resign"
+              confirmMessageKey="bot.resign_confirm"
+            />
+          ) : null
+        }
         toolbar={
           <>
             {!reviewActive && viewingHistory && (
               <button type="button"
                 onClick={onReturnToLive}
-                className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
+                className={gameMetaChipInteractiveClass}
               >
                 {t('game.return_to_live')}
               </button>
             )}
             {premove ? (
             <>
-              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal">
+              <span data-testid="game-premove-chip" className={gameMetaChipClass}>
                 {t('game.premove_set')}
               </span>
               <button type="button"
@@ -227,8 +274,7 @@ export function BotGameActiveView({
             levelLabel={levelLabel}
             difficultyLabel={difficultyLabel}
             estimatedEloLabel={estimatedEloLabel}
-            statusText={statusText}
-            counting={counting}
+            counting={showCounting && lgUp ? counting : { label: null, start: null, stop: null }}
             currentGameId={currentGameId}
             gameOverInfo={gameOverInfo}
             botChat={botChat}
@@ -242,6 +288,10 @@ export function BotGameActiveView({
             onMoveClick={onMoveClick}
             onResign={onResign}
             onHome={onHome}
+            onShowGuide={onShowGuide}
+            showHighStakesActions={lgUp}
+            endgamePeakOpen={Boolean(modalGameOverInfo)}
+            leaveUrgent={countingLeaveUrgent}
           />
         }
       />
@@ -254,9 +304,51 @@ export function BotGameActiveView({
           onRematch={onRematch}
           onNewGame={onNewGame}
           onAnalyze={onAnalyze}
-          onClose={onCloseGameOverModal}
+          onClose={() => {
+            setPeakShareOpen(false);
+            onCloseGameOverModal();
+          }}
+          moreExtrasOnly={peakShareOpen}
+          moreExtras={
+            peakShareOpen ? (
+              <div className="space-y-2 text-left" data-testid="post-game-share-path">
+                <button
+                  type="button"
+                  onClick={() => setPeakShareOpen(false)}
+                  className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                >
+                  {t('game.hide_share')}
+                </button>
+                <PostGameSharePanel
+                  analysisId={currentGameId}
+                  board={gameState.board}
+                  lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                  moves={gameState.moveHistory}
+                  moveCount={gameState.moveCount}
+                  playerColor={playerColor}
+                  whitePlayerName={playerColor === 'white' ? playerDisplayName : botName}
+                  blackPlayerName={playerColor === 'black' ? playerDisplayName : botName}
+                  winner={modalGameOverInfo.winner}
+                  resultReason={modalGameOverInfo.reason}
+                  gameMode="bot"
+                  timeControl={BOT_GAME_TIME_CONTROL}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid="post-game-share-expand"
+                onClick={() => setPeakShareOpen(true)}
+                className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+              >
+                {t('game.show_share')}
+              </button>
+            )
+          }
         />
       )}
+
+      <PieceGuide show={showGuide} onClose={onCloseGuide} />
     </>
   );
 }

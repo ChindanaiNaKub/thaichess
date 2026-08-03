@@ -36,8 +36,8 @@ export function DeleteAccountSection() {
         await logout();
         navigate(routes.home);
       }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('account.delete_error'));
+    } catch {
+      setError(t('account.delete_error'));
     } finally {
       deletingRef.current = false;
       setDeleting(false);

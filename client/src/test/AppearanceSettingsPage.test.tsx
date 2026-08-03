@@ -51,7 +51,7 @@ describe('AppearanceSettingsPage', () => {
     renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /dark wood/i }));
-    fireEvent.click(screen.getByRole('button', { name: /piece styles/i }));
+    fireEvent.click(screen.getByRole('button', { name: /pieces/i }));
     fireEvent.click(screen.getByRole('button', { name: /papercut storybook/i }));
 
     await waitFor(() => {

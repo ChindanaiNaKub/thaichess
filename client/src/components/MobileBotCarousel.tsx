@@ -153,7 +153,7 @@ export default function MobileBotCarousel({
                 onClick={() => onSelect(persona.id)}
                 className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                   isSelected
-                    ? 'border-accent/40 bg-accent/10'
+                    ? 'border-primary/35 bg-primary/10'
                     : 'border-surface-hover bg-surface-alt/85 hover:bg-surface-hover/60'
                 }`}
               >
@@ -214,7 +214,7 @@ export default function MobileBotCarousel({
               onClick={() => handleCardClick(persona, index)}
               className={`w-[75vw] max-w-[320px] flex-shrink-0 snap-center rounded-2xl border p-5 text-left transition-[border-color,background-color,opacity] duration-200 ${
                 isSelected
-                  ? 'border-accent/40 bg-accent/10 opacity-100'
+                  ? 'border-primary/35 bg-primary/10 opacity-100'
                   : 'border-surface-hover bg-surface-alt/85 opacity-70'
               }`}
             >
