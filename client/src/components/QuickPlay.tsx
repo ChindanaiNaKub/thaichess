@@ -4,6 +4,7 @@ import { captureProductEvent } from '../lib/analytics';
 import { socket, connectSocket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { mapGameplayErrorMessage } from '../lib/gameplayErrors';
 import { liveGameRoute, routes } from '../lib/routes';
 import type { PieceColor } from '@shared/types';
 import Header from './Header';
@@ -42,7 +43,7 @@ export default function QuickPlay() {
     setRequestPending(false);
     setSearching(false);
     setFallbackDismissed(false);
-    setError(message || latestTRef.current('quick.load_failed'));
+    setError(mapGameplayErrorMessage(message, latestTRef.current, 'quick.load_failed'));
   };
 
   useEffect(() => {

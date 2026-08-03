@@ -242,4 +242,51 @@ describe('GamesPage', () => {
 
     expect(navigateMock).toHaveBeenCalledWith('/analysis/finished-1');
   });
+
+  it('shows a friendly load failure instead of raw error text', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'ECONNRESET boom' }),
+    });
+
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
+
+    expect(await screen.findByText('Could not load your games. Try again.')).toBeInTheDocument();
+    expect(screen.queryByText(/ECONNRESET/i)).not.toBeInTheDocument();
+    const retry = screen.getByRole('button', { name: /retry/i });
+    expect(retry).toBeInTheDocument();
+    expect(retry).toHaveClass('button-accent-contrast');
+  });
+
+  it('retries the games query without a full page reload', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'boom' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          games: [],
+          total: 0,
+          botStats: { gamesCount: 0, winRate: 0, highestBotLevelDefeated: null },
+        }),
+      });
+
+    const Wrapper = createWrapper();
+    render(<GamesPage />, { wrapper: Wrapper });
+
+    expect(await screen.findByText('Could not load your games. Try again.')).toBeInTheDocument();
+    const fetchCountBeforeRetry = fetchMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(fetchCountBeforeRetry);
+    });
+    expect(await screen.findByText('No games yet')).toBeInTheDocument();
+  });
 });
