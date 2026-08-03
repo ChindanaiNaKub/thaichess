@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from '../lib/i18n';
 
+/** Felt plane under the board — soft lift off cloth, not a SaaS card shell. */
+export const GAME_BOARD_FRAME_CLASS =
+  'rounded-xl border border-surface-hover/35 bg-surface/45 p-1 shadow-[0_10px_24px_oklch(0.10_0.02_65_/_0.14)]';
+
 interface GameScreenLayoutProps {
   topPanel: ReactNode;
   board: ReactNode;
@@ -11,6 +15,12 @@ interface GameScreenLayoutProps {
   isViewingHistory?: boolean;
   showCheckBadge?: boolean;
   toolbar?: ReactNode;
+  /** Board-adjacent notice (e.g. mobile counting strip). */
+  boardNotice?: ReactNode;
+  /** Actions under the player clock (e.g. mobile draw/resign). */
+  boardActions?: ReactNode;
+  /** Optional status-lane help (e.g. Piece Guide on check). */
+  statusHelp?: ReactNode;
 }
 
 export default function GameScreenLayout({
@@ -23,6 +33,9 @@ export default function GameScreenLayout({
   isViewingHistory = false,
   showCheckBadge = false,
   toolbar = null,
+  boardNotice = null,
+  boardActions = null,
+  statusHelp = null,
 }: GameScreenLayoutProps) {
   const { t } = useTranslation();
 
@@ -33,28 +46,37 @@ export default function GameScreenLayout({
           {topPanel}
 
           <div className="w-full lg:w-[min(100%,calc(100dvh-15.4rem))] xl:w-[min(100%,calc(100dvh-14.8rem))]">
-            <div className="mb-1 flex items-center justify-between gap-2 px-1">
-              <div className="text-sm font-semibold text-text-bright">
+            {/* One quiet lane: status truncates; meta never wraps into stacked chips. */}
+            <div
+              data-testid="game-status-row"
+              className="mb-1 flex min-w-0 items-center gap-2 px-1"
+            >
+              <div className="min-w-0 flex-1 truncate text-sm font-semibold text-text-bright">
                 {isViewingHistory ? t('game.reviewing_history') : statusText}
-              </div>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim flex-wrap justify-end">
-                {toolbar}
-                <span className="rounded-full border border-surface-hover bg-surface-alt px-2.5 py-1">
-                  {t('moves.title')} {moveCount}
-                </span>
-                {showCheckBadge && !isViewingHistory && (
-                  <span className="rounded-full border border-gold/35 bg-gold/12 px-2.5 py-1 text-gold">
+                {showCheckBadge && !isViewingHistory ? (
+                  <span className="ml-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gold">
                     {t('game.check_status')}
                   </span>
-                )}
+                ) : null}
+                {statusHelp && !isViewingHistory ? (
+                  <span className="ml-2 inline-flex align-middle">{statusHelp}</span>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                {toolbar}
+                <span data-testid="game-move-count" className="tabular-nums text-text-dim">
+                  {t('moves.title')} {moveCount}
+                </span>
               </div>
             </div>
-            <div className="rounded-[1.75rem] border border-surface-hover/80 bg-surface-alt/90 p-1.5 shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28)]">
+            {boardNotice}
+            <div data-testid="game-board-frame" className={GAME_BOARD_FRAME_CLASS}>
               {board}
             </div>
           </div>
 
           {bottomPanel}
+          {boardActions ? <div className="w-full">{boardActions}</div> : null}
         </div>
 
         <aside

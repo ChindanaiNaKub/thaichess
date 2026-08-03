@@ -2,16 +2,23 @@ import { useEffect, useState } from 'react';
 import { socket } from '../lib/socket';
 import { useTranslation } from '../lib/i18n';
 
+const bannerBaseClass =
+  'fixed top-0 left-0 right-0 z-50 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-sm sm:text-sm';
+
+/** Global socket presence strip — Felt washes aligned with sticky liveError / toast chrome. */
 export default function ConnectionStatus() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
+    let connectedHideTimer: ReturnType<typeof setTimeout> | undefined;
+
     const onConnect = () => {
       setStatus('connected');
       setShowBanner(true);
-      setTimeout(() => setShowBanner(false), 2000);
+      window.clearTimeout(connectedHideTimer);
+      connectedHideTimer = setTimeout(() => setShowBanner(false), 2000);
     };
     const onDisconnect = () => {
       setStatus('disconnected');
@@ -29,6 +36,7 @@ export default function ConnectionStatus() {
     if (socket.connected) setStatus('connected');
 
     return () => {
+      window.clearTimeout(connectedHideTimer);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.io.off('reconnect_attempt', onReconnectAttempt);
@@ -39,7 +47,11 @@ export default function ConnectionStatus() {
 
   if (status === 'connected') {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-primary/90 text-white text-center py-1.5 text-sm font-medium animate-fadeIn">
+      <div
+        data-testid="connection-status-banner"
+        data-status="connected"
+        className={`${bannerBaseClass} border-success/30 bg-success/15 text-success animate-fadeIn`}
+      >
         {t('conn.connected')}
       </div>
     );
@@ -47,15 +59,24 @@ export default function ConnectionStatus() {
 
   if (status === 'connecting') {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-accent/90 text-white text-center py-1.5 text-sm font-medium flex items-center justify-center gap-2">
-        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      <div
+        data-testid="connection-status-banner"
+        data-status="connecting"
+        className={`${bannerBaseClass} flex items-center justify-center gap-2 border-primary/25 bg-primary/15 text-primary-light`}
+      >
+        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-light border-t-transparent" />
         {t('conn.reconnecting')}
       </div>
     );
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-danger/90 text-white text-center py-1.5 text-sm font-medium">
+    <div
+      data-testid="connection-status-banner"
+      data-status="disconnected"
+      role="alert"
+      className={`${bannerBaseClass} border-danger/30 bg-danger/15 text-danger`}
+    >
       {t('conn.disconnected')}
     </div>
   );

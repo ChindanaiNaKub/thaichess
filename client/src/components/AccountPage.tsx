@@ -83,7 +83,7 @@ function getProfileErrorMessage(error: unknown, t: (key: string, params?: Record
     return t('account.profile_server_error');
   }
 
-  return error instanceof Error ? error.message : t('account.update_failed');
+  return t('account.update_failed');
 }
 
 
@@ -125,6 +125,8 @@ function useAccountPageScreen() {
   const [sessionsError, setSessionsError] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showAdminMfa, setShowAdminMfa] = useState(false);
+  const [showAccountDetails, setShowAccountDetails] = useState(false);
 
   useEffect(() => {
     if (user?.username) {
@@ -198,8 +200,8 @@ function useAccountPageScreen() {
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
-            className="mt-6 rounded-lg border border-surface-hover bg-surface-alt px-5 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+            onClick={() => { void refreshUser(); }}
+            className="button-accent-contrast mt-6 rounded-xl px-5 py-3 text-sm font-bold"
           >
             {t('common.retry')}
           </button>
@@ -219,6 +221,8 @@ function useAccountPageScreen() {
   const displayName = user.username || user.name || user.email.split('@')[0];
   const adminMfaEnabled = user.twoFactorEnabled || revealedAdminBackupCodes.length > 0;
   const currentSessionToken = betterAuthSession.data?.session.token ?? null;
+  const underStress = user.fair_play_status === 'restricted' || Boolean(authError);
+  const showDetails = !underStress || showAccountDetails;
 
   async function handleAdminMfaSetup() {
     setAdminEnabling(true);
@@ -332,9 +336,16 @@ function useAccountPageScreen() {
                 </div>
               )}
               {authError && (
-                <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-red-100">
+                <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
                   <div className="font-semibold">{t('auth.session_check_failed')}</div>
-                  <p className="mt-1 text-red-100/85">{t('auth.session_check_desc')}</p>
+                  <p className="mt-1 text-danger/90">{t('auth.session_check_desc')}</p>
+                  <button
+                    type="button"
+                    onClick={() => { void refreshUser(); }}
+                    className="button-accent-contrast mt-3 rounded-lg px-4 py-2 text-sm font-bold"
+                  >
+                    {t('common.retry')}
+                  </button>
                 </div>
               )}
             </div>
@@ -349,22 +360,58 @@ function useAccountPageScreen() {
                 <span className="font-semibold text-text-bright">{displayName}</span>
                 <span className="text-text-dim"> · {user.email}</span>
               </p>
-              <p className="max-w-xl text-sm leading-6 text-text-dim">
-                {t('account.hero_desc')}
-              </p>
+              {!underStress && (
+                <p className="max-w-xl text-sm leading-6 text-text-dim">
+                  {t('account.hero_desc')}
+                </p>
+              )}
             </header>
 
+            {underStress && (
+              <div className="max-w-sm space-y-2">
+                {user.fair_play_status === 'restricted' && (
+                  <AccountSecondaryAction onClick={() => navigate(routes.feedback)}>
+                    {t('account.open_feedback')}
+                  </AccountSecondaryAction>
+                )}
+                {user.role === 'admin' && user.twoFactorEnabled && (
+                  <AccountSecondaryAction onClick={() => navigate(routes.fairPlay)}>
+                    {t('account.open_fair_play')}
+                  </AccountSecondaryAction>
+                )}
+                <AccountSecondaryAction
+                  danger
+                  onClick={async () => {
+                    await logout();
+                    navigate(routes.home, { replace: true });
+                  }}
+                >
+                  {t('account.sign_out')}
+                </AccountSecondaryAction>
+                <button
+                  type="button"
+                  aria-expanded={showAccountDetails}
+                  onClick={() => setShowAccountDetails((current) => !current)}
+                  className="w-full rounded-xl border border-surface-hover bg-surface-alt px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                >
+                  {showAccountDetails ? t('account.hide_details') : t('account.show_details')}
+                </button>
+              </div>
+            )}
+
+            {showDetails && (
+              <>
             <div className="grid grid-cols-3 gap-3 border-y border-surface-hover/70 py-4">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.rating')}</div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.rating')}</div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-text-bright">{user.rating}</div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.rated_games')}</div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.rated_games')}</div>
                 <div className="mt-2 text-2xl font-bold tracking-tight text-text-bright">{user.rated_games}</div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.record')}</div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('account.record')}</div>
                 <div className="mt-2 flex items-baseline gap-1.5 text-2xl font-bold tracking-tight">
                   <span className="text-primary" aria-label={t('account.wins')}>{user.wins}</span>
                   <span className="text-text-dim/50" aria-hidden="true">/</span>
@@ -405,6 +452,7 @@ function useAccountPageScreen() {
               {error && <p className="text-sm text-danger">{error}</p>}
             </form>
 
+            {!underStress && (
             <div className="max-w-sm space-y-2">
               <AccountSecondaryAction onClick={() => navigate(routes.leaderboard)}>
                 {t('leaderboard.title')}
@@ -429,8 +477,13 @@ function useAccountPageScreen() {
                 {t('account.sign_out')}
               </AccountSecondaryAction>
             </div>
+            )}
+              </>
+            )}
           </section>
 
+          {showDetails && (
+          <>
           <section className="space-y-5 border-t border-surface-hover/70 pt-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -559,7 +612,15 @@ function useAccountPageScreen() {
               <h2 className="text-xl font-bold text-text-bright">{t('account.section_security')}</h2>
               <button
                 type="button"
-                onClick={() => setShowSecurity((current) => !current)}
+                onClick={() => {
+                  const next = !showSecurity;
+                  setShowSecurity(next);
+                  if (!next) {
+                    setShowAdminMfa(false);
+                  } else if (!sessionsLoaded && !sessionsLoading) {
+                    void handleLoadSessions();
+                  }
+                }}
                 className="rounded-xl border border-surface-hover bg-surface-alt px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
                 aria-expanded={showSecurity}
               >
@@ -569,82 +630,6 @@ function useAccountPageScreen() {
 
             {showSecurity && (
               <div className="space-y-6">
-                {user.role === 'admin' && (
-                  <div className="rounded-xl border border-surface-hover/60 bg-surface-alt/70 p-5">
-                    <h3 className="text-lg font-bold text-text-bright">{t('account.admin_security_title')}</h3>
-                    <p className="mt-2 text-sm leading-6 text-text-dim">
-                      {t('account.admin_security_desc')}
-                    </p>
-                    <p className="mt-3 text-sm font-medium text-text-bright">
-                      {t('account.admin_security_status', {
-                        status: adminMfaEnabled
-                          ? t('account.admin_security_enabled')
-                          : t('account.admin_security_disabled'),
-                      })}
-                    </p>
-
-                    {!adminMfaEnabled ? (
-                      <div className="mt-4 space-y-4">
-                        <button
-                          type="button"
-                          onClick={() => void handleAdminMfaSetup()}
-                          disabled={adminEnabling}
-                          className="rounded-xl border border-surface-hover bg-surface-alt px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
-                        >
-                          {adminEnabling ? t('account.admin_security_preparing') : t('account.admin_security_setup')}
-                        </button>
-
-                        {adminSetupUri ? (
-                          <div className="space-y-4 rounded-xl border border-surface-hover/60 bg-surface/70 p-4">
-                            <p className="text-sm text-text-dim">
-                              {t('account.admin_security_uri_help')}
-                            </p>
-                            <code className="block overflow-x-auto rounded-xl bg-surface px-3 py-3 text-xs text-text-bright">
-                              {adminSetupUri}
-                            </code>
-                            <form className="space-y-3" onSubmit={handleAdminMfaVerify}>
-                              <label className="block">
-                                <span className="mb-2 block text-sm font-medium text-text-bright">{t('account.admin_security_code')}</span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  autoComplete="one-time-code"
-                                  value={adminSetupCode}
-                                  onChange={(event) => setAdminSetupCode(event.target.value)}
-                                  className="w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none transition-colors focus:border-accent"
-                                />
-                              </label>
-                              <button
-                                type="submit"
-                                disabled={adminVerifying || adminSetupCode.trim().length === 0}
-                                className="rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
-                              >
-                                {adminVerifying ? t('account.admin_security_verifying') : t('account.admin_security_verify')}
-                              </button>
-                            </form>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {revealedAdminBackupCodes.length > 0 ? (
-                      <div className="mt-4 rounded-xl border border-surface-hover/60 bg-surface/70 p-4">
-                        <p className="text-sm font-medium text-text-bright">{t('account.admin_security_backup')}</p>
-                        <ul className="mt-3 grid gap-2 text-sm text-text-bright sm:grid-cols-2">
-                          {revealedAdminBackupCodes.map((backupCode) => (
-                            <li key={backupCode} className="rounded-xl bg-surface px-3 py-2 font-mono">
-                              {backupCode}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {adminSecurityMessage ? <p className="mt-4 text-sm text-success">{adminSecurityMessage}</p> : null}
-                    {adminSecurityError ? <p className="mt-4 text-sm text-danger">{adminSecurityError}</p> : null}
-                  </div>
-                )}
-
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -712,10 +697,105 @@ function useAccountPageScreen() {
                   {sessionsError ? <p className="text-sm text-danger">{sessionsError}</p> : null}
                 </div>
 
+                {user.role === 'admin' && (
+                  <div className="rounded-xl border border-surface-hover/60 bg-surface-alt/70 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-text-bright">{t('account.admin_security_title')}</h3>
+                        <p className="mt-1 text-sm text-text-dim">
+                          {t('account.admin_security_status', {
+                            status: adminMfaEnabled
+                              ? t('account.admin_security_enabled')
+                              : t('account.admin_security_disabled'),
+                          })}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminMfa((current) => !current)}
+                        className="rounded-xl border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60"
+                        aria-expanded={showAdminMfa}
+                      >
+                        {showAdminMfa ? t('account.hide_admin_security') : t('account.show_admin_security')}
+                      </button>
+                    </div>
+
+                    {showAdminMfa && (
+                      <div className="mt-4 space-y-4 border-t border-surface-hover/60 pt-4">
+                        <p className="text-sm leading-6 text-text-dim">
+                          {t('account.admin_security_desc')}
+                        </p>
+
+                        {!adminMfaEnabled ? (
+                          <div className="space-y-4">
+                            <button
+                              type="button"
+                              onClick={() => void handleAdminMfaSetup()}
+                              disabled={adminEnabling}
+                              className="rounded-xl border border-surface-hover bg-surface-alt px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
+                            >
+                              {adminEnabling ? t('account.admin_security_preparing') : t('account.admin_security_setup')}
+                            </button>
+
+                            {adminSetupUri ? (
+                              <div className="space-y-4 rounded-xl border border-surface-hover/60 bg-surface/70 p-4">
+                                <p className="text-sm text-text-dim">
+                                  {t('account.admin_security_uri_help')}
+                                </p>
+                                <code className="block overflow-x-auto rounded-xl bg-surface px-3 py-3 text-xs text-text-bright">
+                                  {adminSetupUri}
+                                </code>
+                                <form className="space-y-3" onSubmit={handleAdminMfaVerify}>
+                                  <label className="block">
+                                    <span className="mb-2 block text-sm font-medium text-text-bright">{t('account.admin_security_code')}</span>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      autoComplete="one-time-code"
+                                      value={adminSetupCode}
+                                      onChange={(event) => setAdminSetupCode(event.target.value)}
+                                      className="w-full rounded-xl border border-surface-hover bg-surface px-4 py-3 text-text-bright outline-none transition-colors focus:border-accent"
+                                    />
+                                  </label>
+                                  <button
+                                    type="submit"
+                                    disabled={adminVerifying || adminSetupCode.trim().length === 0}
+                                    className="rounded-xl border border-surface-hover/70 bg-surface px-4 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover/60 disabled:opacity-60"
+                                  >
+                                    {adminVerifying ? t('account.admin_security_verifying') : t('account.admin_security_verify')}
+                                  </button>
+                                </form>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {revealedAdminBackupCodes.length > 0 ? (
+                          <div className="rounded-xl border border-surface-hover/60 bg-surface/70 p-4">
+                            <p className="text-sm font-medium text-text-bright">{t('account.admin_security_backup')}</p>
+                            <ul className="mt-3 grid gap-2 text-sm text-text-bright sm:grid-cols-2">
+                              {revealedAdminBackupCodes.map((backupCode) => (
+                                <li key={backupCode} className="rounded-xl bg-surface px-3 py-2 font-mono">
+                                  {backupCode}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {adminSecurityMessage ? <p className="text-sm text-success">{adminSecurityMessage}</p> : null}
+                        {adminSecurityError ? <p className="text-sm text-danger">{adminSecurityError}</p> : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <DeleteAccountSection />
               </div>
             )}
           </section>
+          </>
+          )}
         </div>
       </main>
     </div>

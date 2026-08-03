@@ -5,6 +5,8 @@ export type QuickPlayTimePreset = {
   increment: number;
 };
 
+export type TimePaceGroup = 'bullet' | 'blitz' | 'rapid' | 'classical';
+
 export const TIME_PRESETS: QuickPlayTimePreset[] = [
   { label: '1+0', nameKey: 'time.bullet', initial: 60, increment: 0 },
   { label: '3+0', nameKey: 'time.blitz', initial: 180, increment: 0 },
@@ -19,6 +21,26 @@ export const TIME_PRESETS: QuickPlayTimePreset[] = [
 
 /** Featured clocks — same progressive set as HomeFriendPanel. */
 export const FEATURED_TIME_LABELS = new Set(['3+0', '5+0', '10+0', '15+10']);
+
+export const TIME_PACE_ORDER: TimePaceGroup[] = ['bullet', 'blitz', 'rapid', 'classical'];
+
+export function getTimePaceGroup(preset: QuickPlayTimePreset): TimePaceGroup {
+  if (preset.nameKey === 'time.bullet') return 'bullet';
+  if (preset.nameKey === 'time.blitz') return 'blitz';
+  if (preset.nameKey === 'time.rapid') return 'rapid';
+  return 'classical';
+}
+
+/** Group expanded clocks by Makruk pace so each decision stays ≤4 options. */
+export function groupTimePresetsByPace(presets: readonly QuickPlayTimePreset[]) {
+  return TIME_PACE_ORDER
+    .map((pace) => ({
+      pace,
+      nameKey: `time.${pace}` as const,
+      presets: presets.filter((preset) => getTimePaceGroup(preset) === pace),
+    }))
+    .filter((group) => group.presets.length > 0);
+}
 
 export const BOT_FALLBACK_SECONDS = 12;
 /** Clear "Sending…" if connect / matchmaking_started never arrives. */

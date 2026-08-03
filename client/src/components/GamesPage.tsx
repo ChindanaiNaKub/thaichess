@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../lib/i18n';
+import { mapGameplayErrorMessage } from '../lib/gameplayErrors';
 import { routes, savedGameAnalysisRoute } from '../lib/routes';
 import { gamesQueryOptions, type GamesFilter, type GameEntry } from '../queries/games';
 import Header from './Header';
@@ -193,6 +194,8 @@ export default function GamesPage() {
     isLoading,
     isError,
     error,
+    refetch,
+    isFetching,
   } = useQuery(gamesQueryOptions(page, limit, filter));
 
   const games = data?.games ?? [];
@@ -258,10 +261,10 @@ export default function GamesPage() {
                 key={filterOption}
                 type="button"
                 onClick={() => handleFilterChange(filterOption)}
-                className={`rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${
+                className={`ui-choice px-3 py-1.5 text-xs sm:text-sm font-semibold ${
                   filter === filterOption
-                    ? 'border border-primary/35 bg-primary/15 text-primary-light'
-                    : 'ui-btn-secondary text-text-dim hover:text-text-bright'
+                    ? 'ui-choice-selected'
+                    : 'text-text-dim hover:text-text-bright'
                 }`}
               >
                 {t(`games.filter_${filterOption}`)}
@@ -295,12 +298,13 @@ export default function GamesPage() {
           </div>
         ) : isError ? (
           <div className="ui-card rounded-2xl border-danger/30 bg-danger/10 px-6 py-10 text-center">
-            <p className="text-danger">{error?.message || t('error.generic')}</p>
+            <p className="text-danger">{mapGameplayErrorMessage(error, t, 'games.load_failed')}</p>
             <button type="button"
-              onClick={() => window.location.reload()}
-              className="ui-btn-secondary mt-4 px-4 py-2"
+              onClick={() => { void refetch(); }}
+              disabled={isFetching}
+              className="button-accent-contrast mt-4 rounded-lg px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {t('common.retry')}
+              {isFetching ? t('common.sending') : t('common.retry')}
             </button>
           </div>
         ) : games.length === 0 ? (

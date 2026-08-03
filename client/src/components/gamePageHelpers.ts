@@ -21,6 +21,48 @@ export type GameOverInfo = {
   ratingChange: import('@shared/types').RatingChangeSummary | null;
 };
 
+/**
+ * Status-lane Piece Guide only on check — side pin (`piece-guide-side`) owns mid-play discovery.
+ * Early-move dual surface was quieter-out: status help + side twin competed in the first plies.
+ */
+export function shouldOfferPieceGuideStatusHelp(
+  _moveCount: number,
+  isCheck: boolean,
+  gameOver: boolean,
+): boolean {
+  if (gameOver) return false;
+  return isCheck;
+}
+
+/** Shared live/bot/local policy: nav hint only when reviewing or after the game ends. */
+export function shouldShowMoveNavHint(moveCount: number, gameOver: boolean, viewingHistory: boolean): boolean {
+  return moveCount > 0 && (gameOver || viewingHistory);
+}
+
+/** Shared with CountingBoardStrip leave urgency — under 10s expands Draw/Resign. */
+export const CLOCK_CRITICAL_MS = 10_000;
+
+/** Quiet secondary rail action (piece guide) — shared live/bot Operate grammar. */
+export const sidePanelHelpActionClass =
+  'w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright text-sm rounded-xl border border-surface-hover transition-colors';
+
+/** Softer leave/escape under history — not a twin of Piece Guide. */
+export const sidePanelLeaveActionClass =
+  'w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline';
+
+/**
+ * Mid-play meta chips (rated, premove, view-as, return-to-live).
+ * Cloth only — State Gold stays on turn / check / counting.
+ */
+export const gameMetaChipClass =
+  'rounded-full border border-surface-hover/80 bg-surface-alt/90 px-2.5 py-1 text-text-dim normal-case tracking-normal';
+
+export const gameMetaChipInteractiveClass =
+  `${gameMetaChipClass} transition-colors hover:bg-surface-hover hover:text-text-bright`;
+
+export const gameMetaChipSelectedClass =
+  'rounded-full border border-surface-hover bg-surface px-2.5 py-1 text-xs font-semibold text-text-bright';
+
 export function handleOfferDraw() {
   socket.emit('offer_draw');
 }

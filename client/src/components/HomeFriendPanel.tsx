@@ -131,10 +131,10 @@ export function HomeFriendPanel({
                   type="button"
                   key={preset.label}
                   onClick={() => setSelectedTime(preset)}
-                  className={`min-h-10 rounded-md border px-2 py-2 text-xs font-semibold ${
+                  className={`ui-choice min-h-10 rounded-md px-2 py-2 text-xs font-semibold ${
                     selectedTime.label === preset.label
-                      ? 'border-accent/40 bg-accent/12 text-accent'
-                      : 'border-surface-hover/70 bg-surface text-text-dim hover:text-text-bright'
+                      ? 'ui-choice-selected'
+                      : 'text-text-dim hover:text-text-bright'
                   }`}
                 >
                   {preset.label}
@@ -162,10 +162,10 @@ export function HomeFriendPanel({
                   type="button"
                   key={color}
                   onClick={() => setSelectedColor(color)}
-                  className={`min-h-10 rounded-md border px-2 py-2 text-xs font-semibold ${
+                  className={`ui-choice min-h-10 rounded-md px-2 py-2 text-xs font-semibold ${
                     selectedColor === color
-                      ? 'border-accent/40 bg-accent/12 text-accent'
-                      : 'border-surface-hover/70 bg-surface text-text-dim hover:text-text-bright'
+                      ? 'ui-choice-selected'
+                      : 'text-text-dim hover:text-text-bright'
                   }`}
                 >
                   {t(`home.color_${color}`)}

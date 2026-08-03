@@ -23,6 +23,7 @@ import {
 } from '../lib/boardSession';
 import { getCapturedSummary } from '../lib/capturedSummary';
 import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
+import { useLgUp } from '../hooks/useLgUp';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
 import { useSaveLocalGameMutation } from '../queries/localGames';
@@ -30,6 +31,19 @@ import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
 import type { Arrow } from './Board';
+import CountingHelpDisclosure from './CountingHelpDisclosure';
+import CountingLeaveDisclosure from './CountingLeaveDisclosure';
+import CountingStartConsequence from './CountingStartConsequence';
+import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
+import CountingBoardStrip from './CountingBoardStrip';
+import GameMobileActions from './GameMobileActions';
+import {
+  countingLabelClass,
+  countingPanelClass,
+  countingStartButtonClass,
+  countingStopButtonClass,
+  countingTitleClass,
+} from './countingChrome';
 import MoveHistory from './MoveHistory';
 import GameOverModal from './GameOverModal';
 import GameOverPanel from './GameOverPanel';
@@ -37,6 +51,10 @@ import Clock from './Clock';
 import InGameShell from './InGameShell';
 import PostGameReviewPanel from './PostGameReviewPanel';
 import PostGameSharePanel from './PostGameSharePanel';
+import PieceGuide from './PieceGuide';
+import ResignConfirmControls from './ResignConfirmControls';
+import { gameMetaChipInteractiveClass, gameMetaChipSelectedClass, CLOCK_CRITICAL_MS, shouldOfferPieceGuideStatusHelp, shouldShowMoveNavHint, sidePanelHelpActionClass, sidePanelLeaveActionClass } from './gamePageHelpers';
+import PieceGuideStatusHelp from './PieceGuideStatusHelp';
 
 const DEFAULT_PLAY_TIME_MS = 10 * 60 * 1000;
 const LOCAL_CLOCK_TICK_MS = 500;
@@ -57,13 +75,20 @@ export default function LocalGame() {
 function useLocalGameScreen() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const lgUp = useLgUp();
   const reviewT = useReviewCopy();
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
+  const countingLeaveUrgent = (
+    gameState.turn === 'white' ? gameState.whiteTime : gameState.blackTime
+  ) < CLOCK_CRITICAL_MS;
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   const [viewAs, setViewAs] = useState<PieceColor>('white');
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
   const [currentGameId, setCurrentGameId] = useState(createLocalGameId);
@@ -306,6 +331,24 @@ function useLocalGameScreen() {
     setCurrentGameId(createLocalGameId());
   };
 
+  const handleResign = () => {
+    if (gameState.gameOver) return;
+    const resigning = gameState.turn;
+    const winner: PieceColor = resigning === 'white' ? 'black' : 'white';
+    setGameState((prev) => ({
+      ...prev,
+      gameOver: true,
+      winner,
+      isDraw: false,
+      resultReason: 'resignation',
+      counting: null,
+    }));
+    setGameOverInfo({ reason: 'resignation', winner });
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    playGameOverSound();
+  };
+
   const getLastMove = (): Move | null => {
     return getLastMoveForView(gameState, viewMoveIndex);
   };
@@ -377,11 +420,10 @@ function useLocalGameScreen() {
       onHome={() => navigate('/')}
       headerMeta={
         <>
-          <AppearanceSettingsButton compact />
-          <span className="hidden md:inline">{t('local.title')}</span>
-          <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
+          <span className="rounded-full px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] bg-surface text-text-dim border border-surface-hover">
             {t('local.title')}
           </span>
+          <AppearanceSettingsButton compact mode="popover" />
         </>
       }
         topPanel={
@@ -430,11 +472,36 @@ function useLocalGameScreen() {
         moveCount={moveCount}
         isViewingHistory={isViewingHistory}
         showCheckBadge={gameState.isCheck}
+        statusHelp={
+          shouldOfferPieceGuideStatusHelp(moveCount, gameState.isCheck, gameState.gameOver)
+            ? <PieceGuideStatusHelp t={t} onShowGuide={() => setShowGuide(true)} />
+            : null
+        }
+        boardNotice={
+          !gameState.gameOver && countingLabel && !lgUp ? (
+            <CountingBoardStrip
+              t={t}
+              label={countingLabel}
+              canStart={canStartLocalCounting}
+              canStop={canStopLocalCounting}
+              onStart={handleStartCounting}
+              onStop={handleStopCounting}
+              onResign={handleResign}
+              leaveUrgent={countingLeaveUrgent}
+            />
+          ) : null
+        }
+        boardActions={
+          /* Shared Operate contract: counting strip owns exits; otherwise thumb-zone resign. */
+          !lgUp && !gameState.gameOver && !countingLabel ? (
+            <GameMobileActions t={t} onResign={handleResign} />
+          ) : null
+        }
         toolbar={
           reviewActive ? null : isViewingHistory ? (
             <button type="button"
               onClick={() => setViewMoveIndex(null)}
-              className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-primary-light normal-case tracking-normal transition-colors hover:bg-primary/15"
+              className={gameMetaChipInteractiveClass}
             >
               {t('game.return_to_live')}
             </button>
@@ -442,15 +509,14 @@ function useLocalGameScreen() {
         }
         sidePanel={
           <>
-            <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="font-semibold text-text-bright">{statusText}</div>
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-                  <span>{t('local.title')}</span>
-                  <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover">
-                    {viewAs === 'white' ? t('common.white') : t('common.black')}
-                  </span>
-                </div>
+            <div
+              data-testid="local-side-meta"
+              className="rounded-2xl border border-surface-hover/80 bg-surface-alt/90 px-3 py-2.5"
+            >              <div className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
+                <span>{t('local.title')}</span>
+                <span className="rounded-full px-2 py-1 bg-surface text-text-dim border border-surface-hover normal-case tracking-normal">
+                  {viewAs === 'white' ? t('common.white') : t('common.black')}
+                </span>
               </div>
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-surface-hover/80 pt-3">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
@@ -459,13 +525,13 @@ function useLocalGameScreen() {
                 <div className="flex items-center gap-1.5">
                   <button type="button"
                     onClick={() => setViewAs('white')}
-                    className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'white' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
+                    className={viewAs === 'white' ? gameMetaChipSelectedClass : gameMetaChipInteractiveClass}
                   >
                     {t('common.white')}
                   </button>
                   <button type="button"
                     onClick={() => setViewAs('black')}
-                    className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${viewAs === 'black' ? 'bg-primary/15 border-primary/30 text-primary-light' : 'bg-surface-alt border-surface-hover text-text-dim hover:text-text-bright'}`}
+                    className={viewAs === 'black' ? gameMetaChipSelectedClass : gameMetaChipInteractiveClass}
                   >
                     {t('common.black')}
                   </button>
@@ -473,16 +539,17 @@ function useLocalGameScreen() {
               </div>
             </div>
 
-            {!gameState.gameOver && countingLabel && (
-              <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-primary-light">
-                <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
+            {!gameState.gameOver && countingLabel && lgUp && (
+              <div className={`${countingPanelClass} px-4 py-3`}>
+                <div className={`mb-1 ${countingTitleClass}`}>
                   {t('game.counting_title')}
                 </div>
-                <div className="text-sm text-text-bright">{countingLabel}</div>
+                <div className={countingLabelClass}>{countingLabel}</div>
+                {canStartLocalCounting ? <CountingStartConsequence t={t} /> : null}
                 {canStartLocalCounting && (
                   <button type="button"
                     onClick={handleStartCounting}
-                    className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/15 px-3 py-2 text-sm text-primary-light transition-colors hover:bg-primary/25"
+                    className={`mt-3 w-full ${countingStartButtonClass}`}
                   >
                     {t('game.counting_start')}
                   </button>
@@ -490,70 +557,174 @@ function useLocalGameScreen() {
                 {canStopLocalCounting && (
                   <button type="button"
                     onClick={handleStopCounting}
-                    className="mt-3 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
+                    className={`mt-3 w-full ${countingStopButtonClass}`}
                   >
                     {t('game.counting_stop')}
                   </button>
                 )}
+                {canStartLocalCounting ? (
+                  <CountingStartDetailsDisclosure
+                    t={t}
+                    leaveUrgent={countingLeaveUrgent}
+                    toggleTestId="side-panel-counting-details-toggle"
+                    detailsTestId="side-panel-counting-details"
+                  >
+                    <CountingHelpDisclosure t={t} />
+                  </CountingStartDetailsDisclosure>
+                ) : (
+                  <CountingHelpDisclosure t={t} />
+                )}
               </div>
             )}
 
-            {/* Inline Game Over Panel (Lichess-style) */}
-            {gameOverInfo && (
+            {/* Inline Game Over Panel — suppressed while peak-end modal owns Rematch/New.
+                Hot-seat Local has no single "you": keep color-victorious copy (not viewAs). */}
+            {gameOverInfo && !showGameOverModal && (
               <GameOverPanel
                 winner={gameOverInfo.winner}
                 reason={gameOverInfo.reason}
-                playerColor={viewAs}
+                playerColor={null}
                 onRematch={handleReset}
                 onNewGame={() => navigate('/')}
                 onAnalyze={gameState.moveHistory.length > 0
                   ? handleAnalyzeGame
                   : undefined
                 }
+                moreExtrasOnly={shareOpen || reviewOpen}
+                moreExtras={
+                  <>
+                    {shareOpen ? (
+                      <div className="space-y-2" data-testid="post-game-share-path">
+                        <button
+                          type="button"
+                          onClick={() => setShareOpen(false)}
+                          className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                        >
+                          {t('game.hide_share')}
+                        </button>
+                        <PostGameSharePanel
+                          analysisId={`local-${gameState.moveHistory.length}`}
+                          board={gameState.board}
+                          lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                          moves={gameState.moveHistory}
+                          moveCount={gameState.moveCount}
+                          playerColor={viewAs}
+                          whitePlayerName={t('common.white')}
+                          blackPlayerName={t('common.black')}
+                          winner={gameOverInfo.winner}
+                          resultReason={gameOverInfo.reason}
+                          gameMode="local"
+                          timeControl={LOCAL_GAME_TIME_CONTROL}
+                        />
+                      </div>
+                    ) : null}
+                    {reviewOpen ? (
+                      <div className="space-y-2" data-testid="post-game-review-path">
+                        <button
+                          type="button"
+                          onClick={() => setReviewOpen(false)}
+                          className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                        >
+                          {t('game.hide_review')}
+                        </button>
+                        <PostGameReviewPanel
+                          mode={review.mode}
+                          selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
+                          analysisRootMoveIndex={review.analysisRootMoveIndex}
+                          analysisLine={review.analysisLine}
+                          controls={{
+                            enterAnalysis: review.canEnterAnalysis,
+                            resetAnalysis: review.canResetAnalysis,
+                            stepBackward: review.canStepBackward,
+                            stepForward: review.canStepForward,
+                          }}
+                          onEnterAnalysis={review.enterAnalysis}
+                          onReturnToMainLine={review.returnToMainLine}
+                          onResetAnalysis={review.resetAnalysis}
+                          onStepBackward={review.stepBackward}
+                          onStepForward={review.stepForward}
+                          onJumpToStart={review.jumpToStart}
+                          onJumpToEnd={review.jumpToEnd}
+                          engineAnalysis={reviewEngine.analysis}
+                          engineAnalyzing={reviewEngine.analyzing}
+                          engineError={reviewEngine.error}
+                        />
+                      </div>
+                    ) : null}
+                    {!shareOpen && !reviewOpen ? (
+                      <>
+                        <button
+                          type="button"
+                          data-testid="post-game-share-expand"
+                          onClick={() => {
+                            setReviewOpen(false);
+                            setShareOpen(true);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                        >
+                          {t('game.show_share')}
+                        </button>
+                        {reviewActive ? (
+                          <button
+                            type="button"
+                            data-testid="post-game-review-expand"
+                            onClick={() => {
+                              setShareOpen(false);
+                              setReviewOpen(true);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                          >
+                            {t('game.show_review')}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </>
+                }
               />
             )}
 
-            {gameOverInfo && (
-              <PostGameSharePanel
-                analysisId={`local-${gameState.moveHistory.length}`}
-                board={gameState.board}
-                lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
-                moves={gameState.moveHistory}
-                moveCount={gameState.moveCount}
-                playerColor={viewAs}
-                whitePlayerName={t('common.white')}
-                blackPlayerName={t('common.black')}
-                winner={gameOverInfo.winner}
-                resultReason={gameOverInfo.reason}
-                gameMode="local"
-                timeControl={LOCAL_GAME_TIME_CONTROL}
-              />
-            )}
+            {/* Pin resign above history — same desktop high-stakes lane as live/bot.
+                During counting, demote behind leave (same contract as the board strip). */}
+            {!gameState.gameOver && lgUp ? (
+              <div data-testid="side-panel-high-stakes">
+                {countingLabel ? (
+                  <CountingLeaveDisclosure
+                    t={t}
+                    leaveUrgent={countingLeaveUrgent}
+                    className=""
+                    exitsClassName="mt-2 space-y-2"
+                    toggleTestId="side-panel-counting-leave-toggle"
+                    exitsTestId="side-panel-counting-leave-exits"
+                  >
+                    <ResignConfirmControls
+                      onConfirm={handleResign}
+                      resignLabelKey="game.resign"
+                      confirmMessageKey="game.resign_confirm"
+                      fullWidth
+                      className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+                    />
+                  </CountingLeaveDisclosure>
+                ) : (
+                  <ResignConfirmControls
+                    onConfirm={handleResign}
+                    resignLabelKey="game.resign"
+                    confirmMessageKey="game.resign_confirm"
+                    fullWidth
+                    className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+                  />
+                )}
+              </div>
+            ) : null}
 
-            {reviewActive && (
-              <PostGameReviewPanel
-                mode={review.mode}
-                selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
-                analysisRootMoveIndex={review.analysisRootMoveIndex}
-                analysisLine={review.analysisLine}
-                controls={{
-                  enterAnalysis: review.canEnterAnalysis,
-                  resetAnalysis: review.canResetAnalysis,
-                  stepBackward: review.canStepBackward,
-                  stepForward: review.canStepForward,
-                }}
-                onEnterAnalysis={review.enterAnalysis}
-                onReturnToMainLine={review.returnToMainLine}
-                onResetAnalysis={review.resetAnalysis}
-                onStepBackward={review.stepBackward}
-                onStepForward={review.stepForward}
-                onJumpToStart={review.jumpToStart}
-                onJumpToEnd={review.jumpToEnd}
-                engineAnalysis={reviewEngine.analysis}
-                engineAnalyzing={reviewEngine.analyzing}
-                engineError={reviewEngine.error}
-              />
-            )}
+            <button
+              type="button"
+              data-testid="piece-guide-side"
+              onClick={() => setShowGuide(true)}
+              className={sidePanelHelpActionClass}
+            >
+              {t('game.piece_guide')}
+            </button>
 
             <MoveHistory
               moves={gameState.moveHistory}
@@ -562,20 +733,27 @@ function useLocalGameScreen() {
               onMoveClick={reviewActive ? review.jumpToMainLine : handleMoveClick}
             />
 
-            {gameState.moveHistory.length > 0 && (
+            {shouldShowMoveNavHint(
+              gameState.moveHistory.length,
+              gameState.gameOver,
+              viewMoveIndex != null,
+            ) && (
               <div className="text-center text-[11px] text-text-dim">
                 {t('game.nav_hint')}
               </div>
             )}
 
-            {!gameState.gameOver && (
-              <button type="button"
+            {/* Mid-play leave: text link under history — not a twin of Piece Guide help. */}
+            {!gameState.gameOver ? (
+              <button
+                type="button"
+                data-testid="local-play-online"
                 onClick={() => navigate('/')}
-                className="w-full py-2.5 px-4 bg-primary hover:bg-primary-light text-white text-sm rounded-xl transition-colors"
+                className={sidePanelLeaveActionClass}
               >
                 {t('local.play_online')}
               </button>
-            )}
+            ) : null}
           </>
         }
       />
@@ -584,16 +762,58 @@ function useLocalGameScreen() {
         <GameOverModal
           winner={gameOverInfo.winner}
           reason={gameOverInfo.reason}
-          playerColor={viewAs}
+          playerColor={null}
           onRematch={handleReset}
           onNewGame={() => navigate('/')}
           onAnalyze={gameState.moveHistory.length > 0
             ? handleAnalyzeGame
             : undefined
           }
-          onClose={() => setShowGameOverModal(false)}
+          onClose={() => {
+            setShareOpen(false);
+            setShowGameOverModal(false);
+          }}
+          moreExtrasOnly={shareOpen}
+          moreExtras={
+            shareOpen ? (
+              <div className="space-y-2 text-left" data-testid="post-game-share-path">
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(false)}
+                  className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                >
+                  {t('game.hide_share')}
+                </button>
+                <PostGameSharePanel
+                  analysisId={`local-${gameState.moveHistory.length}`}
+                  board={gameState.board}
+                  lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                  moves={gameState.moveHistory}
+                  moveCount={gameState.moveCount}
+                  playerColor={viewAs}
+                  whitePlayerName={t('common.white')}
+                  blackPlayerName={t('common.black')}
+                  winner={gameOverInfo.winner}
+                  resultReason={gameOverInfo.reason}
+                  gameMode="local"
+                  timeControl={LOCAL_GAME_TIME_CONTROL}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid="post-game-share-expand"
+                onClick={() => setShareOpen(true)}
+                className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+              >
+                {t('game.show_share')}
+              </button>
+            )
+          }
         />
       )}
+
+      <PieceGuide show={showGuide} onClose={() => setShowGuide(false)} />
     </>
   );
 }

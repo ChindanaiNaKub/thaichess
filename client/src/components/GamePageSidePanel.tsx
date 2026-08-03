@@ -1,11 +1,24 @@
+import { useState } from 'react';
 import type { ClientGameState, GameState, Move, PieceColor, Position, TimeControl } from '@shared/types';
 import { createInitialBoard } from '@shared/engine';
+import CountingHelpDisclosure from './CountingHelpDisclosure';
+import CountingLeaveDisclosure from './CountingLeaveDisclosure';
+import CountingStartConsequence from './CountingStartConsequence';
+import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
+import {
+  countingLabelClass,
+  countingPanelClass,
+  countingStartButtonClass,
+  countingStopButtonClass,
+  countingTitleClass,
+} from './countingChrome';
 import GameOverPanel from './GameOverPanel';
 import MoveHistory from './MoveHistory';
 import PostGameReviewPanel from './PostGameReviewPanel';
 import PostGameSharePanel from './PostGameSharePanel';
 import ResignConfirmControls from './ResignConfirmControls';
 import type { GameOverInfo, TranslateFn } from './gamePageHelpers';
+import { shouldShowMoveNavHint, sidePanelHelpActionClass } from './gamePageHelpers';
 
 export type ReviewControls = {
   mode: 'mainLine' | 'analysis';
@@ -45,8 +58,6 @@ type GamePageSidePanelProps = {
   gameId: string | undefined;
   gameState: ClientGameState;
   playerColor: PieceColor | null;
-  playerSubtitle: string;
-  statusText: string;
   countingLabel: string | null;
   canStartCounting: boolean;
   canStopCounting: boolean;
@@ -74,6 +85,12 @@ type GamePageSidePanelProps = {
   onStartCounting: () => void;
   onStopCounting: () => void;
   onShowGuide: () => void;
+  /** Draw/resign in this panel (desktop). Mobile uses GameMobileActions under the board. */
+  showHighStakesActions?: boolean;
+  /** When the peak-end modal is open, suppress duplicate endgame chrome in the rail. */
+  endgamePeakOpen?: boolean;
+  /** Mirror CountingBoardStrip: auto-expand leave exits when the clock is critical. */
+  leaveUrgent?: boolean;
 };
 
 export function GamePageSidePanel({
@@ -81,8 +98,6 @@ export function GamePageSidePanel({
   gameId,
   gameState,
   playerColor,
-  playerSubtitle,
-  statusText,
   countingLabel,
   canStartCounting,
   canStopCounting,
@@ -110,31 +125,27 @@ export function GamePageSidePanel({
   onStartCounting,
   onStopCounting,
   onShowGuide,
+  showHighStakesActions = true,
+  endgamePeakOpen = false,
+  leaveUrgent = false,
 }: GamePageSidePanelProps) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const showEndgameChrome = Boolean(gameOverInfo) && !endgamePeakOpen;
+
   return (
     <>
-      <div className="rounded-xl border border-surface-hover bg-surface-alt/90 px-3 py-2.5">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <div className="font-semibold text-text-bright">{statusText}</div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            <span>{playerSubtitle}</span>
-            <span className={`rounded-full px-2 py-1 ${gameState.rated ? 'bg-primary/15 text-primary-light' : 'bg-surface text-text-dim border border-surface-hover'}`}>
-              {gameState.rated ? t('game.rated') : t('game.casual')}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {!gameState.gameOver && countingLabel && (
-        <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-primary-light">
-          <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
+        <div className={`${countingPanelClass} px-4 py-3`}>
+          <div className={`mb-1 ${countingTitleClass}`}>
             {t('game.counting_title')}
           </div>
-          <div className="text-sm text-text-bright">{countingLabel}</div>
+          <div className={countingLabelClass}>{countingLabel}</div>
+          {canStartCounting && <CountingStartConsequence t={t} />}
           {canStartCounting && (
             <button type="button"
               onClick={onStartCounting}
-              className="mt-3 w-full rounded-lg border border-primary/30 bg-primary/15 px-3 py-2 text-sm text-primary-light transition-colors hover:bg-primary/25"
+              className={`mt-3 w-full ${countingStartButtonClass}`}
             >
               {t('game.counting_start')}
             </button>
@@ -142,15 +153,27 @@ export function GamePageSidePanel({
           {canStopCounting && (
             <button type="button"
               onClick={onStopCounting}
-              className="mt-3 w-full rounded-lg border border-surface-hover bg-surface-alt px-3 py-2 text-sm text-text transition-colors hover:bg-surface-hover"
+              className={`mt-3 w-full ${countingStopButtonClass}`}
             >
               {t('game.counting_stop')}
             </button>
           )}
+          {canStartCounting ? (
+            <CountingStartDetailsDisclosure
+              t={t}
+              leaveUrgent={leaveUrgent}
+              toggleTestId="side-panel-counting-details-toggle"
+              detailsTestId="side-panel-counting-details"
+            >
+              <CountingHelpDisclosure t={t} />
+            </CountingStartDetailsDisclosure>
+          ) : (
+            <CountingHelpDisclosure t={t} />
+          )}
         </div>
       )}
 
-      {gameOverInfo && (
+      {showEndgameChrome && gameOverInfo && (
         <GameOverPanel
           winner={gameOverInfo.winner}
           reason={gameOverInfo.reason}
@@ -166,52 +189,166 @@ export function GamePageSidePanel({
           onReport={canReportOpponent ? onReport : undefined}
           reportLabel={reportLabel}
           reportDisabled={reportDisabled}
+          moreExtrasOnly={shareOpen || reviewOpen}
+          moreExtras={
+            <>
+              {shareOpen && playerColor ? (
+                <div className="space-y-2" data-testid="post-game-share-path">
+                  <button
+                    type="button"
+                    onClick={() => setShareOpen(false)}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                  >
+                    {t('game.hide_share')}
+                  </button>
+                  <PostGameSharePanel
+                    analysisId={gameId}
+                    board={gameState.board}
+                    lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                    moves={gameState.moveHistory}
+                    moveCount={gameState.moveCount}
+                    playerColor={playerColor}
+                    whitePlayerName={whitePlayerName || t('common.white')}
+                    blackPlayerName={blackPlayerName || t('common.black')}
+                    winner={gameOverInfo.winner}
+                    resultReason={gameOverInfo.reason}
+                    gameMode={gameState.gameMode}
+                    rated={gameState.rated}
+                    timeControl={timeControl}
+                    ratingChange={gameOverInfo.ratingChange}
+                  />
+                </div>
+              ) : null}
+              {reviewOpen ? (
+                <div className="space-y-2" data-testid="post-game-review-path">
+                  <button
+                    type="button"
+                    onClick={() => setReviewOpen(false)}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                  >
+                    {t('game.hide_review')}
+                  </button>
+                  <PostGameReviewPanel
+                    mode={review.mode}
+                    selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
+                    analysisRootMoveIndex={review.analysisRootMoveIndex}
+                    analysisLine={review.analysisLine}
+                    controls={{
+                      enterAnalysis: review.canEnterAnalysis,
+                      resetAnalysis: review.canResetAnalysis,
+                      stepBackward: review.canStepBackward,
+                      stepForward: review.canStepForward,
+                    }}
+                    onEnterAnalysis={review.enterAnalysis}
+                    onReturnToMainLine={review.returnToMainLine}
+                    onResetAnalysis={review.resetAnalysis}
+                    onStepBackward={review.stepBackward}
+                    onStepForward={review.stepForward}
+                    onJumpToStart={review.jumpToStart}
+                    onJumpToEnd={review.jumpToEnd}
+                    engineAnalysis={reviewEngine.analysis}
+                    engineAnalyzing={reviewEngine.analyzing}
+                    engineError={reviewEngine.error}
+                  />
+                </div>
+              ) : null}
+              {!shareOpen && !reviewOpen ? (
+                <>
+                  {playerColor ? (
+                    <button
+                      type="button"
+                      data-testid="post-game-share-expand"
+                      onClick={() => {
+                        setReviewOpen(false);
+                        setShareOpen(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                    >
+                      {t('game.show_share')}
+                    </button>
+                  ) : null}
+                  {reviewActive ? (
+                    <button
+                      type="button"
+                      data-testid="post-game-review-expand"
+                      onClick={() => {
+                        setShareOpen(false);
+                        setReviewOpen(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                    >
+                      {t('game.show_review')}
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          }
         />
       )}
 
-      {gameOverInfo && gameState.gameOver && playerColor && (
-        <PostGameSharePanel
-          analysisId={gameId}
-          board={gameState.board}
-          lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
-          moves={gameState.moveHistory}
-          moveCount={gameState.moveCount}
-          playerColor={playerColor}
-          whitePlayerName={whitePlayerName || t('common.white')}
-          blackPlayerName={blackPlayerName || t('common.black')}
-          winner={gameOverInfo.winner}
-          resultReason={gameOverInfo.reason}
-          gameMode={gameState.gameMode}
-          rated={gameState.rated}
-          timeControl={timeControl}
-          ratingChange={gameOverInfo.ratingChange}
-        />
+      {/* Pin high-stakes above history so long games don't bury draw/resign.
+          During counting, demote exits behind leave (same contract as the board strip). */}
+      {!gameState.gameOver && gameState.status === 'playing' && showHighStakesActions && (
+        <div data-testid="side-panel-high-stakes">
+          {countingLabel ? (
+            <CountingLeaveDisclosure
+              t={t}
+              leaveUrgent={leaveUrgent}
+              className=""
+              exitsClassName="mt-2 space-y-2"
+              toggleTestId="side-panel-counting-leave-toggle"
+              exitsTestId="side-panel-counting-leave-exits"
+            >
+              <ResignConfirmControls
+                onConfirm={onOfferDraw}
+                resignLabelKey="game.offer_draw"
+                confirmMessageKey="game.offer_draw_confirm"
+                confirmActionKey="game.offer_draw_confirm_action"
+                tone="neutral"
+                fullWidth
+                className="w-full py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
+              />
+              <ResignConfirmControls
+                onConfirm={onResign}
+                resignLabelKey="game.resign"
+                confirmMessageKey="game.resign_confirm"
+                fullWidth
+                className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+              />
+            </CountingLeaveDisclosure>
+          ) : (
+            <div className="space-y-2">
+              <ResignConfirmControls
+                onConfirm={onOfferDraw}
+                resignLabelKey="game.offer_draw"
+                confirmMessageKey="game.offer_draw_confirm"
+                confirmActionKey="game.offer_draw_confirm_action"
+                tone="neutral"
+                fullWidth
+                className="w-full py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
+              />
+              <ResignConfirmControls
+                onConfirm={onResign}
+                resignLabelKey="game.resign"
+                confirmMessageKey="game.resign_confirm"
+                fullWidth
+                className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
+              />
+            </div>
+          )}
+        </div>
       )}
 
-      {reviewActive && (
-        <PostGameReviewPanel
-          mode={review.mode}
-          selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
-          analysisRootMoveIndex={review.analysisRootMoveIndex}
-          analysisLine={review.analysisLine}
-          controls={{
-            enterAnalysis: review.canEnterAnalysis,
-            resetAnalysis: review.canResetAnalysis,
-            stepBackward: review.canStepBackward,
-            stepForward: review.canStepForward,
-          }}
-          onEnterAnalysis={review.enterAnalysis}
-          onReturnToMainLine={review.returnToMainLine}
-          onResetAnalysis={review.resetAnalysis}
-          onStepBackward={review.stepBackward}
-          onStepForward={review.stepForward}
-          onJumpToStart={review.jumpToStart}
-          onJumpToEnd={review.jumpToEnd}
-          engineAnalysis={reviewEngine.analysis}
-          engineAnalyzing={reviewEngine.analyzing}
-          engineError={reviewEngine.error}
-        />
-      )}
+      {/* Pin help above history so long games don't bury Piece Guide. */}
+      <button
+        type="button"
+        data-testid="piece-guide-side"
+        onClick={onShowGuide}
+        className={sidePanelHelpActionClass}
+      >
+        {t('game.piece_guide')}
+      </button>
 
       <MoveHistory
         moves={gameState.moveHistory}
@@ -220,37 +357,15 @@ export function GamePageSidePanel({
         onMoveClick={gameState.gameOver ? review.jumpToMainLine : onMoveClick}
       />
 
-      {gameState.gameOver && gameState.moveHistory.length > 0 && (
+      {shouldShowMoveNavHint(
+        gameState.moveHistory.length,
+        gameState.gameOver,
+        viewMoveIndex != null,
+      ) && (
         <div className="text-center text-[11px] text-text-dim">
           {t('game.nav_hint')}
         </div>
       )}
-
-      {!gameState.gameOver && gameState.status === 'playing' && (
-        <div className="space-y-2">
-          <button type="button"
-            onClick={onOfferDraw}
-            className="w-full py-2.5 px-3 bg-surface-alt hover:bg-surface-hover text-text text-sm rounded-xl border border-surface-hover transition-colors"
-            title={t('game.offer_draw')}
-          >
-            {t('game.offer_draw')}
-          </button>
-          <ResignConfirmControls
-            onConfirm={onResign}
-            resignLabelKey="game.resign"
-            confirmMessageKey="game.resign_confirm"
-            fullWidth
-            className="w-full py-2.5 px-3 bg-surface-alt hover:bg-danger/20 text-text hover:text-danger text-sm rounded-xl border border-surface-hover transition-colors"
-          />
-        </div>
-      )}
-
-      <button type="button"
-        onClick={onShowGuide}
-        className="w-full py-2 px-3 bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright text-sm rounded-xl border border-surface-hover transition-colors"
-      >
-        {t('game.piece_guide')}
-      </button>
     </>
   );
 }

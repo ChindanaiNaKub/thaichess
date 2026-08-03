@@ -225,7 +225,7 @@ describe('BotGame', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the started game without countdown timers while keeping both player bars', () => {
+  it('renders the started game with countdown timers on both player bars', () => {
     renderBotGame();
 
     // Click first start button (both desktop and mobile have this testid)
@@ -233,18 +233,21 @@ describe('BotGame', () => {
 
     expect(screen.getByTestId('board')).toBeInTheDocument();
     expect(screen.getAllByTestId('clock')).toHaveLength(2);
-    expect(screen.getAllByTestId('clock').every((node) => node.getAttribute('data-show-timer') === 'false')).toBe(true);
-    expect(clockPropsMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ showTimer: false }));
-    expect(clockPropsMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ showTimer: false }));
+    expect(screen.getAllByTestId('clock').every((node) => node.getAttribute('data-show-timer') === 'true')).toBe(true);
+    expect(clockPropsMock.mock.calls[0]?.[0].showTimer).not.toBe(false);
+    expect(clockPropsMock.mock.calls[1]?.[0].showTimer).not.toBe(false);
     expect(screen.getAllByText('Panya Suman').length).toBeGreaterThan(0);
     expect(screen.getByText('common.you (common.white)')).toBeInTheDocument();
     expect(screen.getByText('Scholar of Lantern Cloister')).toBeInTheDocument();
+    // Mid-play lore stays gated — quiet header contract (Level + Theme only)
+    expect(screen.queryByRole('button', { name: /bot\.learn_more/i })).not.toBeInTheDocument();
   });
 
   it('starts a game with a roster-selected persona instead of the default bot', () => {
     renderBotGame();
 
-    fireEvent.click(screen.getAllByRole('button', { name: /bot.show_all_bots|bot.change_opponent/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.show_all_bots' })[0]);
 
     const mekhalaButtons = screen.getAllByRole('button', { name: /Mekhala Saeng/i });
     fireEvent.click(mekhalaButtons[0]);
@@ -255,13 +258,24 @@ describe('BotGame', () => {
     expect(screen.getByText('Matron of Riverlight Sala')).toBeInTheDocument();
   });
 
-  it('shows level as the primary bot difficulty and estimated elo as supporting info', () => {
+  it('shows level on the Start face and parks difficulty plus elo behind expand', () => {
     renderBotGame();
 
     expect(screen.getAllByText('Level 4').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Estimated 650-800 ELO').length).toBeGreaterThan(0);
-    // ELO note appears in both desktop and mobile layouts
-    expect(screen.getAllByText('Estimated strength based on play behavior, not an official rating.').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Estimated 650-800 ELO')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'bot.sheet_expand_aria' }));
+    expect(screen.getByText('Estimated 650-800 ELO')).toBeInTheDocument();
+    expect(screen.getByText('Estimated strength based on play behavior, not an official rating.')).toBeInTheDocument();
+  });
+
+  it('keeps the default setup path to opponent, side, and start only', () => {
+    renderBotGame();
+
+    expect(screen.queryByRole('button', { name: /Saman Noi|Chao Surasi|Lady Busaba/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'bot.change_opponent' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('start-game-button').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'common.white' }).length).toBeGreaterThan(0);
   });
 
   it('falls back to a local move when the server returns no bot move', async () => {
@@ -320,6 +334,7 @@ describe('BotGame', () => {
 
     renderBotGame();
 
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
     const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
     fireEvent.click(masterButtons[0]);
 
@@ -349,6 +364,7 @@ describe('BotGame', () => {
 
     renderBotGame();
 
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
     const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
     fireEvent.click(masterButtons[0]);
 
@@ -375,6 +391,7 @@ describe('BotGame', () => {
 
     renderBotGame();
 
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
     const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
     fireEvent.click(masterButtons[0]);
 
@@ -404,11 +421,11 @@ describe('BotGame', () => {
 
     // Click first start button (both desktop and mobile have this testid)
     fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
-    
-    // Cloth resign confirm: open, then confirm
-    const resignButtons = screen.getAllByRole('button', { name: /bot.resign/i });
-    fireEvent.click(resignButtons[0]);
-    fireEvent.click(screen.getAllByRole('button', { name: 'game.resign_confirm_action' })[0]);
+
+    // Thumb-zone resign under the board on <lg (matchMedia defaults to not lg)
+    expect(screen.getByTestId('game-mobile-actions')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /bot.resign/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'game.resign_confirm_action' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/games/bot', expect.objectContaining({

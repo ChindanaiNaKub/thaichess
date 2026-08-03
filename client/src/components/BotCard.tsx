@@ -31,7 +31,7 @@ function BotCard({
       onClick={onSelect}
       className={`group relative rounded-2xl border p-3 text-left transition-[border-color,background-color,transform] duration-200 animate-card-entrance ${staggerClass} ${
         isSelected
-          ? 'border-accent/40 bg-accent/10'
+          ? 'border-primary/35 bg-primary/10'
           : 'border-surface-hover bg-surface-alt/85 hover:bg-surface-hover'
       }`}
     >

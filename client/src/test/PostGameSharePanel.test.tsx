@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 import { I18nProvider } from '../lib/i18n';
+import { TOAST_LIFT_CLASS } from '../lib/toast';
 import PostGameSharePanel from '../components/PostGameSharePanel';
 
 const useGameAnalysisMock = vi.fn();
@@ -45,7 +46,7 @@ function renderPanel(props?: Partial<ComponentProps<typeof PostGameSharePanel>>)
 }
 
 describe('PostGameSharePanel', () => {
-  it('keeps result export available while accuracy and rating are unavailable', () => {
+  it('defaults to a quiet Result export path without Accuracy/Rating studio chrome', () => {
     useGameAnalysisMock.mockReturnValue({
       analysis: null,
       analyzing: true,
@@ -55,10 +56,20 @@ describe('PostGameSharePanel', () => {
 
     renderPanel();
 
-    expect(screen.getByRole('button', { name: 'Result' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Accuracy' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Rating' })).toBeDisabled();
+    const panel = screen.getByTestId('post-game-share-panel');
+    expect(panel.className).toContain(TOAST_LIFT_CLASS);
+    expect(panel.className).not.toMatch(/rgba\(0,0,0,0\.14\)/);
+    expect(screen.getByTestId('post-game-share-outcome-chip').className).toMatch(/text-gold/);
+    expect(screen.getByTestId('post-game-share-outcome-chip').className).not.toMatch(/primary/);
+    expect(screen.queryByRole('button', { name: 'Accuracy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rating' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download PNG' })).toBeEnabled();
+    expect(screen.getByTestId('post-game-share-export')).toHaveClass('ui-btn-secondary');
+    expect(screen.getByTestId('post-game-share-export').className).not.toMatch(/bg-primary/);
+
+    const previewFrame = screen.getByTestId('share-card-preview-viewport').parentElement?.parentElement;
+    expect(previewFrame?.className).not.toMatch(/#120d0a|bg-\[#120d0a\]/);
+    expect(previewFrame?.className).toMatch(/bg-surface/);
 
     const exportCanvases = screen.getAllByTestId('share-card-export-canvas');
     expect(exportCanvases).toHaveLength(2);
@@ -72,7 +83,7 @@ describe('PostGameSharePanel', () => {
     expect(previewViewport.style.maxWidth).toBe('100%');
   });
 
-  it('enables accuracy and rating variants when real data is present', () => {
+  it('defers Accuracy and Rating variants behind More card styles', () => {
     useGameAnalysisMock.mockReturnValue({
       analysis: {
         moves: [],
@@ -99,6 +110,10 @@ describe('PostGameSharePanel', () => {
         blackAfter: 1488,
       },
     });
+
+    expect(screen.queryByTestId('post-game-share-styles')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('post-game-share-styles-toggle'));
+    expect(screen.getByTestId('post-game-share-styles')).toBeInTheDocument();
 
     const accuracyButton = screen.getByRole('button', { name: 'Accuracy' });
     const ratingButton = screen.getByRole('button', { name: 'Rating' });

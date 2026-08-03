@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -10,11 +10,15 @@ const {
   boardPropsMock,
   shellPropsMock,
   requestPositionAnalysisMock,
+  gameOverModalPropsMock,
+  gameOverPanelPropsMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   boardPropsMock: vi.fn(),
   shellPropsMock: vi.fn(),
   requestPositionAnalysisMock: vi.fn(),
+  gameOverModalPropsMock: vi.fn(),
+  gameOverPanelPropsMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -76,11 +80,17 @@ vi.mock('../components/MoveHistory', () => ({
 }));
 
 vi.mock('../components/GameOverModal', () => ({
-  default: () => null,
+  default: (props: any) => {
+    gameOverModalPropsMock(props);
+    return <div data-testid="game-over-modal" />;
+  },
 }));
 
 vi.mock('../components/GameOverPanel', () => ({
-  default: () => null,
+  default: (props: any) => {
+    gameOverPanelPropsMock(props);
+    return <div data-testid="game-over-panel" />;
+  },
 }));
 
 vi.mock('../components/InGameShell', () => ({
@@ -90,8 +100,10 @@ vi.mock('../components/InGameShell', () => ({
       <div data-testid="in-game-shell">
         {props.headerMeta}
         {props.topPanel}
+        {props.boardNotice}
         {props.board}
         {props.bottomPanel}
+        {props.boardActions}
         {props.sidePanel}
       </div>
     );
@@ -129,6 +141,8 @@ describe('LocalGame', () => {
     navigateMock.mockReset();
     boardPropsMock.mockReset();
     shellPropsMock.mockReset();
+    gameOverModalPropsMock.mockReset();
+    gameOverPanelPropsMock.mockReset();
     requestPositionAnalysisMock.mockReset();
     requestPositionAnalysisMock.mockResolvedValue({
       evaluation: 0,
@@ -152,6 +166,37 @@ describe('LocalGame', () => {
     expect(shellProps?.toolbar).toBeNull();
     expect(boardPropsMock).toHaveBeenCalledWith(expect.objectContaining({
       draggableColor: 'white',
+    }));
+
+    const playOnline = screen.getByTestId('local-play-online');
+    expect(playOnline).toHaveTextContent('local.play_online');
+    expect(playOnline.className).not.toMatch(/\bbg-primary\b/);
+    expect(playOnline.className).toMatch(/underline-offset-4/);
+    expect(playOnline.className).not.toMatch(/border-surface-hover/);
+
+    const pieceGuide = screen.getByTestId('piece-guide-side');
+    expect(pieceGuide.className).toMatch(/border-surface-hover/);
+    expect(pieceGuide.className).not.toMatch(/underline-offset-4/);
+
+    // Shared Operate grammar: mobile thumb resign when not counting (matchMedia defaults <lg)
+    expect(screen.getByTestId('game-mobile-actions')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /game.resign/i })).toBeInTheDocument();
+
+    const sideMeta = screen.getByTestId('local-side-meta');
+    expect(sideMeta.className).toMatch(/bg-surface-alt\/90/);
+    expect(sideMeta.className).toMatch(/border-surface-hover\/80/);
+    expect(sideMeta.className).not.toMatch(/shadow-/);
+  });
+
+  it('keeps hot-seat climax color-victorious even after flipping view-as', () => {
+    renderLocalGame();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.black' }));
+    fireEvent.click(screen.getByRole('button', { name: /game.resign/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'game.resign_confirm_action' }));
+
+    expect(gameOverModalPropsMock).toHaveBeenCalledWith(expect.objectContaining({
+      playerColor: null,
     }));
   });
 });

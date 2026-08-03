@@ -4,8 +4,14 @@ import type { PieceColor, PieceType } from '@shared/types';
 import { useTranslation } from '../lib/i18n';
 import BotAvatar from './BotAvatar';
 import InlineCapturedSummary from './InlineCapturedSummary';
+import { CLOCK_CRITICAL_MS } from './gamePageHelpers';
 
 const EMPTY_CAPTURED_PIECES: Array<{ type: PieceType; count: number; capturedColor: PieceColor }> = [];
+
+/** Visible latency chip kicks in here — healthy ping stays on the avatar title only. */
+const LATENCY_DEGRADED_MS = 150;
+/** Stronger wash when connection is clearly struggling. */
+const LATENCY_POOR_MS = 300;
 
 interface ClockProps {
   time: number;
@@ -90,13 +96,22 @@ export default function Clock({
     : time;
 
   const isLow = displayTime < 30000;
-  const isCritical = displayTime < 10000;
+  const isCritical = displayTime < CLOCK_CRITICAL_MS;
   const effectiveStatus = status ?? (isActive ? 'active' : 'online');
   const displayName = playerName.trim() || t('common.guest');
   const initials = getInitials(displayName, color);
   const colorLabel = subtitle ?? t(color === 'white' ? 'common.white' : 'common.black');
-  const showColorChip = Boolean(subtitle)
-    || !displayName.toLocaleLowerCase().includes(colorLabel.toLocaleLowerCase());
+  // Timer eyebrow already carries color / to-move — color chips only when there is no timer.
+  const showColorChip = !showTimer && (
+    Boolean(subtitle)
+    || !displayName.toLocaleLowerCase().includes(colorLabel.toLocaleLowerCase())
+  );
+  const showRatingChip = typeof rating === 'number' && !isActive;
+  // Text chips only for problem presence; idle/online/active stay on the avatar title/dot.
+  const showStatusChip = effectiveStatus === 'offline'
+    || effectiveStatus === 'disconnected'
+    || effectiveStatus === 'reconnecting'
+    || effectiveStatus === 'away';
   const statusLabel = effectiveStatus === 'offline' || effectiveStatus === 'disconnected'
     ? t('game.offline')
     : effectiveStatus === 'reconnecting'
@@ -111,11 +126,11 @@ export default function Clock({
   const statusDotClass = effectiveStatus === 'offline' || effectiveStatus === 'disconnected'
     ? 'bg-danger'
     : effectiveStatus === 'reconnecting'
-      ? 'bg-accent'
+      ? 'bg-primary-light'
       : effectiveStatus === 'away' || effectiveStatus === 'idle'
         ? 'bg-text-dim/70'
         : effectiveStatus === 'active'
-          ? 'bg-primary'
+          ? 'bg-text-bright/70'
           : 'bg-success';
   const pingLabel = latencyMs === null
     ? null
@@ -123,10 +138,17 @@ export default function Clock({
   const pingTitle = latencyMs === null
     ? t('game.ping_unknown')
     : t('game.ping_value', { ms: latencyMs });
+  const showLatencyChip = latencyMs !== null && latencyMs >= LATENCY_DEGRADED_MS;
+  const latencyPoor = latencyMs !== null && latencyMs >= LATENCY_POOR_MS;
+  const latencyChipLabel = showLatencyChip
+    ? t('game.ping_degraded', { ms: latencyMs })
+    : null;
 
   const avatarStatusTitle = pingLabel
     ? `${statusLabel} · ${pingTitle}`
     : statusLabel;
+  const showMetaRow = showLatencyChip
+    || (!isCritical && (showColorChip || showRatingChip || showStatusChip));
 
   return (
     <div className={`
@@ -160,7 +182,7 @@ export default function Clock({
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setFailedAvatarUrl(avatarUrl)} />
               ) : (
                 <div className={`
-                  flex h-full w-full items-center justify-center text-sm font-semibold lg:text-[11px]
+                  flex h-full w-full items-center justify-center text-sm font-semibold lg:text-xs
                   ${color === 'white' ? 'bg-[#f2eadb] text-[#5f5245]' : 'bg-[#24282d] text-[#d7d0c3]'}
                 `}>
                   {initials}
@@ -177,20 +199,15 @@ export default function Clock({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2 lg:gap-1.5">
               {flag && <span className="shrink-0 text-sm leading-none">{flag}</span>}
-              <div className="min-w-0 truncate text-sm font-semibold text-text-bright sm:text-[15px] lg:text-[13px]">
+              <div className="min-w-0 truncate text-sm font-semibold text-text-bright">
                 {displayName}
               </div>
               <InlineCapturedSummary
                 capturedPieces={capturedPieces}
                 materialDelta={materialDelta}
               />
-              {isActive && showTimer && (
-                <span className="hidden shrink-0 rounded-full border border-gold/35 bg-gold/12 px-2 py-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gold sm:inline-flex lg:px-1.5">
-                  {t('game.to_move')}
-                </span>
-              )}
             </div>
-            {!isCritical && (
+            {showMetaRow && (
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim lg:mt-0 lg:gap-1">
                 {showColorChip && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/55 px-2 py-1 lg:px-1.25 lg:py-0.5">
@@ -198,12 +215,12 @@ export default function Clock({
                     {colorLabel}
                   </span>
                 )}
-                {typeof rating === 'number' && (
+                {showRatingChip && (
                   <span className="inline-flex items-center rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5">
                     {t('leaderboard.col_rating')} {rating}
                   </span>
                 )}
-                {effectiveStatus !== 'online' && effectiveStatus !== 'active' && (
+                {showStatusChip && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full border border-surface-hover/70 bg-surface/45 px-2 py-1 text-text lg:px-1.25 lg:py-0.5"
                     title={avatarStatusTitle}
@@ -212,6 +229,19 @@ export default function Clock({
                     {statusLabel}
                   </span>
                 )}
+                {showLatencyChip && latencyChipLabel ? (
+                  <span
+                    data-testid="clock-latency-chip"
+                    className={`inline-flex items-center rounded-full border px-2 py-1 font-mono normal-case tracking-normal lg:px-1.25 lg:py-0.5 ${
+                      latencyPoor
+                        ? 'border-danger/35 bg-danger/10 text-danger'
+                        : 'border-surface-hover/80 bg-surface-alt/90 text-text-dim'
+                    }`}
+                    title={pingTitle}
+                  >
+                    {latencyChipLabel}
+                  </span>
+                ) : null}
               </div>
             )}
           </div>
@@ -231,7 +261,7 @@ export default function Clock({
               {isActive ? t('game.to_move') : colorLabel}
             </div>
             <div className={`
-              font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl lg:text-[1.45rem]
+              font-mono text-xl font-bold tabular-nums tracking-tight sm:text-2xl
               ${isCritical || isLow ? 'text-danger' : 'text-text-bright'}
               ${isActive && isCritical ? 'animate-pulse' : ''}
             `}>
