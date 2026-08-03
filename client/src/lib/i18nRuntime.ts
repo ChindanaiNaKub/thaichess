@@ -263,7 +263,7 @@ export const BOOTSTRAP_TRANSLATIONS: TranslationCatalog = {
   'puzzle.review_mode_on': 'Review mode: board interaction is paused while browsing previous moves.',
   'puzzle.review_mode_off': 'Live mode: use Arrow keys to review, H for hint, R for retry, N for next puzzle.',
   'quick.casual_only': 'Casual Only',
-  'quick.desc': 'Search for a human game. If nobody is around, you can switch to bot play without waiting.',
+  'quick.desc': 'Find a human Makruk game. If nobody is around, switch to a bot without waiting.',
   'quick.fallback_desc': 'Play a bot now, or keep searching for a human game.',
   'quick.fallback_title': 'No opponent yet',
   'quick.find': 'Find Opponent',

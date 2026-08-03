@@ -4,7 +4,6 @@ import { createInitialBoard } from '@shared/engine';
 import CountingHelpDisclosure from './CountingHelpDisclosure';
 import CountingLeaveDisclosure from './CountingLeaveDisclosure';
 import CountingStartConsequence from './CountingStartConsequence';
-import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
 import {
   countingLabelClass,
   countingPanelClass,
@@ -158,18 +157,7 @@ export function GamePageSidePanel({
               {t('game.counting_stop')}
             </button>
           )}
-          {canStartCounting ? (
-            <CountingStartDetailsDisclosure
-              t={t}
-              leaveUrgent={leaveUrgent}
-              toggleTestId="side-panel-counting-details-toggle"
-              detailsTestId="side-panel-counting-details"
-            >
-              <CountingHelpDisclosure t={t} />
-            </CountingStartDetailsDisclosure>
-          ) : (
-            <CountingHelpDisclosure t={t} />
-          )}
+          {!canStartCounting ? <CountingHelpDisclosure t={t} /> : null}
         </div>
       )}
 
@@ -262,7 +250,7 @@ export function GamePageSidePanel({
                         setReviewOpen(false);
                         setShareOpen(true);
                       }}
-                      className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                      className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                     >
                       {t('game.show_share')}
                     </button>
@@ -275,7 +263,7 @@ export function GamePageSidePanel({
                         setShareOpen(false);
                         setReviewOpen(true);
                       }}
-                      className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                      className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                     >
                       {t('game.show_review')}
                     </button>

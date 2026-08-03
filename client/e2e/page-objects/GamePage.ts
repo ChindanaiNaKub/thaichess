@@ -126,12 +126,13 @@ export class GamePage {
       await showAll.click();
     }
 
-    const learningTab = this.page
-      .getByRole('tab', { name: /Learning|เรียนรู้|bot\.band_learning/i })
+    // Strength bands use a select (not tabs) so Learning bots stay reachable.
+    const bandSelect = this.page
+      .getByTestId('bot-strength-band-select')
       .locator('visible=true')
       .first();
-    if (await learningTab.isVisible().catch(() => false)) {
-      await learningTab.click();
+    if (await bandSelect.isVisible().catch(() => false)) {
+      await bandSelect.selectOption('learning');
     }
 
     await this.page

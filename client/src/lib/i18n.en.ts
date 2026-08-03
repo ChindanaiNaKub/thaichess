@@ -225,7 +225,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Bot Game
   'bot.title': 'Play vs Bot',
-  'bot.setup_title': 'Play vs Computer',
+  'bot.setup_title': 'Play vs Bot',
   'bot.setup_desc': 'Pick your side and start — or change opponent to browse more personas. Random side is decided when the game begins.',
   'bot.selected_bot': 'Selected Bot',
   'bot.roster': 'Bot roster',
@@ -647,7 +647,7 @@ export const EN_TRANSLATIONS: Record<string, string> = {
 
   // Quick Play / Matchmaking
   'quick.title': 'Quick Play',
-  'quick.desc': 'Search for a human game. If nobody is around, you can switch to bot play without waiting.',
+  'quick.desc': 'Find a human Makruk game. If nobody is around, switch to a bot without waiting.',
   'quick.fallback_desc': 'Play a bot now, or keep searching for a human game.',
   'quick.fallback_title': 'No opponent yet',
   'quick.searching': 'Finding opponent...',
@@ -735,8 +735,6 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'game.counting_start_consequence': 'Starting the count sets a move limit for the side that must convert — miss it and the game is drawn.',
   'game.counting_leave_options': 'Draw or resign',
   'game.counting_hide_leave': 'Hide draw or resign',
-  'game.counting_start_details': 'Help or leave',
-  'game.counting_hide_start_details': 'Hide help or leave',
   'game.counting_what': 'What is counting?',
   'game.counting_what_hide': 'Hide explanation',
   'game.counting_explain': 'In some late endgames, the side that must convert has a limited number of moves. If they do not force progress in time, the game is drawn.',

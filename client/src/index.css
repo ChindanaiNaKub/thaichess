@@ -502,7 +502,7 @@
     background: var(--color-surface-hover);
   }
 
-  /* Operate choice chips — lacquer selection; keep Play Amber for CTAs only */
+  /* Operate choice chips — cloth-lift selection; Play Amber stays on CTAs only */
   .ui-choice {
     border-radius: 0.5rem;
     border: 1px solid color-mix(in oklab, var(--color-surface-hover) 100%, transparent);
@@ -516,9 +516,9 @@
   }
 
   .ui-choice-selected {
-    border-color: color-mix(in oklab, var(--color-primary) 35%, transparent);
-    background: color-mix(in oklab, var(--color-primary) 15%, transparent);
-    color: var(--color-primary-light);
+    border-color: color-mix(in oklab, var(--color-surface-hover) 100%, transparent);
+    background: var(--color-surface-hover);
+    color: var(--color-text-bright);
   }
 
   .deferred-section {

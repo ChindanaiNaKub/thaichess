@@ -619,25 +619,13 @@ describe('GamePage', () => {
     expect(screen.getByTestId('counting-board-strip')).toBeInTheDocument();
     expect(screen.queryByTestId('game-mobile-actions')).not.toBeInTheDocument();
     expect(screen.getByTestId('counting-start-consequence')).toBeInTheDocument();
+    expect(screen.queryByTestId('counting-board-strip-details-toggle')).not.toBeInTheDocument();
     expect(screen.queryByTestId('counting-board-strip-exits')).not.toBeInTheDocument();
     expect(screen.queryByTestId('counting-board-strip-leave-toggle')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('counting-board-strip-details-toggle'));
-    fireEvent.click(screen.getByTestId('counting-board-strip-leave-toggle'));
-    expect(screen.getByTestId('counting-board-strip-exits')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'game.offer_draw' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'game.resign' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'game.counting_what' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'game.counting_start' }));
     expect(socketMock.emit).toHaveBeenCalledWith('start_counting');
-
-    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what' }));
-    expect(screen.getByText('game.counting_explain')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'game.counting_learn_more' })).toHaveAttribute(
-      'href',
-      '/how-to-play-makruk',
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what_hide' }));
-    expect(screen.queryByText('game.counting_explain')).not.toBeInTheDocument();
 
     await act(async () => {
       emitSocketEvent('clock_update', { whiteTime: 111_000, blackTime: 222_000 });
@@ -659,6 +647,20 @@ describe('GamePage', () => {
         },
       }));
     });
+
+    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what' }));
+    expect(screen.getByText('game.counting_explain')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'game.counting_learn_more' })).toHaveAttribute(
+      'href',
+      '/how-to-play-makruk',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'game.counting_what_hide' }));
+    expect(screen.queryByText('game.counting_explain')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('counting-board-strip-leave-toggle'));
+    expect(screen.getByTestId('counting-board-strip-exits')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'game.offer_draw' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'game.resign' })).toBeInTheDocument();
 
     expect(screen.queryByText('game.draw_offer_received')).not.toBeInTheDocument();
     expect(screen.queryByText('game.opponent_dc')).not.toBeInTheDocument();

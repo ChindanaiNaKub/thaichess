@@ -12,6 +12,7 @@ export const routes = {
   learn: '/lessons',
   legacyLearn: '/learn',
   watch: '/watch',
+  play: '/play',
   quickPlay: '/quick-play',
   about: '/about',
   games: '/games',

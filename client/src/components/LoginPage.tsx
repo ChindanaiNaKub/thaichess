@@ -209,7 +209,7 @@ export default function LoginPage() {
                   href={routes.privacy}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:text-primary-bright underline"
+                  className="font-semibold text-text-bright underline underline-offset-2 hover:text-accent"
                 >
                   {lang === 'th' ? 'นโยบายความเป็นส่วนตัว' : 'Privacy Policy'}
                 </a>{' '}{lang === 'th' ? 'และ' : 'and'}{' '}
@@ -217,7 +217,7 @@ export default function LoginPage() {
                   href={routes.terms}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:text-primary-bright underline"
+                  className="font-semibold text-text-bright underline underline-offset-2 hover:text-accent"
                 >
                   {lang === 'th' ? 'ข้อกำหนดในการให้บริการ' : 'Terms of Service'}
                 </a>
@@ -236,8 +236,8 @@ export default function LoginPage() {
             <span className="flex items-center justify-center gap-3">
               {googleLoading ? (
                 <>
-                  <LoadingSpinner className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-600">{t('auth.signing_in')}</span>
+                  <LoadingSpinner className="h-5 w-5 text-surface" />
+                  <span className="text-surface/80">{t('auth.signing_in')}</span>
                 </>
               ) : (
                 <>

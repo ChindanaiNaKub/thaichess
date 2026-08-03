@@ -110,7 +110,7 @@ describe('Felt Table game-over climax', () => {
     expect(screen.getByRole('heading').className).toMatch(/text-gold/);
   });
 
-  it('opens Study as Analyze under More beside Share/Review siblings', () => {
+  it('shows Study and Share/Review as a visible peak secondary row', () => {
     const onAnalyze = vi.fn();
     render(
       <GameOverPanel
@@ -129,18 +129,17 @@ describe('Felt Table game-over climax', () => {
       />,
     );
 
-    expect(screen.queryByTestId('post-game-share-expand')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('analyze-game-button')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('game-over-panel-more-toggle'));
+    expect(screen.getByTestId('game-over-panel-peak-secondary')).toBeInTheDocument();
     expect(screen.getByTestId('analyze-game-button')).toHaveTextContent('game.endgame_study');
     expect(screen.getByTestId('post-game-share-expand')).toBeInTheDocument();
     expect(screen.getByTestId('post-game-review-expand')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-panel-more-toggle')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('analyze-game-button'));
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });
 
-  it('hides Analyze while a study path owns More', () => {
+  it('shows expanded Share/Review path directly without burying Analyze under More', () => {
     render(
       <GameOverPanel
         winner="white"
@@ -158,12 +157,13 @@ describe('Felt Table game-over climax', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('game-over-panel-more-toggle'));
+    expect(screen.getByTestId('game-over-panel-peak-path')).toBeInTheDocument();
     expect(screen.queryByTestId('analyze-game-button')).not.toBeInTheDocument();
     expect(screen.getByTestId('post-game-review-path')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-panel-more-toggle')).not.toBeInTheDocument();
   });
 
-  it('GameOverModal matches Panel: Rematch primary, Study→Analyze behind More', () => {
+  it('GameOverModal matches Panel: Rematch primary, Study and Share visible at peak', () => {
     const onAnalyze = vi.fn();
     render(
       <GameOverModal
@@ -180,16 +180,14 @@ describe('Felt Table game-over climax', () => {
     expect(screen.getByTestId('game-over-modal-rematch')).toHaveClass('button-accent-contrast');
     expect(screen.getByTestId('game-over-modal-new-game')).not.toHaveClass('button-accent-contrast');
     expect(screen.getByTestId('game-over-modal-new-game')).not.toHaveClass('ui-btn-secondary');
-    expect(screen.queryByTestId('analyze-game-button')).not.toBeInTheDocument();
+    expect(screen.getByTestId('analyze-game-button')).toHaveTextContent('game.endgame_study');
     expect(screen.getByTestId('game-over-modal-more-toggle')).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(screen.getByTestId('game-over-modal-more-toggle'));
-    expect(screen.getByTestId('analyze-game-button')).toHaveTextContent('game.endgame_study');
     fireEvent.click(screen.getByTestId('analyze-game-button'));
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });
 
-  it('offers quiet Share under More at peak without dismissing Rematch', () => {
+  it('offers quiet Share beside Study at peak without dismissing Rematch', () => {
     render(
       <GameOverModal
         winner="white"
@@ -207,13 +205,12 @@ describe('Felt Table game-over climax', () => {
     );
 
     expect(screen.getByTestId('game-over-modal-rematch')).toBeInTheDocument();
-    expect(screen.queryByTestId('post-game-share-expand')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('game-over-modal-more-toggle'));
     expect(screen.getByTestId('analyze-game-button')).toBeInTheDocument();
     expect(screen.getByTestId('post-game-share-expand')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-modal-more-toggle')).not.toBeInTheDocument();
   });
 
-  it('lets Share own More exclusively when expanded at peak', () => {
+  it('lets Share own the peak path exclusively when expanded', () => {
     render(
       <GameOverModal
         winner="white"
@@ -231,9 +228,10 @@ describe('Felt Table game-over climax', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('game-over-modal-more-toggle'));
+    expect(screen.getByTestId('game-over-modal-peak-path')).toBeInTheDocument();
     expect(screen.queryByTestId('analyze-game-button')).not.toBeInTheDocument();
     expect(screen.getByTestId('post-game-share-path')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-modal-more-toggle')).not.toBeInTheDocument();
   });
 
   it('GameOverModal uses cloth scrim and board-frame lift instead of SaaS overlay', () => {

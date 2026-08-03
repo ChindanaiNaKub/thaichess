@@ -34,7 +34,6 @@ import type { Arrow } from './Board';
 import CountingHelpDisclosure from './CountingHelpDisclosure';
 import CountingLeaveDisclosure from './CountingLeaveDisclosure';
 import CountingStartConsequence from './CountingStartConsequence';
-import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
 import CountingBoardStrip from './CountingBoardStrip';
 import GameMobileActions from './GameMobileActions';
 import {
@@ -562,18 +561,7 @@ function useLocalGameScreen() {
                     {t('game.counting_stop')}
                   </button>
                 )}
-                {canStartLocalCounting ? (
-                  <CountingStartDetailsDisclosure
-                    t={t}
-                    leaveUrgent={countingLeaveUrgent}
-                    toggleTestId="side-panel-counting-details-toggle"
-                    detailsTestId="side-panel-counting-details"
-                  >
-                    <CountingHelpDisclosure t={t} />
-                  </CountingStartDetailsDisclosure>
-                ) : (
-                  <CountingHelpDisclosure t={t} />
-                )}
+                {!canStartLocalCounting ? <CountingHelpDisclosure t={t} /> : null}
               </div>
             )}
 
@@ -660,7 +648,7 @@ function useLocalGameScreen() {
                             setReviewOpen(false);
                             setShareOpen(true);
                           }}
-                          className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                          className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                         >
                           {t('game.show_share')}
                         </button>
@@ -672,7 +660,7 @@ function useLocalGameScreen() {
                               setShareOpen(false);
                               setReviewOpen(true);
                             }}
-                            className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                            className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                           >
                             {t('game.show_review')}
                           </button>
@@ -804,7 +792,7 @@ function useLocalGameScreen() {
                 type="button"
                 data-testid="post-game-share-expand"
                 onClick={() => setShareOpen(true)}
-                className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
               >
                 {t('game.show_share')}
               </button>

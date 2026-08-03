@@ -308,12 +308,7 @@ describe('GamePageSidePanel high-stakes layout', () => {
 
     expect(screen.getByTestId('game-over-panel')).toBeInTheDocument();
     expect(screen.getByTestId('game-over-panel-rematch')).toBeInTheDocument();
-    expect(screen.getByTestId('game-over-panel-more-toggle')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByTestId('post-game-share-expand')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('post-game-review-expand')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('game-over-panel-more-toggle'));
-    expect(screen.queryByTestId('game-over-panel-study-toggle')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('game-over-panel-more-toggle')).not.toBeInTheDocument();
     expect(screen.getByTestId('post-game-share-expand')).toBeInTheDocument();
     expect(screen.getByTestId('post-game-review-expand')).toBeInTheDocument();
 
