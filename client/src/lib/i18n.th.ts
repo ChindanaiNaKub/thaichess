@@ -221,7 +221,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
 
   // Bot Game
   'bot.title': 'เล่นกับบอท',
-  'bot.setup_title': 'เล่นกับคอมพิวเตอร์',
+  'bot.setup_title': 'เล่นกับบอท',
   'bot.setup_desc': 'เลือกฝั่งแล้วเริ่มได้เลย — หรือเปลี่ยนคู่ต่อสู้เพื่อดูบอทเพิ่ม หากเลือกสุ่ม ระบบจะตัดสินฝั่งตอนเริ่มเกม',
   'bot.selected_bot': 'บอทที่เลือก',
   'bot.roster': 'รายชื่อบอท',
@@ -643,7 +643,7 @@ export const TH_TRANSLATIONS: Record<string, string> = {
 
   // Quick Play / Matchmaking
   'quick.title': 'เล่นด่วน',
-  'quick.desc': 'ค้นหาเกมกับผู้เล่นจริง ถ้าช่วงนี้ยังไม่มีคน คุณสามารถเปลี่ยนไปเล่นกับบอทได้โดยไม่ต้องรอ',
+  'quick.desc': 'ค้นหาเกมหมากรุกไทยกับผู้เล่นจริง ถ้าช่วงนี้ยังไม่มีคน สลับไปเล่นกับบอทได้โดยไม่ต้องรอ',
   'quick.fallback_desc': 'เล่นกับบอทตอนนี้ หรือค้นหาผู้เล่นจริงต่อ',
   'quick.fallback_title': 'ยังไม่เจอคู่แข่ง',
   'quick.searching': 'กำลังหาคู่แข่ง...',
@@ -731,8 +731,6 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'game.counting_start_consequence': 'เมื่อเริ่มนับ ฝ่ายที่ต้องแปลงแต้มจะมีจำนวนตาเดินจำกัด — หากไม่ทัน เกมจะเสมอ',
   'game.counting_leave_options': 'เสนอเสมอ หรือยอมแพ้',
   'game.counting_hide_leave': 'ซ่อนเสมอ/ยอมแพ้',
-  'game.counting_start_details': 'ความช่วยเหลือ หรือออก',
-  'game.counting_hide_start_details': 'ซ่อนความช่วยเหลือ/ออก',
   'game.counting_what': 'การนับคืออะไร?',
   'game.counting_what_hide': 'ซ่อนคำอธิบาย',
   'game.counting_explain': 'ในบางช่วงท้ายเกม ฝ่ายที่ต้องแปลงแต้มมีจำนวนตาเดินจำกัด หากไม่สามารถเดินหน้าได้ทันเวลา เกมจะเสมอ',

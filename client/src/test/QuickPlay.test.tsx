@@ -337,10 +337,12 @@ describe('QuickPlay', () => {
     expect(screen.getByText('Searching for 14s')).toBeInTheDocument();
   });
 
-  it('uses measured copy that does not promise instant human pairing', () => {
+  it('uses measured Makruk copy that does not promise instant human pairing', () => {
     render(<QuickPlay />, { wrapper });
 
-    expect(screen.getByText('Search for a human game. If nobody is around, you can switch to bot play without waiting.')).toBeInTheDocument();
+    expect(screen.getByTestId('quick-play-makruk-mark')).toBeInTheDocument();
+    expect(screen.getByTestId('quick-play-lobby')).toBeInTheDocument();
+    expect(screen.getByText('Find a human Makruk game. If nobody is around, switch to a bot without waiting.')).toBeInTheDocument();
     expect(screen.queryByText(/find an opponent instantly/i)).not.toBeInTheDocument();
   });
 
@@ -387,7 +389,7 @@ describe('QuickPlay', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /more times/i }));
     expect(screen.getByRole('button', { name: /fewer times/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Rapid/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Rapid/i }));
     fireEvent.click(screen.getByRole('button', { name: /10\+5/i }));
     fireEvent.click(screen.getByRole('button', { name: /find opponent/i }));
 
@@ -420,21 +422,22 @@ describe('QuickPlay', () => {
     expect(screen.getByText('Sign in to unlock rated games.')).toBeInTheDocument();
   });
 
-  it('expands more times as a single-pace accordion instead of a 9-clock wall', () => {
+  it('expands more times as pace chips plus one pace of clocks', () => {
     render(<QuickPlay />, { wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: 'More times' }));
 
-    expect(screen.getByRole('button', { name: /^Blitz/i })).toHaveAttribute('aria-expanded', 'true');
+    const blitzTab = screen.getByRole('tab', { name: /^Blitz/i });
+    expect(blitzTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('5+0')).toBeInTheDocument();
     expect(screen.getByText('3+2')).toBeInTheDocument();
     expect(screen.queryByText('1+0')).not.toBeInTheDocument();
     expect(screen.queryByText('30+0')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Classical/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Classical/i }));
 
-    expect(screen.getByRole('button', { name: /^Classical/i })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /^Blitz/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('tab', { name: /^Classical/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /^Blitz/i })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByText('30+0')).toBeInTheDocument();
     expect(screen.getByText('15+10')).toBeInTheDocument();
     expect(screen.queryByText('5+0')).not.toBeInTheDocument();

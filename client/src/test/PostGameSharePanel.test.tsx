@@ -63,27 +63,20 @@ describe('PostGameSharePanel', () => {
     expect(screen.getByTestId('post-game-share-outcome-chip').className).not.toMatch(/primary/);
     expect(screen.queryByRole('button', { name: 'Accuracy' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Rating' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Download PNG' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-card-preview-viewport')).not.toBeInTheDocument();
     expect(screen.getByTestId('post-game-share-export')).toHaveClass('ui-btn-secondary');
     expect(screen.getByTestId('post-game-share-export').className).not.toMatch(/bg-primary/);
 
-    const previewFrame = screen.getByTestId('share-card-preview-viewport').parentElement?.parentElement;
-    expect(previewFrame?.className).not.toMatch(/#120d0a|bg-\[#120d0a\]/);
-    expect(previewFrame?.className).toMatch(/bg-surface/);
-
     const exportCanvases = screen.getAllByTestId('share-card-export-canvas');
-    expect(exportCanvases).toHaveLength(2);
+    expect(exportCanvases).toHaveLength(1);
     expect(exportCanvases[0]).toHaveStyle({ width: '1200px', height: '630px' });
     const siteUrls = screen.getAllByTestId('share-card-site-url');
     expect(siteUrls.length).toBeGreaterThan(0);
     expect(siteUrls[0]).toHaveTextContent('thaichess.dev');
-    const previewViewport = screen.getByTestId('share-card-preview-viewport');
-    expect(previewViewport.style.width).toBe('252px');
-    expect(Number.parseFloat(previewViewport.style.height)).toBeCloseTo(132.3);
-    expect(previewViewport.style.maxWidth).toBe('100%');
   });
 
-  it('defers Accuracy and Rating variants behind More card styles', () => {
+  it('defers Accuracy, Rating, preview, and Download behind More card styles', () => {
     useGameAnalysisMock.mockReturnValue({
       analysis: {
         moves: [],
@@ -114,6 +107,15 @@ describe('PostGameSharePanel', () => {
     expect(screen.queryByTestId('post-game-share-styles')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('post-game-share-styles-toggle'));
     expect(screen.getByTestId('post-game-share-styles')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download PNG' })).toBeEnabled();
+
+    const previewFrame = screen.getByTestId('share-card-preview-viewport').parentElement?.parentElement;
+    expect(previewFrame?.className).not.toMatch(/#120d0a|bg-\[#120d0a\]/);
+    expect(previewFrame?.className).toMatch(/bg-surface/);
+    const previewViewport = screen.getByTestId('share-card-preview-viewport');
+    expect(previewViewport.style.width).toBe('252px');
+    expect(Number.parseFloat(previewViewport.style.height)).toBeCloseTo(132.3);
+    expect(previewViewport.style.maxWidth).toBe('100%');
 
     const accuracyButton = screen.getByRole('button', { name: 'Accuracy' });
     const ratingButton = screen.getByRole('button', { name: 'Rating' });

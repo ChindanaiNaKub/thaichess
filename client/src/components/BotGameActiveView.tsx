@@ -339,7 +339,7 @@ export function BotGameActiveView({
                 type="button"
                 data-testid="post-game-share-expand"
                 onClick={() => setPeakShareOpen(true)}
-                className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
               >
                 {t('game.show_share')}
               </button>

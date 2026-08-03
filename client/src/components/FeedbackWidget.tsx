@@ -53,8 +53,20 @@ export default function FeedbackWidget() {
       ? 'feedback.placeholder_feature'
       : 'feedback.placeholder_other';
 
-  const isPuzzleRoute = location.pathname === routes.puzzles || location.pathname.startsWith('/puzzle/');
-  const shouldHideLauncher = location.pathname === routes.login || location.pathname === routes.feedback || isPuzzleRoute;
+  const pathname = location.pathname;
+  const isPuzzleRoute = pathname === routes.puzzles || pathname.startsWith('/puzzle/');
+  const isPlayOperateRoute =
+    pathname === routes.bot
+    || pathname === routes.quickPlay
+    || pathname === routes.play
+    || pathname === routes.local
+    || pathname.startsWith('/game/')
+    || pathname.startsWith('/spectate/');
+  const shouldHideLauncher =
+    pathname === routes.login
+    || pathname === routes.feedback
+    || isPuzzleRoute
+    || isPlayOperateRoute;
 
   if (shouldHideLauncher) {
     return null;
@@ -68,8 +80,8 @@ export default function FeedbackWidget() {
         className="fixed bottom-3 right-3 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-surface-hover bg-surface-alt text-text-dim shadow-lg transition-colors hover:bg-surface-hover hover:text-text-bright hover:shadow-xl sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2"
         title={t('feedback.title')}
       >
-        <span>💬</span>
         <span className="hidden sm:inline text-sm font-medium">{t('feedback.button')}</span>
+        <span className="sm:hidden text-sm font-bold" aria-hidden>+</span>
       </button>
 
       {isOpen && (
@@ -84,19 +96,17 @@ export default function FeedbackWidget() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {(['bug', 'feature', 'other'] as FeedbackType[]).map(fbType => (
                   <button
                     key={fbType}
                     type="button"
                     onClick={() => setType(fbType)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      type === fbType
-                        ? 'bg-primary text-white'
-                        : 'bg-surface hover:bg-surface-hover text-text-dim border border-surface-hover'
+                    className={`ui-choice rounded-lg px-3 py-1.5 text-sm font-medium ${
+                      type === fbType ? 'ui-choice-selected' : 'bg-surface text-text-dim'
                     }`}
                   >
-                    {fbType === 'bug' ? `🐛 ${t('feedback.bug')}` : fbType === 'feature' ? `✨ ${t('feedback.feature')}` : `💬 ${t('feedback.other')}`}
+                    {fbType === 'bug' ? t('feedback.bug') : fbType === 'feature' ? t('feedback.feature') : t('feedback.other')}
                   </button>
                 ))}
               </div>
@@ -105,26 +115,26 @@ export default function FeedbackWidget() {
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 placeholder={t(placeholderKey)}
-                className="w-full bg-surface border border-surface-hover rounded-lg px-4 py-3 text-text-bright text-sm focus:outline-none focus:border-primary resize-none transition-colors"
+                className="w-full resize-none rounded-lg border border-surface-hover bg-surface px-4 py-3 text-sm text-text-bright outline-none transition-colors focus:border-accent"
                 rows={4}
                 maxLength={2000}
                 autoFocus
               />
 
-              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-3">
-                <span className="text-text-dim text-xs">{message.length}/2000</span>
-                <div className="flex gap-2 justify-end">
+              <div className="mt-3 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs text-text-dim">{message.length}/2000</span>
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="px-4 py-2 text-text-dim hover:text-text-bright text-sm transition-colors"
+                    className="px-4 py-2 text-sm text-text-dim transition-colors hover:text-text-bright"
                   >
                     {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={!message.trim() || submitMutation.isPending}
-                    className="px-5 py-2 bg-primary hover:bg-primary-light disabled:opacity-50 text-white font-medium text-sm rounded-lg transition-colors"
+                    className="button-accent-contrast rounded-lg px-5 py-2 text-sm font-medium disabled:opacity-50"
                   >
                     {submitMutation.isPending ? t('common.sending') : t('common.send')}
                   </button>

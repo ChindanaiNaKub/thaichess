@@ -24,9 +24,9 @@ interface GameOverPanelProps {
   rematchLabel?: string;
   rematchDisabled?: boolean;
   rematchNotice?: string | null;
-  /** Share / review peers under More (not inside the Study door). */
+  /** Share / review expand peers — visible beside Study (not buried under More). */
   moreExtras?: ReactNode;
-  /** When Share/Review owns More, hide Study/Report siblings. */
+  /** When Share/Review is expanded, show that path alone (hide Study row). */
   moreExtrasOnly?: boolean;
 }
 
@@ -59,8 +59,8 @@ export default function GameOverPanel({
       ? ratingChange ? ratingChange.blackAfter - ratingChange.blackBefore : null
       : null;
   /* Study CTA is Analyze — no nested Study → Analyze toggle. */
-  const hasStudyContent = Boolean(onAnalyze);
-  const hasMoreTools = Boolean(hasStudyContent || moreExtras || onReport || reportStatusMessage);
+  const hasPeakSecondary = !moreExtrasOnly && Boolean(onAnalyze || moreExtras);
+  const hasReportTools = Boolean(onReport || reportStatusMessage);
 
   const getReasonText = () => {
     switch (reason) {
@@ -99,7 +99,7 @@ export default function GameOverPanel({
         <div className="text-xs text-text-dim">
           {getReasonText()}
         </div>
-        <div className="mt-2 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.18em]">
+        <div className="mt-2 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.18em]">
           <span
             data-testid="game-over-rated-chip"
             className={`rounded-full px-2 py-1 ${
@@ -145,7 +145,30 @@ export default function GameOverPanel({
         >
           {t('common.new_game')}
         </button>
-        {hasMoreTools ? (
+        {moreExtrasOnly ? (
+          <div className="grid gap-2 border-t border-surface-hover/60 pt-2" data-testid="game-over-panel-peak-path">
+            {moreExtras}
+          </div>
+        ) : null}
+        {hasPeakSecondary ? (
+          <div
+            className="grid gap-2 border-t border-surface-hover/60 pt-2"
+            data-testid="game-over-panel-peak-secondary"
+          >
+            {onAnalyze ? (
+              <button
+                type="button"
+                onClick={onAnalyze}
+                data-testid="analyze-game-button"
+                className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
+              >
+                {t('game.endgame_study')}
+              </button>
+            ) : null}
+            {moreExtras}
+          </div>
+        ) : null}
+        {hasReportTools ? (
           <div className="border-t border-surface-hover/60 pt-2">
             <button
               type="button"
@@ -158,37 +181,20 @@ export default function GameOverPanel({
             </button>
             {moreOpen ? (
               <div className="mt-2 grid gap-2" data-testid="game-over-panel-more-tools">
-                {moreExtrasOnly ? (
-                  moreExtras
-                ) : (
-                  <>
-                    {onAnalyze ? (
-                      <button
-                        type="button"
-                        onClick={onAnalyze}
-                        data-testid="analyze-game-button"
-                        className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
-                      >
-                        {t('game.endgame_study')}
-                      </button>
-                    ) : null}
-                    {moreExtras}
-                    {onReport && (
-                      <button
-                        type="button"
-                        onClick={onReport}
-                        disabled={reportDisabled}
-                        className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {reportLabel ?? t('fair_play.report_action')}
-                      </button>
-                    )}
-                    {reportStatusMessage && (
-                      <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-[11px] text-text-dim">
-                        {reportStatusMessage}
-                      </div>
-                    )}
-                  </>
+                {onReport && (
+                  <button
+                    type="button"
+                    onClick={onReport}
+                    disabled={reportDisabled}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {reportLabel ?? t('fair_play.report_action')}
+                  </button>
+                )}
+                {reportStatusMessage && (
+                  <div className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-center text-[11px] text-text-dim">
+                    {reportStatusMessage}
+                  </div>
                 )}
               </div>
             ) : null}

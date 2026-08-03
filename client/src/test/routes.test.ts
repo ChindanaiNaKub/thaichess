@@ -32,4 +32,9 @@ describe('routes', () => {
     expect(routes.howToPlayMakruk).toBe('/how-to-play-makruk');
     expect(routes.playMakrukOnline).toBe('/play-makruk-online');
   });
+
+  it('aliases /play to the quick-play lobby path', () => {
+    expect(routes.play).toBe('/play');
+    expect(routes.quickPlay).toBe('/quick-play');
+  });
 });

@@ -215,10 +215,7 @@ export default function PostGameSharePanel({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-dim">
-            {t('sharecard.eyebrow')}
-          </div>
-          <div className="mt-1 text-sm font-semibold text-text-bright">
+          <div className="text-sm font-semibold text-text-bright">
             {t('sharecard.title')}
           </div>
           <div className="mt-1 text-xs text-text-dim">
@@ -227,7 +224,7 @@ export default function PostGameSharePanel({
         </div>
         <div
           data-testid="post-game-share-outcome-chip"
-          className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+          className={`rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
             outcome === 'win'
               ? 'border border-gold/25 bg-gold/10 text-gold'
               : outcome === 'loss'
@@ -239,7 +236,7 @@ export default function PostGameSharePanel({
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           data-testid="post-game-share-styles-toggle"
@@ -256,8 +253,19 @@ export default function PostGameSharePanel({
         >
           {stylesOpen ? t('sharecard.hide_styles') : t('sharecard.more_styles')}
         </button>
-        {stylesOpen ? (
-          <div className="mt-2 flex flex-wrap gap-2" data-testid="post-game-share-styles">
+        <button type="button"
+          onClick={handleShare}
+          disabled={busyAction !== null}
+          data-testid="post-game-share-export"
+          className="ui-btn-secondary rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60"
+        >
+          {busyAction === 'share' ? t('sharecard.exporting') : t('sharecard.share_image')}
+        </button>
+      </div>
+
+      {stylesOpen ? (
+        <div className="mt-3 space-y-3 border-t border-surface-hover/60 pt-3">
+          <div className="flex flex-wrap gap-2" data-testid="post-game-share-styles">
             <VariantButton
               active={activeVariant === 'result'}
               disabled={false}
@@ -277,66 +285,56 @@ export default function PostGameSharePanel({
               onClick={() => setVariant('rating')}
             />
           </div>
-        ) : null}
-      </div>
 
-      <div className="mt-4 min-w-0 overflow-hidden rounded-xl border border-surface-hover/80 bg-surface">
-        <div className="flex justify-center overflow-hidden p-3" style={{ height: `${PREVIEW_HEIGHT + 24}px` }}>
-          <div
-            className="relative shrink overflow-hidden"
-            data-testid="share-card-preview-viewport"
-            style={{
-              width: `${PREVIEW_WIDTH}px`,
-              maxWidth: '100%',
-              height: `${PREVIEW_HEIGHT}px`,
-            }}
-          >
-            <div
-              className="absolute left-1/2 top-0 origin-top"
-              style={{
-                width: `${SHARE_CARD_WIDTH}px`,
-                height: `${SHARE_CARD_HEIGHT}px`,
-                transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
-              }}
-            >
-              <ShareCardExportCanvas variant={activeVariant} data={cardData} />
+          <div className="min-w-0 overflow-hidden rounded-xl border border-surface-hover/80 bg-surface">
+            <div className="flex justify-center overflow-hidden p-3" style={{ height: `${PREVIEW_HEIGHT + 24}px` }}>
+              <div
+                className="relative shrink overflow-hidden"
+                data-testid="share-card-preview-viewport"
+                style={{
+                  width: `${PREVIEW_WIDTH}px`,
+                  maxWidth: '100%',
+                  height: `${PREVIEW_HEIGHT}px`,
+                }}
+              >
+                <div
+                  className="absolute left-1/2 top-0 origin-top"
+                  style={{
+                    width: `${SHARE_CARD_WIDTH}px`,
+                    height: `${SHARE_CARD_HEIGHT}px`,
+                    transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
+                  }}
+                >
+                  <ShareCardExportCanvas variant={activeVariant} data={cardData} />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-text-dim">
-          {variant === 'accuracy' && !canUseAccuracyVariant
-            ? analyzing
-              ? t('sharecard.accuracy_pending')
-              : analysisAuthRequired
-                ? t('sharecard.accuracy_sign_in')
-                : error
-                ? t('sharecard.accuracy_unavailable')
-                : t('sharecard.accuracy_pending')
-            : variant === 'rating' && !canUseRatingVariant
-              ? t('sharecard.rating_unavailable')
-              : t('sharecard.export_hint')}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-text-dim">
+              {variant === 'accuracy' && !canUseAccuracyVariant
+                ? analyzing
+                  ? t('sharecard.accuracy_pending')
+                  : analysisAuthRequired
+                    ? t('sharecard.accuracy_sign_in')
+                    : error
+                    ? t('sharecard.accuracy_unavailable')
+                    : t('sharecard.accuracy_pending')
+                : variant === 'rating' && !canUseRatingVariant
+                  ? t('sharecard.rating_unavailable')
+                  : t('sharecard.export_hint')}
+            </div>
+            <button type="button"
+              onClick={handleDownload}
+              disabled={busyAction !== null}
+              className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright disabled:opacity-60"
+            >
+              {busyAction === 'download' ? t('sharecard.exporting') : t('sharecard.download_png')}
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button"
-            onClick={handleDownload}
-            disabled={busyAction !== null}
-            className="rounded-lg border border-surface-hover bg-surface px-3 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright disabled:opacity-60"
-          >
-            {busyAction === 'download' ? t('sharecard.exporting') : t('sharecard.download_png')}
-          </button>
-          <button type="button"
-            onClick={handleShare}
-            disabled={busyAction !== null}
-            data-testid="post-game-share-export"
-            className="ui-btn-secondary rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60"
-          >
-            {busyAction === 'share' ? t('sharecard.exporting') : t('sharecard.share_image')}
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       {actionLabel && (
         <div className="mt-3 rounded-lg border border-surface-hover bg-surface px-3 py-2 text-xs text-text-dim">
@@ -368,9 +366,9 @@ function VariantButton({
     <button type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors ${
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
         active
-          ? 'border-gold/30 bg-gold/10 text-gold'
+          ? 'ui-choice-selected border-surface-hover'
           : 'border-surface-hover bg-surface text-text-dim hover:text-text-bright'
       } disabled:cursor-not-allowed disabled:opacity-45`}
     >

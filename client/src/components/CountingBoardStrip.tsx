@@ -2,7 +2,6 @@ import type { TranslateFn } from './gamePageHelpers';
 import CountingHelpDisclosure from './CountingHelpDisclosure';
 import CountingLeaveDisclosure from './CountingLeaveDisclosure';
 import CountingStartConsequence from './CountingStartConsequence';
-import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
 import {
   countingLabelClass,
   countingPanelClass,
@@ -107,6 +106,8 @@ export default function CountingBoardStrip({
 
       {awaitingStart ? (
         <>
+          {/* Start-available: one consequence + Start. Help waits until after Start;
+              leave only surfaces when the clock is critical. */}
           <CountingStartConsequence t={t} />
           <button
             type="button"
@@ -115,24 +116,16 @@ export default function CountingBoardStrip({
           >
             {t('game.counting_start')}
           </button>
-          <CountingStartDetailsDisclosure
-            t={t}
-            leaveUrgent={leaveUrgent}
-            toggleTestId="counting-board-strip-details-toggle"
-            detailsTestId="counting-board-strip-details"
-          >
-            <CountingHelpDisclosure t={t} />
-            {showExits ? (
-              <CountingLeaveExits
-                t={t}
-                onOfferDraw={onOfferDraw}
-                onResign={onResign}
-                resignLabelKey={resignLabelKey}
-                confirmMessageKey={confirmMessageKey}
-                leaveUrgent={leaveUrgent}
-              />
-            ) : null}
-          </CountingStartDetailsDisclosure>
+          {leaveUrgent && showExits ? (
+            <CountingLeaveExits
+              t={t}
+              onOfferDraw={onOfferDraw}
+              onResign={onResign}
+              resignLabelKey={resignLabelKey}
+              confirmMessageKey={confirmMessageKey}
+              leaveUrgent={leaveUrgent}
+            />
+          ) : null}
         </>
       ) : (
         <>

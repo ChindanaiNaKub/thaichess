@@ -7,7 +7,6 @@ import BotAvatar from './BotAvatar';
 import CountingHelpDisclosure from './CountingHelpDisclosure';
 import CountingLeaveDisclosure from './CountingLeaveDisclosure';
 import CountingStartConsequence from './CountingStartConsequence';
-import CountingStartDetailsDisclosure from './CountingStartDetailsDisclosure';
 import {
   countingLabelClass,
   countingPanelClass,
@@ -233,18 +232,7 @@ export function BotGameSidePanel({
               {t('game.counting_stop')}
             </button>
           )}
-          {counting.start ? (
-            <CountingStartDetailsDisclosure
-              t={t}
-              leaveUrgent={leaveUrgent}
-              toggleTestId="side-panel-counting-details-toggle"
-              detailsTestId="side-panel-counting-details"
-            >
-              <CountingHelpDisclosure t={t} />
-            </CountingStartDetailsDisclosure>
-          ) : (
-            <CountingHelpDisclosure t={t} />
-          )}
+          {!counting.start ? <CountingHelpDisclosure t={t} /> : null}
         </div>
       )}
 
@@ -326,7 +314,7 @@ export function BotGameSidePanel({
                       setReviewOpen(false);
                       setShareOpen(true);
                     }}
-                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                    className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                   >
                     {t('game.show_share')}
                   </button>
@@ -338,7 +326,7 @@ export function BotGameSidePanel({
                         setShareOpen(false);
                         setReviewOpen(true);
                       }}
-                      className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                      className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
                     >
                       {t('game.show_review')}
                     </button>

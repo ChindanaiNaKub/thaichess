@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CountingBoardStrip from '../components/CountingBoardStrip';
 import { countingPanelClass, countingTitleClass } from '../components/countingChrome';
@@ -34,7 +34,7 @@ describe('counting chrome', () => {
     expect(title.className).toContain('text-gold');
   });
 
-  it('keeps Start primary and nests help/leave behind one details disclosure', () => {
+  it('keeps Start primary and defers help/leave until after Start or clock urgency', () => {
     render(
       <CountingBoardStrip
         t={(key) => key}
@@ -50,21 +50,12 @@ describe('counting chrome', () => {
       'game.counting_start_consequence',
     );
     expect(screen.getByRole('button', { name: 'game.counting_start' })).toBeInTheDocument();
-    expect(screen.queryByTestId('counting-board-strip-details')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('counting-board-strip-details-toggle')).not.toBeInTheDocument();
     expect(screen.queryByTestId('counting-board-strip-leave-toggle')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'game.counting_what' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('counting-board-strip-details-toggle'));
-    expect(screen.getByTestId('counting-board-strip-details')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'game.counting_what' })).toBeInTheDocument();
-    expect(screen.getByTestId('counting-board-strip-leave-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(screen.queryByTestId('counting-board-strip-exits')).not.toBeInTheDocument();
   });
 
-  it('auto-opens Start details and leave exits when the clock is critical', () => {
+  it('surfaces leave exits when the clock is critical before Start', () => {
     render(
       <CountingBoardStrip
         t={(key) => key}
@@ -77,14 +68,8 @@ describe('counting chrome', () => {
       />,
     );
 
-    expect(screen.getByTestId('counting-board-strip-details-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    expect(screen.getByTestId('counting-board-strip-details-toggle')).toHaveAttribute(
-      'data-urgent',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'game.counting_start' })).toBeInTheDocument();
+    expect(screen.queryByTestId('counting-board-strip-details-toggle')).not.toBeInTheDocument();
     const toggle = screen.getByTestId('counting-board-strip-leave-toggle');
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveAttribute('data-urgent', 'true');

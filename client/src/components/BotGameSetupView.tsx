@@ -51,25 +51,21 @@ function StrengthBandPicker({
   onSelect: (band: BotStrengthBand) => void;
 }) {
   return (
-    <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label={t('bot.strength_bands')}>
-      {BOT_STRENGTH_BANDS.map((band) => {
-        const selected = band.id === activeBand;
-        return (
-          <button
-            key={band.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onClick={() => onSelect(band.id)}
-            className={`ui-choice px-3 py-1.5 text-xs font-semibold ${
-              selected ? 'ui-choice-selected' : 'bg-surface-alt/85 text-text-dim hover:text-text-bright'
-            }`}
-          >
+    <label className="mb-3 block">
+      <span className="mb-1.5 block text-xs font-medium text-text-dim">{t('bot.strength_bands')}</span>
+      <select
+        data-testid="bot-strength-band-select"
+        value={activeBand}
+        onChange={(event) => onSelect(event.target.value as BotStrengthBand)}
+        className="w-full rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-2.5 text-sm font-semibold text-text-bright outline-none transition-colors focus:border-accent"
+      >
+        {BOT_STRENGTH_BANDS.map((band) => (
+          <option key={band.id} value={band.id}>
             {t(band.labelKey)}
-          </button>
-        );
-      })}
-    </div>
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -319,54 +315,85 @@ export function BotGameSetupView({
               </div>
             </div>
 
-            {/* Mobile: bottom sheet owns Start; roster opens on demand */}
+            {/* Mobile: bottom sheet owns Start; upper half stages the opponent when roster is closed */}
             <div className={`lg:hidden ${showRoster ? 'pb-[22rem]' : 'pb-[16rem]'}`}>
-              <div className={`flex items-center gap-3 px-4 pt-4 ${showRoster ? 'justify-between' : 'justify-end'}`}>
-                {showRoster ? (
-                  <p className="text-sm font-medium text-text-dim">{t('bot.roster')}</p>
-                ) : null}
-                <div className="flex flex-wrap justify-end gap-2">
-                  {showRoster && (
-                    <button
-                      type="button"
-                      onClick={() => setRosterMode(showAllBots ? 'featured' : 'all')}
-                      className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
-                    >
-                      {showAllBots ? t('bot.show_featured') : t('bot.show_all_bots')}
-                    </button>
-                  )}
+              {showRoster ? (
+                <>
+                  <div className="flex items-center justify-between gap-3 px-4 pt-4">
+                    <p className="text-sm font-medium text-text-dim">{t('bot.roster')}</p>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRosterMode(showAllBots ? 'featured' : 'all')}
+                        className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                      >
+                        {showAllBots ? t('bot.show_featured') : t('bot.show_all_bots')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRosterMode('closed')}
+                        className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                      >
+                        {t('bot.hide_roster')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showAllBots ? (
+                    <div className="px-4 pt-3">
+                      <StrengthBandPicker
+                        t={t}
+                        activeBand={strengthBand}
+                        onSelect={setStrengthBand}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3">
+                    <MobileBotCarousel
+                      personas={visiblePersonas}
+                      selectedId={selectedBot.id}
+                      onSelect={handleSelectBot}
+                      t={t}
+                      getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
+                      layout={showAllBots ? 'list' : 'carousel'}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div
+                  data-testid="bot-mobile-opponent-stage"
+                  className="flex min-h-[42vh] flex-col items-center justify-center px-6 pb-4 pt-8 text-center"
+                >
+                  <BotAvatar
+                    avatar={selectedBot.avatar}
+                    size={96}
+                    className="ring-2 ring-accent/25"
+                  />
+                  <h2 className="mt-4 font-display text-2xl font-bold tracking-tight text-text-bright">
+                    {selectedBot.name}
+                  </h2>
+                  <p className="mt-1 max-w-xs text-sm text-text-dim">{selectedBot.title}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
+                      {levelLabel}
+                    </span>
+                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
+                      {difficultyLabel}
+                    </span>
+                  </div>
+                  <p className="mt-4 max-w-sm text-sm italic leading-6 text-text">
+                    “{selectedBotTranslation.hook || selectedBot.personalityHook}”
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setRosterMode(showRoster ? 'closed' : 'featured')}
-                    className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+                    onClick={() => setRosterMode('featured')}
+                    className="mt-5 rounded-lg border border-surface-hover bg-surface-alt/85 px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
                   >
-                    {showRoster ? t('bot.hide_roster') : t('bot.change_opponent')}
+                    {t('bot.change_opponent')}
                   </button>
                 </div>
-              </div>
-
-              {showRoster && showAllBots && (
-                <div className="px-4 pt-3">
-                  <StrengthBandPicker
-                    t={t}
-                    activeBand={strengthBand}
-                    onSelect={setStrengthBand}
-                  />
-                </div>
               )}
-
-              {showRoster ? (
-                <div className="mt-3">
-                  <MobileBotCarousel
-                    personas={visiblePersonas}
-                    selectedId={selectedBot.id}
-                    onSelect={handleSelectBot}
-                    t={t}
-                    getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
-                    layout={showAllBots ? 'list' : 'carousel'}
-                  />
-                </div>
-              ) : null}
             </div>
         </div>
         </div>
