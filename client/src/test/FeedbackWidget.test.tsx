@@ -62,6 +62,30 @@ describe('FeedbackWidget', () => {
     expect(screen.queryByRole('button', { name: 'Send Feedback' })).not.toBeInTheDocument();
   });
 
+  it('hides the launcher on play operate routes with bottom CTAs', () => {
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/bot']}>
+        <FeedbackWidget />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Send Feedback' })).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter initialEntries={['/quick-play']}>
+        <FeedbackWidget />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('button', { name: 'Send Feedback' })).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter initialEntries={['/game/abc']}>
+        <FeedbackWidget />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('button', { name: 'Send Feedback' })).not.toBeInTheDocument();
+  });
+
   it('shows the launcher on non-puzzle routes', () => {
     render(
       <MemoryRouter initialEntries={['/about']}>

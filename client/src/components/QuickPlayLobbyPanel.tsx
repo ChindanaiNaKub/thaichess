@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AuthUser } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import PieceSVG from './PieceSVG';
 import {
   getTimePaceGroup,
   groupTimePresetsByPace,
@@ -76,16 +77,31 @@ export default function QuickPlayLobbyPanel({
   }, [showAllTimes, selectedPace]);
 
   return (
-    <div className="ui-card w-full max-w-lg p-5 animate-slideUp sm:p-6">
-      <h2 className="text-2xl font-bold text-text-bright mb-2 text-center">{t('quick.title')}</h2>
-      <p className="text-text-dim text-center mb-6 text-sm">{t('quick.desc')}</p>
-      <div className="mb-6 rounded-xl border border-surface-hover bg-surface px-4 py-3 text-center">
+    <div
+      data-testid="quick-play-lobby"
+      className="w-full max-w-lg animate-slideUp overflow-hidden rounded-2xl border border-surface-hover/80 bg-surface-alt/90 p-5 sm:p-6"
+    >
+      <div className="mb-5 flex flex-col items-center text-center">
+        <div
+          data-testid="quick-play-makruk-mark"
+          className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-surface-hover/70 bg-surface/70 text-text-bright"
+          aria-hidden
+        >
+          <PieceSVG type="K" color="white" size={28} />
+        </div>
+        <h2 className="font-display text-2xl font-bold tracking-tight text-text-bright sm:text-3xl">
+          {t('quick.title')}
+        </h2>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-text-dim">{t('quick.desc')}</p>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-surface-hover/70 bg-surface/55 px-4 py-3 text-center">
         <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
           user && ratedEligible
-            ? 'border border-primary/25 bg-primary/10 text-primary-light'
+            ? 'border border-surface-hover bg-surface-hover text-text-bright'
             : user
               ? 'border border-danger/30 bg-danger/10 text-danger'
-              : 'border border-primary/25 bg-primary/10 text-primary-light'
+              : 'border border-surface-hover bg-surface-hover text-text-dim'
         }`}>
           {user
             ? ratedEligible
@@ -103,44 +119,43 @@ export default function QuickPlayLobbyPanel({
       </div>
 
       <fieldset className="mb-5 min-w-0 border-0 p-0">
-        <legend className="text-sm text-text-dim mb-2 block">{t('home.time_control')}</legend>
+        <legend className="mb-2 block text-sm text-text-dim">{t('home.time_control')}</legend>
         {showAllTimes ? (
-          <div className="space-y-2">
-            {paceGroups.map((group) => {
-              const isOpen = openPace === group.pace;
-              return (
-                <div key={group.pace} className="rounded-xl border border-surface-hover/80 bg-surface/40">
+          <div className="space-y-3" data-testid="quick-play-pace-picker">
+            <div
+              className="flex flex-wrap gap-2"
+              role="tablist"
+              aria-label={t('home.time_control')}
+            >
+              {paceGroups.map((group) => {
+                const selected = openPace === group.pace;
+                return (
                   <button
+                    key={group.pace}
                     type="button"
-                    aria-expanded={isOpen}
+                    role="tab"
+                    aria-selected={selected}
                     onClick={() => setOpenPace(group.pace)}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors ${
-                      isOpen ? 'text-text-bright' : 'text-text-dim hover:text-text-bright'
+                    className={`ui-choice px-3 py-1.5 text-xs font-semibold ${
+                      selected ? 'ui-choice-selected' : 'bg-surface-alt/85 text-text-dim hover:text-text-bright'
                     }`}
                   >
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.18em]">
-                      {t(group.nameKey)}
-                    </span>
-                    <span className="text-xs font-medium tabular-nums text-text-dim">
-                      {group.presets.length}
-                    </span>
+                    {t(group.nameKey)}
                   </button>
-                  {isOpen && (
-                    <div className="grid grid-cols-2 gap-2 border-t border-surface-hover/70 p-2 sm:grid-cols-3">
-                      {group.presets.map((preset) => (
-                        <TimePresetButton
-                          key={preset.label}
-                          preset={preset}
-                          selected={selectedTime.label === preset.label}
-                          onSelect={onSelectTime}
-                          label={t(preset.nameKey)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {(paceGroups.find((group) => group.pace === openPace)?.presets ?? []).map((preset) => (
+                <TimePresetButton
+                  key={preset.label}
+                  preset={preset}
+                  selected={selectedTime.label === preset.label}
+                  onSelect={onSelectTime}
+                  label={t(preset.nameKey)}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

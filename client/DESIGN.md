@@ -199,7 +199,7 @@ Tactile board-first: chrome is quiet; the board and pieces do the heavy lifting.
 - **Focus:** Lacquer Green Light outline (2–3px) + soft halo; respect reduced motion.
 
 ### Chips
-- Time-control / filter / side / strength chips share `.ui-choice` + `.ui-choice-selected` (Lacquer Green wash). Do not use Play Amber washes for selection — amber is reserved for start/find CTAs (`.button-accent-contrast`).
+- Time-control / filter / side / strength chips share `.ui-choice` + `.ui-choice-selected` (Cloth Lift selection). Do not use Play Amber or Lacquer Green washes for selection — amber is reserved for start/find CTAs (`.button-accent-contrast`); lacquer stays on focus rings and nav.
 - Eyebrow-style uppercase tracking for rare status pills only.
 
 ### Cards / Containers

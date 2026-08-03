@@ -135,6 +135,7 @@ export default function App() {
           <Route path={routes.legacyLessonPattern} element={<LessonPlayerPage />} />
           <Route path={routes.puzzlePattern} element={<PuzzlePlayer />} />
           <Route path={routes.quickPlay} element={<QuickPlay />} />
+          <Route path={routes.play} element={<Navigate to={routes.quickPlay} replace />} />
           <Route path={routes.about} element={<AboutPage />} />
           <Route path={routes.games} element={<GamesPage />} />
           <Route path={routes.leaderboard} element={<LeaderboardPage />} />

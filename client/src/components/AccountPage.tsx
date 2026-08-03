@@ -444,7 +444,7 @@ function useAccountPageScreen() {
               <button
                 type="submit"
                 disabled={saving || usernameCooldownActive}
-                className="rounded-xl border border-surface-hover bg-surface-alt px-5 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover disabled:opacity-60"
+                className="button-accent-contrast rounded-xl px-5 py-3 text-sm font-bold disabled:opacity-60"
               >
                 {saving ? t('account.saving') : t('account.save_profile')}
               </button>
@@ -526,7 +526,7 @@ function useAccountPageScreen() {
                       if (!continuePuzzle) return;
                       navigate(puzzleRoute(String(continuePuzzle.id)));
                     }}
-                    className="button-accent-contrast mt-4 w-full rounded-xl py-3.5 text-sm font-bold sm:w-auto sm:px-8"
+                    className="ui-btn-secondary mt-4 w-full rounded-xl py-3.5 text-sm font-semibold sm:w-auto sm:px-8"
                   >
                     {t('account.puzzle_continue')}
                   </button>

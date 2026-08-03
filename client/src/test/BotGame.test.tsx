@@ -260,6 +260,8 @@ describe('BotGame', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
     fireEvent.click(screen.getAllByRole('button', { name: 'bot.show_all_bots' })[0]);
 
+    expect(screen.getAllByTestId('bot-strength-band-select').length).toBeGreaterThan(0);
+
     const mekhalaButtons = screen.getAllByRole('button', { name: /Mekhala Saeng/i });
     fireEvent.click(mekhalaButtons[0]);
 
@@ -284,6 +286,7 @@ describe('BotGame', () => {
     renderBotGame();
 
     expect(screen.queryByRole('button', { name: /Saman Noi|Chao Surasi|Lady Busaba/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('bot-mobile-opponent-stage')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'bot.change_opponent' }).length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('start-game-button').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'common.white' }).length).toBeGreaterThan(0);
