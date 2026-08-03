@@ -107,22 +107,38 @@ export class GamePage {
 
   /**
    * Prefer the weakest Learning-band bot when the roster is open.
+   * Always target :visible controls — desktop and mobile duplicate the roster chrome.
    */
   async selectFastBot(): Promise<void> {
     await this.visibleStartBotButton.waitFor({ state: 'visible' });
-    await this.page.getByRole('button', { name: /change opponent|เปลี่ยนคู่|bot\.change_opponent/i }).first().click();
 
-    const showAll = this.page.getByRole('button', { name: /show all|ดูทั้งหมด|bot\.show_all_bots/i }).first();
+    await this.page
+      .getByRole('button', { name: /change opponent|เปลี่ยนคู่|bot\.change_opponent/i })
+      .locator('visible=true')
+      .first()
+      .click();
+
+    const showAll = this.page
+      .getByRole('button', { name: /show all|ดูทั้งหมด|bot\.show_all_bots/i })
+      .locator('visible=true')
+      .first();
     if (await showAll.isVisible().catch(() => false)) {
       await showAll.click();
     }
 
-    const learningTab = this.page.getByRole('tab', { name: /Learning|เรียนรู้|bot\.band_learning/i }).first();
+    const learningTab = this.page
+      .getByRole('tab', { name: /Learning|เรียนรู้|bot\.band_learning/i })
+      .locator('visible=true')
+      .first();
     if (await learningTab.isVisible().catch(() => false)) {
       await learningTab.click();
     }
 
-    await this.page.getByRole('button', { name: /Saman Noi/i }).first().click();
+    await this.page
+      .getByRole('button', { name: /Saman Noi/i })
+      .locator('visible=true')
+      .first()
+      .click();
   }
 
   /**
