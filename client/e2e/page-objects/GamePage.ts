@@ -106,10 +106,66 @@ export class GamePage {
   }
 
   /**
-   * Check if the game over panel is visible
+   * Prefer the weakest Learning-band bot when the roster is open.
+   * Always target :visible controls — desktop and mobile duplicate the roster chrome.
    */
-  async isGameOverVisible(): Promise<boolean> {
-    const analyzeButton = this.page.getByTestId('analyze-game-button');
-    return await analyzeButton.isVisible().catch(() => false);
+  async selectFastBot(): Promise<void> {
+    await this.visibleStartBotButton.waitFor({ state: 'visible' });
+
+    await this.page
+      .getByRole('button', { name: /change opponent|เปลี่ยนคู่|bot\.change_opponent/i })
+      .locator('visible=true')
+      .first()
+      .click();
+
+    const showAll = this.page
+      .getByRole('button', { name: /show all|ดูทั้งหมด|bot\.show_all_bots/i })
+      .locator('visible=true')
+      .first();
+    if (await showAll.isVisible().catch(() => false)) {
+      await showAll.click();
+    }
+
+    const learningTab = this.page
+      .getByRole('tab', { name: /Learning|เรียนรู้|bot\.band_learning/i })
+      .locator('visible=true')
+      .first();
+    if (await learningTab.isVisible().catch(() => false)) {
+      await learningTab.click();
+    }
+
+    await this.page
+      .getByRole('button', { name: /Saman Noi/i })
+      .locator('visible=true')
+      .first()
+      .click();
+  }
+
+  /**
+   * Wait until the player can move and no premove chip is shown.
+   */
+  async waitForPlayablePlayerTurn(timeout = 45_000): Promise<void> {
+    await expect(this.page.getByTestId('game-status-row')).toContainText(/Your turn|ตาคุณ|bot\.your_turn/i, {
+      timeout,
+    });
+    await expect(this.page.getByTestId('game-premove-chip')).toHaveCount(0);
+  }
+
+  /**
+   * Read the numeric move count from the board chrome.
+   */
+  async getMoveCount(): Promise<number> {
+    const text = await this.page.getByTestId('game-move-count').innerText();
+    const match = text.match(/(\d+)\s*$/);
+    return match ? Number(match[1]) : 0;
+  }
+
+  /**
+   * Wait until move history length reaches at least `count`.
+   */
+  async waitForMoveCountAtLeast(count: number, timeout = 45_000): Promise<void> {
+    await expect
+      .poll(async () => this.getMoveCount(), { timeout })
+      .toBeGreaterThanOrEqual(count);
   }
 }

@@ -135,6 +135,27 @@ export function useBotGameScreen() {
   const botName = selectedBot.name;
   const setupIntroPreview = getBotDialoguePack(selectedBot, lang).intro[0] ?? selectedBot.flavorIntroLine;
 
+  const showToastRef = useRef(showToast);
+  const translateRef = useRef(t);
+  const botLevelRef = useRef(botLevel);
+  const selectedBotIdRef = useRef(selectedBot.id);
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
+  useEffect(() => {
+    translateRef.current = t;
+  }, [t]);
+
+  useEffect(() => {
+    botLevelRef.current = botLevel;
+  }, [botLevel]);
+
+  useEffect(() => {
+    selectedBotIdRef.current = selectedBot.id;
+  }, [selectedBot.id]);
+
   // Helper to save bot game and navigate to analysis
   const handleAnalyzeGame = useCallback(() => {
     if (!currentGameId || gameState.moveHistory.length === 0) {
@@ -290,14 +311,24 @@ export function useBotGameScreen() {
     };
   }, [clearPendingBotChat]);
 
+  // Clock ticks rewrite gameState every 500ms. Never depend on the whole
+  // gameState object here — that aborted in-flight bot requests, left
+  // botThinking stuck true, and made the player's turn feel like a premove.
   useEffect(() => {
-    if (!gameStarted || gameState.gameOver || isPlayerTurn) return;
+    if (!gameStarted || gameState.gameOver || isPlayerTurn) {
+      setBotThinking(false);
+      return;
+    }
 
     const botMoveKey = `${gameState.turn}:${gameState.moveHistory.length}`;
-    if (failedBotMoveKeyRef.current === botMoveKey) return;
+    if (failedBotMoveKeyRef.current === botMoveKey) {
+      setBotThinking(false);
+      return;
+    }
 
-    if (gameState.counting && !gameState.counting.active && gameState.counting.countingColor === botColor) {
-      const countedState = startCounting(gameState);
+    const counting = gameState.counting;
+    if (counting && !counting.active && counting.countingColor === botColor) {
+      const countedState = startCounting(gameStateRef.current);
       if (countedState) {
         setGameState(countedState);
         return;
@@ -313,21 +344,23 @@ export function useBotGameScreen() {
       const requestedState = gameStateRef.current;
       const requestMoveCount = requestedState.moveHistory.length;
       const requestTurn = requestedState.turn;
+      const level = botLevelRef.current;
+      const botId = selectedBotIdRef.current;
       let botMove = null;
       const controller = new AbortController();
 
       botRequestAbortRef.current = controller;
       botRequestTimeoutRef.current = setTimeout(() => {
         controller.abort();
-      }, getBotRequestTimeoutMs(botLevel));
+      }, getBotRequestTimeoutMs(level));
 
       try {
-        botMove = await requestBrowserEngineBotMove(requestedState, botLevel).catch(() => null);
+        botMove = await requestBrowserEngineBotMove(requestedState, level).catch(() => null);
         if (!botMove) {
-          const localFallbackDelayMs = getHighLevelLocalFallbackDelayMs(botLevel);
-          const serverMovePromise = requestBotMove(requestedState, botLevel, {
+          const localFallbackDelayMs = getHighLevelLocalFallbackDelayMs(level);
+          const serverMovePromise = requestBotMove(requestedState, level, {
             signal: controller.signal,
-            botId: selectedBot.id,
+            botId,
           }).then((result) => result.move);
 
           if (localFallbackDelayMs === null) {
@@ -335,7 +368,7 @@ export function useBotGameScreen() {
           } else {
             const localFallbackPromise = new Promise<{ from: Position; to: Position } | null>((resolve) => {
               setTimeout(() => {
-                requestLocalBotMove(requestedState, botLevel, selectedBot.id)
+                requestLocalBotMove(requestedState, level, botId)
                   .then(resolve)
                   .catch(() => resolve(null));
               }, localFallbackDelayMs);
@@ -352,7 +385,7 @@ export function useBotGameScreen() {
           }
         }
       } catch {
-        botMove = await requestLocalBotMove(requestedState, botLevel, selectedBot.id).catch(() => null);
+        botMove = await requestLocalBotMove(requestedState, level, botId).catch(() => null);
       } finally {
         if (botRequestTimeoutRef.current) {
           clearTimeout(botRequestTimeoutRef.current);
@@ -378,10 +411,11 @@ export function useBotGameScreen() {
       let newState = botMove ? makeMove(currentState, botMove.from, botMove.to) : null;
 
       if (!newState) {
-        const fallbackMove = await requestLocalBotMove(currentState, botLevel, selectedBot.id).catch(() => null);
+        const fallbackMove = await requestLocalBotMove(currentState, level, botId).catch(() => null);
+        if (botRequestIdRef.current !== requestId) return;
         if (fallbackMove) {
           botMove = fallbackMove;
-          newState = makeMove(currentState, fallbackMove.from, fallbackMove.to);
+          newState = makeMove(gameStateRef.current, fallbackMove.from, fallbackMove.to);
         }
       }
 
@@ -412,7 +446,7 @@ export function useBotGameScreen() {
           playGameOverSound();
         } else {
           failedBotMoveKeyRef.current = botMoveKey;
-          showToast(t('bot.engine_unavailable'), 'error');
+          showToastRef.current(translateRef.current('bot.engine_unavailable'), 'error');
         }
       }
 
@@ -429,18 +463,13 @@ export function useBotGameScreen() {
   }, [
     clearPendingBotRequest,
     botColor,
-    botLevel,
     gameStarted,
-    gameState,
     gameState.board,
     gameState.counting,
     gameState.gameOver,
     gameState.moveHistory.length,
     gameState.turn,
     isPlayerTurn,
-    selectedBot.id,
-    showToast,
-    t,
   ]);
 
   // Auto-execute premove when it becomes player's turn

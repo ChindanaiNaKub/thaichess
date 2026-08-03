@@ -15,16 +15,30 @@ const {
   requestLocalBotMoveMock,
   requestBrowserEngineBotMoveMock,
   fetchMock,
-} = vi.hoisted(() => ({
-  navigateMock: vi.fn(),
-  boardPropsMock: vi.fn(),
-  clockPropsMock: vi.fn(),
-  requestBotMoveMock: vi.fn(),
-  requestPositionAnalysisMock: vi.fn(),
-  requestLocalBotMoveMock: vi.fn(),
-  requestBrowserEngineBotMoveMock: vi.fn(),
-  fetchMock: vi.fn(),
-}));
+  translateMock,
+  showToastMock,
+} = vi.hoisted(() => {
+  const translateMock = vi.fn((key: string, params?: Record<string, string | number>) => {
+    if (key === 'bot.level_short') return `Level ${params?.level ?? ''}`.trim();
+    if (key === 'bot.estimated_elo_range') return `Estimated ${params?.range ?? ''} ELO`.trim();
+    if (key === 'bot.estimated_elo_note') return 'Estimated strength based on play behavior, not an official rating.';
+    return key;
+  });
+  const showToastMock = vi.fn();
+
+  return {
+    navigateMock: vi.fn(),
+    boardPropsMock: vi.fn(),
+    clockPropsMock: vi.fn(),
+    requestBotMoveMock: vi.fn(),
+    requestPositionAnalysisMock: vi.fn(),
+    requestLocalBotMoveMock: vi.fn(),
+    requestBrowserEngineBotMoveMock: vi.fn(),
+    fetchMock: vi.fn(),
+    translateMock,
+    showToastMock,
+  };
+});
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -38,12 +52,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../lib/i18n', () => ({
   useCurrentLanguage: () => 'en',
   useTranslation: () => ({
-    t: (key: string, params?: Record<string, string | number>) => {
-      if (key === 'bot.level_short') return `Level ${params?.level ?? ''}`.trim();
-      if (key === 'bot.estimated_elo_range') return `Estimated ${params?.range ?? ''} ELO`.trim();
-      if (key === 'bot.estimated_elo_note') return 'Estimated strength based on play behavior, not an official rating.';
-      return key;
-    },
+    t: translateMock,
     lang: 'en' as const,
     setLang: vi.fn(),
   }),
@@ -92,7 +101,7 @@ vi.mock('../lib/sounds', () => ({
 
 vi.mock('../lib/toast', () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: showToastMock,
   }),
 }));
 
@@ -189,6 +198,8 @@ describe('BotGame', () => {
     requestLocalBotMoveMock.mockReset();
     requestBrowserEngineBotMoveMock.mockReset();
     fetchMock.mockReset();
+    showToastMock.mockReset();
+    translateMock.mockClear();
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true }),
@@ -414,6 +425,83 @@ describe('BotGame', () => {
     expect(getBotRequestTimeoutMs(10)).toBe(15000);
     expect(getBotRequestTimeoutMs(11)).toBe(18000);
     expect(getBotRequestTimeoutMs(12)).toBe(20000);
+  });
+
+  it('does not cancel in-flight bot moves when the clock ticks, and restores a real player turn', async () => {
+    vi.useFakeTimers();
+
+    const pendingBrowserResolvers: Array<(move: { from: { row: number; col: number }; to: { row: number; col: number } } | null) => void> = [];
+    requestBrowserEngineBotMoveMock.mockImplementation(() => new Promise((resolve) => {
+      pendingBrowserResolvers.push(resolve);
+    }));
+
+    renderBotGame();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'bot.change_opponent' })[0]);
+    const masterButtons = screen.getAllByRole('button', { name: /Lalin Busaba/i });
+    fireEvent.click(masterButtons[0]);
+
+    const blackButtons = screen.getAllByRole('button', { name: 'common.black' });
+    fireEvent.click(blackButtons[0]);
+    fireEvent.click(screen.getAllByTestId('start-game-button')[0]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(requestBrowserEngineBotMoveMock).toHaveBeenCalledTimes(1);
+
+    // Clock ticks every 500ms and used to re-run the bot effect, aborting the request id.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(requestBrowserEngineBotMoveMock).toHaveBeenCalledTimes(1);
+    expect(pendingBrowserResolvers).toHaveLength(1);
+
+    await act(async () => {
+      pendingBrowserResolvers[0]({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const lastBoardProps = boardPropsMock.mock.calls.at(-1)?.[0];
+    expect({
+      isMyTurn: lastBoardProps?.isMyTurn,
+      lastMove: lastBoardProps?.lastMove ?? null,
+      browserCalls: requestBrowserEngineBotMoveMock.mock.calls.length,
+      pendingResolvers: pendingBrowserResolvers.length,
+      status: screen.getByTestId('game-status-row').textContent,
+    }).toEqual({
+      isMyTurn: true,
+      lastMove: expect.objectContaining({
+        from: { row: 2, col: 0 },
+        to: { row: 3, col: 0 },
+      }),
+      browserCalls: 1,
+      pendingResolvers: 1,
+      status: expect.stringMatching(/bot\.your_turn/i),
+    });
+    expect(screen.queryByTestId('game-premove-chip')).not.toBeInTheDocument();
+
+    // Player turn must accept a real move, not stash a premove while botThinking is stuck.
+    await act(async () => {
+      boardPropsMock.mock.calls.at(-1)?.[0]?.onSquareClick({ row: 5, col: 4 });
+    });
+    await act(async () => {
+      boardPropsMock.mock.calls.at(-1)?.[0]?.onSquareClick({ row: 4, col: 4 });
+    });
+
+    expect(screen.queryByTestId('game-premove-chip')).not.toBeInTheDocument();
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]?.isMyTurn).toBe(false);
+    expect(boardPropsMock.mock.calls.at(-1)?.[0]?.lastMove).toMatchObject({
+      from: { row: 5, col: 4 },
+      to: { row: 4, col: 4 },
+    });
   });
 
   it('saves finished bot games into the shared recent-games system', async () => {
