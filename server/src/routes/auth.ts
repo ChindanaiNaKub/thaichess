@@ -4,7 +4,7 @@ import {
   getUsernameChangeCooldown,
   deleteUser,
 } from '../database';
-import { clearSessionCookie, getAuthenticatedUser, logoutRequest } from '../auth';
+import { clearSessionCookie, createGuestCredentials, getAuthenticatedUser, logoutRequest } from '../auth';
 import { betterAuthHandler } from '../betterAuth';
 import { logError } from '../logger';
 import { UpdateProfileSchema } from '../../../shared/validation';
@@ -27,6 +27,10 @@ export function createAuthRouter(deps: AuthRouterDeps): Router {
     }
 
     res.json({ user });
+  });
+
+  router.post('/api/auth/guest', (_req, res) => {
+    res.json(createGuestCredentials());
   });
 
   router.post('/api/auth/logout', requireTrustedWriteOriginMiddleware, async (req, res) => {

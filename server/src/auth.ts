@@ -44,6 +44,27 @@ function hashAuthValue(value: string) {
     .digest('hex');
 }
 
+export interface GuestCredentials {
+  playerId: string;
+  token: string;
+}
+
+export function createGuestCredentials(): GuestCredentials {
+  const playerId = `guest_${crypto.randomBytes(24).toString('hex')}`;
+  return { playerId, token: hashAuthValue(playerId) };
+}
+
+export function verifyGuestCredentials(playerId: unknown, token: unknown): boolean {
+  if (typeof playerId !== 'string' || typeof token !== 'string') return false;
+  if (!GUEST_PLAYER_ID_PATTERN.test(playerId)) return false;
+
+  const expected = Buffer.from(hashAuthValue(playerId), 'hex');
+  const provided = Buffer.from(token, 'hex');
+  if (provided.length !== expected.length) return false;
+
+  return crypto.timingSafeEqual(provided, expected);
+}
+
 export function hasAdminMfaAccess(user: Pick<AuthUser, 'role' | 'twoFactorEnabled'>) {
   return user.role === 'admin' && user.twoFactorEnabled;
 }

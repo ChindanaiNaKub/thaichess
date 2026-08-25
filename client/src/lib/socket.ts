@@ -16,35 +16,71 @@ function getSocketUrl() {
   return import.meta.env.DEV ? 'http://localhost:3000' : 'http://127.0.0.1:3000';
 }
 
-const GUEST_PLAYER_ID_STORAGE_KEY = 'thaichess_guest_player_id';
+const GUEST_CREDENTIALS_STORAGE_KEY = 'thaichess_guest_player_id';
 
-function createGuestPlayerId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `guest_${crypto.randomUUID()}`;
-  }
-
-  return `guest_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+interface GuestCredentials {
+  playerId: string;
+  token: string;
 }
 
-function getGuestPlayerId() {
-  if (typeof window === 'undefined') {
-    return createGuestPlayerId();
-  }
-
-  const existing = window.localStorage.getItem(GUEST_PLAYER_ID_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
-
-  const created = createGuestPlayerId();
-  window.localStorage.setItem(GUEST_PLAYER_ID_STORAGE_KEY, created);
-  return created;
+function isGuestCredentials(value: unknown): value is GuestCredentials {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.playerId === 'string'
+    && record.playerId.startsWith('guest_')
+    && typeof record.token === 'string';
 }
 
-function getSocketAuth() {
-  return {
-    guestPlayerId: getGuestPlayerId(),
-  };
+function readStoredGuestCredentials(): GuestCredentials | null {
+  if (typeof window === 'undefined') return null;
+
+  const stored = window.localStorage.getItem(GUEST_CREDENTIALS_STORAGE_KEY);
+  if (!stored) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (isGuestCredentials(parsed)) return parsed;
+  } catch {
+    window.localStorage.removeItem(GUEST_CREDENTIALS_STORAGE_KEY);
+    return null;
+  }
+
+  window.localStorage.removeItem(GUEST_CREDENTIALS_STORAGE_KEY);
+  return null;
+}
+
+async function requestGuestCredentials(): Promise<GuestCredentials> {
+  const response = await fetch('/api/auth/guest', { method: 'POST' });
+  if (!response.ok) {
+    throw new Error(`Guest credential request failed with status ${response.status}.`);
+  }
+
+  const payload: unknown = await response.json();
+  if (!isGuestCredentials(payload)) {
+    throw new Error('Invalid guest credential payload.');
+  }
+  return payload;
+}
+
+let guestCredentialsPromise: Promise<GuestCredentials | null> | null = null;
+
+export function ensureGuestCredentials(): Promise<GuestCredentials | null> {
+  const stored = readStoredGuestCredentials();
+  if (stored) return Promise.resolve(stored);
+
+  if (!guestCredentialsPromise) {
+    guestCredentialsPromise = requestGuestCredentials()
+      .then((credentials) => {
+        window.localStorage.setItem(GUEST_CREDENTIALS_STORAGE_KEY, JSON.stringify(credentials));
+        return credentials;
+      })
+      .catch(() => {
+        guestCredentialsPromise = null;
+        return null;
+      });
+  }
+
+  return guestCredentialsPromise;
 }
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(getSocketUrl(), {
@@ -55,14 +91,18 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(get
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 10000,
-  auth: getSocketAuth(),
+  auth: {},
 });
 
 export function connectSocket() {
-  socket.auth = getSocketAuth();
-  if (!socket.connected) {
-    socket.connect();
-  }
+  void ensureGuestCredentials().then((credentials) => {
+    socket.auth = credentials
+      ? { guestPlayerId: credentials.playerId, guestToken: credentials.token }
+      : {};
+    if (!socket.connected) {
+      socket.connect();
+    }
+  });
 }
 
 export function disconnectSocket() {

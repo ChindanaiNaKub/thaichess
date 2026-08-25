@@ -153,6 +153,31 @@ describe('auth hardening', () => {
     } as const)).toBe(true);
   });
 
+  it('issues signed guest credentials that verify, and rejects forged or tampered ones', async () => {
+    const auth = await import('../auth');
+
+    const credentials = auth.createGuestCredentials();
+    expect(credentials.playerId).toMatch(/^guest_[A-Za-z0-9_-]{16,128}$/);
+    expect(auth.verifyGuestCredentials(credentials.playerId, credentials.token)).toBe(true);
+    expect(auth.normalizeGuestPlayerId(credentials.playerId)).toBe(credentials.playerId);
+
+    const tamperedToken = `${credentials.token.slice(0, -2)}00`;
+    expect(auth.verifyGuestCredentials(credentials.playerId, tamperedToken)).toBe(false);
+
+    const forgedPlayerId = 'guest_forged-player-id-123456';
+    const wrongSecretToken = crypto
+      .createHmac('sha256', 'wrong-secret')
+      .update(forgedPlayerId)
+      .digest('hex');
+    expect(auth.verifyGuestCredentials(forgedPlayerId, wrongSecretToken)).toBe(false);
+
+    expect(auth.verifyGuestCredentials(credentials.playerId, crypto.randomBytes(32).toString('hex'))).toBe(false);
+    expect(auth.verifyGuestCredentials(credentials.playerId, 'not-hex-token')).toBe(false);
+    expect(auth.verifyGuestCredentials(credentials.playerId, 12345)).toBe(false);
+    expect(auth.verifyGuestCredentials(null, credentials.token)).toBe(false);
+    expect(auth.verifyGuestCredentials(undefined, undefined)).toBe(false);
+  });
+
   it('logs session termination on logout', async () => {
     const logger = await import('../logger');
     const database = await import('../database');

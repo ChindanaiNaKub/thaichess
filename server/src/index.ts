@@ -14,10 +14,10 @@ import {
   runAllCleanupJobs,
 } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
-import { logError, logInfo } from './logger';
+import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
-import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId } from './auth';
+import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId, verifyGuestCredentials } from './auth';
 import { createSocketConnectionHandler, emitGameOverToParticipants, type AuthenticatedSocketData } from './socketHandlers';
 import { warmUpReviewEngine } from './engineGateway';
 import { getCanonicalRedirectUrl } from './urlCanonicalization';
@@ -248,7 +248,16 @@ async function saveGameToDb(room: GameRoom, reason: string) {
 io.use(async (socket, next) => {
   try {
     const authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
-    const guestPlayerId = normalizeGuestPlayerId(socket.handshake.auth?.guestPlayerId);
+    const claimedGuestPlayerId = normalizeGuestPlayerId(socket.handshake.auth?.guestPlayerId);
+    const guestPlayerId = claimedGuestPlayerId && verifyGuestCredentials(claimedGuestPlayerId, socket.handshake.auth?.guestToken)
+      ? claimedGuestPlayerId
+      : null;
+
+    if (claimedGuestPlayerId && !guestPlayerId) {
+      monitoring.increment('socket.guestIdentityRejected');
+      logWarn('guest_identity_rejected', { socketId: socket.id });
+    }
+
     socket.data.authUser = authUser;
     socket.data.playerId = authUser?.id ?? guestPlayerId ?? `guest_${socket.id}`;
     next();
