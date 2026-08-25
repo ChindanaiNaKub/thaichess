@@ -1360,11 +1360,9 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'footer.how_to_play_makruk': 'วิธีเล่นหมากรุกไทย',
   'footer.support_desc': 'ThaiChess ฟรีและไม่มีโฆษณา — ถ้าอยากช่วยค่าใช้จ่าย',
   'footer.donate': 'บริจาค',
-  'donate.title': 'บริจาค',
-  'donate.desc': 'ThaiChess ฟรีและไม่มีโฆษณา การโอนช่วยค่าโฮสต์และการพัฒนา',
-  'donate.bank_info': 'ไทยพาณิชย์: 697-230137-6 | ชื่อ: ชินดนัย ใจหมั้น',
-  'donate.thanks': 'ขอบคุณครับ',
-  'donate.qr_alt': 'คิวอาร์โค้ดสำหรับบริจาค ThaiChess',
+  'donate.title': 'สนับสนุนเว็บนี้',
+  'donate.desc': 'ThaiChess ฟรีและไม่มีโฆษณา อยากช่วยออกค่าเซิร์ฟเวอร์ก็สแกนจ่ายพร้อมเพย์ได้เลย ให้เท่าไหร่ก็ได้ตามสะดวก',
+  'donate.qr_alt': 'คิวอาร์โค้ดพร้อมเพย์สำหรับสนับสนุน ThaiChess',
 
   // Language
   'lang.switch': 'EN',
