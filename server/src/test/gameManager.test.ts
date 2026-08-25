@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { GameManager } from '../gameManager';
-import type { TimeControl } from '../../../shared/types';
+import type { GameRoom, TimeControl } from '../../../shared/types';
 
 const timeControl: TimeControl = { initial: 300, increment: 2 };
 
@@ -197,6 +197,29 @@ describe('GameManager', () => {
     expect(manager.getGame(finishedRoom.id)).toBeNull();
     expect(manager.getGame(disconnectedRoom.id)).toBeNull();
     expect(manager.getPlayerGame('disconnect-black')).toBeNull();
+  });
+
+  it('finalizes expired-disconnect games so their results persist instead of vanishing', async () => {
+    const manager = new GameManager();
+    const room = manager.createGame(timeControl);
+    await manager.joinGame(room.id, 'white-socket');
+    await manager.joinGame(room.id, 'black-socket');
+    manager.handleDisconnect('white-socket');
+
+    vi.advanceTimersByTime(11 * 60 * 1000);
+
+    const expiredRooms: GameRoom[] = [];
+    manager.cleanupOldGames({
+      onDisconnectedExpired: (expiredRoom) => expiredRooms.push(expiredRoom),
+    });
+
+    expect(expiredRooms).toHaveLength(1);
+    expect(expiredRooms[0]).toMatchObject({ id: room.id, status: 'finished' });
+    expect(expiredRooms[0].gameState.winner).toBe('black');
+    expect(expiredRooms[0].gameState.resultReason).toBe('timeout');
+    expect(expiredRooms[0].gameState.isDraw).toBe(false);
+    expect(manager.getGame(room.id)).toBeNull();
+    expect(manager.getPlayerGame('black-socket')).toBeNull();
   });
 
   it('handles draw offers, decline, and acceptance rules correctly', async () => {

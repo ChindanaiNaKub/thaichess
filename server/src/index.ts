@@ -18,7 +18,7 @@ import { logError, logInfo } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
 import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId } from './auth';
-import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
+import { createSocketConnectionHandler, emitGameOverToParticipants, type AuthenticatedSocketData } from './socketHandlers';
 import { warmUpReviewEngine } from './engineGateway';
 import { getCanonicalRedirectUrl } from './urlCanonicalization';
 import { createAnalysisRouter } from './routes/analysis';
@@ -179,11 +179,23 @@ app.use(express.static(clientDist, {
 // Cleanup old games every 30 minutes
 setInterval(() => {
   gameManager.cleanupOldGames({
-    onDisconnectedExpired: (gameId) => {
+    onDisconnectedExpired: (room) => {
       monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
-        gameId,
+        gameId: room.id,
         reason: 'disconnect_ttl_expired',
+        rated: room.rated,
       });
+
+      if (!room.whitePlayerId && !room.blackPlayerId) return;
+
+      monitoring.increment('gamesFinished');
+      void saveGameToDb(room, 'timeout')
+        .then(({ ratingChange }) => {
+          emitGameOverToParticipants(io, gameManager, room, 'timeout', ratingChange);
+        })
+        .catch((error) => {
+          logError('expired_game_persistence_failed', error, { gameId: room.id });
+        });
     },
   });
 }, 1800000);
