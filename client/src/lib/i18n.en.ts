@@ -1364,11 +1364,9 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'footer.how_to_play_makruk': 'How to Play Makruk',
   'footer.support_desc': 'ThaiChess stays free and ad-free — if you want to help cover costs,',
   'footer.donate': 'Donate',
-  'donate.title': 'Donate',
-  'donate.desc': 'ThaiChess stays free and ad-free. Transfers help cover hosting and development.',
-  'donate.bank_info': 'SCB: 697-230137-6 | Name: Chindanai N.',
-  'donate.thanks': 'Thanks.',
-  'donate.qr_alt': 'ThaiChess donation QR code',
+  'donate.title': 'Support this site',
+  'donate.desc': 'ThaiChess is free and ad-free. Scan the PromptPay QR to chip in for server costs — any amount helps.',
+  'donate.qr_alt': 'ThaiChess support PromptPay QR code',
 
   // Privacy Policy
   'privacy.title': 'Privacy Policy | นโยบายความเป็นส่วนตัว',
