@@ -284,9 +284,14 @@ app.use(createFeedbackRouter({ requireTrustedWriteOriginMiddleware }));
 app.use(createSpaRouter({ clientDist }));
 
 // Global error handler for Express (must be after all routes)
-app.use((err: Error, req: express.Request, res: express.Response) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   const correlationId = req.headers['x-correlation-id'] as string;
   logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
+
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
 
   // Don't leak error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';
