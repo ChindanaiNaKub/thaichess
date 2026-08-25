@@ -40,7 +40,7 @@ describe('botDialogue', () => {
     const decision = createBotIntroDecision(persona, 'th', createHistory());
 
     expect(decision).not.toBeNull();
-    expect(decision?.message.text).toBe('ค่อย ๆ เล่น กระดานจะบอกเอง');
+    expect(decision?.message.text).toBe('นั่งสบาย ๆ กระดานไม่เคยรีบ');
   });
 
   it('stays silent on an ordinary non-tactical move', () => {

@@ -13,7 +13,7 @@ const BOT_ID_TO_I18N_KEY: Record<string, string> = {
   'luang-prasert': 'laksit_prasert',
   'chao-surasi': 'chanin_surasi',
   'lady-busaba': 'lalin_busaba',
-  'kiet-archive': 'kiet_intharat',
+  'kiet-archive': 'wirat_intharat',
   'ajarn-krailert': 'ajarn_krailert',
 };
 

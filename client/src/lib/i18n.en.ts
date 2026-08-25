@@ -337,95 +337,113 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'bot.tag.clinical': 'Clinical',
 
   // Bot Persona Content Translations
-  // Saman Noi (Level 1) - Heir of Amber Court
-  'bot.saman_noi.backstory': 'The youngest heir of Amber Court in the Realm of Siwalai, eager to prove himself before patience has fully taken root.',
-  'bot.saman_noi.hook': 'Rushes into the center as if Amber Court has already granted him the game.',
-  'bot.saman_noi.opening': 'Pushes a central Bia early and develops the Ma before the rest of Amber Court would consider the shape settled.',
-  'bot.saman_noi.signature': 'A fast central charge followed by a second wave from the court guard.',
-  'bot.saman_noi.tactical': 'Early attacks and loose-piece hunts.',
-  'bot.saman_noi.weakness': 'Overextends before his king and reserves are settled.',
-  'bot.saman_noi.chat_style': 'Short boasts, light teasing, and restless excitement.',
+  // Saman Noi (Level 1) - buffalo calf of Amber Court
+  'bot.saman_noi.backstory': 'The youngest buffalo calf of Amber Court. Still small, already convinced he is the biggest thing in the field.',
+  'bot.saman_noi.hook': 'Charges first. Works out what that was later.',
+  'bot.saman_noi.opening': 'Shoves a central Bia forward at once and brings the Ma along before his development is anything like settled.',
+  'bot.saman_noi.signature': 'A headlong central rush with everything he owns.',
+  'bot.saman_noi.tactical': 'Early raids and piece-snatching.',
+  'bot.saman_noi.weakness': 'Runs so far forward he forgets his own back rank.',
+  'bot.saman_noi.chat_style': 'Short boasts and taunts. Zero patience.',
 
-  // Mae Mali (Level 2) - Tactician of Reed Market
-  'bot.mae_mali.backstory': 'A quick-witted trader from Reed Market, where Makruk lessons travel as quickly as gossip along the canal stalls.',
-  'bot.mae_mali.hook': 'Baits a capture, smiles, and keeps one Reed Market surprise in reserve.',
-  'bot.mae_mali.opening': 'Invites contact early, especially when a careless capture can leave the center looking like a bad market bargain.',
-  'bot.mae_mali.signature': 'Turns small imbalances into awkward tactical questions.',
-  'bot.mae_mali.tactical': 'Bait-and-switch captures and fork patterns.',
-  'bot.mae_mali.weakness': 'If the tricks fail, her endings lose shape.',
-  'bot.mae_mali.chat_style': 'Cheerful remarks with a wink, never too long.',
+  // Mae Mali (Level 2) - market cat of Reed Market
+  'bot.mae_mali.backstory': 'A market cat from Reed Market. Watches every stall, minds everyone\'s business, and never once paid full price for anything.',
+  'bot.mae_mali.hook': 'Every bargain has a second price tag. You will see it one move late.',
+  'bot.mae_mali.opening': 'Offers early trades that look even and never quite are.',
+  'bot.mae_mali.signature': 'A small sacrifice that opens a bigger door.',
+  'bot.mae_mali.tactical': 'Baited captures and forks.',
+  'bot.mae_mali.weakness': 'When the tricks run dry, her endgame goes thin.',
+  'bot.mae_mali.chat_style': 'Market chatter. Compliments right before trouble.',
 
-  // Krailert (Level 3) - Watch of Lotus Gate
-  'bot.krailert.backstory': 'A senior watchman from Lotus Gate, trained to trust order, routine, and the quiet safety of a line that does not break.',
-  'bot.krailert.hook': 'Keeps pieces close, values sturdy structure, and treats drama as a breach in discipline.',
-  'bot.krailert.opening': 'Builds a compact gatehouse shape first, then asks whether the center can be challenged safely.',
-  'bot.krailert.signature': 'A compact shell that waits for overreach.',
-  'bot.krailert.tactical': 'Simple exchanges that remove danger.',
-  'bot.krailert.weakness': 'Can become passive and surrender space.',
-  'bot.krailert.chat_style': 'Brief military calm, more duty than flair.',
+  // Krailert (Level 3) - gate dog of Lotus Gate
+  'bot.krailert.backstory': 'The old gate dog of Lotus Gate. Has watched every trick come up the road a thousand times and been impressed by none of them.',
+  'bot.krailert.hook': 'Nothing gets past. Nothing rushes him either.',
+  'bot.krailert.opening': 'Squares up in a compact shape, covers every entry square, and dares you to find a crack.',
+  'bot.krailert.signature': 'A wall that walks forward very slowly.',
+  'bot.krailert.tactical': 'Clean exchanges that kill the attack.',
+  'bot.krailert.weakness': 'Defends so well he forgets to ever push back.',
+  'bot.krailert.chat_style': 'Short duty reports. Almost bored.',
 
-  // Panya Suman (Level 4) - Scholar of Lantern Cloister
-  'bot.panya_suman.backstory': 'A resident scholar of Lantern Cloister, where Makruk is studied alongside poetry, memory, and the discipline of quiet attention.',
-  'bot.panya_suman.hook': 'Rarely hurries, rarely panics, and almost never spends a move without purpose.',
-  'bot.panya_suman.opening': 'Develops in harmony, contests the center patiently, and prefers the calm geometry taught at Lantern Cloister.',
-  'bot.panya_suman.signature': 'Slow tightening around weak squares.',
-  'bot.panya_suman.tactical': 'Quiet tactical shots prepared by patient improvement.',
-  'bot.panya_suman.weakness': 'May allow initiative while completing a careful plan.',
-  'bot.panya_suman.chat_style': 'Short reflections that soothe rather than provoke.',
+  // Panya Suman (Level 4) - owl of Lantern Cloister
+  'bot.panya_suman.backstory': 'A cloister owl who has read every game in the Lantern library twice, then sat quietly thinking about half of them.',
+  'bot.panya_suman.hook': 'Never in a hurry. Never without a reason.',
+  'bot.panya_suman.opening': 'Develops evenly, contests nothing loudly, and lets you commit first.',
+  'bot.panya_suman.signature': 'A quiet squeeze that arrives all at once.',
+  'bot.panya_suman.tactical': 'Slow-built tactics that land suddenly.',
+  'bot.panya_suman.weakness': 'So busy completing his plan he lets your initiative grow.',
+  'bot.panya_suman.chat_style': 'Gentle observations, like reading aloud to a friend.',
 
-  // Mekhala Saeng (Level 5) - Matron of Riverlight Sala
-  'bot.mekhala_saeng.backstory': 'The matron of Riverlight Sala, where travelers rest, play, and learn how many storms can be survived by one sturdy move.',
-  'bot.mekhala_saeng.hook': 'Invites you to press, then makes you prove every inch against Riverlight calm.',
-  'bot.mekhala_saeng.opening': 'Keeps the king sheltered, reinforces key squares, and waits like the riverbank for overextension to come to her.',
-  'bot.mekhala_saeng.signature': 'A resilient shell that turns into a steady ending.',
-  'bot.mekhala_saeng.tactical': 'Defensive tactics and practical simplification.',
-  'bot.mekhala_saeng.weakness': 'Sometimes yields too much space before striking back.',
-  'bot.mekhala_saeng.chat_style': 'Brief elder wisdom with no need for volume.',
+  // Mekhala Saeng (Level 5) - elephant of Riverlight
+  'bot.mekhala_saeng.backstory': 'The old elephant who runs the Riverlight rest house. Feeds you first, beats you at Makruk second, sends you off with leftovers.',
+  'bot.mekhala_saeng.hook': 'Press all you like. The riverbank has seen bigger floods.',
+  'bot.mekhala_saeng.opening': 'Fortifies early, covers the key squares twice, and waits for you to overreach on your own.',
+  'bot.mekhala_saeng.signature': 'Absorb everything, then lean on you.',
+  'bot.mekhala_saeng.tactical': 'Defense first, then one heavy counterblast.',
+  'bot.mekhala_saeng.weakness': 'Gives up space so calmly she sometimes cannot take it back.',
+  'bot.mekhala_saeng.chat_style': 'Grandmother remarks that double as warnings.',
 
-  // Kiet Intharat (Level 6) - Captain of the Red Frontier
-  'bot.kiet_intharat.backstory': 'A frontier captain from the Red Frontier forts, where hesitation costs territory and coordinated movement decides the day.',
-  'bot.kiet_intharat.hook': 'Builds momentum and wants your king to feel the march of every tempo.',
-  'bot.kiet_intharat.opening': 'Mobilizes quickly, claims central routes, and seeks active outposts before any frontier commander would bother with polish.',
-  'bot.kiet_intharat.signature': 'An organized frontier wave of active pieces around the center.',
-  'bot.kiet_intharat.tactical': 'Coordinated attacking moves and forcing continuations.',
-  'bot.kiet_intharat.weakness': 'Can commit heavily before the second front is secure.',
-  'bot.kiet_intharat.chat_style': 'Compact command phrases with martial confidence.',
+  // Wirat Intharat (Level 6) - fighting cock of the Red Frontier
+  'bot.wirat_intharat.backstory': 'Frontier captain and undefeated fighting cock of the Red Frontier garrisons. Trains by sparring three roosters at once.',
+  'bot.wirat_intharat.hook': 'Marches the whole squad forward and dares you to hold the line.',
+  'bot.wirat_intharat.opening': 'Rapid development straight down the middle. Outposts before polish, always.',
+  'bot.wirat_intharat.signature': 'Two wings, one center, all forward.',
+  'bot.wirat_intharat.tactical': 'Coordinated forcing attacks.',
+  'bot.wirat_intharat.weakness': 'Overcommits before the reserves arrive.',
+  'bot.wirat_intharat.chat_style': 'Battlefield shorthand. Move, order, move.',
 
-  // Marut Rattanak (Level 7) - Whisper of the Mirror Court
-  'bot.marut_rattanak.backstory': 'A tactician of the Mirror Court, a palace circle in Siwalai famous for layered plans, velvet manners, and dangerous memory.',
-  'bot.marut_rattanak.hook': 'Prefers pressure with options, not noise with certainty, as every Mirror Court game should.',
-  'bot.marut_rattanak.opening': 'Develops with flexibility, keeping multiple break points available until the Mirror Court shape of the middlegame becomes clear.',
-  'bot.marut_rattanak.signature': 'Elegant development that suddenly reveals a tactical net.',
-  'bot.marut_rattanak.tactical': 'Traps, skewers, and threats that arrive one move late.',
-  'bot.marut_rattanak.weakness': 'Can become too clever when a direct conversion exists.',
-  'bot.marut_rattanak.chat_style': 'Smooth, understated remarks that hint more than they say.',
+  // Marut Rattanak (Level 7) - panther of the Mirror Court
+  'bot.marut_rattanak.backstory': 'The Mirror Court keeps one panther for diplomacy. Polite in the hall. Lethal in tall grass.',
+  'bot.marut_rattanak.hook': 'Two threats, one move. You pick which to answer.',
+  'bot.marut_rattanak.opening': 'Flexible setups that keep several breaking points open until the middlegame picks one.',
+  'bot.marut_rattanak.signature': 'A long lazy prowl, then one sudden pounce.',
+  'bot.marut_rattanak.tactical': 'Skewers, traps, and threats that arrive a beat late.',
+  'bot.marut_rattanak.weakness': 'Keeps styling the plan when a plain win is sitting right there.',
+  'bot.marut_rattanak.chat_style': 'Smooth hints. Compliments that feel like warnings.',
 
-  // Laksit Prasert (Level 8) - Archivist of the Elephant Ledger
-  'bot.laksit_prasert.backstory': 'The chief archivist of the Elephant Ledger, a great Siwalai record of old games, old errors, and endings younger players neglect.',
-  'bot.laksit_prasert.hook': 'Rarely wastes material, rarely forgets a weakness, and almost always knows which ending the Ledger would approve.',
-  'bot.laksit_prasert.opening': 'Chooses reliable development, then leans toward structures the Elephant Ledger has proven rich in long-term chances.',
-  'bot.laksit_prasert.signature': 'Small pluses accumulated into a precise ending.',
-  'bot.laksit_prasert.tactical': 'Practical tactics that support conversion.',
-  'bot.laksit_prasert.weakness': 'Sometimes concedes initiative for a cleaner long-term edge.',
-  'bot.laksit_prasert.chat_style': 'Minimal comments with veteran certainty.',
+  // Laksit Prasert (Level 8) - ledger tortoise
+  'bot.laksit_prasert.backstory': 'The ledger tortoise. Older than most openings, slower than none of them, keeper of every endgame table the Elephant Archive ever wrote.',
+  'bot.laksit_prasert.hook': 'Grinds out small edges like interest on a deposit.',
+  'bot.laksit_prasert.opening': 'Picks reliable structures known to reach grindable endings.',
+  'bot.laksit_prasert.signature': 'Fifty small pluses and one inevitable ending.',
+  'bot.laksit_prasert.tactical': 'Practical tactics that serve conversion.',
+  'bot.laksit_prasert.weakness': 'Pays in initiative for every point of long-term edge.',
+  'bot.laksit_prasert.chat_style': 'Ledger entries. Short, factual, damning.',
 
-  // Chanin Surasi (Level 9) - Strategist of Lotus Palace
-  'bot.chanin_surasi.backstory': 'A palace strategist trained in the Lotus Palace schools, where order, tempo, and restraint are treated as instruments of command.',
-  'bot.chanin_surasi.hook': 'Controls the whole board without ever looking hurried, like a strategist reading the palace map.',
-  'bot.chanin_surasi.opening': 'Claims space without loosening structure, then improves piece coordination until the position bends toward Lotus Palace order.',
-  'bot.chanin_surasi.signature': 'Gradual central command with very little counterplay allowed.',
+  // Chanin Surasi (Level 9) - peacock strategist of Lotus Palace
+  'bot.chanin_surasi.backstory': 'Lotus Palace chief strategist. Part peacock, entirely aware of it. Runs the board like a court: everyone in place, nothing rushed.',
+  'bot.chanin_surasi.hook': 'Takes your squares the way the court takes petitions. Slowly, then completely.',
+  'bot.chanin_surasi.opening': 'Claims space cleanly, then improves coordination until your counterplay simply has nowhere to live.',
+  'bot.chanin_surasi.signature': 'Total board presence, minimal fuss.',
   'bot.chanin_surasi.tactical': 'Positional pressure that matures into forcing play.',
-  'bot.chanin_surasi.weakness': 'May choose the elegant bind over the fastest practical finish.',
-  'bot.chanin_surasi.chat_style': 'Courtly remarks delivered in a calm, concise cadence.',
+  'bot.chanin_surasi.weakness': 'Chooses the beautiful bind over the fast kill.',
+  'bot.chanin_surasi.chat_style': 'Formal courtesies with steel underneath.',
 
-  // Lalin Busaba (Level 10) - Mistress of the Moon Pavilion
-  'bot.lalin_busaba.backstory': 'A celebrated patron of the Moon Pavilion, a Siwalai house of music, verse, and exacting Makruk where elegance is expected and mercy is not.',
-  'bot.lalin_busaba.hook': 'Elegant at first glance, unforgiving once the position begins to crack under Moon Pavilion precision.',
-  'bot.lalin_busaba.opening': 'Keeps the formation supple, invites overreach, and chooses the moment of transformation with Moon Pavilion care.',
-  'bot.lalin_busaba.signature': 'Graceful development followed by a cold technical finish.',
-  'bot.lalin_busaba.tactical': 'Precision tactics that seal already superior positions.',
-  'bot.lalin_busaba.weakness': 'Will sometimes preserve elegance instead of entering untidy practical races.',
-  'bot.lalin_busaba.chat_style': 'Short polished lines with almost no wasted words.',
+  // Lalin Busaba (Level 10) - hare of the Moon Pavilion
+  'bot.lalin_busaba.backstory': 'Hostess of the Moon Pavilion and its undisputed Makruk champion. Serves tea in whichever cup matches your rating.',
+  'bot.lalin_busaba.hook': 'Graceful until the position cracks. Then simply exact.',
+  'bot.lalin_busaba.opening': 'Keeps formations supple, invites overreach, then picks the exact moment to snap shut.',
+  'bot.lalin_busaba.signature': 'Immaculate middlegame, colder finish.',
+  'bot.lalin_busaba.tactical': 'Precision shots that close won positions.',
+  'bot.lalin_busaba.weakness': 'Sometimes keeps the elegant route when a scrappy one is faster.',
+  'bot.lalin_busaba.chat_style': 'Brief perfect sentences. Ice served neat.',
+
+  // Kiet Intharat (Level 11) - emerald viper, Keeper of the Emerald Archive
+  'bot.kiet_intharat.backstory': 'Keeper of the Emerald Archive. A green tree viper who reads endgame manuals coiled around the shelf, and has bitten every shortcut on principle.',
+  'bot.kiet_intharat.hook': 'Coils patiently. Strikes exactly once.',
+  'bot.kiet_intharat.opening': 'Solid resilient shapes first; forcing moves only after counting every loose square twice.',
+  'bot.kiet_intharat.signature': 'A tight coil that becomes a fatal bind.',
+  'bot.kiet_intharat.tactical': 'Forcing defense and clean conversion.',
+  'bot.kiet_intharat.weakness': 'Spends tempi preserving control when direct wins exist.',
+  'bot.kiet_intharat.chat_style': 'Sparse technical remarks. Cold comfort.',
+
+  // Ajarn Krailert (Level 12) - hornbill grandmaster of the Royal Hall
+  'bot.ajarn_krailert.backstory': 'The Royal Hall\'s old hornbill, teacher of every master on this roster. Speaks perhaps forty words per game and means all of them.',
+  'bot.ajarn_krailert.hook': 'No style. No mercy. No wasted words.',
+  'bot.ajarn_krailert.opening': 'Principled development, then forcing calculation at the first opportunity.',
+  'bot.ajarn_krailert.signature': 'Immediate pressure backed by hard calculation.',
+  'bot.ajarn_krailert.tactical': 'Deep forcing moves and exact recaptures.',
+  'bot.ajarn_krailert.weakness': 'None by design; only raw search limits keep him beatable.',
+  'bot.ajarn_krailert.chat_style': 'Verdicts. One to four words.',
 
   // Puzzles
   'puzzle.title': 'Puzzle Streak',

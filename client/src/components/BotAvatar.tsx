@@ -34,11 +34,6 @@ export default function BotAvatar({ avatar, size = 72, className = '' }: BotAvat
           onError={() => setFailedAsset(avatar.asset ?? null)}
         />
       )}
-      <div
-        className={`absolute inset-x-0 top-0 h-8 opacity-80 ${showImage ? 'mix-blend-screen' : ''}`}
-        style={{ background: `linear-gradient(180deg, ${avatar.accent}, transparent)` }}
-      />
-      <div className={`absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.26),transparent_32%)] ${showImage ? 'bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%)]' : ''}`} />
       {!showImage && (
         <div className="absolute inset-0">
           <div
