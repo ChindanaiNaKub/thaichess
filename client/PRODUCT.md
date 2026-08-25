@@ -39,7 +39,7 @@ Confirmed:
 
 Terminology (must preserve in product copy): Product = ThaiChess; game = Makruk; User vs Guest vs Player; Game (prefer over Match in user-facing copy); Rated game; Donation.
 
-Undecided / not captured here: formal accessibility conformance target (WCAG level not set; a11y tests and keyboard/SR expectations exist in CONTRIBUTING); pricing beyond free + donations.
+Undecided / not captured here: formal accessibility conformance target (WCAG level not set; keyboard/SR expectations exist in CONTRIBUTING); pricing beyond free + donations.
 
 ## Brand Commitments
 
@@ -54,7 +54,7 @@ Undecided / not captured here: formal accessibility conformance target (WCAG lev
 - Domain glossary and naming: `CONTEXT.md` (repo root)
 - Marketing ICP and positioning draft: `docs/Marketing Strategy.md`
 - How-to-play and engine docs: `docs/how-to-play.md`, `docs/makruk-rule-engine-system.md`, `docs/makruk-native-lesson-system.md`
-- A11y test harness exists (`client/src/test/a11y.test.tsx`); CONTRIBUTING encourages screen reader and keyboard support
+- A11y expectations are covered by component tests (labels/roles) and keyboard support guidance in CONTRIBUTING
 - Do not fabricate testimonials, press quotes, user counts, or competitive win rates not already in repo docs
 
 ## Product Principles

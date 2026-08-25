@@ -32,8 +32,8 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-  test:
-    name: Unit And Integration Tests
+  test-client:
+    name: Unit Tests - Client
     runs-on: ubuntu-latest
 
     steps:
@@ -49,14 +49,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit and integration tests
-        run: npm test
+      - name: Run client unit and integration tests
+        run: npm run test:client
 
-  nub-shadow:
-    name: Nub Shadow Validation
-    if: github.event_name == 'pull_request'
+  test-server:
+    name: Unit Tests - Server
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Check out repository
@@ -71,53 +69,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run nub-backed puzzle validation
+      - name: Run server unit and integration tests
+        run: npm run test:server
+
+      - name: Validate server puzzle data
         run: npm run validate:puzzles --workspace=server
-
-      - name: Run server tests
-        run: npm run test --workspace=server
-
-  nub-install-shadow:
-    name: Nub Server Install Shadow Validation
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install nub
-        run: npm install -g @nubjs/nub@0.6.0
-
-      - name: Install dependencies with nub
-        run: |
-          NUB_BIN="$(npm prefix -g)/bin/nub"
-          "$NUB_BIN" --version
-          # Registry stream failures for optional platform packages are intermittent.
-          for attempt in 1 2 3; do
-            if "$NUB_BIN" install --frozen-lockfile; then
-              exit 0
-            fi
-            echo "nub install failed (attempt ${attempt}/3); retrying..."
-            sleep $((attempt * 5))
-          done
-          echo "nub install failed after 3 attempts"
-          exit 1
-
-      - name: Run server tests
-        # nub install can make the first cold DB-module load slower than npm's
-        # default 5s Vitest timeout under CI contention.
-        run: npm run test --workspace=server -- --testTimeout=20000
-
-      - name: Build server
-        run: server/node_modules/.bin/tsc -p server/tsconfig.json
 
   build:
     name: Build

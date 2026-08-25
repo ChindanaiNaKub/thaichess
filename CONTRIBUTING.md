@@ -113,9 +113,10 @@ Tests are co-located with source code:
 
 - `client/src/test/engine.test.ts` - Game engine logic tests
 - `client/src/test/Board.test.tsx` - Board component tests
-- `client/src/test/a11y.test.tsx` - Accessibility tests
 - `client/src/test/regression/` - Regression tests for fixed bugs
 - `client/e2e/` - End-to-end tests with Playwright
+
+See `docs/test-suite-audit.md` for the test-value ranking and guidance on what belongs in the suite.
 
 ### Test Patterns
 
@@ -166,7 +167,6 @@ When fixing a bug, add a regression test to prevent it from recurring:
 1. Create test in `client/src/test/regression/`
 2. Use naming: `{bug-name}-{YYYY-MM-DD}.test.ts`
 3. Document: Bug symptoms, root cause, fix date
-4. See `template.test.ts` for examples
 
 ## Code Quality
 
