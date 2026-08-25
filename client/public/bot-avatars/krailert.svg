@@ -1,15 +1,18 @@
 <svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="256" height="256" rx="36" fill="url(#bg)"/>
-  <rect x="46" y="40" width="164" height="168" rx="22" fill="#0F172A" fill-opacity="0.22" stroke="#E2E8F0" stroke-opacity="0.22"/>
-  <circle cx="128" cy="98" r="39" fill="#E9D9C8"/>
-  <path d="M84 205C89 170 107 145 128 145C149 145 167 170 172 205" fill="#374151"/>
-  <path d="M88 90C88 59 107 44 128 44C149 44 168 60 168 90C159 79 145 72 128 72C111 72 98 79 88 90Z" fill="#1F2937"/>
-  <path d="M72 44H184V69L168 84H88L72 69V44Z" fill="#CBD5E1"/>
-  <path d="M58 208H198" stroke="#E2E8F0" stroke-width="10" stroke-linecap="round" stroke-opacity="0.55"/>
-  <defs>
-    <linearGradient id="bg" x1="20" y1="18" x2="232" y2="238" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#64748B"/>
-      <stop offset="1" stop-color="#1F2937"/>
-    </linearGradient>
-  </defs>
+  <rect width="256" height="256" fill="#64748B"/>
+  <ellipse cx="180" cy="268" rx="118" ry="100" fill="#1F2937"/>
+  <circle cx="138" cy="126" r="80" fill="#1F2937"/>
+  <path d="M70 92 Q58 26 106 36 Q128 42 132 84 Z" fill="#1F2937"/>
+  <path d="M206 92 Q218 26 170 36 Q148 42 144 84 Z" fill="#1F2937"/>
+  <path d="M82 82 Q74 42 104 48 Q120 52 122 78 Z" fill="#E2E8F0"/>
+  <path d="M194 82 Q202 42 172 48 Q156 52 154 78 Z" fill="#E2E8F0"/>
+  <circle cx="106" cy="118" r="10" fill="#64748B"/>
+  <circle cx="170" cy="118" r="10" fill="#64748B"/>
+  <circle cx="109" cy="114" r="3" fill="#E2E8F0"/>
+  <circle cx="173" cy="114" r="3" fill="#E2E8F0"/>
+  <ellipse cx="138" cy="168" rx="50" ry="34" fill="#E2E8F0"/>
+  <rect x="124" y="146" width="28" height="20" rx="10" fill="#1F2937"/>
+  <path d="M116 182 Q138 194 160 182" stroke="#1F2937" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <rect x="92" y="200" width="94" height="22" rx="11" fill="#E2E8F0"/>
+  <circle cx="139" cy="232" r="11" fill="#E2E8F0"/>
 </svg>

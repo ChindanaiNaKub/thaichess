@@ -1,16 +1,16 @@
 <svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="256" height="256" rx="36" fill="url(#bg)"/>
-  <circle cx="128" cy="98" r="42" fill="#F5D5B4"/>
-  <path d="M84 205C90 170 107 145 128 145C149 145 166 170 172 205" fill="#0B615C"/>
-  <path d="M90 85C90 57 108 43 129 43C151 43 168 58 168 84C157 74 143 68 127 68C113 68 100 74 90 85Z" fill="#103B39"/>
-  <circle cx="92" cy="64" r="10" fill="#F8E3A2"/>
-  <circle cx="164" cy="64" r="10" fill="#F8E3A2"/>
-  <path d="M42 184C66 168 90 162 114 166" stroke="#FDE7B0" stroke-width="10" stroke-linecap="round"/>
-  <path d="M142 166C168 160 192 166 214 184" stroke="#FDE7B0" stroke-width="10" stroke-linecap="round"/>
-  <defs>
-    <linearGradient id="bg" x1="24" y1="20" x2="226" y2="236" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F97316"/>
-      <stop offset="1" stop-color="#0F766E"/>
-    </linearGradient>
-  </defs>
+  <rect width="256" height="256" fill="#0F766E"/>
+  <path d="M70 250 Q18 236 22 172 Q25 132 52 124" stroke="#FB923C" stroke-width="26" stroke-linecap="round" fill="none"/>
+  <ellipse cx="88" cy="262" rx="108" ry="98" fill="#FB923C"/>
+  <ellipse cx="84" cy="228" rx="42" ry="40" fill="#FFF1DC"/>
+  <circle cx="118" cy="128" r="76" fill="#FB923C"/>
+  <path d="M56 92 Q46 30 96 38 Q122 44 128 78 Z" fill="#FB923C"/>
+  <path d="M68 82 Q62 44 94 50 Q110 54 114 74 Z" fill="#FFF1DC"/>
+  <path d="M152 76 Q158 42 184 36 Q230 28 220 88 Z" fill="#FB923C"/>
+  <path d="M162 72 Q168 48 186 44 Q208 40 204 76 Z" fill="#FFF1DC"/>
+  <ellipse cx="118" cy="158" rx="49" ry="33" fill="#FFF1DC"/>
+  <circle cx="90" cy="124" r="10" fill="#0F766E"/>
+  <path d="M136 120 Q148 112 160 120" stroke="#0F766E" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M110 142 L126 142 Q130 143 127 147 L121 154 Q118 157 115 154 L109 147 Q106 143 110 142 Z" fill="#0F766E"/>
+  <path d="M104 164 Q111 171 118 165 Q125 171 132 164" stroke="#0F766E" stroke-width="5" stroke-linecap="round" fill="none"/>
 </svg>
