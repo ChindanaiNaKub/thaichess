@@ -65,7 +65,7 @@ export interface AuthenticatedSocketData {
 }
 
 type ServerSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, AuthenticatedSocketData>;
-type IoLike = {
+export type IoLike = {
    
   to: (roomOrSocketId: string) => {
      
@@ -100,7 +100,7 @@ function emitPresenceToParticipants(io: IoLike, gameManager: GameManager, room: 
   });
 }
 
-function emitGameOverToParticipants(
+export function emitGameOverToParticipants(
   io: IoLike,
   gameManager: GameManager,
   room: GameRoom,

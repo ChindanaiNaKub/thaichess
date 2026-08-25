@@ -14,11 +14,11 @@ import {
   runAllCleanupJobs,
 } from './database';
 import { ServerToClientEvents, ClientToServerEvents, GameRoom } from '../../shared/types';
-import { logError, logInfo } from './logger';
+import { logError, logInfo, logWarn } from './logger';
 import { MonitoringStore } from './monitoring';
 import { getAllowedCorsOrigins, isAllowedCorsOrigin, requireTrustedWriteOrigin, SocketRateLimiter } from './security';
-import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId } from './auth';
-import { createSocketConnectionHandler, type AuthenticatedSocketData } from './socketHandlers';
+import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId, verifyGuestCredentials } from './auth';
+import { createSocketConnectionHandler, emitGameOverToParticipants, type AuthenticatedSocketData } from './socketHandlers';
 import { warmUpReviewEngine } from './engineGateway';
 import { getCanonicalRedirectUrl } from './urlCanonicalization';
 import { createAnalysisRouter } from './routes/analysis';
@@ -179,11 +179,23 @@ app.use(express.static(clientDist, {
 // Cleanup old games every 30 minutes
 setInterval(() => {
   gameManager.cleanupOldGames({
-    onDisconnectedExpired: (gameId) => {
+    onDisconnectedExpired: (room) => {
       monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
-        gameId,
+        gameId: room.id,
         reason: 'disconnect_ttl_expired',
+        rated: room.rated,
       });
+
+      if (!room.whitePlayerId && !room.blackPlayerId) return;
+
+      monitoring.increment('gamesFinished');
+      void saveGameToDb(room, 'timeout')
+        .then(({ ratingChange }) => {
+          emitGameOverToParticipants(io, gameManager, room, 'timeout', ratingChange);
+        })
+        .catch((error) => {
+          logError('expired_game_persistence_failed', error, { gameId: room.id });
+        });
     },
   });
 }, 1800000);
@@ -236,7 +248,16 @@ async function saveGameToDb(room: GameRoom, reason: string) {
 io.use(async (socket, next) => {
   try {
     const authUser = await getAuthenticatedUserFromCookieHeader(socket.handshake.headers.cookie);
-    const guestPlayerId = normalizeGuestPlayerId(socket.handshake.auth?.guestPlayerId);
+    const claimedGuestPlayerId = normalizeGuestPlayerId(socket.handshake.auth?.guestPlayerId);
+    const guestPlayerId = claimedGuestPlayerId && verifyGuestCredentials(claimedGuestPlayerId, socket.handshake.auth?.guestToken)
+      ? claimedGuestPlayerId
+      : null;
+
+    if (claimedGuestPlayerId && !guestPlayerId) {
+      monitoring.increment('socket.guestIdentityRejected');
+      logWarn('guest_identity_rejected', { socketId: socket.id });
+    }
+
     socket.data.authUser = authUser;
     socket.data.playerId = authUser?.id ?? guestPlayerId ?? `guest_${socket.id}`;
     next();
@@ -284,9 +305,14 @@ app.use(createFeedbackRouter({ requireTrustedWriteOriginMiddleware }));
 app.use(createSpaRouter({ clientDist }));
 
 // Global error handler for Express (must be after all routes)
-app.use((err: Error, req: express.Request, res: express.Response) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   const correlationId = req.headers['x-correlation-id'] as string;
   logError('express_unhandled_error', err, { correlationId, path: req.path, method: req.method });
+
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
 
   // Don't leak error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';

@@ -890,7 +890,7 @@ export class GameManager {
     }
   }
 
-  cleanupOldGames(hooks: { onDisconnectedExpired?: (gameId: string) => void } = {}): void {
+  cleanupOldGames(hooks: { onDisconnectedExpired?: (room: GameRoom) => void } = {}): void {
     const now = Date.now();
     for (const [id, room] of this.games) {
       const lastActivity = this.roomLastActivity.get(id) ?? room.createdAt;
@@ -904,11 +904,33 @@ export class GameManager {
 
       if (waitingExpired || finishedExpired || disconnectedExpired) {
         if (disconnectedExpired) {
-          hooks.onDisconnectedExpired?.(id);
+          this.finalizeAbandonedGame(room, id, whiteDisconnectedAt, blackDisconnectedAt);
+          hooks.onDisconnectedExpired?.(room);
         }
         this.deleteGame(id, room);
       }
     }
+  }
+
+  private finalizeAbandonedGame(
+    room: GameRoom,
+    gameId: string,
+    whiteDisconnectedAt: number | undefined,
+    blackDisconnectedAt: number | undefined,
+  ): void {
+    const leaverColor: PieceColor = blackDisconnectedAt !== undefined
+      && (whiteDisconnectedAt === undefined || blackDisconnectedAt <= whiteDisconnectedAt)
+      ? 'black'
+      : 'white';
+
+    const timeoutOutcome = resolveMakrukTimeoutOutcome(room.gameState.board, leaverColor);
+    room.gameState.gameOver = true;
+    room.gameState.isDraw = timeoutOutcome.isDraw;
+    room.gameState.winner = timeoutOutcome.winner;
+    room.gameState.resultReason = 'timeout';
+    room.gameState.counting = null;
+    room.status = 'finished';
+    this.stopClock(gameId);
   }
 
   private touchGame(gameId: string): void {
