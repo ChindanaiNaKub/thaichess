@@ -1,6 +1,12 @@
+import { useMemo } from 'react';
+import type { PieceType } from '@shared/types';
+import { createInitialBoard } from '@shared/engine';
 import { routes } from '../lib/routes';
 import { useTranslation, type Language } from '../lib/i18n';
 import Header from './Header';
+import Footer from './Footer';
+import BoardSnapshot from './BoardSnapshot';
+import PieceSVG from './PieceSVG';
 
 type GuideSlug = 'what-is-makruk' | 'how-to-play-makruk' | 'play-makruk-online';
 
@@ -39,6 +45,8 @@ interface GuideContent {
   relatedTitle: string;
   related: GuideLink[];
 }
+
+const RELATED_PIECES: PieceType[] = ['K', 'M', 'R'];
 
 const GUIDE_CONTENT: Record<Language, Record<GuideSlug, GuideContent>> = {
   en: {
@@ -507,98 +515,137 @@ export default function GuidePage({ slug }: { slug: GuideSlug }) {
   const { lang, t } = useTranslation();
   const content = GUIDE_CONTENT[lang][slug];
   const nextHref = content.related[0]?.href ?? routes.home;
+  const heroBoard = useMemo(() => createInitialBoard(), []);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <Header active="about" subtitle={content.eyebrow} />
 
-      <main id="main-content" className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mx-auto flex max-w-5xl flex-col gap-8">
-          <section className="rounded-[2rem] border border-surface-hover/80 bg-[radial-gradient(circle_at_top_left,rgba(173,130,53,0.12),transparent_35%),linear-gradient(180deg,rgba(41,34,28,0.92),rgba(21,19,17,0.98))] px-5 py-6 sm:px-8 sm:py-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">{content.eyebrow}</p>
-            <h1 className="mt-3 max-w-3xl text-3xl font-bold text-text-bright sm:text-4xl lg:text-[3.2rem]">{content.title}</h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-text sm:text-lg">{content.intro}</p>
-            <div className="mt-5 rounded-2xl border border-accent/20 bg-surface/50 px-4 py-4 text-sm leading-7 text-text sm:text-base">
-              {content.kicker}
-            </div>
-            <div className="mt-6 flex flex-wrap gap-3">
-              {content.actions.map((action) => (
-                <a
-                  key={action.href}
-                  href={action.href}
-                  className={action.style === 'primary'
-                    ? 'inline-flex items-center rounded-xl bg-accent px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-accent/85'
-                    : 'inline-flex items-center rounded-xl border border-surface-hover bg-surface/55 px-5 py-3 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover'}
-                >
-                  {action.label}
-                </a>
-              ))}
-            </div>
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="space-y-4">
-              {content.sections.map((section) => (
-                <article key={section.title} className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
-                  <h2 className="text-xl font-bold text-text-bright sm:text-2xl">{section.title}</h2>
-                  <div className="mt-4 space-y-4 text-sm leading-7 text-text sm:text-base">
-                    {section.paragraphs.map((paragraph) => (
-                      <p key={paragraph}>{paragraph}</p>
-                    ))}
-                  </div>
-                  {section.bullets && (
-                    <ul className="mt-4 space-y-2 text-sm leading-7 text-text sm:text-base">
-                      {section.bullets.map((bullet) => (
-                        <li key={bullet} className="rounded-xl border border-surface-hover bg-surface/55 px-4 py-3">
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </article>
-              ))}
-            </div>
-
-            <aside className="space-y-4">
-              <div className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-dim">{content.relatedTitle}</div>
-                <div className="mt-4 space-y-3">
-                  {content.related.map((item) => (
-                    <a key={item.href} href={item.href} className="block rounded-xl border border-surface-hover bg-surface/55 px-4 py-4 transition-colors hover:bg-surface-hover">
-                      <div className="font-semibold text-text-bright">{item.title}</div>
-                      <div className="mt-1 text-sm leading-6 text-text-dim">{item.description}</div>
+      <main id="main-content" className="relative flex-1">
+        <section className="border-b border-surface-hover/50">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1fr)_21rem]">
+            <div className="max-w-2xl">
+              <h1 className="ui-title font-display text-4xl font-bold leading-[1.1] tracking-tight text-text-bright sm:text-5xl">
+                {content.title}
+              </h1>
+              <p className="ui-body mt-5 max-w-xl text-base sm:text-lg">{content.intro}</p>
+              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+                {content.actions.map((action) => (
+                  action.style === 'primary' ? (
+                    <a
+                      key={action.href}
+                      href={action.href}
+                      className="button-accent-contrast inline-flex min-h-12 items-center rounded-md px-8 py-3.5 text-base font-bold"
+                    >
+                      {action.label}
                     </a>
+                  ) : (
+                    <a
+                      key={action.href}
+                      href={action.href}
+                      className="text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+                    >
+                      {action.label}
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden justify-self-end lg:block" aria-hidden>
+              <BoardSnapshot
+                board={heroBoard}
+                playerColor="white"
+                lastMove={null}
+                className="home-hero-board w-[21rem] rotate-[-1.5deg] shadow-[0_20px_36px_oklch(0.10_0.02_65_/_0.28),0_28px_90px_rgba(0,0,0,0.45)] brightness-[1.02] contrast-[1.02]"
+              />
+            </div>
+          </div>
+        </section>
+
+        <article className="mx-auto w-full max-w-3xl px-4 pt-12 sm:px-6 sm:pt-14">
+          <p className="border-l-2 border-gold-soft pl-5 text-base leading-8 text-text-bright sm:text-lg sm:leading-9">
+            {content.kicker}
+          </p>
+
+          {content.sections.map((section) => (
+            <section key={section.title} className="mt-12 border-t border-surface-hover/60 pt-10">
+              <h2 className="font-display text-xl font-bold tracking-tight text-text-bright sm:text-2xl">
+                {section.title}
+              </h2>
+              <div className="mt-4 space-y-4 text-[15px] leading-8 text-text sm:text-base">
+                {section.paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+              {section.bullets && (
+                <ul className="mt-6 divide-y divide-surface-hover/50 border-y border-surface-hover/50">
+                  {section.bullets.map((bullet) => (
+                    <li key={bullet} className="flex items-start gap-3.5 py-3 text-[15px] leading-7 text-text sm:text-base">
+                      <span aria-hidden className="mt-[0.6rem] h-1.5 w-1.5 shrink-0 rotate-45 bg-accent/70" />
+                      <span>{bullet}</span>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
+              )}
+            </section>
+          ))}
 
-              <div className="rounded-2xl border border-primary/20 bg-primary/10 p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-light">{t('nav.play')}</div>
-                <div className="mt-3 text-lg font-bold text-text-bright">{t('guide.cta_title')}</div>
-                <p className="mt-2 text-sm leading-6 text-text">{t('guide.cta_desc')}</p>
-                <a
-                  href={nextHref}
-                  className="mt-4 inline-flex items-center rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-accent/85"
-                >
-                  {t('guide.cta_next')}
-                </a>
-              </div>
-            </aside>
-          </section>
-
-          <section className="rounded-2xl border border-surface-hover bg-surface-alt/85 p-5 sm:p-6">
-            <h2 className="text-xl font-bold text-text-bright sm:text-2xl">{content.faqTitle}</h2>
-            <div className="mt-5 space-y-3">
+          <section className="mt-12 border-t border-surface-hover/60 pt-10">
+            <h2 className="font-display text-xl font-bold tracking-tight text-text-bright sm:text-2xl">
+              {content.faqTitle}
+            </h2>
+            <dl className="mt-4 divide-y divide-surface-hover/50">
               {content.faqs.map((faq) => (
-                <div key={faq.question} className="rounded-2xl border border-surface-hover bg-surface/55 px-4 py-4">
-                  <h3 className="text-base font-semibold text-text-bright">{faq.question}</h3>
-                  <p className="mt-2 text-sm leading-7 text-text sm:text-base">{faq.answer}</p>
+                <div key={faq.question} className="py-5">
+                  <dt className="font-semibold text-text-bright">{faq.question}</dt>
+                  <dd className="mt-2 text-[15px] leading-8 text-text-dim sm:text-base">{faq.answer}</dd>
                 </div>
               ))}
-            </div>
+            </dl>
           </section>
-        </div>
+        </article>
+
+        <section className="mx-auto w-full max-w-6xl px-4 pb-6 pt-12 sm:px-6">
+          <h2 className="ui-title font-display text-2xl">{content.relatedTitle}</h2>
+          <div className="mt-5 flex flex-col gap-3">
+            {content.related.map((item, i) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="group flex items-start gap-4 rounded-xl border border-surface-hover/70 bg-surface-alt/80 px-4 py-3 transition-colors hover:border-accent/35 hover:bg-surface-hover/40"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface">
+                  <PieceSVG type={RELATED_PIECES[i % RELATED_PIECES.length]} color="white" size={40} />
+                </div>
+                <div className="min-w-0 pt-0.5">
+                  <div className="text-base font-semibold text-text-bright">{item.title}</div>
+                  <div className="mt-1 text-sm leading-6 text-text-dim">{item.description}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6">
+          <div className="flex flex-col items-start gap-5 rounded-xl border border-surface-hover/60 bg-surface-alt/60 px-6 py-7 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-xl font-bold tracking-tight text-text-bright">
+                {t('guide.cta_title')}
+              </h2>
+              <p className="ui-body mt-1.5 max-w-lg text-sm leading-6">{t('guide.cta_desc')}</p>
+            </div>
+            <a
+              href={nextHref}
+              className="button-accent-contrast inline-flex shrink-0 items-center rounded-md px-6 py-3 text-sm font-bold"
+            >
+              {t('guide.cta_next')}
+            </a>
+          </div>
+        </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
