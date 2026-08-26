@@ -176,8 +176,8 @@ app.use(express.static(clientDist, {
   },
 }));
 
-// Cleanup old games every 30 minutes
-setInterval(() => {
+const cleanupIntervals: NodeJS.Timeout[] = [];
+cleanupIntervals.push(setInterval(() => {
   gameManager.cleanupOldGames({
     onDisconnectedExpired: (room) => {
       monitoring.recordEvent('game.reconnectFailure', 'game_reconnect_failure', {
@@ -198,20 +198,24 @@ setInterval(() => {
         });
     },
   });
-}, 1800000);
+}, 1800000));
 // Cleanup stale matchmaking entries every minute
-setInterval(() => matchmaking.cleanupStale(), 60000);
+cleanupIntervals.push(setInterval(() => matchmaking.cleanupStale(), 60000));
 // Cleanup rate limiter buckets every minute
-setInterval(() => {
+cleanupIntervals.push(setInterval(() => {
   socketRateLimiter.cleanup();
   ipRateLimiter.cleanup();
-}, 60000);
+}, 60000));
 // Cleanup expired database records every hour
-setInterval(() => runAllCleanupJobs(), 3600000);
+cleanupIntervals.push(setInterval(() => runAllCleanupJobs(), 3600000));
+
+let inFlightGameSaves = 0;
 
 async function saveGameToDb(room: GameRoom, reason: string) {
-  const winner = room.gameState.winner;
-  const result = await saveCompletedGame({
+  inFlightGameSaves += 1;
+  try {
+    const winner = room.gameState.winner;
+    const result = await saveCompletedGame({
     id: room.id,
     result: winner || 'draw',
     resultReason: reason,
@@ -224,25 +228,28 @@ async function saveGameToDb(room: GameRoom, reason: string) {
     gameType: room.gameMode === 'bot' ? 'bot' : 'human',
     timeControl: room.timeControl,
     moves: room.gameState.moveHistory,
-    finalBoard: room.gameState.board,
-    moveCount: room.gameState.moveCount,
-  });
+      finalBoard: room.gameState.board,
+      moveCount: room.gameState.moveCount,
+    });
 
-  if (room.rated) {
-    for (let i = 0; i < result.busyRetries; i += 1) {
-      monitoring.recordEvent('game.ratedSaveRetry', 'rated_game_save_retry', {
-        gameId: room.id,
-        retryIndex: i + 1,
-      });
+    if (room.rated) {
+      for (let i = 0; i < result.busyRetries; i += 1) {
+        monitoring.recordEvent('game.ratedSaveRetry', 'rated_game_save_retry', {
+          gameId: room.id,
+          retryIndex: i + 1,
+        });
+      }
+      if (result.persistence === 'duplicate') {
+        monitoring.recordEvent('game.ratedDuplicate', 'rated_game_duplicate', {
+          gameId: room.id,
+        });
+      }
     }
-    if (result.persistence === 'duplicate') {
-      monitoring.recordEvent('game.ratedDuplicate', 'rated_game_duplicate', {
-        gameId: room.id,
-      });
-    }
+
+    return { ratingChange: result.ratingChange };
+  } finally {
+    inFlightGameSaves -= 1;
   }
-
-  return { ratingChange: result.ratingChange };
 }
 
 io.use(async (socket, next) => {
@@ -344,6 +351,53 @@ process.on('unhandledRejection', (reason) => {
   monitoring.increment('unhandledRejections');
   logError('unhandled_rejection', reason);
 });
+
+const SHUTDOWN_GRACE_MS = 10_000;
+let isShuttingDown = false;
+
+function waitForInFlightGameSaves(): Promise<void> {
+  if (inFlightGameSaves === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const poll = setInterval(() => {
+      if (inFlightGameSaves === 0 || Date.now() - startedAt >= SHUTDOWN_GRACE_MS) {
+        clearInterval(poll);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+async function shutdown(signal: NodeJS.Signals) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  logInfo('server_shutdown_started', {
+    signal,
+    inFlightGameSaves,
+    uptimeMs: getProcessUptimeMs(),
+  });
+
+  // Stop accepting new work first so the platform stops routing traffic here.
+  cleanupIntervals.forEach((interval) => clearInterval(interval));
+  if (httpServer.listening) {
+    httpServer.close();
+  }
+  io.disconnectSockets(true);
+
+  // Let in-flight game saves (rated transactions, position batches) complete
+  // instead of killing them mid-write on deploy.
+  await waitForInFlightGameSaves();
+
+  logInfo('server_shutdown_complete', {
+    signal,
+    uptimeMs: getProcessUptimeMs(),
+  });
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
 async function startServer() {
   const databaseInitStartedAt = Date.now();
