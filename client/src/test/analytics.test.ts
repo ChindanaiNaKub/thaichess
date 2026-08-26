@@ -57,15 +57,15 @@ describe('analytics', () => {
     expect(isPostHogConfigured()).toBe(true);
   });
 
-  it('does not init without analytics consent', () => {
+  it('does not init without analytics consent', async () => {
     setCookieConsent('essential');
-    enablePrivacyAnalytics();
+    await enablePrivacyAnalytics();
     expect(posthogInit).not.toHaveBeenCalled();
   });
 
-  it('inits after analytics consent and captures product events', () => {
+  it('inits after analytics consent and captures product events', async () => {
     setCookieConsent('analytics');
-    enablePrivacyAnalytics();
+    await enablePrivacyAnalytics();
 
     expect(posthogInit).toHaveBeenCalledWith(
       'phc_test',
@@ -77,28 +77,38 @@ describe('analytics', () => {
       }),
     );
 
-    captureProductEvent('game_start', { source: 'matchmaking' });
+    await captureProductEvent('game_start', { source: 'matchmaking' });
     expect(posthogCapture).toHaveBeenCalledWith('game_start', { source: 'matchmaking' });
   });
 
-  it('opts out and resets when disabled', () => {
+  it('opts out and resets when disabled', async () => {
     setCookieConsent('analytics');
-    enablePrivacyAnalytics();
-    disablePrivacyAnalytics();
+    await enablePrivacyAnalytics();
+    await disablePrivacyAnalytics();
     expect(posthogOptOut).toHaveBeenCalled();
     expect(posthogReset).toHaveBeenCalledWith(true);
   });
 
-  it('captures signup only for recently created accounts once per session', () => {
+  it('inits only once when enabled concurrently (StrictMode double-effect)', async () => {
     setCookieConsent('analytics');
-    enablePrivacyAnalytics();
+    await Promise.all([
+      enablePrivacyAnalytics(),
+      enablePrivacyAnalytics(),
+      enablePrivacyAnalytics(),
+    ]);
+    expect(posthogInit).toHaveBeenCalledTimes(1);
+  });
 
-    maybeCaptureSignup({ created_at: Date.now() - 60_000 });
-    maybeCaptureSignup({ created_at: Date.now() - 60_000 });
+  it('captures signup only for recently created accounts once per session', async () => {
+    setCookieConsent('analytics');
+    await enablePrivacyAnalytics();
+
+    await maybeCaptureSignup({ created_at: Date.now() - 60_000 });
+    await maybeCaptureSignup({ created_at: Date.now() - 60_000 });
     expect(posthogCapture).toHaveBeenCalledTimes(1);
     expect(posthogCapture).toHaveBeenCalledWith('signup', undefined);
 
-    maybeCaptureSignup({ created_at: Date.now() - 10 * 60_000 });
+    await maybeCaptureSignup({ created_at: Date.now() - 10 * 60_000 });
     expect(posthogCapture).toHaveBeenCalledTimes(1);
   });
 });

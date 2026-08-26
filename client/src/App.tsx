@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { PUZZLES } from '@shared/puzzlesRuntime';
 import CookieConsent from './components/CookieConsent';
 import PrivacyAnalytics from './components/PrivacyAnalytics';
 import HomePage from './components/HomePage';
@@ -84,9 +83,24 @@ function PerfRouteLogger() {
 }
 
 function RandomPuzzleRedirect() {
-  const [targetId] = useState(
-    () => pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1,
-  );
+  const [targetId, setTargetId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Load the puzzle database on demand so it never lands in the entry bundle.
+    void import('@shared/puzzlesRuntime').then(({ PUZZLES }) => {
+      if (!cancelled) {
+        setTargetId(pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (targetId === null) {
+    return <RouteFallback />;
+  }
   return <Navigate to={`${puzzleRoute(String(targetId))}?mode=random`} replace />;
 }
 

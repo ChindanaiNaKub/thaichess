@@ -1,8 +1,7 @@
-import { StrictMode } from 'react';
+import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
@@ -17,6 +16,15 @@ import './index.css';
 
 initializeGlobalErrorReporting();
 initializeClientPerfDebug();
+
+// Dev-only: dynamic import keeps @tanstack/react-query-devtools out of production bundles.
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+    import('@tanstack/react-query-devtools').then(({ ReactQueryDevtools }) => ({
+      default: ReactQueryDevtools,
+    })),
+  )
+  : null;
 
 function bootstrap() {
   logClientPerfEvent('bootstrap_start', {
@@ -38,7 +46,11 @@ function bootstrap() {
               </PieceStyleProvider>
             </AuthProvider>
           </I18nProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
+          {ReactQueryDevtools ? (
+            <Suspense fallback={null}>
+              <ReactQueryDevtools initialIsOpen={false} />
+            </Suspense>
+          ) : null}
         </QueryClientProvider>
       </ErrorBoundary>
     </StrictMode>,
