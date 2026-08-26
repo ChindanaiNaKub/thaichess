@@ -1,4 +1,4 @@
-import type { Client, Row } from '@libsql/client';
+import type { Client, InStatement, Row } from '@libsql/client';
 import type { Move, Board, TimeControl, RatingChangeSummary, PieceColor } from '../../../shared/types';
 import { logError } from '../logger';
 import { db, isSqliteBusyError } from './connection';
@@ -312,12 +312,6 @@ async function saveGamePositions(
   blackRating: number | null,
 ) {
   try {
-    // Delete existing positions for this game to handle replays
-    await transaction.execute({
-      sql: 'DELETE FROM game_positions WHERE game_id = ?',
-      args: [gameId],
-    });
-
     const { getPositionAtPly } = await import('../../../shared/engine');
     const { analysisPositionHash, moveToUci } = await import('../../../shared/engineAdapter');
 
@@ -325,6 +319,13 @@ async function saveGamePositions(
       INSERT INTO game_positions (game_id, ply, position_hash, move_uci, result, white_rating, black_rating)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
+
+    // Batch every statement into one round trip: a per-ply execute loop holds the
+    // write transaction (and the Turso round trip) open for seconds on long games.
+    const statements: InStatement[] = [{
+      sql: 'DELETE FROM game_positions WHERE game_id = ?',
+      args: [gameId],
+    }];
 
     for (let ply = 0; ply <= moves.length; ply += 1) {
       const state = getPositionAtPly(moves, ply - 1);
@@ -336,7 +337,7 @@ async function saveGamePositions(
 
       const moveUci = ply < moves.length ? moveToUci(moves[ply]) : null;
 
-      await transaction.execute({
+      statements.push({
         sql: insertSql,
         args: [
           gameId,
@@ -349,6 +350,8 @@ async function saveGamePositions(
         ],
       });
     }
+
+    await transaction.batch(statements);
   } catch (err) {
     logError('database_save_game_positions_failed', err, { gameId });
     // Non-fatal: don't fail the whole transaction
