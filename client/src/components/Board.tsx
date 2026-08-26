@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, memo, type CSSProperties, type MouseEvent, type TouchEvent } from 'react';
-import type { Board as BoardType, Position, PieceColor, Move } from '@shared/types';
+import type { Board as BoardType, Position, PieceColor, Move, Piece } from '@shared/types';
 import { getBoardFileLabel, getBoardRankLabel } from '../lib/boardNotation';
+import type { Language } from '../lib/i18nRuntime';
 import { useCurrentLanguage } from '../lib/i18n';
 import { useBoardAppearance } from '../lib/pieceStyle';
 import PieceSVG from './PieceSVG';
@@ -25,6 +26,155 @@ export interface SquareAnnotation {
 function handleContextMenu(e: MouseEvent) {
   e.preventDefault();
 }
+
+interface BoardSquareProps {
+  displayRow: number;
+  displayCol: number;
+  boardRow: number;
+  boardCol: number;
+  piece: Piece | null;
+  isDragging: boolean;
+  legal: boolean;
+  lastMoveRole: 'from' | 'to' | null;
+  annotation: SquareAnnotation | null;
+  highlightColor: string | null;
+  selected: boolean;
+  check: boolean;
+  premove: boolean;
+  animationState?: 'lift' | 'settle';
+  lang: Language;
+  onMouseDown: (e: MouseEvent<HTMLDivElement>, row: number, col: number) => void;
+  onTouchStart: (e: TouchEvent<HTMLDivElement>, row: number, col: number) => void;
+  onClick: (row: number, col: number) => void;
+}
+
+const BoardSquare = memo(function BoardSquare({
+  displayRow,
+  displayCol,
+  boardRow,
+  boardCol,
+  piece,
+  isDragging,
+  legal,
+  lastMoveRole,
+  annotation,
+  highlightColor,
+  selected,
+  check,
+  premove,
+  animationState,
+  lang,
+  onMouseDown,
+  onTouchStart,
+  onClick,
+}: BoardSquareProps) {
+  const classes = ['board-square', 'board-square-neutral'];
+  if (highlightColor) {
+    classes.length = 0;
+    classes.push('board-square');
+  } else if (premove) {
+    classes.push('board-square-premove');
+  } else if (selected) {
+    classes.push('board-square-selected');
+  } else if (lastMoveRole) {
+    classes.push('board-square-lastmove');
+  }
+
+  if (check) {
+    classes.push('board-square-check');
+  }
+
+  const hasCapture = legal && piece !== null;
+  const animationClass = animationState ? `piece-${animationState}ing` : '';
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${getBoardFileLabel(boardCol, lang)}${getBoardRankLabel(boardRow)}`}
+      className={`absolute ${classes.join(' ')} select-none`}
+      data-testid={`board-square-${boardRow}-${boardCol}`}
+      style={{
+        left: `${displayCol * 12.5}%`,
+        top: `${displayRow * 12.5}%`,
+        width: '12.5%',
+        height: '12.5%',
+        ...(highlightColor ? { backgroundColor: highlightColor } : undefined),
+      }}
+      onMouseDown={(e) => onMouseDown(e, boardRow, boardCol)}
+      onTouchStart={(e) => onTouchStart(e, boardRow, boardCol)}
+      onClick={() => onClick(boardRow, boardCol)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(boardRow, boardCol);
+        }
+      }}
+    >
+      {displayCol === 0 && (
+        <span
+          className="board-coordinate board-coordinate-rank top-0.5 left-1"
+          data-testid={`board-rank-label-${boardRow}`}
+          aria-hidden="true"
+          style={{ color: 'var(--board-coordinate)' }}
+        >
+          {getBoardRankLabel(boardRow)}
+        </span>
+      )}
+      {displayRow === 7 && (
+        <span
+          className="board-coordinate board-coordinate-file bottom-0.5 right-1"
+          data-testid={`board-file-label-${boardCol}`}
+          aria-hidden="true"
+          style={{ color: 'var(--board-coordinate)' }}
+        >
+          {getBoardFileLabel(boardCol, lang)}
+        </span>
+      )}
+
+      {lastMoveRole && (
+        <div
+          className={`board-lastmove-overlay board-lastmove-overlay-${lastMoveRole}`}
+          data-testid={`board-lastmove-overlay-${lastMoveRole}-${boardRow}-${boardCol}`}
+        />
+      )}
+
+      {legal && !hasCapture && <div className="legal-dot" />}
+      {legal && hasCapture && <div className="legal-capture" />}
+
+      {piece && !isDragging && (
+        <div
+          className={`absolute inset-[4.5%] z-[2] flex items-center justify-center piece ${selected ? 'piece-selected' : ''} ${animationClass}`}
+          data-testid={`board-piece-${boardRow}-${boardCol}`}
+        >
+          <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
+        </div>
+      )}
+
+      {annotation && (
+        <div
+          className="absolute pointer-events-none flex items-center justify-center rounded-full shadow-lg border-2 border-white/80"
+          style={{
+            top: '-10%',
+            right: '-10%',
+            width: '36%',
+            height: '36%',
+            backgroundColor: annotation.bgColor,
+            color: '#20170b',
+            zIndex: 60,
+            fontSize: '72%',
+            fontWeight: 800,
+            fontFamily: '"Noto Sans Thai", "Noto Sans", "DejaVu Sans", system-ui, sans-serif',
+            lineHeight: 1,
+            textShadow: '0 1px 0 rgba(255,255,255,0.35)',
+          }}
+        >
+          {annotation.icon}
+        </div>
+      )}
+    </div>
+  );
+});
 
 interface BoardProps {
   board: BoardType;
@@ -99,12 +249,6 @@ export default memo(function Board({
     return legalMoves.some(m => m.row === row && m.col === col);
   }, [legalMoves]);
 
-  const isLastMove = useCallback((row: number, col: number) => {
-    if (!lastMove) return false;
-    return (lastMove.from.row === row && lastMove.from.col === col) ||
-           (lastMove.to.row === row && lastMove.to.col === col);
-  }, [lastMove]);
-
   const getLastMoveRole = useCallback((row: number, col: number): 'from' | 'to' | null => {
     if (!lastMove) return null;
     if (lastMove.from.row === row && lastMove.from.col === col) return 'from';
@@ -147,7 +291,7 @@ export default memo(function Board({
     return { row: getBoardRow(displayRow), col: getBoardCol(displayCol) };
   };
 
-  const handleMouseDown = (e: MouseEvent, row: number, col: number) => {
+  const handleMouseDown = useCallback((e: MouseEvent, row: number, col: number) => {
     if (e.button === 2) {
       setRightClickStart({ row, col });
       if (boardRef.current) {
@@ -175,7 +319,7 @@ export default memo(function Board({
       }), 150);
       onSquareClick({ row, col });
     }
-  };
+  }, [arrows, setArrows, disabled, board, allowAnyPieceDrag, draggableColor, onSquareClick]);
 
   const handleMouseMove = (e: MouseEvent) => {
     if (rightClickStart && boardRef.current) {
@@ -246,12 +390,12 @@ export default memo(function Board({
     setDragPos(null);
   };
 
-  const handleClick = (row: number, col: number) => {
+  const handleClick = useCallback((row: number, col: number) => {
     if (disabled) return;
     onSquareClick({ row, col });
-  };
+  }, [disabled, onSquareClick]);
 
-  const handleTouchStart = (e: TouchEvent, row: number, col: number) => {
+  const handleTouchStart = useCallback((e: TouchEvent, row: number, col: number) => {
     if (disabled) return;
     const piece = board[row][col];
     if (piece && (allowAnyPieceDrag || piece.color === draggableColor)) {
@@ -267,7 +411,7 @@ export default memo(function Board({
         });
       }
     }
-  };
+  }, [disabled, board, allowAnyPieceDrag, draggableColor, onSquareClick]);
 
   const handleTouchMove = (e: TouchEvent) => {
     if (!dragPiece || !boardRef.current) return;
@@ -305,33 +449,6 @@ export default memo(function Board({
     setDragPos(null);
   };
 
-  const getSquareStyle = (boardRow: number, boardCol: number): CSSProperties | undefined => {
-    const hl = getSquareHighlight(boardRow, boardCol);
-    if (hl) return { backgroundColor: hl };
-    return undefined;
-  };
-
-  const getSquareClass = (boardRow: number, boardCol: number) => {
-    const classes = ['board-square', 'board-square-neutral'];
-
-    if (getSquareHighlight(boardRow, boardCol)) {
-      return 'board-square';
-    } else if (isPremoveSquare(boardRow, boardCol)) {
-      classes.push('board-square-premove');
-    } else if (isSelected(boardRow, boardCol)) {
-      classes.push('board-square-selected');
-    } else if (isLastMove(boardRow, boardCol)) {
-      classes.push('board-square-lastmove');
-    }
-
-    if (isCheckSquare(boardRow, boardCol)) {
-      classes.push('board-square-check');
-    }
-
-    return classes.join(' ');
-  };
-
-  const squareSize = '12.5%';
   const boardSurfaceStyle = {
     '--board-surface-background': boardTheme.surfaceBackground,
     '--board-grid-line': boardTheme.gridColor,
@@ -433,99 +550,30 @@ export default memo(function Board({
         const piece = board[boardRow][boardCol];
         const isDragging = dragPiece?.row === boardRow && dragPiece?.col === boardCol;
         const legal = isLegalMove(boardRow, boardCol);
-        const hasCapture = legal && piece !== null;
         const lastMoveRole = getLastMoveRole(boardRow, boardCol);
 
-        const annotation = getSquareAnnotation(boardRow, boardCol);
-        const customStyle = getSquareStyle(boardRow, boardCol);
-
         squares.push(
-          <div
+          <BoardSquare
             key={`${displayRow}-${displayCol}`}
-            role="button"
-            tabIndex={0}
-            aria-label={`${getBoardFileLabel(boardCol, lang)}${getBoardRankLabel(boardRow)}`}
-            className={`absolute ${getSquareClass(boardRow, boardCol)} select-none`}
-            data-testid={`board-square-${boardRow}-${boardCol}`}
-            style={{
-              left: `${displayCol * 12.5}%`,
-              top: `${displayRow * 12.5}%`,
-              width: squareSize,
-              height: squareSize,
-              ...customStyle,
-            }}
-            onMouseDown={(e) => handleMouseDown(e, boardRow, boardCol)}
-            onTouchStart={(e) => handleTouchStart(e, boardRow, boardCol)}
-            onClick={() => handleClick(boardRow, boardCol)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleClick(boardRow, boardCol);
-              }
-            }}
-          >
-            {displayCol === 0 && (
-              <span
-                className="board-coordinate board-coordinate-rank top-0.5 left-1"
-                data-testid={`board-rank-label-${boardRow}`}
-                aria-hidden="true"
-                style={{ color: 'var(--board-coordinate)' }}
-              >
-                {getBoardRankLabel(boardRow)}
-              </span>
-            )}
-            {displayRow === 7 && (
-              <span
-                className="board-coordinate board-coordinate-file bottom-0.5 right-1"
-                data-testid={`board-file-label-${boardCol}`}
-                aria-hidden="true"
-                style={{ color: 'var(--board-coordinate)' }}
-              >
-                {getBoardFileLabel(boardCol, lang)}
-              </span>
-            )}
-
-            {lastMoveRole && (
-              <div
-                className={`board-lastmove-overlay board-lastmove-overlay-${lastMoveRole}`}
-                data-testid={`board-lastmove-overlay-${lastMoveRole}-${boardRow}-${boardCol}`}
-              />
-            )}
-
-            {legal && !hasCapture && <div className="legal-dot" />}
-            {legal && hasCapture && <div className="legal-capture" />}
-
-            {piece && !isDragging && (
-              <div
-                className={`absolute inset-[4.5%] z-[2] flex items-center justify-center piece ${isSelected(boardRow, boardCol) ? 'piece-selected' : ''} ${pieceAnimations.get(`${boardRow}-${boardCol}`) ? `piece-${pieceAnimations.get(`${boardRow}-${boardCol}`)}ing` : ''}`}
-                data-testid={`board-piece-${boardRow}-${boardCol}`}
-              >
-                <PieceSVG type={piece.type} color={piece.color} className="w-full h-full" />
-              </div>
-            )}
-
-            {annotation && (
-              <div
-                className="absolute pointer-events-none flex items-center justify-center rounded-full shadow-lg border-2 border-white/80"
-                style={{
-                  top: '-10%',
-                  right: '-10%',
-                  width: '36%',
-                  height: '36%',
-                  backgroundColor: annotation.bgColor,
-                  color: '#20170b',
-                  zIndex: 60,
-                  fontSize: '72%',
-                  fontWeight: 800,
-                  fontFamily: '"Noto Sans Thai", "Noto Sans", "DejaVu Sans", system-ui, sans-serif',
-                  lineHeight: 1,
-                  textShadow: '0 1px 0 rgba(255,255,255,0.35)',
-                }}
-              >
-                {annotation.icon}
-              </div>
-            )}
-          </div>
+            displayRow={displayRow}
+            displayCol={displayCol}
+            boardRow={boardRow}
+            boardCol={boardCol}
+            piece={piece}
+            isDragging={isDragging}
+            legal={legal}
+            lastMoveRole={lastMoveRole}
+            annotation={getSquareAnnotation(boardRow, boardCol)}
+            highlightColor={getSquareHighlight(boardRow, boardCol)}
+            selected={isSelected(boardRow, boardCol)}
+            check={isCheckSquare(boardRow, boardCol)}
+            premove={isPremoveSquare(boardRow, boardCol)}
+            animationState={pieceAnimations.get(`${boardRow}-${boardCol}`)}
+            lang={lang}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onClick={handleClick}
+          />
         );
       }
     }

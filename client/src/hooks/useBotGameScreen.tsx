@@ -487,15 +487,19 @@ export function useBotGameScreen() {
     isPlayerTurn,
   ]);
 
-  // Auto-execute premove when it becomes player's turn
+  // Auto-execute premove when it becomes player's turn.
+  // Reads state through gameStateRef so the 500ms clock tick (which rewrites
+  // the gameState object) does not re-run this effect every tick.
   useEffect(() => {
-    if (!premove || !isPlayerTurn || gameState.gameOver || botThinking) return;
+    if (!premove || !isPlayerTurn || botThinking) return;
+    const currentState = gameStateRef.current;
+    if (currentState.gameOver) return;
 
-    const piece = gameState.board[premove.from.row][premove.from.col];
+    const piece = currentState.board[premove.from.row][premove.from.col];
     if (piece && piece.color === playerColor) {
-      const legal = getLegalMoves(gameState.board, premove.from);
+      const legal = getLegalMoves(currentState.board, premove.from);
       if (legal.some(m => m.row === premove.to.row && m.col === premove.to.col)) {
-        const newState = makeMove(gameState, premove.from, premove.to);
+        const newState = makeMove(currentState, premove.from, premove.to);
         if (newState) {
           setGameState(newState);
           setArrows([]);
@@ -514,7 +518,7 @@ export function useBotGameScreen() {
     setPremove(null);
     setSelectedSquare(null);
     setLegalMoves([]);
-  }, [isPlayerTurn, premove, gameState, playerColor, botThinking]);
+  }, [botThinking, isPlayerTurn, playerColor, premove]);
 
   useEffect(() => {
     if (gameOverInfo) setShowGameOverModal(true);
@@ -624,6 +628,7 @@ export function useBotGameScreen() {
     t,
   ]);
 
+  // Reset history browsing when a new move arrives mid-game.
   useEffect(() => {
     const previousMoveCount = moveCountRef.current;
     const currentMoveCount = gameState.moveHistory.length;
@@ -672,27 +677,31 @@ export function useBotGameScreen() {
     handlers: boardNavHandlers,
   });
 
+  // Reads state through refs so the 500ms clock tick (which rewrites the
+  // gameState object) does not re-run this effect every tick — it only
+  // needs to react to game over and move count changes.
   useEffect(() => {
-    if (!gameStarted) {
-      previousGameStateRef.current = gameState;
-      return;
-    }
-
     const previousState = previousGameStateRef.current;
+    const currentState = gameStateRef.current;
 
-    if (gameState.gameOver && !previousState.gameOver) {
-      queueBotChat(createBotOutcomeDecision(selectedBot, lang, gameState, botColor, buildBotChatHistory()));
-      previousGameStateRef.current = gameState;
+    if (!gameStarted) {
+      previousGameStateRef.current = currentState;
       return;
     }
 
-    if (gameState.moveHistory.length > previousState.moveHistory.length) {
-      const actorColor: PieceColor = gameState.turn === 'white' ? 'black' : 'white';
+    if (currentState.gameOver && !previousState.gameOver) {
+      queueBotChat(createBotOutcomeDecision(selectedBot, lang, currentState, botColor, buildBotChatHistory()));
+      previousGameStateRef.current = currentState;
+      return;
+    }
+
+    if (currentState.moveHistory.length > previousState.moveHistory.length) {
+      const actorColor: PieceColor = currentState.turn === 'white' ? 'black' : 'white';
       const dialogue = maybeCreateMoveDialogue({
         persona: selectedBot,
         locale: lang,
         previousState,
-        nextState: gameState,
+        nextState: currentState,
         botColor,
         history: buildBotChatHistory(),
         trigger: actorColor === botColor ? 'after_bot_move' : 'after_player_move',
@@ -703,8 +712,8 @@ export function useBotGameScreen() {
       }
     }
 
-    previousGameStateRef.current = gameState;
-  }, [botColor, buildBotChatHistory, gameStarted, gameState, lang, queueBotChat, selectedBot]);
+    previousGameStateRef.current = currentState;
+  }, [botColor, buildBotChatHistory, gameStarted, gameState.gameOver, gameState.moveHistory.length, lang, queueBotChat, selectedBot]);
 
   useEffect(() => {
     if (botThinkingLineTimeoutRef.current) {
@@ -737,15 +746,19 @@ export function useBotGameScreen() {
     };
   }, [botColor, botThinking, buildBotChatHistory, gameStarted, gameState.gameOver, lang, queueBotChat, selectedBot]);
 
+  // Reads live state through gameStateRef so the clock tick's new gameState
+  // object identity does not recreate these callbacks (which would defeat
+  // Board memoization every 500ms).
   const handleSquareClick = useCallback((pos: Position) => {
-    if (gameState.gameOver) return;
-    const piece = gameState.board[pos.row][pos.col];
+    const currentGameState = gameStateRef.current;
+    if (currentGameState.gameOver) return;
+    const piece = currentGameState.board[pos.row][pos.col];
 
     // Pre-move logic when bot is thinking
     if (!isPlayerTurn || botThinking) {
       if (selectedSquare) {
         if (!samePosition(pos, selectedSquare)) {
-          const fromPiece = gameState.board[selectedSquare.row][selectedSquare.col];
+          const fromPiece = currentGameState.board[selectedSquare.row][selectedSquare.col];
           if (fromPiece && fromPiece.color === playerColor) {
             setPremove({ from: selectedSquare, to: pos });
             const cleared = emptyBoardSelection();
@@ -757,7 +770,7 @@ export function useBotGameScreen() {
       }
 
       if (piece && piece.color === playerColor) {
-        const next = selectBoardSquare(gameState.board, pos);
+        const next = selectBoardSquare(currentGameState.board, pos);
         setSelectedSquare(next.selectedSquare);
         setLegalMoves(next.legalMoves);
         setPremove(null);
@@ -771,7 +784,7 @@ export function useBotGameScreen() {
 
     if (selectedSquare) {
       if (includesPosition(legalMoves, pos)) {
-        const newState = makeMove(gameState, selectedSquare, pos);
+        const newState = makeMove(currentGameState, selectedSquare, pos);
         if (newState) {
           setGameState(newState);
           const cleared = emptyBoardSelection();
@@ -793,7 +806,7 @@ export function useBotGameScreen() {
     }
 
     if (piece && piece.color === playerColor) {
-      const next = selectBoardSquare(gameState.board, pos);
+      const next = selectBoardSquare(currentGameState.board, pos);
       setSelectedSquare(next.selectedSquare);
       setLegalMoves(next.legalMoves);
     } else {
@@ -801,12 +814,14 @@ export function useBotGameScreen() {
       setSelectedSquare(cleared.selectedSquare);
       setLegalMoves(cleared.legalMoves);
     }
-  }, [gameState, selectedSquare, legalMoves, isPlayerTurn, botThinking, playerColor]);
+  }, [selectedSquare, legalMoves, isPlayerTurn, botThinking, playerColor]);
 
   const handlePieceDrop = useCallback((from: Position, to: Position) => {
+    const currentGameState = gameStateRef.current;
+
     // Pre-move via drag when bot is thinking
-    if ((!isPlayerTurn || botThinking) && !gameState.gameOver) {
-      const piece = gameState.board[from.row][from.col];
+    if ((!isPlayerTurn || botThinking) && !currentGameState.gameOver) {
+      const piece = currentGameState.board[from.row][from.col];
       if (piece && piece.color === playerColor) {
         setPremove({ from, to });
         const cleared = emptyBoardSelection();
@@ -816,12 +831,12 @@ export function useBotGameScreen() {
       }
     }
 
-    if (gameState.gameOver || !isPlayerTurn || botThinking) return;
-    const piece = gameState.board[from.row][from.col];
+    if (currentGameState.gameOver || !isPlayerTurn || botThinking) return;
+    const piece = currentGameState.board[from.row][from.col];
     if (!piece || piece.color !== playerColor) return;
-    const legal = getLegalMoves(gameState.board, from);
+    const legal = getLegalMoves(currentGameState.board, from);
     if (includesPosition(legal, to)) {
-      const newState = makeMove(gameState, from, to);
+      const newState = makeMove(currentGameState, from, to);
       if (newState) {
         setGameState(newState);
         const cleared = emptyBoardSelection();
@@ -839,7 +854,7 @@ export function useBotGameScreen() {
         }
       }
     }
-  }, [gameState, isPlayerTurn, botThinking, playerColor]);
+  }, [isPlayerTurn, botThinking, playerColor]);
 
   const handleStartGame = () => {
     clearPendingBotRequest();

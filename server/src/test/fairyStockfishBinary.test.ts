@@ -78,7 +78,7 @@ describe('normalizeEngineFen', () => {
     expect(getReviewTotalBudgetMs(200)).toBe(40000);
   });
 
-  it('falls back to the local bot when an engine move is missing or illegal', () => {
+  it('falls back to the local bot when an engine move is missing or illegal', async () => {
     const state = createInitialGameState(0, 0);
     const snapshot = {
       board: state.board,
@@ -86,7 +86,7 @@ describe('normalizeEngineFen', () => {
       counting: state.counting,
     };
 
-    const illegal = resolveBotMoveCandidate(snapshot, 9, {
+    const illegal = await resolveBotMoveCandidate(snapshot, 9, {
       from: { row: 0, col: 0 },
       to: { row: 7, col: 0 },
     });
@@ -95,7 +95,7 @@ describe('normalizeEngineFen', () => {
     expect(illegal.move).not.toBeNull();
 
     const localMove = illegal.move!;
-    const legal = resolveBotMoveCandidate(snapshot, 9, localMove);
+    const legal = await resolveBotMoveCandidate(snapshot, 9, localMove);
     expect(legal.source).toBe('engine');
     expect(legal.move).toEqual(localMove);
   });

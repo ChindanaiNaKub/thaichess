@@ -6,6 +6,7 @@
 export {
   initDatabase,
   getDatabaseStats,
+  pingDatabase,
   getLibsqlConnectionOptions,
   getDatabaseConfig,
   assertProductionUsesDurableDatabase,

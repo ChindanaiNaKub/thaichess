@@ -58,6 +58,22 @@ function buildBotName(level: number, botId?: string) {
   return `Makruk Bot Lv.${level}`;
 }
 
+// getBotPerformanceStats scans every finished bot game; serve it from a
+// short-lived cache instead of re-running the aggregate on every request.
+const BOT_STATS_CACHE_TTL_MS = 30_000;
+let botStatsCache: { value: Awaited<ReturnType<typeof getBotPerformanceStats>>; expiresAt: number } | null = null;
+
+function getCachedBotPerformanceStats() {
+  const now = Date.now();
+  if (botStatsCache && botStatsCache.expiresAt > now) {
+    return botStatsCache.value;
+  }
+  return getBotPerformanceStats().then((stats) => {
+    botStatsCache = { value: stats, expiresAt: Date.now() + BOT_STATS_CACHE_TTL_MS };
+    return stats;
+  });
+}
+
 export function createGamesRouter(deps: GamesRouterDeps): Router {
   const { gameManager } = deps;
   const router = Router();
@@ -243,7 +259,7 @@ export function createGamesRouter(deps: GamesRouterDeps): Router {
     const [games, total, botStats] = await Promise.all([
       getRecentGames(limit, page * limit, filter),
       getGameCount(filter),
-      getBotPerformanceStats(),
+      getCachedBotPerformanceStats(),
     ]);
     res.json({ games, total, page, limit, filter, botStats });
   });
