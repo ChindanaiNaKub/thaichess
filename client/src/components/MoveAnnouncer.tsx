@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ClientGameState, GameState, Move, PieceColor, PieceType, ResultReason } from '@shared/types';
 import { getBoardFileLabel, getBoardRankLabel } from '../lib/boardNotation';
 import { useCurrentLanguage } from '../lib/i18n';
@@ -64,17 +64,15 @@ interface MoveAnnouncerProps {
 }
 
 export function MoveAnnouncer({ gameState, playerColor, t }: MoveAnnouncerProps) {
-  const [announcement, setAnnouncement] = useState('');
-  const prevRef = useRef<{ moveCount: number; gameOver: boolean } | null>(null);
   const lang = useCurrentLanguage();
+  const prevRef = useRef<{ moveCount: number; gameOver: boolean; announcement: string } | null>(null);
 
-  useEffect(() => {
+  const announcement = useMemo(() => {
     const prev = prevRef.current;
-    prevRef.current = { moveCount: gameState.moveHistory.length, gameOver: gameState.gameOver };
-    if (!prev || gameState.moveHistory.length === 0) return;
+    if (!prev || gameState.moveHistory.length === 0) return prev?.announcement ?? '';
     const hasNewMove = gameState.moveHistory.length > prev.moveCount;
     const justEnded = gameState.gameOver && !prev.gameOver;
-    if (!hasNewMove && !justEnded) return;
+    if (!hasNewMove && !justEnded) return prev.announcement ?? '';
     const sentences: string[] = [];
     if (hasNewMove) {
       const move = gameState.moveHistory[gameState.moveHistory.length - 1];
@@ -90,10 +88,17 @@ export function MoveAnnouncer({ gameState, playerColor, t }: MoveAnnouncerProps)
     if (justEnded) {
       sentences.push(describeGameOver(gameState.winner, gameState.resultReason, t));
     }
-    if (sentences.length > 0) {
-      setAnnouncement(sentences.join('. '));
-    }
+    if (sentences.length > 0) return sentences.join('. ');
+    return prev.announcement ?? '';
   }, [gameState, playerColor, lang, t]);
+
+  useEffect(() => {
+    prevRef.current = {
+      moveCount: gameState.moveHistory.length,
+      gameOver: gameState.gameOver,
+      announcement,
+    };
+  }, [gameState.moveHistory.length, gameState.gameOver, announcement]);
 
   return (
     <div role="status" aria-live="polite" aria-atomic="true" data-testid="move-announcer" className="sr-only">
