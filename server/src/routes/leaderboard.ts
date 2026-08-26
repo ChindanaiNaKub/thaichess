@@ -4,6 +4,7 @@ import {
   getLeaderboardCount,
   getStats,
   getDatabaseStats,
+  pingDatabase,
 } from '../database';
 import type { MonitoringStore } from '../monitoring';
 import { logError } from '../logger';
@@ -57,8 +58,9 @@ export function createLeaderboardRouter(deps: LeaderboardRouterDeps): Router {
     };
 
     try {
-      // Check database connectivity
-      await getStats();
+      // Cheap connectivity check — a full-table aggregate here made every
+      // health probe scan the games table.
+      await pingDatabase();
       health.dependencies.database = 'ok';
     } catch (error) {
       health.dependencies.database = 'error';

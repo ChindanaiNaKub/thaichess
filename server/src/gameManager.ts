@@ -24,7 +24,8 @@ export class GameManager {
   private playerGames: Map<string, string> = new Map(); // playerId -> gameId
   private socketGames: Map<string, string> = new Map(); // socketId -> gameId
   private rematchOffers: Map<string, PieceColor> = new Map(); // gameId -> offering color
-  private clockIntervals: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private clockSubscribers: Map<string, (...args: [GameRoom]) => void> = new Map();
+  private clockSchedulerInterval: ReturnType<typeof setInterval> | null = null;
   private disconnectedPlayers: Map<string, number> = new Map();
   private roomLastActivity: Map<string, number> = new Map();
   private joinGameLocks: Map<string, Promise<void>> = new Map(); // gameId -> lock promise (prevents race conditions)
@@ -33,6 +34,7 @@ export class GameManager {
   private static readonly WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
   private static readonly DISCONNECTED_GAME_TTL_MS = 10 * 60 * 1000;
   private static readonly PRESENCE_STALE_MS = 15 * 1000;
+  private static readonly MAX_SPECTATORS_PER_GAME = 100;
 
   createGame(
     timeControl: TimeControl,
@@ -242,6 +244,7 @@ export class GameManager {
     }
 
     if (!room.spectators.includes(socketId)) {
+      if (room.spectators.length >= GameManager.MAX_SPECTATORS_PER_GAME) return null;
       room.spectators.push(socketId);
     }
 
@@ -842,14 +845,29 @@ export class GameManager {
   }
 
    
+  // A single scheduler ticks every subscribed game, instead of one setInterval
+  // per room (2·N timer wakeups/sec across the process).
   startClock(gameId: string, onTick: (...args: [GameRoom]) => void): void {
-    this.stopClock(gameId);
+    this.clockSubscribers.set(gameId, onTick);
+    this.ensureClockScheduler();
+  }
+
+  private ensureClockScheduler(): void {
+    if (this.clockSchedulerInterval) return;
 
     const interval = setInterval(() => {
+      this.runClockTicks();
+    }, GameManager.CLOCK_TICK_MS);
+    interval.unref?.();
+    this.clockSchedulerInterval = interval;
+  }
+
+  private runClockTicks(): void {
+    for (const [gameId, onTick] of Array.from(this.clockSubscribers.entries())) {
       const room = this.games.get(gameId);
       if (!room || room.status !== 'playing') {
         this.stopClock(gameId);
-        return;
+        continue;
       }
 
       this.updateClock(room);
@@ -877,16 +895,24 @@ export class GameManager {
       }
 
       onTick(room);
-    }, GameManager.CLOCK_TICK_MS);
+    }
 
-    this.clockIntervals.set(gameId, interval);
+    if (this.clockSubscribers.size === 0) {
+      this.stopClockScheduler();
+    }
   }
 
   stopClock(gameId: string): void {
-    const interval = this.clockIntervals.get(gameId);
-    if (interval) {
-      clearInterval(interval);
-      this.clockIntervals.delete(gameId);
+    this.clockSubscribers.delete(gameId);
+    if (this.clockSubscribers.size === 0) {
+      this.stopClockScheduler();
+    }
+  }
+
+  private stopClockScheduler(): void {
+    if (this.clockSchedulerInterval) {
+      clearInterval(this.clockSchedulerInterval);
+      this.clockSchedulerInterval = null;
     }
   }
 

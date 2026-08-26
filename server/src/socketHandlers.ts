@@ -77,27 +77,69 @@ function getParticipantSocketIds(room: GameRoom) {
   return [room.white, room.black, ...room.spectators].filter((socketId): socketId is string => Boolean(socketId));
 }
 
-function emitGameStateToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom, excludeSocketId?: string) {
-  getParticipantSocketIds(room).forEach((participantSocketId) => {
-    if (participantSocketId === excludeSocketId) return;
-    io.to(participantSocketId).emit('game_state', gameManager.getClientGameState(room, participantSocketId));
-  });
+function getPlayerSocketIds(room: GameRoom) {
+  return [room.white, room.black].filter((socketId): socketId is string => Boolean(socketId));
 }
 
-function emitMoveToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom, move: GameRoom['gameState']['moveHistory'][number]) {
-  getParticipantSocketIds(room).forEach((participantSocketId) => {
-    io.to(participantSocketId).emit('move_made', {
-      move,
-      gameState: gameManager.getClientGameState(room, participantSocketId),
-    });
-  });
-}
+// Spectators all receive the identical neutral payload (playerColor === null),
+// so it is serialized once per event instead of once per spectator.
+
+// Presence snapshots are small but rebroadcast on every heartbeat; skip
+// emissions whose content did not change since the last broadcast.
+const lastPresenceSignatureByRoom = new WeakMap<GameRoom, string>();
 
 function emitPresenceToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom) {
   const presence = gameManager.getPresenceSnapshot(room);
-  getParticipantSocketIds(room).forEach((participantSocketId) => {
+  const signature = JSON.stringify([
+    presence.gameId,
+    presence.whitePresence.status,
+    quantizeLatency(presence.whitePresence.latencyMs),
+    presence.blackPresence.status,
+    quantizeLatency(presence.blackPresence.latencyMs),
+  ]);
+  if (lastPresenceSignatureByRoom.get(room) === signature) return;
+  lastPresenceSignatureByRoom.set(room, signature);
+
+  for (const participantSocketId of getParticipantSocketIds(room)) {
     io.to(participantSocketId).emit('presence_update', presence);
-  });
+  }
+}
+
+function quantizeLatency(latencyMs: number | null | undefined): number | null {
+  if (latencyMs === null || latencyMs === undefined) return null;
+  return Math.round(latencyMs / 100);
+}
+
+function emitGameStateToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom, excludeSocketId?: string) {
+  for (const playerSocketId of getPlayerSocketIds(room)) {
+    if (playerSocketId === excludeSocketId) continue;
+    io.to(playerSocketId).emit('game_state', gameManager.getClientGameState(room, playerSocketId));
+  }
+
+  const spectators = room.spectators.filter((spectatorId) => spectatorId !== excludeSocketId);
+  if (spectators.length > 0) {
+    // Identical neutral payload for every spectator — serialize once.
+    const spectatorPayload = gameManager.getClientGameState(room, spectators[0]!);
+    for (const spectatorSocketId of spectators) {
+      io.to(spectatorSocketId).emit('game_state', spectatorPayload);
+    }
+  }
+}
+
+function emitMoveToParticipants(io: IoLike, gameManager: GameManager, room: GameRoom, move: GameRoom['gameState']['moveHistory'][number]) {
+  for (const playerSocketId of getPlayerSocketIds(room)) {
+    io.to(playerSocketId).emit('move_made', {
+      move,
+      gameState: gameManager.getClientGameState(room, playerSocketId),
+    });
+  }
+
+  if (room.spectators.length > 0) {
+    const spectatorPayload = { move, gameState: gameManager.getClientGameState(room, room.spectators[0]!) };
+    for (const spectatorSocketId of room.spectators) {
+      io.to(spectatorSocketId).emit('move_made', spectatorPayload);
+    }
+  }
 }
 
 export function emitGameOverToParticipants(
@@ -107,15 +149,26 @@ export function emitGameOverToParticipants(
   reason: string,
   ratingChange: RatingChangeSummary | null,
 ) {
-  getParticipantSocketIds(room).forEach((participantSocketId) => {
-    const isPlayerSocket = participantSocketId === room.white || participantSocketId === room.black;
-    io.to(participantSocketId).emit('game_over', {
+  for (const playerSocketId of getPlayerSocketIds(room)) {
+    io.to(playerSocketId).emit('game_over', {
       reason,
       winner: room.gameState.winner,
-      gameState: gameManager.getClientGameState(room, participantSocketId),
-      ratingChange: isPlayerSocket ? ratingChange : null,
+      gameState: gameManager.getClientGameState(room, playerSocketId),
+      ratingChange,
     });
-  });
+  }
+
+  if (room.spectators.length > 0) {
+    const spectatorPayload = {
+      reason,
+      winner: room.gameState.winner,
+      gameState: gameManager.getClientGameState(room, room.spectators[0]!),
+      ratingChange: null,
+    };
+    for (const spectatorSocketId of room.spectators) {
+      io.to(spectatorSocketId).emit('game_over', spectatorPayload);
+    }
+  }
 }
 
 export const SOCKET_RATE_LIMITS = {

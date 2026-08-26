@@ -679,6 +679,11 @@ export function getDatabaseStats() {
   };
 }
 
+// Minimal connectivity probe for /api/health — avoids a full-table aggregate.
+export async function pingDatabase(): Promise<void> {
+  await db.execute('SELECT 1');
+}
+
 
 /**
  * LibSQL Connection Management Notes:

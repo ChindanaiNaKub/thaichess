@@ -418,11 +418,15 @@ export async function runAllCleanupJobs(): Promise<void> {
   }
 }
 
+// Only refresh last_seen_at when it is older than this — the common path
+// becomes a single SELECT instead of SELECT + UPDATE (2× RTT per request).
+const SESSION_LAST_SEEN_UPDATE_INTERVAL_SEC = 60;
+
 export async function getUserBySessionTokenHash(tokenHash: string): Promise<AuthUser | null> {
   try {
     const result = await db.execute({
       sql: `
-        SELECT users.*
+        SELECT users.*, sessions.last_seen_at AS session_last_seen_at
         FROM sessions
         INNER JOIN users ON users.id = sessions.user_id
         WHERE sessions.token_hash = ? AND sessions.expires_at > unixepoch()
@@ -433,10 +437,13 @@ export async function getUserBySessionTokenHash(tokenHash: string): Promise<Auth
     const row = result.rows[0];
     if (!row) return null;
 
-    await db.execute({
-      sql: 'UPDATE sessions SET last_seen_at = unixepoch() WHERE token_hash = ?',
-      args: [tokenHash],
-    });
+    const lastSeenAtSec = Number(row.session_last_seen_at ?? 0);
+    if (!Number.isFinite(lastSeenAtSec) || Math.floor(Date.now() / 1000) - lastSeenAtSec >= SESSION_LAST_SEEN_UPDATE_INTERVAL_SEC) {
+      await db.execute({
+        sql: 'UPDATE sessions SET last_seen_at = unixepoch() WHERE token_hash = ?',
+        args: [tokenHash],
+      });
+    }
 
     return rowToAuthUser(row);
   } catch (err) {
