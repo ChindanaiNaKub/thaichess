@@ -1,4 +1,4 @@
-import { getPublicSeoRoute, getSeoImageUrl, type SeoRouteData, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
+import { getOgLocale, getPublicSeoRoute, getSeoImageUrl, type SeoRouteData, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
 
 function escapeHtml(value: string): string {
   return value
@@ -29,9 +29,10 @@ function renderLink(link: SeoSnapshotLink, baseUrl: string): string {
   return `<li><a href="${escapeHtml(href)}"${renderLangAttribute(link.lang)}>${escapeHtml(link.label)}</a></li>`;
 }
 
-function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string): string {
-  const heading = seo.snapshot?.heading ?? { text: seo.title, lang: 'en' as const };
-  const paragraphs = seo.snapshot?.paragraphs?.length ? seo.snapshot.paragraphs : [{ text: seo.description, lang: 'en' as const }];
+function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string, pageLang: 'en' | 'th'): string {
+  const fallbackLang = pageLang;
+  const heading = seo.snapshot?.heading ?? { text: seo.title, lang: fallbackLang };
+  const paragraphs = seo.snapshot?.paragraphs?.length ? seo.snapshot.paragraphs : [{ text: seo.description, lang: fallbackLang }];
   const kickerHtml = seo.snapshot?.kicker ? `      ${renderTextBlock('p', seo.snapshot.kicker)}\n` : '';
   const paragraphsHtml = paragraphs.map((paragraph) => `      ${renderTextBlock('p', paragraph)}`).join('\n');
   const bulletsHtml = seo.snapshot?.bullets?.length
@@ -60,11 +61,18 @@ export function renderSeoHtml(template: string, pathname: string, baseUrl: strin
   const imageUrl = seo.image ?? getSeoImageUrl(baseUrl);
   const robots = seo.robots ?? 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
   const keywords = seo.keywords?.join(', ');
+  // The page is served in a single language per URL (Thai-primary site), so
+  // <html lang> and og:locale must match the dominant content language and no
+  // hreflang/og:locale:alternate tags are emitted.
+  const pageLang = seo.lang ?? 'th';
   const structuredData = seo.structuredData?.length
     ? JSON.stringify(seo.structuredData.length === 1 ? seo.structuredData[0] : seo.structuredData).replace(/</g, '\\u003c')
     : null;
 
   let html = template;
+  html = /<html[^>]*\blang="[^"]*"[^>]*>/i.test(html)
+    ? html.replace(/<html[^>]*\blang="[^"]*"[^>]*>/i, `<html lang="${pageLang}">`)
+    : html.replace(/<html(\s*>)/i, `<html lang="${pageLang}"$1`);
   html = html.replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(seo.title)}</title>`);
   html = upsertHeadTag(html, /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i, `<meta name="description" content="${escapeHtml(seo.description)}" />`);
   html = upsertHeadTag(html, /<meta\s+name="robots"\s+content="[^"]*"\s*\/?>/i, `<meta name="robots" content="${escapeHtml(robots)}" />`);
@@ -77,16 +85,17 @@ export function renderSeoHtml(template: string, pathname: string, baseUrl: strin
   html = upsertHeadTag(html, /<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:image" content="${escapeHtml(imageUrl)}" />`);
   html = upsertHeadTag(html, /<meta\s+property="og:image:alt"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:image:alt" content="ThaiChess Makruk board" />');
   html = upsertHeadTag(html, /<meta\s+property="og:site_name"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:site_name" content="ThaiChess" />');
-  html = upsertHeadTag(html, /<meta\s+property="og:locale"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:locale" content="en_US" />');
-  html = upsertHeadTag(html, /<meta\s+property="og:locale:alternate"\s+content="[^"]*"\s*\/?>/i, '<meta property="og:locale:alternate" content="th_TH" />');
+  html = upsertHeadTag(html, /<meta\s+property="og:locale"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:locale" content="${getOgLocale(pageLang)}" />`);
+  html = html.replace(/\s*<meta\s+property="og:locale:alternate"[^>]*\/?>\s*/gi, '');
   html = upsertHeadTag(html, /<meta\s+name="twitter:card"\s+content="[^"]*"\s*\/?>/i, '<meta name="twitter:card" content="summary_large_image" />');
   html = upsertHeadTag(html, /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtml(seo.title)}" />`);
   html = upsertHeadTag(html, /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtml(seo.description)}" />`);
   html = upsertHeadTag(html, /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`);
 
-  // Add hreflang tags for bilingual SEO (Thai/English)
-  const localizedUrl = new URL(seo.path, `${baseUrl}/`).toString();
-  html = upsertHeadTag(html, /<link\s+rel="alternate"\s+hreflang="[^"]*"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="en" href="${escapeHtml(localizedUrl)}" />\n  <link rel="alternate" hreflang="th" href="${escapeHtml(localizedUrl)}" />\n  <link rel="alternate" hreflang="x-default" href="${escapeHtml(localizedUrl)}" />`);
+  // Single language per URL: strip stale hreflang links instead of emitting
+  // alternates that point every language at the same address. Order-agnostic:
+  // allow rel and hreflang in any order.
+  html = html.replace(/\s*<link(?=[^>]*\brel="alternate")(?=[^>]*\bhreflang="[^"]*")[^>]*\/?>\s*/gi, '');
 
   html = html.replace(/\s*<script[^>]*data-seo-server="true"[^>]*>.*?<\/script>/gs, '');
   if (structuredData) {
@@ -94,7 +103,7 @@ export function renderSeoHtml(template: string, pathname: string, baseUrl: strin
   }
 
   if (!seo.robots?.includes('noindex')) {
-    html = html.replace(/<div id="root"><\/div>/i, `<div id="root">${renderSnapshotHtml(seo, baseUrl)}</div>`);
+    html = html.replace(/<div id="root"><\/div>/i, `<div id="root">${renderSnapshotHtml(seo, baseUrl, pageLang)}</div>`);
   }
 
   return html;
