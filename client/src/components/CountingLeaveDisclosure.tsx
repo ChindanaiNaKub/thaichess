@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { TranslateFn } from './gamePageHelpers';
 
 type CountingLeaveDisclosureProps = {
@@ -25,11 +25,13 @@ export default function CountingLeaveDisclosure({
   toggleTestId = 'counting-leave-toggle',
   exitsTestId = 'counting-leave-exits',
 }: CountingLeaveDisclosureProps) {
-  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(leaveUrgent);
+  const [prevLeaveUrgent, setPrevLeaveUrgent] = useState(leaveUrgent);
 
-  useEffect(() => {
-    if (leaveUrgent) setLeaveOpen(true);
-  }, [leaveUrgent]);
+  if (leaveUrgent !== prevLeaveUrgent) {
+    setPrevLeaveUrgent(leaveUrgent);
+    if (leaveUrgent && !leaveOpen) setLeaveOpen(true);
+  }
 
   return (
     <div className={className || undefined}>

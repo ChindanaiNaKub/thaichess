@@ -58,8 +58,8 @@ type GamePageSidePanelProps = {
   gameState: ClientGameState;
   playerColor: PieceColor | null;
   countingLabel: string | null;
-  canStartCounting: boolean;
-  canStopCounting: boolean;
+  /** Which counting action is available right now, if any. */
+  countingAction: 'start' | 'stop' | null;
   gameOverInfo: GameOverInfo | null;
   rematchLabel: string;
   rematchNotice: string | null;
@@ -98,8 +98,7 @@ export function GamePageSidePanel({
   gameState,
   playerColor,
   countingLabel,
-  canStartCounting,
-  canStopCounting,
+  countingAction,
   gameOverInfo,
   rematchLabel,
   rematchNotice,
@@ -140,8 +139,8 @@ export function GamePageSidePanel({
             {t('game.counting_title')}
           </div>
           <div className={countingLabelClass}>{countingLabel}</div>
-          {canStartCounting && <CountingStartConsequence t={t} />}
-          {canStartCounting && (
+          {countingAction === 'start' && <CountingStartConsequence t={t} />}
+          {countingAction === 'start' && (
             <button type="button"
               onClick={onStartCounting}
               className={`mt-3 w-full ${countingStartButtonClass}`}
@@ -149,7 +148,7 @@ export function GamePageSidePanel({
               {t('game.counting_start')}
             </button>
           )}
-          {canStopCounting && (
+          {countingAction === 'stop' && (
             <button type="button"
               onClick={onStopCounting}
               className={`mt-3 w-full ${countingStopButtonClass}`}
@@ -157,7 +156,7 @@ export function GamePageSidePanel({
               {t('game.counting_stop')}
             </button>
           )}
-          {!canStartCounting ? <CountingHelpDisclosure t={t} /> : null}
+          {countingAction !== 'start' ? <CountingHelpDisclosure t={t} /> : null}
         </div>
       )}
 

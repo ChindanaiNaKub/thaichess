@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PieceStyleProvider } from '../lib/pieceStyle';
 import { I18nProvider } from '../lib/i18n';
-import { TOAST_LIFT_CLASS } from '../lib/toast';
+import { TOAST_LIFT_CLASS } from '../lib/toastConstants';
 import PostGameSharePanel from '../components/PostGameSharePanel';
 
 const useGameAnalysisMock = vi.fn();

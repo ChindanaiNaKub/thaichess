@@ -44,6 +44,10 @@ import {
   type LocalConnectionState,
 } from '../components/gamePageHelpers';
 
+const handleResign = () => {
+  socket.emit('resign');
+};
+
 export function useGamePageScreen() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -418,10 +422,6 @@ export function useGamePageScreen() {
     enabled: !!gameState?.gameOver && gameState.moveHistory.length > 0,
     handlers: boardNavHandlers,
   });
-
-  const handleResign = () => {
-    socket.emit('resign');
-  };
 
   const handleRespondDraw = (accept: boolean) => {
     socket.emit('respond_draw', { accept });

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '../lib/i18n';
 import { isAnalyticsConfigured } from '../lib/analytics';
 import {
-  COOKIE_CONSENT_KEY,
   getCookieConsent,
   setCookieConsent,
   type CookieConsentChoice,
@@ -177,5 +176,3 @@ export default function CookieConsent() {
   );
 }
 
-// Re-export for callers that historically imported the key from this module.
-export { COOKIE_CONSENT_KEY };
