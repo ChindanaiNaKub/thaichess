@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { I18nProvider } from '../lib/i18n';
 import { preloadDetectedTranslations } from '../lib/i18nRuntime';
-import { TOAST_CONTAINER_CLASS, TOAST_DURATION_MS, TOAST_LIFT_CLASS, ToastProvider, useToast } from '../lib/toast';
+import { ToastProvider, useToast } from '../lib/toast';
+import { TOAST_CONTAINER_CLASS, TOAST_DURATION_MS, TOAST_LIFT_CLASS } from '../lib/toastConstants';
 
 function Probe() {
   const { showToast } = useToast();

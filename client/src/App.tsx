@@ -92,6 +92,8 @@ function RandomPuzzleRedirect() {
       if (!cancelled) {
         setTargetId(pickRandomPuzzleId(PUZZLES) ?? PUZZLES[0]?.id ?? 1);
       }
+    }).catch(() => {
+      if (!cancelled) setTargetId(1);
     });
     return () => {
       cancelled = true;

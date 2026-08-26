@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MAKRUK_CHROME_STROKE, MAKRUK_CHROME_VB } from '../lib/makrukStroke';
+import { MAKRUK_CHROME_STROKE } from '../lib/makrukStroke';
 
 export interface MakrukChromeIconProps {
   size?: number;
@@ -17,7 +17,7 @@ export function MakrukChromeIcon({
     <svg
       width={size}
       height={size}
-      viewBox={`0 0 ${MAKRUK_CHROME_VB} ${MAKRUK_CHROME_VB}`}
+      viewBox={`0 0 80 80`}
       className={className}
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden

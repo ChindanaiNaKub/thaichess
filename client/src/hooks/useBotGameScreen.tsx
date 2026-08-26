@@ -271,6 +271,8 @@ export function useBotGameScreen() {
       ? decision.delayMs + remainingVisibleMs
       : Math.max(decision.delayMs, remainingVisibleMs);
 
+    clearPendingBotChat();
+
     pendingBotChatRef.current = setTimeout(() => {
       pendingBotChatRef.current = null;
 
@@ -315,6 +317,17 @@ export function useBotGameScreen() {
   // gameState object here — that aborted in-flight bot requests, left
   // botThinking stuck true, and made the player's turn feel like a premove.
   useEffect(() => {
+    let localFallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    let requestAbortTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const clearBotRequestTimers = () => {
+      if (requestAbortTimer !== undefined) clearTimeout(requestAbortTimer);
+      requestAbortTimer = undefined;
+      botRequestTimeoutRef.current = null;
+      if (localFallbackTimer !== undefined) clearTimeout(localFallbackTimer);
+      localFallbackTimer = undefined;
+    };
+
     if (!gameStarted || gameState.gameOver || isPlayerTurn) {
       setBotThinking(false);
       return;
@@ -337,7 +350,7 @@ export function useBotGameScreen() {
 
     setBotThinking(true);
 
-    botTimeoutRef.current = setTimeout(async () => {
+    const botMoveTimerId = setTimeout(async () => {
       const requestId = botRequestIdRef.current + 1;
       botRequestIdRef.current = requestId;
 
@@ -350,9 +363,10 @@ export function useBotGameScreen() {
       const controller = new AbortController();
 
       botRequestAbortRef.current = controller;
-      botRequestTimeoutRef.current = setTimeout(() => {
+      requestAbortTimer = setTimeout(() => {
         controller.abort();
       }, getBotRequestTimeoutMs(level));
+      botRequestTimeoutRef.current = requestAbortTimer;
 
       try {
         botMove = await requestBrowserEngineBotMove(requestedState, level).catch(() => null);
@@ -367,7 +381,7 @@ export function useBotGameScreen() {
             botMove = await serverMovePromise;
           } else {
             const localFallbackPromise = new Promise<{ from: Position; to: Position } | null>((resolve) => {
-              setTimeout(() => {
+              localFallbackTimer = setTimeout(() => {
                 requestLocalBotMove(requestedState, level, botId)
                   .then(resolve)
                   .catch(() => resolve(null));
@@ -387,10 +401,7 @@ export function useBotGameScreen() {
       } catch {
         botMove = await requestLocalBotMove(requestedState, level, botId).catch(() => null);
       } finally {
-        if (botRequestTimeoutRef.current) {
-          clearTimeout(botRequestTimeoutRef.current);
-          botRequestTimeoutRef.current = null;
-        }
+        clearBotRequestTimers();
         if (botRequestAbortRef.current === controller) {
           botRequestAbortRef.current = null;
         }
@@ -453,11 +464,15 @@ export function useBotGameScreen() {
       setBotThinking(false);
     }, 0);
 
+    botTimeoutRef.current = botMoveTimerId;
+
     return () => {
-      if (botTimeoutRef.current) {
-        clearTimeout(botTimeoutRef.current);
-        botTimeoutRef.current = null;
-      }
+      clearTimeout(botMoveTimerId);
+      botTimeoutRef.current = null;
+      if (requestAbortTimer !== undefined) clearTimeout(requestAbortTimer);
+      requestAbortTimer = undefined;
+      if (localFallbackTimer !== undefined) clearTimeout(localFallbackTimer);
+      localFallbackTimer = undefined;
       clearPendingBotRequest();
     };
   }, [

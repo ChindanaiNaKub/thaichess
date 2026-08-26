@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   BOT_STRENGTH_BANDS,
   getBotPersonasInBand,
@@ -69,6 +69,215 @@ function StrengthBandPicker({
   );
 }
 
+function DesktopRosterPanel({
+  t,
+  showAllBots,
+  visiblePersonas,
+  selectedBotId,
+  strengthBand,
+  onSelectStrengthBand,
+  onShowAllBots,
+  onHideRoster,
+  onSelectBot,
+}: {
+  t: TranslateFn;
+  showAllBots: boolean;
+  visiblePersonas: readonly BotPersona[];
+  selectedBotId: string;
+  strengthBand: BotStrengthBand;
+  onSelectStrengthBand: (band: BotStrengthBand) => void;
+  onShowAllBots: () => void;
+  onHideRoster: () => void;
+  onSelectBot: (botId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-text-dim">{t('bot.roster')}</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onShowAllBots}
+            className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+          >
+            {showAllBots ? t('bot.show_featured') : t('bot.show_all_bots')}
+          </button>
+          <button
+            type="button"
+            onClick={onHideRoster}
+            className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
+          >
+            {t('bot.hide_roster')}
+          </button>
+        </div>
+      </div>
+      {showAllBots && (
+        <StrengthBandPicker
+          t={t}
+          activeBand={strengthBand}
+          onSelect={onSelectStrengthBand}
+        />
+      )}
+      <fieldset className="min-w-0 border-0 p-0">
+        <legend className="sr-only">{t('bot.roster')}</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {visiblePersonas.map((persona, index) => (
+            <BotCard
+              key={persona.id}
+              persona={persona}
+              isSelected={selectedBotId === persona.id}
+              onSelect={() => onSelectBot(persona.id)}
+              t={t}
+              getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
+              index={index}
+            />
+          ))}
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
+function BotDetailsDisclosure({
+  t,
+  showDetails,
+  onToggleDetails,
+  selectedBot,
+  selectedBotTranslation,
+  difficultyLabel,
+  estimatedEloLabel,
+  setupIntroPreview,
+}: {
+  t: TranslateFn;
+  showDetails: boolean;
+  onToggleDetails: () => void;
+  selectedBot: BotPersona;
+  selectedBotTranslation: BotTranslationFields;
+  difficultyLabel: string;
+  estimatedEloLabel: string;
+  setupIntroPreview: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggleDetails}
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-hover group"
+      >
+        <span className="flex items-center gap-2">
+          <span className={`transition-transform duration-300 ${showDetails ? 'rotate-90' : ''}`} aria-hidden="true">▶</span>
+          {t('bot.learn_more')} {selectedBot.name}
+        </span>
+      </button>
+      <div
+        className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
+          showDetails ? 'max-h-[640px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        {showDetails ? (
+        <div className="border-t border-surface-hover/50 px-4 pb-4">
+          <p className="mt-3 text-sm font-medium italic text-text" key={selectedBot.id}>
+            "{selectedBotTranslation.hook || selectedBot.personalityHook}"
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-dim">
+            <span className="rounded-full border border-surface-hover bg-surface px-2 py-0.5 font-semibold">{difficultyLabel}</span>
+            <span>{estimatedEloLabel}</span>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-text-dim">{t('bot.estimated_elo_note')}</p>
+          <p className="mt-3 text-sm leading-6 text-text">{selectedBotTranslation.backstory || selectedBot.shortBackstory}</p>
+          <div className="mt-4 grid gap-3 text-sm text-text-dim">
+            <div>
+              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.opening_preference')}</div>
+              <div className="mt-1 text-text">{selectedBotTranslation.opening || selectedBot.openingPreference}</div>
+            </div>
+            <div>
+              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.signature_style')}</div>
+              <div className="mt-1 text-text">{selectedBotTranslation.signature || selectedBot.signatureStyle}</div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.tactical_bias')}</div>
+                <div className="mt-1 text-text">{selectedBotTranslation.tactical || selectedBot.tacticalBias}</div>
+              </div>
+              <div>
+                <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.strategic_weakness')}</div>
+                <div className="mt-1 text-text">{selectedBotTranslation.weakness || selectedBot.strategicWeakness}</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {selectedBot.personalityTraits.map((trait) => (
+              <span
+                key={trait}
+                className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-xs text-text-dim"
+              >
+                {t(`bot.trait.${trait}`) || trait}
+              </span>
+            ))}
+          </div>
+          <div className="mt-4 border-t border-surface-hover/60 pt-4">
+            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.dialogue_preview')}</div>
+            <p className="mt-2 text-sm italic text-text">"{setupIntroPreview}"</p>
+            <div className="mt-3 text-xs leading-6 text-text-dim">{selectedBotTranslation.chatStyle || selectedBot.chatStyle}</div>
+          </div>
+        </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MobileOpponentStage({
+  t,
+  selectedBot,
+  selectedBotTranslation,
+  levelLabel,
+  difficultyLabel,
+  onChangeOpponent,
+}: {
+  t: TranslateFn;
+  selectedBot: BotPersona;
+  selectedBotTranslation: BotTranslationFields;
+  levelLabel: string;
+  difficultyLabel: string;
+  onChangeOpponent: () => void;
+}) {
+  return (
+    <div
+      data-testid="bot-mobile-opponent-stage"
+      className="flex min-h-[42vh] flex-col items-center justify-center px-6 pb-4 pt-8 text-center"
+    >
+      <BotAvatar
+        avatar={selectedBot.avatar}
+        size={96}
+        className="ring-2 ring-accent/25"
+      />
+      <h2 className="mt-4 font-display text-2xl font-bold tracking-tight text-text-bright">
+        {selectedBot.name}
+      </h2>
+      <p className="mt-1 max-w-xs text-sm text-text-dim">{selectedBot.title}</p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
+          {levelLabel}
+        </span>
+        <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
+          {difficultyLabel}
+        </span>
+      </div>
+      <p className="mt-4 max-w-sm text-sm italic leading-6 text-text">
+        “{selectedBotTranslation.hook || selectedBot.personalityHook}”
+      </p>
+      <button
+        type="button"
+        onClick={onChangeOpponent}
+        className="mt-5 rounded-lg border border-surface-hover bg-surface-alt/85 px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
+      >
+        {t('bot.change_opponent')}
+      </button>
+    </div>
+  );
+}
+
 export function BotGameSetupView({
   t,
   selectedBot,
@@ -90,11 +299,10 @@ export function BotGameSetupView({
   const showRoster = rosterMode !== 'closed';
   const showAllBots = rosterMode === 'all';
 
-  useEffect(() => {
-    if (showAllBots) {
-      setStrengthBand(getStrengthBandForBotId(selectedBot.id));
-    }
-  }, [showAllBots, selectedBot.id]);
+  const openAllBots = () => {
+    setRosterMode('all');
+    setStrengthBand(getStrengthBandForBotId(selectedBot.id));
+  };
 
   const visiblePersonas = showAllBots
     ? getBotPersonasInBand(strengthBand)
@@ -126,50 +334,17 @@ export function BotGameSetupView({
                 : 'lg:grid-cols-1 lg:max-w-md lg:mx-auto'
             }`}>
               {showRoster && (
-              <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 p-4 sm:p-5">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-sm font-medium text-text-dim">{t('bot.roster')}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRosterMode(showAllBots ? 'featured' : 'all')}
-                      className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
-                    >
-                      {showAllBots ? t('bot.show_featured') : t('bot.show_all_bots')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRosterMode('closed')}
-                      className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
-                    >
-                      {t('bot.hide_roster')}
-                    </button>
-                  </div>
-                </div>
-                {showAllBots && (
-                  <StrengthBandPicker
-                    t={t}
-                    activeBand={strengthBand}
-                    onSelect={setStrengthBand}
-                  />
-                )}
-                <fieldset className="min-w-0 border-0 p-0">
-                  <legend className="sr-only">{t('bot.roster')}</legend>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {visiblePersonas.map((persona, index) => (
-                      <BotCard
-                        key={persona.id}
-                        persona={persona}
-                        isSelected={selectedBot.id === persona.id}
-                        onSelect={() => handleSelectBot(persona.id)}
-                        t={t}
-                        getBotTranslation={(botId, field) => getBotTranslation(t, botId, field)}
-                        index={index}
-                      />
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
+                <DesktopRosterPanel
+                  t={t}
+                  showAllBots={showAllBots}
+                  visiblePersonas={visiblePersonas}
+                  selectedBotId={selectedBot.id}
+                  strengthBand={strengthBand}
+                  onSelectStrengthBand={setStrengthBand}
+                  onShowAllBots={openAllBots}
+                  onHideRoster={() => setRosterMode('closed')}
+                  onSelectBot={handleSelectBot}
+                />
               )}
 
               {/* Detail Panel - Start path: opponent + side + Start */}
@@ -239,72 +414,16 @@ export function BotGameSetupView({
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-surface-hover/80 bg-surface/45 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={onToggleDetails}
-                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-hover group"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className={`transition-transform duration-300 ${showDetails ? 'rotate-90' : ''}`} aria-hidden="true">▶</span>
-                      {t('bot.learn_more')} {selectedBot.name}
-                    </span>
-                  </button>
-                  <div
-                    className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
-                      showDetails ? 'max-h-[640px] opacity-100' : 'max-h-0 opacity-0'
-                    }`}
-                  >
-                    {showDetails ? (
-                    <div className="border-t border-surface-hover/50 px-4 pb-4">
-                      <p className="mt-3 text-sm font-medium italic text-text" key={selectedBot.id}>
-                        "{selectedBotTranslation.hook || selectedBot.personalityHook}"
-                      </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-dim">
-                        <span className="rounded-full border border-surface-hover bg-surface px-2 py-0.5 font-semibold">{difficultyLabel}</span>
-                        <span>{estimatedEloLabel}</span>
-                      </div>
-                      <p className="mt-2 text-xs leading-5 text-text-dim">{t('bot.estimated_elo_note')}</p>
-                      <p className="mt-3 text-sm leading-6 text-text">{selectedBotTranslation.backstory || selectedBot.shortBackstory}</p>
-                      <div className="mt-4 grid gap-3 text-sm text-text-dim">
-                        <div>
-                          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.opening_preference')}</div>
-                          <div className="mt-1 text-text">{selectedBotTranslation.opening || selectedBot.openingPreference}</div>
-                        </div>
-                        <div>
-                          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.signature_style')}</div>
-                          <div className="mt-1 text-text">{selectedBotTranslation.signature || selectedBot.signatureStyle}</div>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.tactical_bias')}</div>
-                            <div className="mt-1 text-text">{selectedBotTranslation.tactical || selectedBot.tacticalBias}</div>
-                          </div>
-                          <div>
-                            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.strategic_weakness')}</div>
-                            <div className="mt-1 text-text">{selectedBotTranslation.weakness || selectedBot.strategicWeakness}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-1.5">
-                        {selectedBot.personalityTraits.map((trait) => (
-                          <span
-                            key={trait}
-                            className="rounded-full border border-surface-hover bg-surface px-2 py-1 text-xs text-text-dim"
-                          >
-                            {t(`bot.trait.${trait}`) || trait}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="mt-4 border-t border-surface-hover/60 pt-4">
-                        <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-text-dim">{t('bot.dialogue_preview')}</div>
-                        <p className="mt-2 text-sm italic text-text">"{setupIntroPreview}"</p>
-                        <div className="mt-3 text-xs leading-6 text-text-dim">{selectedBotTranslation.chatStyle || selectedBot.chatStyle}</div>
-                      </div>
-                    </div>
-                    ) : null}
-                  </div>
-                </div>
+                <BotDetailsDisclosure
+                  t={t}
+                  showDetails={showDetails}
+                  onToggleDetails={onToggleDetails}
+                  selectedBot={selectedBot}
+                  selectedBotTranslation={selectedBotTranslation}
+                  difficultyLabel={difficultyLabel}
+                  estimatedEloLabel={estimatedEloLabel}
+                  setupIntroPreview={setupIntroPreview}
+                />
 
                 <button type="button"
                   onClick={onBackHome}
@@ -324,7 +443,7 @@ export function BotGameSetupView({
                     <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => setRosterMode(showAllBots ? 'featured' : 'all')}
+                        onClick={openAllBots}
                         className="rounded-lg border border-surface-hover bg-surface-alt/85 px-3 py-1.5 text-xs font-semibold text-text-bright transition-colors hover:bg-surface-hover"
                       >
                         {showAllBots ? t('bot.show_featured') : t('bot.show_all_bots')}
@@ -361,38 +480,14 @@ export function BotGameSetupView({
                   </div>
                 </>
               ) : (
-                <div
-                  data-testid="bot-mobile-opponent-stage"
-                  className="flex min-h-[42vh] flex-col items-center justify-center px-6 pb-4 pt-8 text-center"
-                >
-                  <BotAvatar
-                    avatar={selectedBot.avatar}
-                    size={96}
-                    className="ring-2 ring-accent/25"
-                  />
-                  <h2 className="mt-4 font-display text-2xl font-bold tracking-tight text-text-bright">
-                    {selectedBot.name}
-                  </h2>
-                  <p className="mt-1 max-w-xs text-sm text-text-dim">{selectedBot.title}</p>
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
-                      {levelLabel}
-                    </span>
-                    <span className="rounded-full border border-surface-hover bg-surface px-2.5 py-0.5 text-xs font-semibold text-text-dim">
-                      {difficultyLabel}
-                    </span>
-                  </div>
-                  <p className="mt-4 max-w-sm text-sm italic leading-6 text-text">
-                    “{selectedBotTranslation.hook || selectedBot.personalityHook}”
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setRosterMode('featured')}
-                    className="mt-5 rounded-lg border border-surface-hover bg-surface-alt/85 px-4 py-2 text-sm font-semibold text-text-bright transition-colors hover:bg-surface-hover"
-                  >
-                    {t('bot.change_opponent')}
-                  </button>
-                </div>
+                <MobileOpponentStage
+                  t={t}
+                  selectedBot={selectedBot}
+                  selectedBotTranslation={selectedBotTranslation}
+                  levelLabel={levelLabel}
+                  difficultyLabel={difficultyLabel}
+                  onChangeOpponent={() => setRosterMode('featured')}
+                />
               )}
             </div>
         </div>

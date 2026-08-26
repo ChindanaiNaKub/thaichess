@@ -53,7 +53,7 @@ export default function AppearanceSettingsButton({
   const [tab, setTab] = useState<PanelTab>('boards');
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDialogElement | null>(null);
   const wasOpenRef = useRef(false);
   const panelId = useId();
   const label = compact ? t('appearance.open_short') : t('appearance.open');
@@ -151,14 +151,13 @@ export default function AppearanceSettingsButton({
         {label}
       </button>
       {open ? (
-        <div
+        <dialog
           ref={panelRef}
           id={panelId}
-          role="dialog"
-          aria-modal="true"
           aria-label={t('appearance.board_and_pieces')}
           data-testid="appearance-popover"
-          className="absolute right-0 top-full z-40 mt-1 w-[min(18.5rem,calc(100vw-1.5rem))] rounded-xl border border-surface-hover/80 bg-surface-alt/95 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
+          className="absolute right-0 top-full z-40 m-0 mt-1 w-[min(18.5rem,calc(100vw-1.5rem))] max-w-none max-h-none rounded-xl border border-surface-hover/80 bg-surface-alt/95 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
+          open
         >
           <div className="mb-2 flex gap-1 border-b border-surface-hover/70 pb-2" role="tablist" aria-label={t('appearance.board_and_pieces')}>
             <button
@@ -252,7 +251,7 @@ export default function AppearanceSettingsButton({
                   );
                 })}
           </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );

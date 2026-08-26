@@ -14,10 +14,15 @@ export default function ConnectionStatus() {
   useEffect(() => {
     let connectedHideTimer: ReturnType<typeof setTimeout> | undefined;
 
+    const clearConnectedHideTimer = () => {
+      if (connectedHideTimer !== undefined) clearTimeout(connectedHideTimer);
+      connectedHideTimer = undefined;
+    };
+
     const onConnect = () => {
       setStatus('connected');
       setShowBanner(true);
-      window.clearTimeout(connectedHideTimer);
+      clearConnectedHideTimer();
       connectedHideTimer = setTimeout(() => setShowBanner(false), 2000);
     };
     const onDisconnect = () => {
@@ -36,8 +41,11 @@ export default function ConnectionStatus() {
     if (socket.connected) setStatus('connected');
 
     return () => {
-      window.clearTimeout(connectedHideTimer);
+      if (connectedHideTimer !== undefined) clearTimeout(connectedHideTimer);
+      connectedHideTimer = undefined;
       socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.io.off('reconnect_attempt', onReconnectAttempt);
       socket.off('disconnect', onDisconnect);
       socket.io.off('reconnect_attempt', onReconnectAttempt);
     };

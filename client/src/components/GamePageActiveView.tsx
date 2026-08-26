@@ -120,6 +120,227 @@ export type GamePageActiveViewProps = {
   onCloseGuide: () => void;
 };
 
+function ActiveViewHeaderMeta({
+  t,
+  rated,
+  shareLabel,
+  spectatorPath,
+  gameId,
+  onCopyGameLink,
+}: {
+  t: TranslateFn;
+  rated: boolean;
+  shareLabel: string;
+  spectatorPath: string;
+  gameId: string | undefined;
+  onCopyGameLink: () => void;
+}) {
+  return (
+    <>
+      <span
+        data-testid="game-rated-chip"
+        className={`${gameMetaChipClass} px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]`}
+      >
+        {rated ? t('game.rated') : t('game.casual')}
+      </span>
+      <AppearanceSettingsButton compact mode="popover" />
+      <GameHeaderToolsMenu t={t}>
+        <button
+          type="button"
+          onClick={onCopyGameLink}
+          className={gameHeaderMenuItemClass}
+        >
+          {shareLabel}
+        </button>
+        <a
+          href={spectatorPath}
+          target="_blank"
+          rel="noreferrer"
+          className={gameHeaderMenuItemClass}
+        >
+          {t('game.open_spectator')}
+        </a>
+        {gameId ? (
+          <div className="px-3 py-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim">
+            {t('game.game_label')}{' '}
+            <span className="font-mono normal-case tracking-normal text-text-bright">{gameId}</span>
+          </div>
+        ) : null}
+      </GameHeaderToolsMenu>
+    </>
+  );
+}
+
+function ActiveViewBanners({
+  t,
+  notices,
+  onDismissLiveError,
+  onRespondDraw,
+}: {
+  t: TranslateFn;
+  notices: {
+    drawOffered: boolean;
+    opponentDisconnected: boolean;
+    liveError: string | null;
+  };
+  onDismissLiveError: () => void;
+  onRespondDraw: (accept: boolean) => void;
+}) {
+  return (
+    <>
+      {notices.liveError && (
+        <div
+          role="alert"
+          className="flex items-center justify-center gap-3 border-b border-danger/30 bg-danger/15 px-3 py-2.5 text-center text-xs sm:text-sm text-danger"
+        >
+          <span className="min-w-0 flex-1 font-medium">{notices.liveError}</span>
+          <button
+            type="button"
+            onClick={onDismissLiveError}
+            className="shrink-0 rounded-lg border border-danger/30 px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+            aria-label={t('common.close')}
+          >
+            {t('common.close')}
+          </button>
+        </div>
+      )}
+      {notices.opponentDisconnected && (
+        <div className="border-b border-surface-hover bg-surface-alt/80 text-center py-2 text-xs sm:text-sm text-text-dim">
+          {t('game.opponent_dc')}
+        </div>
+      )}
+      {notices.drawOffered && (
+        <div
+          data-testid="draw-offer-banner"
+          className="flex flex-wrap items-center justify-center gap-3 border-b border-surface-hover/80 bg-surface-alt/95 px-2 py-3 text-center text-xs sm:text-sm"
+        >
+          <span className="font-medium text-text-bright">{t('game.draw_offer_received')}</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => onRespondDraw(true)}
+              className="ui-btn-primary px-4 py-2 text-sm"
+            >
+              {t('game.accept')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onRespondDraw(false)}
+              className="rounded-lg border border-surface-hover bg-transparent px-4 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
+            >
+              {t('game.decline')}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PeakEndModal({
+  t,
+  gameState,
+  playerColor,
+  gameOverInfo,
+  rematch,
+  reporting,
+  gameId,
+  timeControl,
+  whitePlayerName,
+  blackPlayerName,
+  shareOpen,
+  onShareOpen,
+  canShare,
+  onRematch,
+  onNewGame,
+  onAnalyze,
+  onReport,
+  onCloseGameOverModal,
+}: {
+  t: TranslateFn;
+  gameState: ClientGameState;
+  playerColor: PieceColor | null;
+  gameOverInfo: GameOverInfo;
+  rematch: { label: string; notice: string | null; disabled: boolean };
+  reporting: { allowed: boolean; label: string; modalLabel: string; disabled: boolean };
+  gameId: string | undefined;
+  timeControl: TimeControl | null;
+  whitePlayerName: string;
+  blackPlayerName: string;
+  shareOpen: boolean;
+  onShareOpen: (open: boolean) => void;
+  canShare: boolean;
+  onRematch: () => void;
+  onNewGame: () => void;
+  onAnalyze: (() => void) | undefined;
+  onReport: (() => void) | undefined;
+  onCloseGameOverModal: () => void;
+}) {
+  return (
+    <GameOverModal
+      winner={gameOverInfo.winner}
+      reason={gameOverInfo.reason}
+      playerColor={playerColor}
+      rated={gameState.rated}
+      ratingChange={gameOverInfo.ratingChange}
+      onRematch={onRematch}
+      onNewGame={onNewGame}
+      rematchLabel={rematch.label}
+      rematchDisabled={rematch.disabled}
+      rematchNotice={rematch.notice}
+      onAnalyze={onAnalyze}
+      onReport={reporting.allowed ? onReport : undefined}
+      reportLabel={reporting.modalLabel}
+      reportDisabled={reporting.disabled}
+      onClose={() => {
+        onShareOpen(false);
+        onCloseGameOverModal();
+      }}
+      moreExtrasOnly={shareOpen}
+      moreExtras={
+        canShare && playerColor ? (
+          shareOpen ? (
+            <div className="space-y-2 text-left" data-testid="post-game-share-path">
+              <button
+                type="button"
+                onClick={() => onShareOpen(false)}
+                className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+              >
+                {t('game.hide_share')}
+              </button>
+              <PostGameSharePanel
+                analysisId={gameId}
+                board={gameState.board}
+                lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+                moves={gameState.moveHistory}
+                moveCount={gameState.moveCount}
+                playerColor={playerColor}
+                whitePlayerName={whitePlayerName || t('common.white')}
+                blackPlayerName={blackPlayerName || t('common.black')}
+                winner={gameOverInfo.winner}
+                resultReason={gameOverInfo.reason}
+                gameMode={gameState.gameMode}
+                rated={gameState.rated}
+                timeControl={timeControl}
+                ratingChange={gameOverInfo.ratingChange}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              data-testid="post-game-share-expand"
+              onClick={() => onShareOpen(true)}
+              className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
+            >
+              {t('game.show_share')}
+            </button>
+          )
+        ) : null
+      }
+    />
+  );
+}
+
 export function GamePageActiveView({
   t,
   gameId,
@@ -201,87 +422,22 @@ export function GamePageActiveView({
       <InGameShell
         onHome={onHome}
         headerMeta={
-          <>
-            <span
-              data-testid="game-rated-chip"
-              className={`${gameMetaChipClass} px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em]`}
-            >
-              {gameState.rated ? t('game.rated') : t('game.casual')}
-            </span>
-            <AppearanceSettingsButton compact mode="popover" />
-            <GameHeaderToolsMenu t={t}>
-              <button
-                type="button"
-                onClick={onCopyGameLink}
-                className={gameHeaderMenuItemClass}
-              >
-                {shareLabel}
-              </button>
-              <a
-                href={spectatorPath}
-                target="_blank"
-                rel="noreferrer"
-                className={gameHeaderMenuItemClass}
-              >
-                {t('game.open_spectator')}
-              </a>
-              {gameId ? (
-                <div className="px-3 py-2 text-[0.7rem] uppercase tracking-[0.16em] text-text-dim">
-                  {t('game.game_label')}{' '}
-                  <span className="font-mono normal-case tracking-normal text-text-bright">{gameId}</span>
-                </div>
-              ) : null}
-            </GameHeaderToolsMenu>
-          </>
+          <ActiveViewHeaderMeta
+            t={t}
+            rated={gameState.rated}
+            shareLabel={shareLabel}
+            spectatorPath={spectatorPath}
+            gameId={gameId}
+            onCopyGameLink={onCopyGameLink}
+          />
         }
         banners={
-          <>
-            {notices.liveError && (
-              <div
-                role="alert"
-                className="flex items-center justify-center gap-3 border-b border-danger/30 bg-danger/15 px-3 py-2.5 text-center text-xs sm:text-sm text-danger"
-              >
-                <span className="min-w-0 flex-1 font-medium">{notices.liveError}</span>
-                <button
-                  type="button"
-                  onClick={onDismissLiveError}
-                  className="shrink-0 rounded-lg border border-danger/30 px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
-                  aria-label={t('common.close')}
-                >
-                  {t('common.close')}
-                </button>
-              </div>
-            )}
-            {notices.opponentDisconnected && (
-              <div className="border-b border-surface-hover bg-surface-alt/80 text-center py-2 text-xs sm:text-sm text-text-dim">
-                {t('game.opponent_dc')}
-              </div>
-            )}
-            {notices.drawOffered && (
-              <div
-                data-testid="draw-offer-banner"
-                className="flex flex-wrap items-center justify-center gap-3 border-b border-surface-hover/80 bg-surface-alt/95 px-2 py-3 text-center text-xs sm:text-sm"
-              >
-                <span className="font-medium text-text-bright">{t('game.draw_offer_received')}</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onRespondDraw(true)}
-                    className="ui-btn-primary px-4 py-2 text-sm"
-                  >
-                    {t('game.accept')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onRespondDraw(false)}
-                    className="rounded-lg border border-surface-hover bg-transparent px-4 py-2 text-sm font-semibold text-text-dim transition-colors hover:bg-surface-hover hover:text-text-bright"
-                  >
-                    {t('game.decline')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+          <ActiveViewBanners
+            t={t}
+            notices={notices}
+            onDismissLiveError={onDismissLiveError}
+            onRespondDraw={onRespondDraw}
+          />
         }
         topPanel={
           <Clock
@@ -389,8 +545,7 @@ export function GamePageActiveView({
             gameState={gameState}
             playerColor={playerColor}
             countingLabel={showCounting && lgUp ? counting.label : null}
-            canStartCounting={counting.canStart}
-            canStopCounting={counting.canStop}
+            countingAction={counting.canStart ? 'start' : counting.canStop ? 'stop' : null}
             gameOverInfo={gameOverInfo}
             rematchLabel={rematch.label}
             rematchNotice={rematch.notice}
@@ -423,66 +578,25 @@ export function GamePageActiveView({
       />
 
       {gameOverInfo && overlays.showGameOverModal && (
-        <GameOverModal
-          winner={gameOverInfo.winner}
-          reason={gameOverInfo.reason}
+        <PeakEndModal
+          t={t}
+          gameState={gameState}
           playerColor={playerColor}
-          rated={gameState.rated}
-          ratingChange={gameOverInfo.ratingChange}
+          gameOverInfo={gameOverInfo}
+          rematch={rematch}
+          reporting={reporting}
+          gameId={gameId}
+          timeControl={timeControl}
+          whitePlayerName={whitePlayerName}
+          blackPlayerName={blackPlayerName}
+          shareOpen={peakShareOpen}
+          onShareOpen={setPeakShareOpen}
+          canShare={canPeakShare}
           onRematch={onRematch}
           onNewGame={onNewGame}
-          rematchLabel={rematch.label}
-          rematchDisabled={rematch.disabled}
-          rematchNotice={rematch.notice}
           onAnalyze={onAnalyze}
-          onReport={reporting.allowed ? onReport : undefined}
-          reportLabel={reporting.modalLabel}
-          reportDisabled={reporting.disabled}
-          onClose={() => {
-            setPeakShareOpen(false);
-            onCloseGameOverModal();
-          }}
-          moreExtrasOnly={peakShareOpen}
-          moreExtras={
-            canPeakShare && playerColor ? (
-              peakShareOpen ? (
-                <div className="space-y-2 text-left" data-testid="post-game-share-path">
-                  <button
-                    type="button"
-                    onClick={() => setPeakShareOpen(false)}
-                    className="w-full text-left text-sm font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
-                  >
-                    {t('game.hide_share')}
-                  </button>
-                  <PostGameSharePanel
-                    analysisId={gameId}
-                    board={gameState.board}
-                    lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
-                    moves={gameState.moveHistory}
-                    moveCount={gameState.moveCount}
-                    playerColor={playerColor}
-                    whitePlayerName={whitePlayerName || t('common.white')}
-                    blackPlayerName={blackPlayerName || t('common.black')}
-                    winner={gameOverInfo.winner}
-                    resultReason={gameOverInfo.reason}
-                    gameMode={gameState.gameMode}
-                    rated={gameState.rated}
-                    timeControl={timeControl}
-                    ratingChange={gameOverInfo.ratingChange}
-                  />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  data-testid="post-game-share-expand"
-                  onClick={() => setPeakShareOpen(true)}
-                  className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
-                >
-                  {t('game.show_share')}
-                </button>
-              )
-            ) : null
-          }
+          onReport={onReport}
+          onCloseGameOverModal={onCloseGameOverModal}
         />
       )}
 

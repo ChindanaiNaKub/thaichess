@@ -97,6 +97,127 @@ type BotGameSidePanelProps = {
   leaveUrgent?: boolean;
 };
 
+function SidePanelEndgameExtras({
+  t,
+  reviewActive,
+  shareOpen,
+  onShareClose,
+  onShareOpen,
+  reviewOpen,
+  onReviewClose,
+  onReviewOpen,
+  gameOverInfo,
+  gameState,
+  playerColor,
+  playerDisplayName,
+  botName,
+  currentGameId,
+  review,
+  reviewEngine,
+}: {
+  t: TranslateFn;
+  reviewActive: boolean;
+  shareOpen: boolean;
+  onShareClose: () => void;
+  onShareOpen: () => void;
+  reviewOpen: boolean;
+  onReviewClose: () => void;
+  onReviewOpen: () => void;
+  gameOverInfo: { reason: string; winner: PieceColor | null };
+  gameState: GameState;
+  playerColor: PieceColor;
+  playerDisplayName: string;
+  botName: string;
+  currentGameId: string | null;
+  review: ReviewControls;
+  reviewEngine: ReviewEngineControls;
+}) {
+  return (
+    <>
+      {shareOpen ? (
+        <div className="space-y-2" data-testid="post-game-share-path">
+          <button
+            type="button"
+            onClick={onShareClose}
+            className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+          >
+            {t('game.hide_share')}
+          </button>
+          <PostGameSharePanel
+            analysisId={currentGameId}
+            board={gameState.board}
+            lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
+            moves={gameState.moveHistory}
+            moveCount={gameState.moveCount}
+            playerColor={playerColor}
+            whitePlayerName={playerColor === 'white' ? playerDisplayName : botName}
+            blackPlayerName={playerColor === 'black' ? playerDisplayName : botName}
+            winner={gameOverInfo.winner}
+            resultReason={gameOverInfo.reason}
+            gameMode="bot"
+            timeControl={BOT_GAME_TIME_CONTROL}
+          />
+        </div>
+      ) : null}
+      {reviewOpen ? (
+        <div className="space-y-2" data-testid="post-game-review-path">
+          <button
+            type="button"
+            onClick={onReviewClose}
+            className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
+          >
+            {t('game.hide_review')}
+          </button>
+          <PostGameReviewPanel
+            mode={review.mode}
+            selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
+            analysisRootMoveIndex={review.analysisRootMoveIndex}
+            analysisLine={review.analysisLine}
+            controls={{
+              enterAnalysis: review.canEnterAnalysis,
+              resetAnalysis: review.canResetAnalysis,
+              stepBackward: review.canStepBackward,
+              stepForward: review.canStepForward,
+            }}
+            onEnterAnalysis={review.enterAnalysis}
+            onReturnToMainLine={review.returnToMainLine}
+            onResetAnalysis={review.resetAnalysis}
+            onStepBackward={review.stepBackward}
+            onStepForward={review.stepForward}
+            onJumpToStart={review.jumpToStart}
+            onJumpToEnd={review.jumpToEnd}
+            engineAnalysis={reviewEngine.analysis}
+            engineAnalyzing={reviewEngine.analyzing}
+            engineError={reviewEngine.error}
+          />
+        </div>
+      ) : null}
+      {!shareOpen && !reviewOpen ? (
+        <>
+          <button
+            type="button"
+            data-testid="post-game-share-expand"
+            onClick={onShareOpen}
+            className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
+          >
+            {t('game.show_share')}
+          </button>
+          {reviewActive ? (
+            <button
+              type="button"
+              data-testid="post-game-review-expand"
+              onClick={onReviewOpen}
+              className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
+            >
+              {t('game.show_review')}
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export function BotGameSidePanel({
   t,
   selectedBot,
@@ -246,94 +367,30 @@ export function BotGameSidePanel({
           onAnalyze={onAnalyze}
           moreExtrasOnly={shareOpen || reviewOpen}
           moreExtras={
-            <>
-              {shareOpen ? (
-                <div className="space-y-2" data-testid="post-game-share-path">
-                  <button
-                    type="button"
-                    onClick={() => setShareOpen(false)}
-                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
-                  >
-                    {t('game.hide_share')}
-                  </button>
-                  <PostGameSharePanel
-                    analysisId={currentGameId}
-                    board={gameState.board}
-                    lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
-                    moves={gameState.moveHistory}
-                    moveCount={gameState.moveCount}
-                    playerColor={playerColor}
-                    whitePlayerName={playerColor === 'white' ? playerDisplayName : botName}
-                    blackPlayerName={playerColor === 'black' ? playerDisplayName : botName}
-                    winner={gameOverInfo.winner}
-                    resultReason={gameOverInfo.reason}
-                    gameMode="bot"
-                    timeControl={BOT_GAME_TIME_CONTROL}
-                  />
-                </div>
-              ) : null}
-              {reviewOpen ? (
-                <div className="space-y-2" data-testid="post-game-review-path">
-                  <button
-                    type="button"
-                    onClick={() => setReviewOpen(false)}
-                    className="w-full px-3 py-2 text-left text-xs font-semibold text-text-dim underline-offset-4 transition-colors hover:text-text-bright hover:underline"
-                  >
-                    {t('game.hide_review')}
-                  </button>
-                  <PostGameReviewPanel
-                    mode={review.mode}
-                    selectedMainLineMoveIndex={review.selectedMainLineMoveIndex}
-                    analysisRootMoveIndex={review.analysisRootMoveIndex}
-                    analysisLine={review.analysisLine}
-                    controls={{
-                      enterAnalysis: review.canEnterAnalysis,
-                      resetAnalysis: review.canResetAnalysis,
-                      stepBackward: review.canStepBackward,
-                      stepForward: review.canStepForward,
-                    }}
-                    onEnterAnalysis={review.enterAnalysis}
-                    onReturnToMainLine={review.returnToMainLine}
-                    onResetAnalysis={review.resetAnalysis}
-                    onStepBackward={review.stepBackward}
-                    onStepForward={review.stepForward}
-                    onJumpToStart={review.jumpToStart}
-                    onJumpToEnd={review.jumpToEnd}
-                    engineAnalysis={reviewEngine.analysis}
-                    engineAnalyzing={reviewEngine.analyzing}
-                    engineError={reviewEngine.error}
-                  />
-                </div>
-              ) : null}
-              {!shareOpen && !reviewOpen ? (
-                <>
-                  <button
-                    type="button"
-                    data-testid="post-game-share-expand"
-                    onClick={() => {
-                      setReviewOpen(false);
-                      setShareOpen(true);
-                    }}
-                    className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
-                  >
-                    {t('game.show_share')}
-                  </button>
-                  {reviewActive ? (
-                    <button
-                      type="button"
-                      data-testid="post-game-review-expand"
-                      onClick={() => {
-                        setShareOpen(false);
-                        setReviewOpen(true);
-                      }}
-                      className="ui-btn-secondary w-full px-3 py-2 text-xs font-semibold"
-                    >
-                      {t('game.show_review')}
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
-            </>
+            <SidePanelEndgameExtras
+              t={t}
+              reviewActive={reviewActive}
+              shareOpen={shareOpen}
+              onShareClose={() => setShareOpen(false)}
+              onShareOpen={() => {
+                setReviewOpen(false);
+                setShareOpen(true);
+              }}
+              reviewOpen={reviewOpen}
+              onReviewClose={() => setReviewOpen(false)}
+              onReviewOpen={() => {
+                setShareOpen(false);
+                setReviewOpen(true);
+              }}
+              gameOverInfo={gameOverInfo}
+              gameState={gameState}
+              playerColor={playerColor}
+              playerDisplayName={playerDisplayName}
+              botName={botName}
+              currentGameId={currentGameId}
+              review={review}
+              reviewEngine={reviewEngine}
+            />
           }
         />
       )}

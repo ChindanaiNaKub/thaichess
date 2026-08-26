@@ -202,13 +202,6 @@ export function getPuzzleOriginLabel(
   return t('puzzle.source_community');
 }
 
-export function getPuzzleOriginBadgeClasses(origin: Puzzle['origin']): string {
-  if (origin === 'engine-generated') {
-    return 'border-accent/35 bg-accent/12 text-accent';
-  }
-
-  return 'border-primary/35 bg-primary/12 text-primary-light';
-}
 
 const activityDateFormatters = {
   th: new Intl.DateTimeFormat('th-TH', { month: 'short', day: 'numeric' }),
@@ -220,12 +213,6 @@ export function formatActivityDate(timestamp: number, lang: string): string {
     .format(new Date(timestamp * 1000));
 }
 
-export function formatPuzzleTag(tag: string): string {
-  return tag
-    .split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
 
 export function getDifficultyTextClasses(difficulty: Puzzle['difficulty']): string {
   switch (difficulty) {
@@ -240,18 +227,6 @@ export function getDifficultyTextClasses(difficulty: Puzzle['difficulty']): stri
   }
 }
 
-export function getDifficultyBadgeClasses(difficulty: Puzzle['difficulty']): string {
-  switch (difficulty) {
-    case 'beginner':
-      return 'bg-green-400/10 border-green-400/30 text-green-400';
-    case 'intermediate':
-      return 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400';
-    case 'advanced':
-      return 'bg-red-400/10 border-red-400/30 text-red-400';
-    default:
-      return 'bg-surface-alt border-surface-hover text-text';
-  }
-}
 
 export function getFeedbackClasses(tone: StreakFeedback['tone']): string {
   switch (tone) {

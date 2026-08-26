@@ -130,24 +130,32 @@ export function AnalysisGameSidePanel({
               <button type="button"
                 onClick={onNavigateToStart}
                 className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+              
+                aria-label={t('moves.first_position')}
               >
                 ⏮
               </button>
               <button type="button"
                 onClick={onNavigateBackward}
                 className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+              
+                aria-label={t('moves.previous_move')}
               >
                 ◀
               </button>
               <button type="button"
                 onClick={onNavigateForward}
                 className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+              
+                aria-label={t('moves.next_move')}
               >
                 ▶
               </button>
               <button type="button"
                 onClick={onNavigateToEnd}
                 className="px-2.5 py-1 text-xs rounded bg-surface-alt hover:bg-surface-hover text-text-dim hover:text-text-bright border border-surface-hover transition-colors"
+              
+                aria-label={t('moves.last_move')}
               >
                 ⏭
               </button>

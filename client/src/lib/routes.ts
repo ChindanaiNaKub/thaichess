@@ -49,9 +49,6 @@ export function spectatorGameRoute(gameId: string): string {
   return `/spectate/${gameId}`;
 }
 
-export function watchRoute(): string {
-  return routes.watch;
-}
 
 export function savedGameAnalysisRoute(gameId: string): string {
   return `/analysis/${gameId}`;

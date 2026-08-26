@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from './i18n';
+import { TOAST_CONTAINER_CLASS, TOAST_DURATION_MS, TOAST_LIFT_CLASS } from './toastConstants';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -14,13 +15,6 @@ interface ToastContextValue {
   showToast: (message: string, type: ToastType) => void;
   dismissToast: (id: string) => void;
 }
-
-/** Success/info stay brief; errors linger so they can be read under stress. */
-export const TOAST_DURATION_MS: Record<ToastType, number> = {
-  success: 3000,
-  info: 4000,
-  error: 8000,
-};
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
@@ -80,10 +74,6 @@ export function useToast() {
   return context;
 }
 
-/** Mobile: top band clears header + thumb chrome; lg+: bottom-right. */
-export const TOAST_CONTAINER_CLASS =
-  'pointer-events-none fixed inset-x-4 top-[max(5rem,calc(env(safe-area-inset-top)+3.75rem))] z-[60] mx-auto flex w-full max-w-sm flex-col gap-2 lg:inset-x-auto lg:bottom-4 lg:left-auto lg:right-4 lg:top-auto lg:mx-0';
-
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
   if (toasts.length === 0) return null;
 
@@ -105,9 +95,6 @@ const toastSurfaceClass: Record<ToastType, string> = {
   error: 'border-danger/30 bg-danger/10 text-danger',
   info: 'border-surface-hover/80 bg-surface-alt text-text-bright',
 };
-
-/** Felt Table lift — matches board-frame vocabulary, not SaaS card glow. */
-export const TOAST_LIFT_CLASS = 'shadow-[0_10px_24px_oklch(0.10_0.02_65_/_0.14)]';
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const { t } = useTranslation();
