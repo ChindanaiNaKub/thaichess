@@ -16,6 +16,7 @@ import GameOverModal from './GameOverModal';
 import PieceGuide from './PieceGuide';
 import PostGameSharePanel from './PostGameSharePanel';
 import { GamePageSidePanel } from './GamePageSidePanel';
+import { MoveAnnouncer } from './MoveAnnouncer';
 import type { ReviewControls, ReviewEngineControls } from './GamePageSidePanel';
 import type { GameOverInfo, TranslateFn } from './gamePageHelpers';
 import { CLOCK_CRITICAL_MS, gameMetaChipClass, shouldOfferPieceGuideStatusHelp } from './gamePageHelpers';
@@ -417,6 +418,7 @@ export function GamePageActiveView({
 
   return (
     <div ref={containerRef}>
+      <MoveAnnouncer gameState={gameState} playerColor={playerColor} t={t} />
       <ConnectionStatus />
 
       <InGameShell

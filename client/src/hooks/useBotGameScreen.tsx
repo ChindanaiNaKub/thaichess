@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_BOT_PERSONA_ID, getBotDialogueRules, getBotPersonaById } from '@shared/botPersonas';
+import { DEFAULT_BOT_PERSONA_ID, getBotPersonaById } from '@shared/botPersonas';
 import { getBotPublicStrengthLabel } from '@shared/botEngine';
 import { formatBotEstimatedEloRange } from '@shared/botEstimatedElo';
 import { getBotDialoguePack } from '@shared/botDialogueCatalog';
@@ -9,7 +9,6 @@ import {
   getLegalMoves, makeMove, createInitialGameState, getLastMoveForView,
   startCounting, stopCounting,
 } from '@shared/engine';
-import { resolveMakrukTimeoutOutcome } from '@shared/makrukRules';
 import { buildInlineAnalysisRoute, requestBotMove } from '../lib/analysis';
 import {
   emptyBoardSelection,
@@ -27,16 +26,8 @@ import { requestBrowserEngineBotMove } from '../lib/browserEngineBot';
 import { useBoardNavKeyboard } from '../hooks/useBoardNavKeyboard';
 import { usePostGameReview } from '../hooks/usePostGameReview';
 import { useReviewEngineAnalysis } from '../hooks/useReviewEngineAnalysis';
-import {
-  createBotIntroDecision,
-  createBotOutcomeDecision,
-  getThinkingTriggerDelayMs,
-  maybeCreateMoveDialogue,
-  maybeCreateThinkingDecision,
-  type BotChatDecision,
-  type BotChatMessage,
-  type BotChatHistory,
-} from '../lib/botDialogue';
+import { useBotChatDialogue } from './useBotChatDialogue';
+import { useBotClock } from './useBotClock';
 import { getBotRequestTimeoutMs } from '../lib/botRequestTimeout';
 import { requestLocalBotMove } from '../lib/localBot';
 import { playMoveSound, playCaptureSound, playCheckSound, playGameOverSound } from '../lib/sounds';
@@ -60,8 +51,6 @@ import {
   type SideChoice,
 } from '../components/botGameHelpers';
 
-const BOT_CLOCK_TICK_MS = 500;
-
 export function useBotGameScreen() {
   const navigate = useNavigate();
   const { t, lang } = useTranslation();
@@ -80,25 +69,13 @@ export function useBotGameScreen() {
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
-  const [botChat, setBotChat] = useState<BotChatMessage | null>(null);
-  const [botChatFading, setBotChatFading] = useState(false);
   const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestAbortRef = useRef<AbortController | null>(null);
-  const pendingBotChatRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const botChatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const botChatFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const botThinkingLineTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const botRequestIdRef = useRef(0);
   const failedBotMoveKeyRef = useRef<string | null>(null);
   const gameStateRef = useRef(gameState);
-  const previousGameStateRef = useRef(gameState);
   const moveCountRef = useRef(gameState.moveHistory.length);
-  const lastBotChatMoveCountRef = useRef(-99);
-  const lastBotChatAtRef = useRef(-100000);
-  const botChatVisibleUntilRef = useRef(-100000);
-  const recentBotLineKeysRef = useRef<string[]>([]);
-  const activeBotChatRef = useRef<BotChatMessage | null>(null);
   const persistedGameIdRef = useRef<string | null>(null);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [viewMoveIndex, setViewMoveIndex] = useState<number | null>(null);
@@ -156,6 +133,28 @@ export function useBotGameScreen() {
     selectedBotIdRef.current = selectedBot.id;
   }, [selectedBot.id]);
 
+  const {
+    botChat,
+    botChatFading,
+    queueIntro,
+    resetBotChat,
+  } = useBotChatDialogue({
+    gameStarted,
+    gameStateRef,
+    gameOver: gameState.gameOver,
+    moveCount: gameState.moveHistory.length,
+    botThinking,
+    selectedBot,
+    lang,
+    botColor,
+  });
+
+  useBotClock({
+    running: gameStarted,
+    gameOver: gameState.gameOver,
+    onTick: setGameState,
+  });
+
   // Helper to save bot game and navigate to analysis
   const handleAnalyzeGame = useCallback(() => {
     if (!currentGameId || gameState.moveHistory.length === 0) {
@@ -198,96 +197,6 @@ export function useBotGameScreen() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  useEffect(() => {
-    activeBotChatRef.current = botChat;
-  }, [botChat]);
-
-  const clearPendingBotChat = useCallback(() => {
-    if (pendingBotChatRef.current) {
-      clearTimeout(pendingBotChatRef.current);
-      pendingBotChatRef.current = null;
-    }
-  }, []);
-
-  const buildBotChatHistory = useCallback((): BotChatHistory => ({
-    lastChatMoveCount: lastBotChatMoveCountRef.current,
-    lastChatAt: lastBotChatAtRef.current,
-    recentLineKeys: recentBotLineKeysRef.current,
-    hasActiveMessage: activeBotChatRef.current !== null,
-    hasPendingMessage: pendingBotChatRef.current !== null,
-  }), []);
-
-  const showBotChat = useCallback((message: BotChatMessage, moveCount: number, displayMs: number) => {
-    if (botChatTimeoutRef.current) {
-      clearTimeout(botChatTimeoutRef.current);
-      botChatTimeoutRef.current = null;
-    }
-    if (botChatFadeTimeoutRef.current) {
-      clearTimeout(botChatFadeTimeoutRef.current);
-      botChatFadeTimeoutRef.current = null;
-    }
-
-    setBotChatFading(false);
-    setBotChat(message);
-    lastBotChatMoveCountRef.current = moveCount;
-    lastBotChatAtRef.current = Date.now();
-    botChatVisibleUntilRef.current = Date.now() + displayMs;
-    recentBotLineKeysRef.current = [
-      ...recentBotLineKeysRef.current,
-      message.lineKey,
-    ].slice(-getBotDialogueRules(selectedBot).recentLineWindow);
-    botChatTimeoutRef.current = setTimeout(() => {
-      setBotChatFading(true);
-      botChatFadeTimeoutRef.current = setTimeout(() => {
-        setBotChat((current) => (current?.id === message.id ? null : current));
-        setBotChatFading(false);
-        botChatFadeTimeoutRef.current = null;
-      }, 320);
-      botChatTimeoutRef.current = null;
-    }, displayMs);
-  }, [selectedBot]);
-
-  const queueBotChat = useCallback((decision: BotChatDecision | null) => {
-    if (!decision) {
-      return;
-    }
-
-    const now = Date.now();
-    const remainingVisibleMs = Math.max(0, botChatVisibleUntilRef.current - now);
-
-    if (!decision.force && pendingBotChatRef.current) {
-      return;
-    }
-
-    if (decision.force) {
-      clearPendingBotChat();
-    }
-
-    if (!decision.force && activeBotChatRef.current && remainingVisibleMs > 0) {
-      return;
-    }
-
-    const scheduledDelayMs = decision.force
-      ? decision.delayMs + remainingVisibleMs
-      : Math.max(decision.delayMs, remainingVisibleMs);
-
-    clearPendingBotChat();
-
-    pendingBotChatRef.current = setTimeout(() => {
-      pendingBotChatRef.current = null;
-
-      if (!gameStarted) {
-        return;
-      }
-
-      if (!decision.force && gameStateRef.current.moveHistory.length !== decision.expectedMoveCount) {
-        return;
-      }
-
-      showBotChat(decision.message, decision.expectedMoveCount, decision.displayMs);
-    }, scheduledDelayMs);
-  }, [clearPendingBotChat, gameStarted, showBotChat]);
-
   const clearPendingBotRequest = useCallback(() => {
     if (botTimeoutRef.current) {
       clearTimeout(botTimeoutRef.current);
@@ -303,15 +212,6 @@ export function useBotGameScreen() {
     botRequestAbortRef.current = null;
     botRequestIdRef.current += 1;
   }, []);
-
-  useEffect(() => {
-    return () => {
-      clearPendingBotChat();
-      if (botChatTimeoutRef.current) clearTimeout(botChatTimeoutRef.current);
-      if (botChatFadeTimeoutRef.current) clearTimeout(botChatFadeTimeoutRef.current);
-      if (botThinkingLineTimeoutRef.current) clearTimeout(botThinkingLineTimeoutRef.current);
-    };
-  }, [clearPendingBotChat]);
 
   // Clock ticks rewrite gameState every 500ms. Never depend on the whole
   // gameState object here — that aborted in-flight bot requests, left
@@ -531,56 +431,6 @@ export function useBotGameScreen() {
     playGameOverSound();
   }, [gameOverInfo, gameStarted, gameState.gameOver, gameState.resultReason, gameState.winner]);
 
-  useEffect(() => {
-    if (!gameStarted || gameState.gameOver) return;
-
-    const interval = setInterval(() => {
-      setGameState((prev) => {
-        if (prev.gameOver) return prev;
-
-        const now = Date.now();
-        const elapsed = now - prev.lastMoveTime;
-        if (elapsed <= 0) return prev;
-
-        if (prev.turn === 'white') {
-          const whiteTime = Math.max(0, prev.whiteTime - elapsed);
-          if (whiteTime === 0) {
-            const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'white');
-            return {
-              ...prev,
-              whiteTime: 0,
-              lastMoveTime: now,
-              gameOver: true,
-              isDraw: timeoutOutcome.isDraw,
-              winner: timeoutOutcome.winner,
-              resultReason: 'timeout',
-              counting: null,
-            };
-          }
-          return { ...prev, whiteTime, lastMoveTime: now };
-        }
-
-        const blackTime = Math.max(0, prev.blackTime - elapsed);
-        if (blackTime === 0) {
-          const timeoutOutcome = resolveMakrukTimeoutOutcome(prev.board, 'black');
-          return {
-            ...prev,
-            blackTime: 0,
-            lastMoveTime: now,
-            gameOver: true,
-            isDraw: timeoutOutcome.isDraw,
-            winner: timeoutOutcome.winner,
-            resultReason: 'timeout',
-            counting: null,
-          };
-        }
-        return { ...prev, blackTime, lastMoveTime: now };
-      });
-    }, BOT_CLOCK_TICK_MS);
-
-    return () => clearInterval(interval);
-  }, [gameStarted, gameState.gameOver]);
-
   // Save bot game result when game ends
   useEffect(() => {
     if (!gameStarted || !gameOverInfo || !currentGameId) return;
@@ -676,75 +526,6 @@ export function useBotGameScreen() {
     enabled: gameState.moveHistory.length > 0,
     handlers: boardNavHandlers,
   });
-
-  // Reads state through refs so the 500ms clock tick (which rewrites the
-  // gameState object) does not re-run this effect every tick — it only
-  // needs to react to game over and move count changes.
-  useEffect(() => {
-    const previousState = previousGameStateRef.current;
-    const currentState = gameStateRef.current;
-
-    if (!gameStarted) {
-      previousGameStateRef.current = currentState;
-      return;
-    }
-
-    if (currentState.gameOver && !previousState.gameOver) {
-      queueBotChat(createBotOutcomeDecision(selectedBot, lang, currentState, botColor, buildBotChatHistory()));
-      previousGameStateRef.current = currentState;
-      return;
-    }
-
-    if (currentState.moveHistory.length > previousState.moveHistory.length) {
-      const actorColor: PieceColor = currentState.turn === 'white' ? 'black' : 'white';
-      const dialogue = maybeCreateMoveDialogue({
-        persona: selectedBot,
-        locale: lang,
-        previousState,
-        nextState: currentState,
-        botColor,
-        history: buildBotChatHistory(),
-        trigger: actorColor === botColor ? 'after_bot_move' : 'after_player_move',
-      });
-
-      if (dialogue) {
-        queueBotChat(dialogue);
-      }
-    }
-
-    previousGameStateRef.current = currentState;
-  }, [botColor, buildBotChatHistory, gameStarted, gameState.gameOver, gameState.moveHistory.length, lang, queueBotChat, selectedBot]);
-
-  useEffect(() => {
-    if (botThinkingLineTimeoutRef.current) {
-      clearTimeout(botThinkingLineTimeoutRef.current);
-      botThinkingLineTimeoutRef.current = null;
-    }
-
-    if (!gameStarted || !botThinking || gameState.gameOver) {
-      return;
-    }
-
-    botThinkingLineTimeoutRef.current = setTimeout(() => {
-      const dialogue = maybeCreateThinkingDecision(
-        selectedBot,
-        lang,
-        gameStateRef.current.moveHistory.length,
-        buildBotChatHistory(),
-      );
-
-      if (dialogue && gameStateRef.current.turn === botColor && !gameStateRef.current.gameOver) {
-        queueBotChat(dialogue);
-      }
-    }, getThinkingTriggerDelayMs(selectedBot));
-
-    return () => {
-      if (botThinkingLineTimeoutRef.current) {
-        clearTimeout(botThinkingLineTimeoutRef.current);
-        botThinkingLineTimeoutRef.current = null;
-      }
-    };
-  }, [botColor, botThinking, buildBotChatHistory, gameStarted, gameState.gameOver, lang, queueBotChat, selectedBot]);
 
   // Reads live state through gameStateRef so the clock tick's new gameState
   // object identity does not recreate these callbacks (which would defeat
@@ -858,16 +639,10 @@ export function useBotGameScreen() {
 
   const handleStartGame = () => {
     clearPendingBotRequest();
-    clearPendingBotChat();
     const resolvedColor: PieceColor = sideChoice === 'random'
       ? (Math.random() < 0.5 ? 'white' : 'black')
       : sideChoice;
     const freshState = createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS);
-
-    if (botThinkingLineTimeoutRef.current) {
-      clearTimeout(botThinkingLineTimeoutRef.current);
-      botThinkingLineTimeoutRef.current = null;
-    }
 
     setPlayerColor(resolvedColor);
     setGameState(freshState);
@@ -883,27 +658,13 @@ export function useBotGameScreen() {
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
-    previousGameStateRef.current = freshState;
-    recentBotLineKeysRef.current = [];
-    lastBotChatMoveCountRef.current = -99;
-    lastBotChatAtRef.current = -100000;
-    botChatVisibleUntilRef.current = -100000;
-    setBotChat(null);
-    setBotChatFading(false);
-    queueBotChat(createBotIntroDecision(selectedBot, lang, buildBotChatHistory()));
+    resetBotChat(freshState);
+    queueIntro();
   };
 
   const handleReset = () => {
     clearPendingBotRequest();
-    clearPendingBotChat();
-    if (botThinkingLineTimeoutRef.current) {
-      clearTimeout(botThinkingLineTimeoutRef.current);
-      botThinkingLineTimeoutRef.current = null;
-    }
-    if (botChatTimeoutRef.current) {
-      clearTimeout(botChatTimeoutRef.current);
-      botChatTimeoutRef.current = null;
-    }
+    resetBotChat();
     setGameStarted(false);
     setGameState(createInitialGameState(DEFAULT_PLAY_TIME_MS, DEFAULT_PLAY_TIME_MS));
     setSelectedSquare(null);
@@ -917,12 +678,6 @@ export function useBotGameScreen() {
     setArrows([]);
     setViewMoveIndex(null);
     setPremove(null);
-    setBotChat(null);
-    setBotChatFading(false);
-    lastBotChatMoveCountRef.current = -99;
-    lastBotChatAtRef.current = -100000;
-    botChatVisibleUntilRef.current = -100000;
-    recentBotLineKeysRef.current = [];
   };
 
   const handleResign = () => {
