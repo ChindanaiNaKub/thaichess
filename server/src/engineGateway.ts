@@ -586,7 +586,7 @@ async function validateHighLevelEngineMove(
     scoreLocalCandidate(snapshot, normalizedLevel, candidate, plan.localValidation),
     scoreLocalCandidate(snapshot, normalizedLevel, localBest, plan.localValidation),
   ]);
-  const shouldOverride = candidateScore > localScore + LEVEL10_ENGINE_OVERRIDE_DELTA
+  const shouldOverride = localScore > candidateScore + LEVEL10_ENGINE_OVERRIDE_DELTA
     || (candidateScore <= -90000 && localScore >= 0);
 
   if (!shouldOverride) {
