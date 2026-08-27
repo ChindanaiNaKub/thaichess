@@ -13,6 +13,7 @@ import CountingBoardStrip from './CountingBoardStrip';
 import GameMobileActions from './GameMobileActions';
 import InGameShell from './InGameShell';
 import GameOverModal from './GameOverModal';
+import GuestWinConversion, { shouldOfferGuestWinConversion } from './GuestWinConversion';
 import PieceGuide from './PieceGuide';
 import PostGameSharePanel from './PostGameSharePanel';
 import { GamePageSidePanel } from './GamePageSidePanel';
@@ -20,6 +21,7 @@ import { MoveAnnouncer } from './MoveAnnouncer';
 import type { ReviewControls, ReviewEngineControls } from './GamePageSidePanel';
 import type { GameOverInfo, TranslateFn } from './gamePageHelpers';
 import { CLOCK_CRITICAL_MS, gameMetaChipClass, shouldOfferPieceGuideStatusHelp } from './gamePageHelpers';
+import { useAuth } from '../lib/auth';
 import PieceGuideStatusHelp from './PieceGuideStatusHelp';
 
 type CaptureSummary = {
@@ -240,6 +242,8 @@ function ActiveViewBanners({
 
 function PeakEndModal({
   t,
+  isPersonalWin,
+  offerGuestConversion,
   gameState,
   playerColor,
   gameOverInfo,
@@ -268,6 +272,8 @@ function PeakEndModal({
   timeControl: TimeControl | null;
   whitePlayerName: string;
   blackPlayerName: string;
+  isPersonalWin: boolean;
+  offerGuestConversion: boolean;
   shareOpen: boolean;
   onShareOpen: (open: boolean) => void;
   canShare: boolean;
@@ -298,6 +304,11 @@ function PeakEndModal({
         onCloseGameOverModal();
       }}
       moreExtrasOnly={shareOpen}
+      conversionCard={
+        isPersonalWin && offerGuestConversion
+          ? <GuestWinConversion />
+          : null
+      }
       moreExtras={
         canShare && playerColor ? (
           shareOpen ? (
@@ -311,6 +322,7 @@ function PeakEndModal({
               </button>
               <PostGameSharePanel
                 analysisId={gameId}
+                promoteShare={isPersonalWin}
                 board={gameState.board}
                 lastMove={gameState.moveHistory[gameState.moveHistory.length - 1] ?? null}
                 moves={gameState.moveHistory}
@@ -331,9 +343,13 @@ function PeakEndModal({
               type="button"
               data-testid="post-game-share-expand"
               onClick={() => onShareOpen(true)}
-              className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
+              className={
+                isPersonalWin
+                  ? 'button-accent-contrast w-full rounded-lg px-3 py-2 text-sm font-semibold'
+                  : 'ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold'
+              }
             >
-              {t('game.show_share')}
+              {isPersonalWin ? t('gameover.share_win') : t('game.show_share')}
             </button>
           )
         ) : null
@@ -415,6 +431,9 @@ export function GamePageActiveView({
   const countingLeaveUrgent = typeof myClockMs === 'number' && myClockMs < CLOCK_CRITICAL_MS;
   const showCounting = Boolean(!gameState.gameOver && counting.label);
   const canPeakShare = Boolean(gameOverInfo && playerColor);
+  const { user, loading: authLoading } = useAuth();
+  const isPersonalWin = Boolean(gameOverInfo && playerColor && gameOverInfo.winner === playerColor);
+  const offerGuestConversion = shouldOfferGuestWinConversion(Boolean(user), authLoading);
 
   return (
     <div ref={containerRef}>
@@ -582,6 +601,8 @@ export function GamePageActiveView({
       {gameOverInfo && overlays.showGameOverModal && (
         <PeakEndModal
           t={t}
+          isPersonalWin={isPersonalWin}
+          offerGuestConversion={offerGuestConversion}
           gameState={gameState}
           playerColor={playerColor}
           gameOverInfo={gameOverInfo}

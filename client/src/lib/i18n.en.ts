@@ -823,6 +823,9 @@ export const EN_TRANSLATIONS: Record<string, string> = {
   'gameover.rematch_waiting': 'Rematch request sent. Waiting for your opponent.',
   'gameover.rematch_incoming': 'Your opponent wants a rematch.',
   'gameover.is_victorious': 'is victorious',
+  'gameover.share_win': 'Share your win',
+  'gameover.guest_win_body': 'You just won your first game as a guest. Create a free account to keep your rating, puzzle progress, and game history.',
+  'gameover.guest_win_cta': 'Save your progress — sign up free',
 
   // Local Game
   'local.title': 'Local Game',

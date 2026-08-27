@@ -819,6 +819,9 @@ export const TH_TRANSLATIONS: Record<string, string> = {
   'gameover.rematch_waiting': 'ส่งคำขอแข่งอีกครั้งแล้ว กำลังรอคู่แข่งตอบรับ',
   'gameover.rematch_incoming': 'คู่แข่งต้องการแข่งอีกครั้ง',
   'gameover.is_victorious': 'ชนะ',
+  'gameover.share_win': 'แชร์ชัยชนะ',
+  'gameover.guest_win_body': 'คุณเพิ่งชนะเกมแรกในฐานะผู้เล่นทั่วไป สมัครบัญชีฟรีเพื่อเก็บเรตติ้ง ความคืบหน้าปริศนา และประวัติการเล่นของคุณ',
+  'gameover.guest_win_cta': 'บันทึกความคืบหน้า — สมัครฟรี',
 
   // Local Game
   'local.title': 'เล่นในเครื่อง',

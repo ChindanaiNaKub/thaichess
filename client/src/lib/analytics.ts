@@ -1,6 +1,6 @@
 import { hasAnalyticsConsent } from './cookieConsent';
 
-export type ProductAnalyticsEvent = 'game_start' | 'puzzle_complete' | 'signup';
+export type ProductAnalyticsEvent = 'game_start' | 'puzzle_complete' | 'signup' | 'win_share_opened';
 
 type PostHogClient = typeof import('posthog-js')['default'];
 
