@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import GuestWinConversion, { shouldOfferGuestWinConversion } from '../components/GuestWinConversion';
+import GuestWinConversion from '../components/GuestWinConversion';
+import { shouldOfferGuestWinConversion } from '../lib/guestWinConversion';
 
 vi.mock('../lib/i18n', () => ({
   useTranslation: () => ({
