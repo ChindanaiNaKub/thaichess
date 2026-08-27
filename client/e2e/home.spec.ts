@@ -51,6 +51,7 @@ test.describe('Homepage', () => {
   });
 
   test('keeps the puzzles dropdown open while moving to puzzle streak', async ({ page }) => {
+    test.skip(!!test.info().project.use.isMobile, 'Desktop hover dropdown only — mobile uses the hamburger menu');
     await gotoHome(page);
 
     const nav = page.getByRole('navigation');

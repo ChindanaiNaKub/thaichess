@@ -146,7 +146,8 @@ export class GamePage {
     }
 
     await this.page
-      .getByRole('button', { name: /Saman Noi/i })
+      .locator('button, [role=option]')
+      .filter({ hasText: /Saman Noi/i })
       .locator('visible=true')
       .first()
       .click();
