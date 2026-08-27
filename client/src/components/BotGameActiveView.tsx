@@ -3,6 +3,7 @@ import type { Move, PieceColor, Position, GameState } from '@shared/types';
 import { useState } from 'react';
 import type { BotChatMessage } from '../lib/botDialogue';
 import { useLgUp } from '../hooks/useLgUp';
+import { useAuth } from '../lib/auth';
 import AppearanceSettingsButton from './AppearanceSettingsButton';
 import { BoardErrorBoundary } from './BoardErrorBoundary';
 import Board from './Board';
@@ -11,6 +12,8 @@ import Clock from './Clock';
 import CountingBoardStrip from './CountingBoardStrip';
 import GameMobileActions from './GameMobileActions';
 import GameOverModal from './GameOverModal';
+import GuestWinConversion from './GuestWinConversion';
+import { shouldOfferGuestWinConversion } from '../lib/guestWinConversion';
 import InGameShell from './InGameShell';
 import PieceGuide from './PieceGuide';
 import PostGameSharePanel from './PostGameSharePanel';
@@ -139,7 +142,12 @@ export function BotGameActiveView({
   const reviewActive = gameState.gameOver;
   const reviewMode = review.mode;
   const lgUp = useLgUp();
+  const { user, loading: authLoading } = useAuth();
   const [peakShareOpen, setPeakShareOpen] = useState(false);
+  const isPersonalWin = Boolean(
+    modalGameOverInfo && modalGameOverInfo.winner && modalGameOverInfo.winner === playerColor,
+  );
+  const offerGuestConversion = shouldOfferGuestWinConversion(Boolean(user), authLoading);
   const countingLeaveUrgent = (
     playerColor === 'white' ? gameState.whiteTime : gameState.blackTime
   ) < CLOCK_CRITICAL_MS;
@@ -311,6 +319,11 @@ export function BotGameActiveView({
             onCloseGameOverModal();
           }}
           moreExtrasOnly={peakShareOpen}
+          conversionCard={
+            isPersonalWin && offerGuestConversion
+              ? <GuestWinConversion />
+              : null
+          }
           moreExtras={
             peakShareOpen ? (
               <div className="space-y-2 text-left" data-testid="post-game-share-path">
@@ -334,6 +347,7 @@ export function BotGameActiveView({
                   resultReason={modalGameOverInfo.reason}
                   gameMode="bot"
                   timeControl={BOT_GAME_TIME_CONTROL}
+                  promoteShare={isPersonalWin}
                 />
               </div>
             ) : (
@@ -341,9 +355,13 @@ export function BotGameActiveView({
                 type="button"
                 data-testid="post-game-share-expand"
                 onClick={() => setPeakShareOpen(true)}
-                className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
+                className={
+                  isPersonalWin
+                    ? 'button-accent-contrast w-full rounded-lg px-3 py-2 text-sm font-semibold'
+                    : 'ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold'
+                }
               >
-                {t('game.show_share')}
+                {isPersonalWin ? t('gameover.share_win') : t('game.show_share')}
               </button>
             )
           }

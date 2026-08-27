@@ -86,6 +86,7 @@ function useLocalGameScreen() {
   const [gameOverInfo, setGameOverInfo] = useState<{ reason: string; winner: PieceColor | null } | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const isPersonalWin = Boolean(gameOverInfo && gameOverInfo.winner === viewAs);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -785,6 +786,7 @@ function useLocalGameScreen() {
                   resultReason={gameOverInfo.reason}
                   gameMode="local"
                   timeControl={LOCAL_GAME_TIME_CONTROL}
+                  promoteShare={Boolean(gameOverInfo.winner && gameOverInfo.winner === viewAs)}
                 />
               </div>
             ) : (
@@ -792,9 +794,13 @@ function useLocalGameScreen() {
                 type="button"
                 data-testid="post-game-share-expand"
                 onClick={() => setShareOpen(true)}
-                className="ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold"
+                className={
+                  isPersonalWin
+                    ? 'button-accent-contrast w-full rounded-lg px-3 py-2 text-sm font-semibold'
+                    : 'ui-btn-secondary w-full rounded-lg px-3 py-2 text-sm font-semibold'
+                }
               >
-                {t('game.show_share')}
+                {isPersonalWin ? t('gameover.share_win') : t('game.show_share')}
               </button>
             )
           }

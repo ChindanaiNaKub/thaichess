@@ -29,6 +29,8 @@ interface GameOverModalProps {
   moreExtras?: ReactNode;
   /** When Share is expanded, show that path alone (hide Study row). */
   moreExtrasOnly?: boolean;
+  /** One-time guest win conversion card, rendered inside the modal on a personal win. */
+  conversionCard?: ReactNode;
 }
 
 export default function GameOverModal({
@@ -50,6 +52,7 @@ export default function GameOverModal({
   rematchNotice = null,
   moreExtras = null,
   moreExtrasOnly = false,
+  conversionCard = null,
 }: GameOverModalProps) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -130,6 +133,8 @@ export default function GameOverModal({
               </p>
             )}
           </div>
+
+          {conversionCard}
 
           <div className="flex flex-col gap-3">
             {rematchNotice && (

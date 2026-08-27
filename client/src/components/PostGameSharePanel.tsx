@@ -13,6 +13,7 @@ import {
 } from '../lib/shareCardExport';
 import { useTranslation } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { captureProductEvent } from '../lib/analytics';
 import { TOAST_LIFT_CLASS } from '../lib/toastConstants';
 import ShareCardExportCanvas, { type GameShareCardData, type ShareCardSummaryStat, type ShareCardVariant } from './ShareCardExportCanvas';
 
@@ -31,6 +32,8 @@ interface PostGameSharePanelProps {
   rated?: boolean;
   timeControl?: TimeControl | null;
   ratingChange?: RatingChangeSummary | null;
+  /** Win-climax moment: promote the share action as the primary CTA. */
+  promoteShare?: boolean;
 }
 
 const PREVIEW_SCALE = 0.21;
@@ -88,6 +91,7 @@ export default function PostGameSharePanel({
   rated = false,
   timeControl = null,
   ratingChange = null,
+  promoteShare = false,
 }: PostGameSharePanelProps) {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
@@ -230,6 +234,9 @@ export default function PostGameSharePanel({
       const shared = await shareShareCardBlob(blob, filename, 'ThaiChess', shareText);
 
       if (shared) {
+        if (promoteShare) {
+          void captureProductEvent('win_share_opened', { gameMode });
+        }
         setActionLabel(t('sharecard.share_ready'));
         return;
       }
@@ -292,7 +299,11 @@ export default function PostGameSharePanel({
           onClick={handleShare}
           disabled={busyAction !== null}
           data-testid="post-game-share-export"
-          className="ui-btn-secondary rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60"
+          className={
+            promoteShare
+              ? 'button-accent-contrast rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60'
+              : 'ui-btn-secondary rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60'
+          }
         >
           {busyAction === 'share' ? t('sharecard.exporting') : t('sharecard.share_image')}
         </button>
