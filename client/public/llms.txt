@@ -1,0 +1,34 @@
+# ThaiChess - Makruk / Thai chess (หมากรุกไทย)
+
+> ThaiChess is a free, open-source website for playing Makruk (Thai chess, หมากรุกไทย) online. You can play against a bot, play a friend on another device, play a live online game, or solve puzzles. No signup is required: guests can always play, and optional free accounts add Elo rating, saved games, and puzzle progress.
+
+> The site is built specifically for Makruk / Thai chess, not as a skin over Western chess. It implements the authentic six-piece rules and the endgame counting rule.
+
+## How to use ThaiChess
+
+- Open https://thaichess.dev and start a game immediately - play the bot, open Quick Play, or share a link to play a friend on another device.
+- You can also play both sides on one device with local mode, or spectate live public games.
+- Optional free accounts add Elo ratings and persistent puzzles.
+
+## About Makruk (Thai chess)
+
+Makruk (หมากรุก), also known as Thai chess (หมากรุกไทย), is the traditional chess variant of a Southeast Asian nation and descends from the 6th-century Indian game of Chaturanga. It is played on a standard 8x8 board with six piece types:
+
+- King (ขุน): moves like a chess king.
+- The "lord" piece (queen equivalent): moves like a queen but only one square diagonally, never orthogonally.
+- The knight ("horse", ม้า): moves like a chess knight.
+- The rook ("boat", เรือ): moves like a chess rook.
+- The piece (โคน) that steps exactly one square forward, straight or diagonally forward; it cannot move backward or sideways.
+- Eight pawns ("cowrie shells", เบี้ย): move and capture one square forward, and promote to the lord piece when they reach the 6th rank.
+
+A distinctive counting rule applies in the endgame: once all pawns are gone, the stronger side has a fixed number of moves in which to deliver checkmate; if it exceeds the count, the game is a draw.
+
+## Key pages
+
+- [Play Makruk Online](https://thaichess.dev/play-makruk-online) - start playing ThaiChess in your browser against a bot or other players.
+- [What Is Makruk?](https://thaichess.dev/what-is-makruk) - what Makruk is, its history, and how it differs from Western chess.
+- [How to Play Makruk (วิธีเล่นหมากรุกไทย)](https://thaichess.dev/how-to-play-makruk) - rules, piece moves, and the counting rule for beginners.
+- [Lessons](https://thaichess.dev/lessons) - guided lessons for learning Thai chess.
+- [Puzzles](https://thaichess.dev/puzzles) - solving puzzles.
+- [Bot](https://thaichess.dev/bot) - play against the ThaiChess bot.
+- [About](https://thaichess.dev/about) - about the ThaiChess project.
