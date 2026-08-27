@@ -5,6 +5,7 @@ interface BrowserEngineBotMoveMessage {
   type: 'browser-engine-bot-move';
   state: Pick<GameState, 'board' | 'turn' | 'counting'>;
   movetimeMs: number;
+  skillLevel: number;
 }
 
 interface BrowserEngineBotResultMessage {
@@ -82,7 +83,11 @@ async function ensureEngineWorker(): Promise<void> {
   return engineReady;
 }
 
-function runEngineSearch(position: string, movetimeMs: number): Promise<BrowserEngineBotResultMessage> {
+function runEngineSearch(
+  position: string,
+  movetimeMs: number,
+  skillLevel: number,
+): Promise<BrowserEngineBotResultMessage> {
   return new Promise((resolve, reject) => {
     if (!engineWorker) {
       reject(new Error('Browser engine is not initialized.'));
@@ -116,6 +121,7 @@ function runEngineSearch(position: string, movetimeMs: number): Promise<BrowserE
     };
 
     postEngine('ucinewgame');
+    postEngine(`setoption name Skill Level value ${Math.max(0, Math.min(20, Math.round(skillLevel)))}`);
     postEngine(`position fen ${normalizeEngineFen(position)}`);
     postEngine(`go movetime ${Math.max(50, Math.round(movetimeMs))}`);
   });
@@ -127,7 +133,7 @@ self.onmessage = async (event: MessageEvent<BrowserEngineBotMoveMessage>) => {
   try {
     await ensureEngineWorker();
     const serialized = serializeAnalysisPosition(event.data.state);
-    const result = await runEngineSearch(serialized.position, event.data.movetimeMs);
+    const result = await runEngineSearch(serialized.position, event.data.movetimeMs, event.data.skillLevel);
     self.postMessage(result satisfies WorkerResponse);
   } catch (error) {
     const response: BrowserEngineBotErrorMessage = {
