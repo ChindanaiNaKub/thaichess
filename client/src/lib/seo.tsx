@@ -76,7 +76,7 @@ export function SeoHeadManager() {
 
     let cancelled = false;
 
-    void import('@shared/seo').then(({ getPublicSeoRoute, getSeoImageUrl }) => {
+    void import('@shared/seo').then(({ getPublicSeoRoute, getSeoImageUrl, getOgLocale }) => {
       if (cancelled) return;
 
       const seo = getPublicSeoRoute(location.pathname, baseUrl);
@@ -94,8 +94,16 @@ export function SeoHeadManager() {
       upsertMeta('og:image', imageUrl, 'property');
       upsertMeta('og:image:alt', 'ThaiChess Makruk board', 'property');
       upsertMeta('og:site_name', 'ThaiChess', 'property');
-      upsertMeta('og:locale', 'en_US', 'property');
-      upsertMeta('og:locale:alternate', 'th_TH', 'property');
+      upsertMeta('og:locale', getOgLocale(seo.lang ?? 'th'), 'property');
+      // og:locale:alternate is intentionally not emitted — the site serves one
+      // language per URL, so hreflang/alternate would be invalid if both values
+      // pointed at the same canonical.
+      for (const stale of document.head.querySelectorAll('meta[property="og:locale:alternate"]')) {
+        stale.remove();
+      }
+      for (const stale of document.head.querySelectorAll('link[rel="alternate"][hreflang]')) {
+        stale.remove();
+      }
       upsertMeta('twitter:card', 'summary_large_image', 'name');
       upsertMeta('twitter:title', seo.title, 'name');
       upsertMeta('twitter:description', seo.description, 'name');

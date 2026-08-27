@@ -108,15 +108,25 @@ export class GamePage {
   /**
    * Prefer the weakest Learning-band bot when the roster is open.
    * Always target :visible controls — desktop and mobile duplicate the roster chrome.
+   * On mobile the fixed bottom sheet may intercept the Change opponent button;
+   * force the click or dismiss the sheet if needed.
    */
   async selectFastBot(): Promise<void> {
     await this.visibleStartBotButton.waitFor({ state: 'visible' });
 
-    await this.page
+    const changeOpponent = this.page
       .getByRole('button', { name: /change opponent|เปลี่ยนคู่|bot\.change_opponent/i })
       .locator('visible=true')
-      .first()
-      .click();
+      .first();
+    try {
+      await changeOpponent.click({ timeout: 5000 });
+    } catch {
+      // Mobile bottom sheet intercepts pointer events on small viewports —
+      // scroll the button out from under the fixed sheet or force the click.
+      await changeOpponent.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await this.page.waitForTimeout(300);
+      await changeOpponent.click({ force: true });
+    }
 
     const showAll = this.page
       .getByRole('button', { name: /show all|ดูทั้งหมด|bot\.show_all_bots/i })
@@ -136,7 +146,8 @@ export class GamePage {
     }
 
     await this.page
-      .getByRole('button', { name: /Saman Noi/i })
+      .locator('button, [role=option]')
+      .filter({ hasText: /Saman Noi/i })
       .locator('visible=true')
       .first()
       .click();

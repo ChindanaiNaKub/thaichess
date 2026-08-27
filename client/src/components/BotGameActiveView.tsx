@@ -18,6 +18,7 @@ import { BotGameSidePanel } from './BotGameSidePanel';
 import type { ReviewControls, ReviewEngineControls } from './BotGameSidePanel';
 import { BOT_GAME_TIME_CONTROL, type BotTranslationFields, type TranslateFn } from './botGameHelpers';
 import { CLOCK_CRITICAL_MS, gameMetaChipClass, gameMetaChipInteractiveClass, shouldOfferPieceGuideStatusHelp } from './gamePageHelpers';
+import { MoveAnnouncer } from './MoveAnnouncer';
 import PieceGuideStatusHelp from './PieceGuideStatusHelp';
 
 type CaptureSummary = {
@@ -146,6 +147,7 @@ export function BotGameActiveView({
 
   return (
     <>
+      <MoveAnnouncer gameState={gameState} playerColor={playerColor} t={t} />
       <InGameShell
         onHome={onHome}
         headerMeta={

@@ -435,7 +435,7 @@ export function BotGameSetupView({
             </div>
 
             {/* Mobile: bottom sheet owns Start; upper half stages the opponent when roster is closed */}
-            <div className={`lg:hidden ${showRoster ? 'pb-[22rem]' : 'pb-[16rem]'}`}>
+            <div className={`lg:hidden ${showRoster ? 'pb-[28rem]' : 'pb-[22rem]'}`}>
               {showRoster ? (
                 <>
                   <div className="flex items-center justify-between gap-3 px-4 pt-4">
