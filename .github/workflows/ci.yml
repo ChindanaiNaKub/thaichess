@@ -98,26 +98,6 @@ jobs:
       - name: Smoke test built server startup
         run: npm run smoke:start --workspace=server
 
-      - name: Package release bundle
-        if: github.event_name == 'push'
-        run: |
-          tar -czf thaichess-release.tgz \
-            package.json \
-            package-lock.json \
-            .node-version \
-            client/package.json \
-            server/package.json \
-            client/dist \
-            server/dist
-
-      - name: Upload release bundle
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: thaichess-release
-          path: thaichess-release.tgz
-          if-no-files-found: error
-
   e2e:
     name: End To End Tests
     if: github.event_name == 'pull_request'

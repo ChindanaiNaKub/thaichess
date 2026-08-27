@@ -14,7 +14,7 @@ Use Node `22.22.0` (`.node-version`) and install dependencies with `npm ci`.
 - `npm run validate:puzzles` validates server-side puzzle data.
 
 ## Coding Style & Naming Conventions
-TypeScript is standard across `client`, `server`, and `shared`. Follow the existing 2-space indentation, semicolons, and ES module import style. Use PascalCase for React components and route files such as `AccountRoute.tsx`; use camelCase for utilities, hooks, and server modules such as `leaderboardPagination.ts` and `useGameSocket.tsx`. Keep comments sparse and practical. ESLint is the primary enforced style tool; React hook rules are enabled for frontend code.
+TypeScript is standard across `client`, `server`, and `shared`. Follow the existing 2-space indentation, semicolons, and ES module import style. Use PascalCase for React components and route files such as `AccountRoute.tsx`; use camelCase for utilities, hooks, and server modules such as `leaderboardPagination.ts` and `useGamePageScreen.tsx`. Keep comments sparse and practical. ESLint is the primary enforced style tool; React hook rules are enabled for frontend code.
 
 ## Testing Guidelines
 Vitest is the main test runner in both workspaces. Frontend tests also use Testing Library and `jest-axe`, while Playwright covers browser flows. Keep test files in the established locations: `client/src/test/`, `client/e2e/`, and `server/src/test/`. Name unit and integration tests with `.test.ts` or `.test.tsx`; use `.spec.ts` for Playwright files. Run `npm test` before every PR, and run `npm run test:e2e` when changing routing, gameplay, auth, or other user-facing flows.

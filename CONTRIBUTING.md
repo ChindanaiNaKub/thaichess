@@ -235,7 +235,7 @@ useEffect(() => {
 - **Cleanup without reference:** `socket.off('event')` removes ALL listeners, including from other components
 - **Listeners inside connect handler:** Creates duplicates on each reconnection
 
-**Correct pattern (from useGameSocket.ts):**
+**Correct pattern (from useGamePageScreen.tsx):**
 ```typescript
 useEffect(() => {
   const handleGameState = (gs: ClientGameState) => {
