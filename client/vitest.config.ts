@@ -13,6 +13,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        // Explicit origin so localStorage/sessionStorage work (opaque origins throw).
+        url: 'http://localhost/',
+      },
+    },
     setupFiles: ['./src/test/setup.ts'],
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
     exclude: ['node_modules', 'dist', 'e2e', '**/*.bench.test.ts'],
