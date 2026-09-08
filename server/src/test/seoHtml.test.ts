@@ -61,6 +61,25 @@ describe('renderSeoHtml', () => {
     expect(html).not.toContain('data-seo-snapshot="true"');
   });
 
+  it('renders unknown paths as a noindex not-found route', () => {
+    const html = renderSeoHtml(template, '/nonexistent-page-xyz', 'https://thaichess.dev');
+
+    expect(html).toContain('<title>Page Not Found | ThaiChess</title>');
+    expect(html).toContain('<meta name="robots" content="noindex, follow" />');
+    expect(html).not.toContain('data-seo-snapshot="true"');
+  });
+
+  it('renders a board snapshot with puzzle coaching copy for indexable puzzles', () => {
+    const html = renderSeoHtml(template, '/puzzle/9000', 'https://thaichess.dev');
+
+    expect(html).toContain('data-seo-board="true"');
+    expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"');
+    expect(html).toContain('Side to move:');
+    expect(html).toContain('Goal:');
+    expect(html).toContain('Key idea:');
+    expect(html).toContain('Takeaway:');
+  });
+
   it('sets html lang and og:locale per route and strips hreflang/alternate', () => {
     const home = renderSeoHtml(template, '/', 'https://thaichess.dev');
     expect(home).toContain('<html lang="th">');

@@ -39,6 +39,7 @@ const TermsPage = lazy(() => import('./routes/TermsRoute'));
 const DonatePage = lazy(() => import('./routes/DonateRoute'));
 const GameDatabasePage = lazy(() => import('./routes/GameDatabaseRoute'));
 const OpeningExplorerPage = lazy(() => import('./routes/OpeningExplorerRoute'));
+const NotFoundPage = lazy(() => import('./components/NotFoundPage'));
 const FeedbackWidget = lazy(() => import('./components/FeedbackWidget'));
 
 function RouteFallback() {
@@ -171,6 +172,7 @@ export default function App() {
           <Route path={routes.donate} element={<DonatePage />} />
           <Route path={routes.gameDatabase} element={<GameDatabasePage />} />
           <Route path={routes.openingExplorer} element={<OpeningExplorerPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
       {showFeedbackWidget ? (
