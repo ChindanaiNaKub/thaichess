@@ -1,6 +1,14 @@
-import { findSeoPuzzleById, getSeoPuzzlePaths, isIndexableSeoPuzzle } from './seoPuzzleManifest';
+import { SEO_PUZZLES, findSeoPuzzleById, getSeoPuzzlePaths, isIndexableSeoPuzzle } from './seoPuzzleManifest';
+import type { PuzzlePiecePlacement } from './puzzlePosition';
+import type { PieceColor, PieceType } from './types';
 
 export const DEFAULT_SEO_IMAGE_PATH = '/og-felt-table.jpg';
+
+/**
+ * Static lastmod for sitemap entries. Bump when indexable content changes;
+ * a per-request "today" date tells Google nothing about real content changes.
+ */
+export const SEO_SITEMAP_LASTMOD = '2026-09-08';
 
 export interface SeoRouteData {
   title: string;
@@ -40,12 +48,42 @@ export interface SeoSnapshotLink {
   lang?: 'en' | 'th';
 }
 
+export interface SeoSnapshotBoardPiece {
+  square: string;
+  glyph: string;
+  side: PieceColor;
+}
+
+export interface SeoSnapshotBoard {
+  sideToMove: PieceColor;
+  pieces: SeoSnapshotBoardPiece[];
+}
+
 export interface SeoSnapshot {
   kicker?: SeoTextBlock;
   heading?: SeoTextBlock;
   paragraphs?: SeoTextBlock[];
   bullets?: SeoTextBlock[];
   links?: SeoSnapshotLink[];
+  board?: SeoSnapshotBoard;
+}
+
+const BOARD_GLYPHS: Record<PieceType, { white: string; black: string }> = {
+  K: { white: '♔', black: '♚' },
+  M: { white: '♕', black: '♛' },
+  S: { white: '♗', black: '♝' },
+  R: { white: '♖', black: '♜' },
+  N: { white: '♘', black: '♞' },
+  P: { white: '♙', black: '♟' },
+  PM: { white: '♕', black: '♛' },
+};
+
+export function toSeoSnapshotPieces(pieceList: PuzzlePiecePlacement[]): SeoSnapshotBoardPiece[] {
+  return pieceList.map((piece) => ({
+    square: piece.square,
+    glyph: BOARD_GLYPHS[piece.type][piece.color],
+    side: piece.color,
+  }));
 }
 
 const defaultKeywords = [
@@ -601,6 +639,10 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
           { href: '/how-to-play-makruk', label: 'วิธีเล่นหมากรุกไทย', lang: 'th' },
           { href: '/bot', label: 'Play vs Bot' },
           { href: '/play-makruk-online', label: 'Play Makruk online' },
+          ...SEO_PUZZLES.map((puzzle) => ({
+            href: `/puzzle/${puzzle.id}`,
+            label: getPublicPuzzleSeoTitle(puzzle.title),
+          })),
         ],
       },
     };
@@ -682,6 +724,17 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     const puzzleTitle = puzzle ? getPublicPuzzleSeoTitle(puzzle.title) : `Puzzle ${id}`;
     const puzzleDescription = puzzle?.description ?? 'Interactive ThaiChess puzzle.';
 
+    const bullets: SeoTextBlock[] = [];
+    if (puzzle && indexable) {
+      bullets.push(
+        { text: `Side to move: ${puzzle.sideToMove}.`, lang: 'en' },
+        { text: `Difficulty: ${puzzle.difficulty}.`, lang: 'en' },
+        { text: `Goal: ${puzzle.objective}`, lang: 'en' },
+        { text: `Key idea: ${puzzle.keyIdea}`, lang: 'en' },
+        { text: `Takeaway: ${puzzle.takeaway}`, lang: 'en' },
+      );
+    }
+
     return {
       title: `${puzzleTitle} | ThaiChess Puzzle ${id}`,
       description: `${puzzleDescription} Practice this ThaiChess puzzle online and improve your Makruk calculation.`,
@@ -709,8 +762,13 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
         heading: { text: puzzleTitle },
         paragraphs: [
           { text: `${puzzleDescription} Practice this Makruk puzzle online and improve your tactical calculation.` },
+          ...(puzzle && indexable ? [{ text: puzzle.objective, lang: 'en' as const }] : []),
           { text: 'โจทย์นี้ช่วยฝึกการคำนวณและการมองรูปแบบรุกในหมากรุกไทย', lang: 'th' },
         ],
+        bullets,
+        board: puzzle && indexable
+          ? { sideToMove: puzzle.sideToMove, pieces: toSeoSnapshotPieces(puzzle.pieceList) }
+          : undefined,
         links: [
           { href: '/puzzles', label: 'More Makruk Puzzles' },
           { href: '/lessons', label: 'Makruk lessons' },
@@ -798,12 +856,15 @@ export function getPublicSeoRoute(pathname: string, baseUrl: string): SeoRouteDa
     };
   }
 
+  return getNotFoundSeoRoute(cleanPath);
+}
+
+export function getNotFoundSeoRoute(pathname: string): SeoRouteData {
   return {
-    title: 'ThaiChess | Play Makruk Online',
-    description: 'Play ThaiChess online for free and explore the traditional Thai chess game.',
-    path: cleanPath,
-    keywords: defaultKeywords,
-    image: defaultImage,
+    title: 'Page Not Found | ThaiChess',
+    description: 'The requested page could not be found on ThaiChess. เล่นหมากรุกไทยออนไลน์ฟรีได้ที่หน้าแรก.',
+    path: pathname,
+    robots: 'noindex, follow',
     lang: 'en',
   };
 }

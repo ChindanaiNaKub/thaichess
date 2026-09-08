@@ -7,6 +7,11 @@ export interface SeoPuzzleEntry {
   title: string;
   description: string;
   difficulty: SeoPuzzleDifficulty;
+  objective: string;
+  keyIdea: string;
+  takeaway: string;
+  sideToMove: Puzzle['sideToMove'];
+  pieceList: Puzzle['pieceList'];
 }
 
 function toSeoPuzzleEntry(puzzle: Puzzle): SeoPuzzleEntry {
@@ -15,6 +20,11 @@ function toSeoPuzzleEntry(puzzle: Puzzle): SeoPuzzleEntry {
     title: puzzle.title,
     description: puzzle.description,
     difficulty: puzzle.difficulty,
+    objective: puzzle.objective,
+    keyIdea: puzzle.keyIdea,
+    takeaway: puzzle.takeaway,
+    sideToMove: puzzle.sideToMove,
+    pieceList: puzzle.pieceList,
   };
 }
 

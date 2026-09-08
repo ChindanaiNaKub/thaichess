@@ -1,4 +1,4 @@
-import { getOgLocale, getPublicSeoRoute, getSeoImageUrl, type SeoRouteData, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
+import { getOgLocale, getPublicSeoRoute, getSeoImageUrl, type SeoRouteData, type SeoSnapshotBoard, type SeoSnapshotLink, type SeoTextBlock } from '../../shared/seo';
 
 function escapeHtml(value: string): string {
   return value
@@ -29,6 +29,34 @@ function renderLink(link: SeoSnapshotLink, baseUrl: string): string {
   return `<li><a href="${escapeHtml(href)}"${renderLangAttribute(link.lang)}>${escapeHtml(link.label)}</a></li>`;
 }
 
+function renderSnapshotBoardHtml(board: SeoSnapshotBoard): string {
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const cell = 40;
+  const pieceBySquare = new Map(board.pieces.map((piece) => [piece.square, piece]));
+  const cells: string[] = [];
+
+  for (let rank = 8; rank >= 1; rank -= 1) {
+    for (const [fileIndex, file] of files.entries()) {
+      const x = fileIndex * cell;
+      const y = (8 - rank) * cell;
+      const dark = (rank + fileIndex) % 2 === 0;
+      cells.push(`<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${dark ? '#8f6b4f' : '#e9dcc3'}"/>`);
+      const piece = pieceBySquare.get(`${file}${rank}`);
+      if (piece) {
+        cells.push(
+          `<text x="${x + cell / 2}" y="${y + cell / 2}" text-anchor="middle" dominant-baseline="central" font-size="26" fill="${piece.side === 'white' ? '#1d1612' : '#0d0a08'}">${escapeHtml(piece.glyph)}</text>`
+        );
+      }
+    }
+  }
+
+  return [
+    '<figure data-seo-board="true">',
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320" role="img" aria-label="Makruk puzzle board, ${escapeHtml(board.sideToMove)} to move">${cells.join('')}</svg>`,
+    '</figure>',
+  ].join('');
+}
+
 function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string, pageLang: 'en' | 'th'): string {
   const fallbackLang = pageLang;
   const heading = seo.snapshot?.heading ?? { text: seo.title, lang: fallbackLang };
@@ -37,6 +65,9 @@ function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string, pageLang: 'en' |
   const paragraphsHtml = paragraphs.map((paragraph) => `      ${renderTextBlock('p', paragraph)}`).join('\n');
   const bulletsHtml = seo.snapshot?.bullets?.length
     ? `\n      <ul>\n${seo.snapshot.bullets.map((bullet) => `        <li${renderLangAttribute(bullet.lang)}>${escapeHtml(bullet.text)}</li>`).join('\n')}\n      </ul>`
+    : '';
+  const boardHtml = seo.snapshot?.board
+    ? `\n      ${renderSnapshotBoardHtml(seo.snapshot.board)}`
     : '';
   const linksHtml = seo.snapshot?.links?.length
     ? `\n      <nav aria-label="SEO links">\n        <ul>\n${seo.snapshot.links.map((link) => `          ${renderLink(link, baseUrl)}`).join('\n')}\n        </ul>\n      </nav>`
@@ -49,6 +80,7 @@ function renderSnapshotHtml(seo: SeoRouteData, baseUrl: string, pageLang: 'en' |
     `      ${renderTextBlock('h1', heading)}`,
     paragraphsHtml,
     bulletsHtml,
+    boardHtml,
     linksHtml,
     '  </article>',
     '</main>',

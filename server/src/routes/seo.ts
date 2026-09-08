@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getIndexablePaths } from '../../../shared/seo';
+import { getIndexablePaths, SEO_SITEMAP_LASTMOD } from '../../../shared/seo';
 import { getSiteUrl } from './siteUrl';
 
 export function createSeoRouter(): Router {
@@ -33,7 +33,7 @@ export function createSeoRouter(): Router {
 
   router.get('/sitemap.xml', (req, res) => {
     const siteUrl = getSiteUrl(req);
-    const lastmod = new Date().toISOString().slice(0, 10);
+    const lastmod = SEO_SITEMAP_LASTMOD;
     const urls = getIndexablePaths()
       .map((pathname) => [
         '  <url>',

@@ -21,6 +21,7 @@ import { getAuthenticatedUserFromCookieHeader, normalizeGuestPlayerId, verifyGue
 import { createSocketConnectionHandler, emitGameOverToParticipants, type AuthenticatedSocketData } from './socketHandlers';
 import { warmUpReviewEngine } from './engineGateway';
 import { getCanonicalRedirectUrl } from './urlCanonicalization';
+import { getLegacyRedirectPath } from './legacyRedirects';
 import { createAnalysisRouter } from './routes/analysis';
 import { createAuthRouter } from './routes/auth';
 import { createClientTelemetryRouter } from './routes/clientTelemetry';
@@ -76,8 +77,15 @@ const requireTrustedWriteOriginMiddleware = requireTrustedWriteOrigin(allowedCor
 app.set('trust proxy', 1);
 
 // URL Canonicalization Redirects (SEO - fix Google Search Console issues)
-// Redirects: www → non-www, HTTP → HTTPS, trailing slash normalization
+// Redirects: legacy paths (/play, /learn, /course...), www → non-www, HTTP → HTTPS, trailing slash normalization
 app.use((req, res, next) => {
+  const legacyPath = getLegacyRedirectPath(req.path);
+  if (legacyPath) {
+    const searchIndex = req.originalUrl.indexOf('?');
+    res.redirect(301, `${legacyPath}${searchIndex >= 0 ? req.originalUrl.slice(searchIndex) : ''}`);
+    return;
+  }
+
   const redirectUrl = getCanonicalRedirectUrl({
     host: req.get('host') || '',
     protocol: req.protocol,
