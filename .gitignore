@@ -43,6 +43,12 @@ Thumbs.db
 # Git worktrees
 .worktrees/
 
+# Local agent/tooling context (not shown on GitHub)
+.agents/
+.claude/
+.cursor/
+.impeccable/
+
 # Temporary files
 *.tmp
 *.temp
